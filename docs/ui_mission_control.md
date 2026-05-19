@@ -24,6 +24,49 @@ Mission Control is the operational home screen after the Assessment Wizard. It s
 - Pack Forge Status
 - Active Scope and Profile
 
+## AI Mission Guidance Boundary
+
+The `AI Signal` surface now renders a selected-run mission guidance card when
+`ai_mission_guidance` is present on the run API payload. This first slice is
+deterministic and advisory:
+
+- it explains the selected run profile from the persisted run profile, task state, and run configuration
+- it explains safety posture from recorded safety limits such as active-check mode, depth, concurrency, rate limit, and time budget
+- it recommends review or follow-up only from existing task, inventory, finding, relevance, and pack-provenance state
+- it keeps provider-backed AI disabled/fallback-safe; provider failure must leave deterministic guidance intact
+- it never launches work, adds targets, raises safety limits, changes run class, grants approval, or bypasses pack validation/deployment/runtime binding
+- it is not generic chat, AI-generated scan scope, AI report drafting, or autonomous runtime execution
+
+## AI Proposal Review Boundary
+
+The same `AI Signal` supporting-context area can now render selected-run AI
+proposal insights from `GET /api/v1/runs/{run_id}/ai-insights`.
+
+- reasoning records and proposals are displayed as suggestions, not executed tasks
+- pending proposals can be marked `approved` or `rejected` by an operator
+- approval/rejection records actor, timestamp, decision note, and an audit event
+- approving a proposal only records review status; it does not create tasks, dispatch tools, grant run approval, validate/deploy packs, or bind runtime packs
+- unsupported tools and out-of-scope or denied targets are forbidden approval classes
+- rejection remains available for unsafe suggestions so the audit trail can show why they were not accepted
+- any actual follow-up must still move through existing run/profile/approval/dispatch and pack lifecycle controls
+
+## AI Signal Panel Behavior
+
+The Mission Control `AI Signal` area is now a persistent compact signal stream
+instead of a dense proposal-only card. It still reads only from selected-run
+`GET /api/v1/runs/{run_id}/ai-insights` records and selected-run deterministic
+guidance.
+
+- tool-completion entries are muted and instant
+- observation entries use the `ai-type-reveal` typing animation at 12ms per character
+- critical, KEV, CVE, or actively-exploited alert entries use the same typing animation at 6ms per character with amber left-edge treatment
+- chain-detection entries use cyan treatment and may link to Finding Theater when the referenced finding already exists in selected-run finding data
+- proposal entries keep inline `Approve suggestion` and `Skip suggestion` controls through the existing proposal review API
+- approved proposals show a confirmed operator-reviewed state, but still do not launch work
+- in-flight reasoning statuses show the animated thinking-dot indicator
+- the left rail shows the AI pulse badge only from pending selected-run proposal count
+- reduced-motion users see the same text instantly with animations disabled
+
 ## Behavior
 
 - Current Activity is the first panel and always states:
@@ -75,6 +118,22 @@ Mission Control is the operational home screen after the Assessment Wizard. It s
 - the phase feed is only rendered as a persistent shell block during the Run phase
 - loading and empty states should stay explicit rather than leaving panels blank
 - automatic refresh is now more aggressive while a selected run is queued, dispatching, or running, then relaxes again during idle dossier review
+- the backend exposes a run-level SSE stream at `GET /api/v1/runs/{run_id}/events` that emits real persisted run/task snapshots and status deltas
+- Mission Control subscribes to that stream for selected queued/running runs and keeps the existing auto-refresh polling path as fallback when SSE is unavailable
+- the backend exposes a selected-task stdout SSE stream at `GET /api/v1/tasks/{task_id}/stdout/events`; it uses a bounded in-process runner buffer when available and falls back to stored execution stdout after completion
+- task stdout streaming is intentionally narrow: separate worker processes may only expose stored execution stdout through the API unless a shared stream store is added later, and stderr remains in the existing execution detail instead of the stdout terminal
+- Run Activity includes a live operations telemetry panel that stays grounded in persisted state:
+  - stream truth shows whether the selected run is using SSE, connecting, idle, or polling fallback
+  - active target scan map cards group selected-run tasks by recorded `target_id`
+  - active target scan map tool chips use persisted task status and timestamps only
+  - active target scan map severity styling is derived only from findings already loaded for the selected run
+  - active target scan map motion is limited to real running task state when the selected run stream is connected or connecting
+  - when live events are unavailable, the active target scan map degrades to a static latest-snapshot summary instead of inventing scan paths
+  - severity counters are derived only from findings already loaded for the selected run
+  - task swimlanes group checks by recorded execution lane when present, otherwise by tool
+  - queued, running, completed, failed, blocked, cancelled, and unknown task statuses remain visually distinct
+  - activity deltas are recent persisted task/finding changes, not synthetic stdout or guessed worker events
+- if execution finishes with no findings and no discovery-confirmed inventory, the telemetry panel labels the output signal as thin output instead of treating completion as clean evidence
 - ETA is always visible and uses a blended model:
   - original wizard estimate
   - current phase completion
@@ -89,6 +148,7 @@ Mission Control is the operational home screen after the Assessment Wizard. It s
 - discovery-first runs may auto-shift the operator into `Surface Map` after dispatch completes so the discovered estate is visible immediately
 - run-level inventory shown in Mission Control and Surface Map must aggregate all inventory snapshots derived from the same run instead of only the latest task snapshot
 - acceptance-created runs can surface safe-scenario context without turning Mission Control into a QA dashboard
+- AI mission guidance must stay inside the `AI Signal` supporting-context card and cite deterministic input categories such as run profile, targets, safety, tasks, findings, inventory, relevance, or pack provenance
 - The global context strip above the workspace keeps the product flow coherent:
   - Wizard
   - Mission Control
@@ -105,6 +165,9 @@ Mission Control is the operational home screen after the Assessment Wizard. It s
 - relevance decisions
 - capability packs and deployments
 - findings and evidence linkage
+- selected-run task snapshots and task timestamps
+- selected-run stream status, including SSE fallback reasons
+- selected-run `ai_mission_guidance` generated by deterministic backend context
 - report catalog metadata
 - run profile metadata already loaded from the backend
 
@@ -116,6 +179,9 @@ Mission Control is the operational home screen after the Assessment Wizard. It s
 - keep this screen operational, not administrative
 - if a run has started, the operator should be able to answer "what is executing right now?" without leaving Mission Control
 - if execution finished with failures or with thin/no reviewable output, Mission Control should say that explicitly instead of quietly presenting the run like a clean success
+- live telemetry may show the selected task stdout terminal only through the bounded task stdout endpoint; it must never invent terminal lines or imply stderr/output exists before a runner safely captures it
+- active target scan-map visualization remains a selected-run state summary; it must not imply attack-path inference, risk scoring, tool execution, or new findings beyond persisted run/task/finding records
+- AI mission guidance should remain read-only and ignorable; it must not create buttons that launch new work or alter approved scope
 - Current Activity and Run Activity should remain the first scan targets; grouped secondary panels should support, not compete with, those answers
 - if execution was a controlled discovery follow-up, Mission Control should also answer:
   - what follow-up strategy ran

@@ -1,0 +1,1304 @@
+{
+  "benchmarks": [
+    {
+      "benchmark_id": "gruyere-local",
+      "benchmark_name": "Google Gruyere Local",
+      "counts": {
+        "actual_findings": 52,
+        "detected": 7,
+        "expected": 20,
+        "missed": 13
+      },
+      "coverage_pct": 35,
+      "execution": {
+        "profiles": [
+          {
+            "finding_count": 0,
+            "profile": "passive-web-nuclei-audit",
+            "run_id": "81da7b61-e4c1-44e6-8518-f3b456dbb0d9",
+            "run_status": "completed",
+            "task_count": 1,
+            "terminal": true
+          },
+          {
+            "finding_count": 52,
+            "profile": "active-web-zap-active",
+            "run_id": "0ff8b685-45be-4ca1-aa4c-762ca5e4eb8c",
+            "run_status": "completed",
+            "task_count": 1,
+            "terminal": true
+          }
+        ]
+      },
+      "gaps": [
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "csrf",
+          "gap_task_ref": "codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-csrf-profile-change"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xssi",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-xssi-feed-leak"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "path traversal",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-path-traversal-file-read"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "path traversal",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-path-traversal-code-disclosure"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "client-state manipulation",
+          "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-client-state-admin-cookie"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "critical",
+          "family": "remote code execution",
+          "gap_task_ref": "codex/tasks/backlog-228-ssti-server-side-template-injection.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-remote-code-execution-gtl"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "sql injection",
+          "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-sql-injection-query"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "denial of service",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-dos-expensive-query"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "denial of service",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-dos-large-upload"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "denial of service",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-dos-storage-exhaustion"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "ajax phishing",
+          "gap_task_ref": "codex/tasks/backlog-230-oauth2-oidc-misconfiguration-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-ajax-phishing"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "buffer overflow",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-buffer-overflow-client"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "stored data abuse",
+          "gap_task_ref": "codex/tasks/backlog-218-idor-broken-access-control-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-stored-data-abuse"
+        }
+      ],
+      "scan_profiles": [
+        "passive-web-nuclei-audit",
+        "active-web-zap-active"
+      ],
+      "status": "completed",
+      "target_image": "karthequian/gruyere:latest",
+      "vulnerabilities": [
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "high"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xss",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [
+            "Cross Site Scripting (Reflected)",
+            "Cross Site Scripting (Reflected)"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "gruyere-xss-reflected-url"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "high"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xss",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [
+            "Cross Site Scripting (Reflected)",
+            "Cross Site Scripting (Reflected)"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "gruyere-xss-stored-snippet"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "high"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xss",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [
+            "Cross Site Scripting (Reflected)",
+            "Cross Site Scripting (Reflected)"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "gruyere-xss-stored-profile"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "high"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xss",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [
+            "Cross Site Scripting (Reflected)",
+            "Cross Site Scripting (Reflected)"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "gruyere-xss-file-upload-html"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "high"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xss",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [
+            "Cross Site Scripting (Reflected)",
+            "Cross Site Scripting (Reflected)"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "gruyere-xss-ajax-json"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "high"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xss",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [
+            "Cross Site Scripting (Reflected)",
+            "Cross Site Scripting (Reflected)"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "gruyere-xss-dom-or-template"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "csrf",
+          "gap_task_ref": "codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-csrf-profile-change"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xssi",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-xssi-feed-leak"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "path traversal",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-path-traversal-file-read"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "path traversal",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-path-traversal-code-disclosure"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "client-state manipulation",
+          "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-client-state-admin-cookie"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "critical",
+          "family": "remote code execution",
+          "gap_task_ref": "codex/tasks/backlog-228-ssti-server-side-template-injection.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-remote-code-execution-gtl"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "sql injection",
+          "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-sql-injection-query"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "denial of service",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-dos-expensive-query"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "denial of service",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-dos-large-upload"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "denial of service",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-dos-storage-exhaustion"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "info"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "configuration disclosure",
+          "gap_task_ref": "codex/tasks/backlog-231-insufficient-logging-detection.json",
+          "matching_finding_titles": [
+            "Information Disclosure - Suspicious Comments"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "gruyere-config-disclosure"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "ajax phishing",
+          "gap_task_ref": "codex/tasks/backlog-230-oauth2-oidc-misconfiguration-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-ajax-phishing"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "buffer overflow",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-buffer-overflow-client"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "stored data abuse",
+          "gap_task_ref": "codex/tasks/backlog-218-idor-broken-access-control-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "gruyere-stored-data-abuse"
+        }
+      ]
+    },
+    {
+      "benchmark_id": "webgoat-local",
+      "benchmark_name": "OWASP WebGoat Local",
+      "counts": {
+        "actual_findings": 36,
+        "detected": 5,
+        "expected": 32,
+        "missed": 27
+      },
+      "coverage_pct": 15.62,
+      "execution": {
+        "profiles": [
+          {
+            "finding_count": 0,
+            "profile": "passive-web-nuclei-audit",
+            "run_id": "f70551b2-60b4-4fd6-9091-0d93d03f6f3b",
+            "run_status": "completed",
+            "task_count": 1,
+            "terminal": true
+          },
+          {
+            "finding_count": 36,
+            "profile": "active-web-zap-active",
+            "run_id": "dfd51a71-8744-444a-9381-497231cf6e40",
+            "run_status": "completed",
+            "task_count": 1,
+            "terminal": true
+          }
+        ]
+      },
+      "gaps": [
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "authentication bypass",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-auth-bypass"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "authorization bypass",
+          "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-bypass-restrictions"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "client-side filtering",
+          "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-client-side-filtering"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "critical",
+          "family": "insecure deserialization",
+          "gap_task_ref": "codex/tasks/backlog-222-insecure-deserialization-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-insecure-deserialization"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "session hijacking",
+          "gap_task_ref": "codex/tasks/backlog-223-session-security-deep-analysis.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-session-hijacking"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "html tampering",
+          "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-html-tampering"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "idor",
+          "gap_task_ref": "codex/tasks/backlog-218-idor-broken-access-control-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-idor"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "insecure login",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-insecure-login"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "jwt",
+          "gap_task_ref": "codex/tasks/backlog-216-jwt-vulnerability-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-jwt-none"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "jwt",
+          "gap_task_ref": "codex/tasks/backlog-216-jwt-vulnerability-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-jwt-weak-secret"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "missing access controls",
+          "gap_task_ref": "codex/tasks/backlog-218-idor-broken-access-control-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-missing-access-control"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "open redirect",
+          "gap_task_ref": "codex/tasks/backlog-230-oauth2-oidc-misconfiguration-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-open-redirect"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "password reset",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-password-reset-predictable"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "password reset",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-password-reset-host-header"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "path traversal",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-path-traversal"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "security misconfiguration",
+          "gap_task_ref": "codex/tasks/backlog-231-insufficient-logging-detection.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-security-misconfiguration"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "cookie spoofing",
+          "gap_task_ref": "codex/tasks/backlog-223-session-security-deep-analysis.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-cookie-spoofing"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "sql injection",
+          "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-sql-injection-classic"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "sql injection",
+          "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-sql-injection-advanced"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "sql injection",
+          "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-sql-injection-blind"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "ssrf",
+          "gap_task_ref": "codex/tasks/backlog-221-ssrf-dedicated-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-ssrf"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "vulnerable components",
+          "gap_task_ref": "codex/tasks/backlog-217-vulnerable-components-dependency-check.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-vulnerable-components"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "xxe",
+          "gap_task_ref": "codex/tasks/backlog-214-xxe-injection-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-xxe"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "cryptography",
+          "gap_task_ref": "codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-cryptography"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "low",
+          "family": "insufficient logging",
+          "gap_task_ref": "codex/tasks/backlog-231-insufficient-logging-detection.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-insufficient-logging"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "authentication",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-username-enumeration"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "authentication",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-bruteforce-protection"
+        }
+      ],
+      "scan_profiles": [
+        "passive-web-nuclei-audit",
+        "active-web-zap-active"
+      ],
+      "status": "completed",
+      "target_image": "webgoat/webgoat:latest",
+      "vulnerabilities": [
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "authentication bypass",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-auth-bypass"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "authorization bypass",
+          "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-bypass-restrictions"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "client-side filtering",
+          "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-client-side-filtering"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "medium"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "csrf",
+          "gap_task_ref": "codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json",
+          "matching_finding_titles": [
+            "Absence of Anti-CSRF Tokens",
+            "Absence of Anti-CSRF Tokens",
+            "Absence of Anti-CSRF Tokens",
+            "Absence of Anti-CSRF Tokens"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "webgoat-csrf"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "critical",
+          "family": "insecure deserialization",
+          "gap_task_ref": "codex/tasks/backlog-222-insecure-deserialization-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-insecure-deserialization"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "session hijacking",
+          "gap_task_ref": "codex/tasks/backlog-223-session-security-deep-analysis.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-session-hijacking"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "html tampering",
+          "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-html-tampering"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "idor",
+          "gap_task_ref": "codex/tasks/backlog-218-idor-broken-access-control-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-idor"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "insecure login",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-insecure-login"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "jwt",
+          "gap_task_ref": "codex/tasks/backlog-216-jwt-vulnerability-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-jwt-none"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "jwt",
+          "gap_task_ref": "codex/tasks/backlog-216-jwt-vulnerability-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-jwt-weak-secret"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "missing access controls",
+          "gap_task_ref": "codex/tasks/backlog-218-idor-broken-access-control-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-missing-access-control"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "open redirect",
+          "gap_task_ref": "codex/tasks/backlog-230-oauth2-oidc-misconfiguration-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-open-redirect"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "password reset",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-password-reset-predictable"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "password reset",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-password-reset-host-header"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "path traversal",
+          "gap_task_ref": null,
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-path-traversal"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "security misconfiguration",
+          "gap_task_ref": "codex/tasks/backlog-231-insufficient-logging-detection.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-security-misconfiguration"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "cookie spoofing",
+          "gap_task_ref": "codex/tasks/backlog-223-session-security-deep-analysis.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-cookie-spoofing"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "sql injection",
+          "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-sql-injection-classic"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "sql injection",
+          "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-sql-injection-advanced"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "sql injection",
+          "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-sql-injection-blind"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "ssrf",
+          "gap_task_ref": "codex/tasks/backlog-221-ssrf-dedicated-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-ssrf"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "vulnerable components",
+          "gap_task_ref": "codex/tasks/backlog-217-vulnerable-components-dependency-check.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-vulnerable-components"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "info"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xss",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [
+            "User Controllable HTML Element Attribute (Potential XSS)"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "webgoat-xss-reflected"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "info"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xss",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [
+            "User Controllable HTML Element Attribute (Potential XSS)"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "webgoat-xss-stored"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "info"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "xss",
+          "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+          "matching_finding_titles": [
+            "User Controllable HTML Element Attribute (Potential XSS)"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "webgoat-xss-dom"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "high",
+          "family": "xxe",
+          "gap_task_ref": "codex/tasks/backlog-214-xxe-injection-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-xxe"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "cryptography",
+          "gap_task_ref": "codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-cryptography"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "low",
+          "family": "insufficient logging",
+          "gap_task_ref": "codex/tasks/backlog-231-insufficient-logging-detection.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-insufficient-logging"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "authentication",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-username-enumeration"
+        },
+        {
+          "actual_detection": false,
+          "actual_severities": [],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "authentication",
+          "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+          "matching_finding_titles": [],
+          "notes": "No matching finding from existing passive/active benchmark runs.",
+          "tool_used": [],
+          "vulnerability_id": "webgoat-bruteforce-protection"
+        },
+        {
+          "actual_detection": true,
+          "actual_severities": [
+            "medium"
+          ],
+          "expected_detection": true,
+          "expected_severity": "medium",
+          "family": "security headers",
+          "gap_task_ref": "codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json",
+          "matching_finding_titles": [
+            "Content Security Policy (CSP) Header Not Set",
+            "Content Security Policy (CSP) Header Not Set",
+            "Content Security Policy (CSP) Header Not Set",
+            "Content Security Policy (CSP) Header Not Set"
+          ],
+          "notes": "Detected by existing AegisPT output.",
+          "tool_used": [
+            "zap"
+          ],
+          "vulnerability_id": "webgoat-cors-or-header-misconfig"
+        }
+      ]
+    }
+  ],
+  "gap_task_refs": [
+    "codex/tasks/backlog-211-pentest-depth-additional-tools.json",
+    "codex/tasks/backlog-214-xxe-injection-runner.json",
+    "codex/tasks/backlog-216-jwt-vulnerability-runner.json",
+    "codex/tasks/backlog-217-vulnerable-components-dependency-check.json",
+    "codex/tasks/backlog-218-idor-broken-access-control-runner.json",
+    "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+    "codex/tasks/backlog-221-ssrf-dedicated-runner.json",
+    "codex/tasks/backlog-222-insecure-deserialization-runner.json",
+    "codex/tasks/backlog-223-session-security-deep-analysis.json",
+    "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json",
+    "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+    "codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json",
+    "codex/tasks/backlog-228-ssti-server-side-template-injection.json",
+    "codex/tasks/backlog-230-oauth2-oidc-misconfiguration-runner.json",
+    "codex/tasks/backlog-231-insufficient-logging-detection.json",
+    "codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json"
+  ],
+  "generated_at": "2026-05-04T14:30:21.206070+00:00",
+  "matrix_id": "gruyere_webgoat_benchmark_coverage_v1",
+  "mode": "execute",
+  "schema_version": 1,
+  "status": "completed",
+  "summary": {
+    "benchmarks": 2,
+    "coverage_pct": 23.08,
+    "detected": 12,
+    "expected": 52,
+    "missed": 40
+  }
+}

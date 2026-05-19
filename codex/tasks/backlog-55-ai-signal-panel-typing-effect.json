@@ -1,0 +1,119 @@
+{
+  "id": "backlog-55-ai-signal-panel-typing-effect",
+  "task_file": "codex/tasks/backlog-55-ai-signal-panel-typing-effect.json",
+  "task_type": "backlog_slice",
+  "title": "AI Signal Panel and Typing Effect Foundation",
+  "goal": "Add the persistent AI Signal panel to Mission Control that streams AI reasoning entries with a character-by-character typing effect, inline proposal approval controls, and a live/thinking indicator \u2014 making the AI presence visible and engaging throughout an active run.",
+  "scope": "Implement the AI Signal panel defined in LIVING_SYSTEM_EXPERIENCE.md section 4. The panel reads from existing agent_reasoning and agent_proposals records already exposed by GET /api/v1/runs/{run_id}/ai-insights. New entries appear with a typeText() character animation at 12ms/char for observations, 6ms/char for critical alerts. Entry types: tool-completion (instant, muted), AI observation (typed, text-soft), AI alert KEV/critical (typed fast, amber left border), chain detection (typed, cyan, link to Finding Theater), proposal (typed, inline Approve/Skip buttons calling the existing review endpoint). Panel shows a thinking indicator (animated dots) when agent reasoning is in progress. The AI pulse badge in the left rail reflects proposal count. All data comes from existing /ai-insights API \u2014 no new backend endpoints. No sound design in this slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "LIVING_SYSTEM_EXPERIENCE.md section 4 identifies the AI Signal panel typing effect as the second highest priority item after shimmer animations. It makes the AI feel present and intelligent rather than a feature buried in panels. The backend data (agent_reasoning, agent_proposals) already exists from backlog-41 and backlog-42.",
+  "source_context": {
+    "queue_index": 55,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "docs/living_system_experience_scope_alignment.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/ui_mission_control.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "living_system_experience",
+    "source_documents": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/styles.css",
+      "api/app/routers/runs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "AI Signal panel UI and typing animation only. Do not add sound design, new backend endpoints, finding schema changes, Anthropic provider wiring, new reasoning logic, or automatic task dispatch. The panel is read-only display plus proposal approve/reject which already exists in the API.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "no_automatic_execution": true
+  },
+  "success_criteria": [
+    "Mission Control shows a persistent AI Signal panel that loads entries from GET /api/v1/runs/{run_id}/ai-insights.",
+    "New AI observation entries type in character by character at 12ms/char.",
+    "Critical/KEV alert entries type at 6ms/char with amber left border.",
+    "Proposal entries show inline Approve and Skip buttons that call the existing review endpoint.",
+    "Approved proposals show a green confirmed state in the panel.",
+    "A thinking indicator (animated dots) shows when agent reasoning records are in-flight.",
+    "The AI pulse badge in the left rail shows pending proposal count.",
+    "The panel respects prefers-reduced-motion by showing entries instantly.",
+    "No automatic task dispatch or scope expansion occurs from the panel.",
+    "Full Playwright suite remains green.",
+    "No new backend endpoints, finding schema changes, or worker behavior changes."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/styles.css",
+    "ui/assets/app.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/ui_mission_control.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "finding schema fields",
+    "runtime self-modification",
+    "automatic task dispatch from proposals"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AI Signal panel is visible in Mission Control during an active run.",
+      "Entries appear with typing animation.",
+      "Proposal approve/reject works through existing API.",
+      "No automatic execution from proposals.",
+      "Full Playwright suite is green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Scan map SVG and launch ceremony foundation (backlog-54) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "AI Signal panel entry types and boundaries are documented in docs/ui_mission_control.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with AI Signal panel implementation and Playwright validation evidence.",
+      "Update CURRENT_STATE.md with AI Signal panel as active Mission Control feature.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Sound design Web Audio API",
+    "Anthropic provider wiring",
+    "New backend reasoning endpoints",
+    "Automatic task dispatch from proposals",
+    "Finding schema changes",
+    "Run completion narrative display (covered by backlog-46 already)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

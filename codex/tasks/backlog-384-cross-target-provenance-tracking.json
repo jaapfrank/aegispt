@@ -1,0 +1,100 @@
+{
+  "id": "backlog-384-cross-target-provenance-tracking",
+  "task_file": "codex/tasks/backlog-384-cross-target-provenance-tracking.json",
+  "task_type": "evidence_model",
+  "title": "Cross-Target Provenance: Captured Values Carry Lineage Across Tasks",
+  "goal": "When a runner captures a value (JWT, cookie, internal hostname, credential) during one task, that value becomes a first-class graph entity with provenance pointing back to the originating task and the assistant decision that produced it. Subsequent tasks that use the value link to it explicitly so the AI can reason about cross-target chains (e.g. web token -> internal hostname -> port scan -> SMB).",
+  "scope": "Extend evidence_ingest helpers (#322) to register captured values with origin_task_id and origin_decision_id. Update exec_plan runner to emit capture events. Update target_intel + smart_web_probe to consume captured values when present. Add a graph projection helper that shows captured-value lineage in the picker context.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Universal pentest tool's most defensible differentiator is chain reasoning across surfaces. Today exec_plan captures values per-step but they live only inside that one plan and one task. Promoting them to graph entities with provenance allows the AI to construct multi-task chains (the Mythos-style cross-target narrative).",
+  "source_context": {
+    "queue_index": 334,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_4_cross_target",
+    "key_files": [
+      "api/app/services/evidence_ingest.py",
+      "api/app/services/assessment_graph.py",
+      "api/app/services/assessment_loop.py",
+      "workers/runners/exec_plan/runner.py",
+      "workers/runners/target_intel/runner.py",
+      "workers/runners/smart_web_probe/runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Provenance for captured values only. Do NOT introduce a new finding type or change existing finding schema fields.",
+    "additive": "Existing exec_plan captures continue to work. The graph entity is added alongside.",
+    "no_secret_leakage": "Captured credential values must be hashed/redacted in graph storage. Full values stay in run_credential_vault (existing mechanism)."
+  },
+  "success_criteria": [
+    "exec_plan capture step emits a graph entity (type: captured_value) with origin_task_id, origin_step_name, value_kind (token | hostname | credential_ref | other).",
+    "Subsequent runner can query graph for captured_value entities and use them.",
+    "Picker graph projection (built in #323) includes a 'recent captures' section showing 5 most recent values with origin.",
+    "Live test: 2-step demo run (web exploit captures JWT, second task uses that JWT as auth) shows full lineage in the graph.",
+    "Credential values redacted in graph (hash or last-4-chars only)."
+  ],
+  "likely_touched_files": [
+    "api/app/services/evidence_ingest.py",
+    "api/app/services/assessment_graph.py",
+    "api/app/services/assessment_loop.py",
+    "workers/runners/exec_plan/runner.py",
+    "api/tests/test_cross_target_provenance.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "api/app/services/run_credential_vault.py",
+    "workers/runners/capabilities.json",
+    "_AI_PICKER_SYSTEM_PROMPT body"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_cross_target_provenance.py api/tests/test_assessment_graph.py",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check api/app/services/evidence_ingest.py api/app/services/assessment_graph.py workers/runners/exec_plan/runner.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Captured values appear as graph entities with full provenance.",
+      "Picker context includes capture-lineage info.",
+      "Credential values are redacted in graph storage."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-383 must show Phase 4 go."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-385 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Cross-runner verifier (task #385).",
+    "Non-HTTP primitives (task #386).",
+    "Full AD pack integration (would be a later phase)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "matrix_id": "known_vulnerability_validation_v1",
+  "purpose": "Accuracy benchmark for known-vulnerable training targets and a known-clean target. The runner compares AegisPT findings to this catalog and fails scenarios when expected findings are missing or unexpected findings exceed the false-positive threshold.",
+  "false_positive_threshold_pct": 10,
+  "scenarios": [
+    {
+      "id": "webgoat-active-web-safe",
+      "name": "OWASP WebGoat active-safe validation",
+      "enabled": true,
+      "target": {
+        "type": "docker",
+        "image": "webgoat/webgoat:2023.8",
+        "container_port": 8080,
+        "health_path": "/WebGoat",
+        "url_path": "/WebGoat",
+        "startup_timeout_seconds": 180
+      },
+      "assessment_type": "Authenticated App",
+      "scan_profile": "active-web-safe",
+      "modules": [
+        "web_crawling",
+        "auth_flows",
+        "content_discovery",
+        "business_logic_testing"
+      ],
+      "minimum_coverage_pct": 75,
+      "expected_findings": [
+        {
+          "id": "webgoat-sql-injection",
+          "title_pattern": "(?i)sql.*injection|injection.*sql",
+          "severity": "high",
+          "tool": "zap",
+          "target_pattern": "(?i)webgoat",
+          "wstg": "WSTG-INPV-05"
+        },
+        {
+          "id": "webgoat-cross-site-scripting",
+          "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b)",
+          "severity": "medium",
+          "target_pattern": "(?i)webgoat",
+          "wstg": "WSTG-INPV-01"
+        },
+        {
+          "id": "webgoat-access-control",
+          "title_pattern": "(?i)(access control|idor|authorization|authz)",
+          "severity": "high",
+          "target_pattern": "(?i)webgoat",
+          "wstg": "WSTG-ATHZ"
+        },
+        {
+          "id": "webgoat-weak-crypto-or-secret",
+          "title_pattern": "(?i)(weak.*crypto|insecure.*crypto|secret|hardcoded)",
+          "severity": "medium",
+          "target_pattern": "(?i)webgoat"
+        }
+      ],
+      "forbidden_findings": [
+        {
+          "id": "webgoat-clean-target-label",
+          "title_pattern": "(?i)clean target",
+          "reason": "A known-vulnerable target must never be classified as clean."
+        }
+      ]
+    },
+    {
+      "id": "dvwa-active-web-safe",
+      "name": "DVWA active-safe validation",
+      "enabled": true,
+      "target": {
+        "type": "docker",
+        "image": "vulnerables/web-dvwa:latest",
+        "container_port": 80,
+        "health_path": "/",
+        "url_path": "/",
+        "startup_timeout_seconds": 120
+      },
+      "assessment_type": "Website / Web App",
+      "scan_profile": "active-web-safe",
+      "modules": [
+        "web_crawling",
+        "content_discovery",
+        "nuclei_checks",
+        "zap_active_checks"
+      ],
+      "minimum_coverage_pct": 80,
+      "expected_findings": [
+        {
+          "id": "dvwa-sql-injection",
+          "title_pattern": "(?i)sql.*injection|injection.*sql",
+          "severity": "high",
+          "target_pattern": "(?i)dvwa|127\\.0\\.0\\.1",
+          "wstg": "WSTG-INPV-05"
+        },
+        {
+          "id": "dvwa-command-injection",
+          "title_pattern": "(?i)(command injection|os command|rce)",
+          "severity": "high",
+          "target_pattern": "(?i)dvwa|127\\.0\\.0\\.1",
+          "wstg": "WSTG-INPV-12"
+        },
+        {
+          "id": "dvwa-cross-site-scripting",
+          "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b)",
+          "severity": "medium",
+          "target_pattern": "(?i)dvwa|127\\.0\\.0\\.1",
+          "wstg": "WSTG-INPV-01"
+        },
+        {
+          "id": "dvwa-file-inclusion",
+          "title_pattern": "(?i)(file inclusion|path traversal|lfi|rfi)",
+          "severity": "high",
+          "target_pattern": "(?i)dvwa|127\\.0\\.0\\.1",
+          "wstg": "WSTG-ATHZ-01"
+        }
+      ],
+      "forbidden_findings": []
+    },
+    {
+      "id": "clean-nginx-passive-web",
+      "name": "Clean nginx false-positive guard",
+      "enabled": true,
+      "target": {
+        "type": "docker",
+        "image": "nginx:1.25-alpine",
+        "container_port": 80,
+        "health_path": "/",
+        "url_path": "/",
+        "startup_timeout_seconds": 60
+      },
+      "assessment_type": "Website / Web App",
+      "scan_profile": "passive-web-baseline",
+      "modules": [
+        "discovery",
+        "web_crawling",
+        "ssl_tls_analysis"
+      ],
+      "minimum_coverage_pct": 100,
+      "expected_findings": [],
+      "forbidden_findings": [
+        {
+          "id": "clean-critical-or-high",
+          "title_pattern": ".*",
+          "severity": "critical|high",
+          "reason": "A clean nginx target must not produce high or critical vulnerability claims."
+        },
+        {
+          "id": "clean-injection-claim",
+          "title_pattern": "(?i)(sql.*injection|command injection|xss|cross.?site scripting|rce)",
+          "reason": "Injection or RCE claims against the clean target are false positives."
+        }
+      ]
+    },
+    {
+      "id": "metasploitable3-web-cve-smoke",
+      "name": "Metasploitable3 web CVE smoke",
+      "enabled": false,
+      "disabled_reason": "Requires an explicitly provisioned local Metasploitable3 lab and updated authorized scope before execution.",
+      "target": {
+        "type": "manual",
+        "url": "http://192.168.56.10/",
+        "authorization_required": true
+      },
+      "assessment_type": "Internal Range / LAN",
+      "scan_profile": "passive-network-discovery",
+      "modules": [
+        "discovery",
+        "nuclei_checks"
+      ],
+      "minimum_coverage_pct": 60,
+      "expected_findings": [
+        {
+          "id": "metasploitable3-known-cve",
+          "title_pattern": "(?i)(cve-|apache|tomcat|samba|mysql)",
+          "severity": "high",
+          "target_pattern": "192\\.168\\.56\\.10"
+        }
+      ],
+      "forbidden_findings": []
+    }
+  ]
+}

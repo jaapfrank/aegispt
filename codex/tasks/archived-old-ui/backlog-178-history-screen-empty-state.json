@@ -1,0 +1,90 @@
+{
+  "id": "backlog-178-history-screen-empty-state",
+  "task_file": "codex/tasks/backlog-178-history-screen-empty-state.json",
+  "task_type": "corrective_product_slice",
+  "title": "History screen: add meaningful empty state when no completed runs exist",
+  "goal": "The History & Comparison screen (screen-history) shows an empty layout when no completed runs exist. The screen-copy says 'Compare runs, review findings delta, and track posture change over time.' but there is nothing to compare. Add an empty state inside the history content area: (1) a one-sentence explanation of what History shows: 'Completed runs appear here — run your first assessment to start building history.', (2) a secondary action button 'Go to Mission Control' to help operators navigate. Additionally: if only ONE run exists (not two needed for comparison), show the single run's summary but disable the comparison controls with a tooltip: 'Complete a second run to compare posture changes.'",
+  "scope": "System review 2026-05-01: History screen shows an essentially blank view for new installs or single-run engagements. No guidance is provided on why the screen is empty or how to populate it. The comparison controls (comparisonSummary, historyTrend, nextStepsQueue) render empty containers with no empty-state messaging.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: History screen blank for new/single-run operators — add empty state with next-step guidance.",
+  "source_context": {
+    "queue_index": 178,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "empty_state_guidance",
+    "source_documents": [
+      "ui/assets/modules/explorer-history.js",
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add empty states only. Do not rebuild History comparison logic or add new data fetching.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Zero completed runs: History shows a one-sentence explanation and a navigation action.",
+    "One completed run: History shows the single run summary; comparison controls are disabled with explanation.",
+    "Two+ runs: History shows comparison as before (no regression).",
+    "No regression in History E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/explorer-history.js",
+    "ui/index.html",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "History comparison logic",
+    "Run delta computation",
+    "Backend API"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Zero-run History shows actionable empty state.",
+      "Single-run History shows run summary with disabled comparison.",
+      "Two-run History unchanged.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "History comparison redesign",
+    "New comparison metrics",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,107 @@
+{
+  "id": "backlog-356-explicit-runner-registry-dispatch-contract",
+  "task_file": "codex/tasks/backlog-356-explicit-runner-registry-dispatch-contract.json",
+  "task_type": "backend_refactor",
+  "title": "Explicit Runner Registry and Dispatch Contract",
+  "goal": "Replace regex-based runner discovery with an explicit registry contract that maps supported tools to executors and capability metadata while preserving current safety gates and runner behavior.",
+  "scope": "Runner registry, worker orchestration dispatch mapping, capability metadata validation, and runner registry tests.",
+  "status": "queued",
+  "generated_by": "codex-codebase-review-20260512",
+  "generation_reason": "Code review found api/app/services/runner_registry.py discovers tools by regex-scanning workers/orchestration/tasks.py for request.tool comparisons. Tests cover current behavior, but the contract is brittle as runner coverage grows.",
+  "source_context": {
+    "queue_index": 306,
+    "queue_file": "TASK_QUEUE.md",
+    "review_findings": [
+      "api/app/services/runner_registry.py parses workers/orchestration/tasks.py source",
+      "workers/orchestration/tasks.py contains a long if-chain for tool dispatch",
+      "api/tests/test_runner_capabilities.py already proves registry completeness"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runner_contract_maintainability",
+    "key_files": [
+      "workers/orchestration/tasks.py",
+      "api/app/services/runner_registry.py",
+      "api/app/services/task_dispatch.py",
+      "workers/runners/capabilities.json",
+      "api/tests/test_runner_capabilities.py",
+      "api/tests/test_runner_contracts.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Refactor registry and dispatch contract only. Do not add new runners, broaden tool behavior, or alter runtime safety gates.",
+    "preserve_runner_behavior": "All existing supported tools must remain registered with identical names and execution behavior."
+  },
+  "success_criteria": [
+    "Runner registry no longer parses Python source with regex to discover supported tools.",
+    "A single explicit registry or equivalent structured contract defines supported tool names and dispatch handlers.",
+    "Capability metadata completeness tests still prove every registered tool has metadata and every metadata entry maps to a registered tool.",
+    "SUPPORTED_TOOLS remains compatible for existing services and tests or is replaced with an equivalent stable API.",
+    "No runner execution semantics, risk tiers, approval gates, scope checks, or credential handling changes."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "api/app/services/runner_registry.py",
+    "api/app/services/task_dispatch.py",
+    "api/tests/test_runner_capabilities.py",
+    "api/tests/test_runner_contracts.py",
+    "workers/tests/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "Prompt 1 and Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_runner_capabilities.py api/tests/test_runner_contracts.py",
+      ".venv/bin/pytest workers/tests/",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check api/app/services/runner_registry.py api/app/services/task_dispatch.py workers/orchestration/tasks.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Registry completeness is explicit and deterministic.",
+      "All pre-existing registered tools remain present with no name drift.",
+      "No live scans, runtime mutation, approval bypass, scope bypass, credential materialization, or kill-switch bypass occurs."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Adding, deleting, or materially changing runner implementations.",
+    "Changing risk tiers, approval requirements, or scope validation rules.",
+    "Changing finding schemas or reporting formats.",
+    "Changing live runtime binding or capability pack lifecycle."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

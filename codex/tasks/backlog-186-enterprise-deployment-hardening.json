@@ -1,0 +1,104 @@
+{
+  "id": "backlog-186-enterprise-deployment-hardening",
+  "task_file": "codex/tasks/backlog-186-enterprise-deployment-hardening.json",
+  "task_type": "enterprise_readiness_slice",
+  "title": "Enterprise deployment hardening",
+  "goal": "Make production deployment requirements explicit and verifiable for enterprise environments instead of leaving them as implicit host knowledge.",
+  "scope": "Add production deployment hardening checks and documentation for TLS/reverse proxy, trusted certificates, secure cookies, proxy egress controls, no-internet/air-gapped operation, offline tool/feed update paths, secure default warnings, database encryption state, artifact storage encryption, and production-vs-development mode differences. Surface unsupported/degraded deployment states in Settings/Diagnostics without blocking local development.",
+  "status": "queued",
+  "generated_by": "enterprise-readiness-audit-2026-05-01",
+  "generation_reason": "AegisPT targets enterprise/MKB use, but enterprise deployment requires production-grade TLS, proxy, offline, certificate, encryption, and update posture checks. Existing install and DB encryption tasks cover pieces, not a single production hardening readiness gate.",
+  "source_context": {
+    "queue_index": 162,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-81-installation-package.json",
+      "codex/tasks/backlog-128-database-encryption.json",
+      "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json",
+      "docs/host_service_install.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "production_deployment_readiness",
+    "source_documents": [
+      "docs/host_service_install.md",
+      "docs/AegisPT-Implementation-Runbook.md",
+      "infra/compose/",
+      "api/app/config.py",
+      "ui/assets/modules/settings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Deployment hardening and readiness surfacing only. Do not add hosted SaaS, billing, or external telemetry.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Production install docs state mandatory TLS/reverse-proxy/certificate requirements.",
+    "Settings/Diagnostics shows production hardening status for TLS assumptions, database encryption, artifact storage, proxy/offline mode, and update/feed constraints.",
+    "Air-gapped/offline operation has an explicit support statement and manual update path for feeds/tools/templates.",
+    "Secure cookie/session and public-base-url warnings are visible when production settings are unsafe.",
+    "Validation includes local development mode and simulated production configuration checks.",
+    "No production secret or certificate material is printed in logs or UI."
+  ],
+  "likely_touched_files": [
+    "docs/host_service_install.md",
+    "docs/AegisPT-Implementation-Runbook.md",
+    "api/app/config.py",
+    "api/app/routers/settings.py",
+    "api/tests/test_settings.py",
+    "ui/assets/modules/settings.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "live target execution",
+    "secret plaintext",
+    "finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_settings.py -q",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "An operator can tell whether the deployment is development-grade or production-hardened.",
+      "Offline/proxy/TLS/certificate limitations are explicit before enterprise rollout."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Managed SaaS deployment",
+    "Billing/licensing implementation",
+    "External telemetry upload"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

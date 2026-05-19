@@ -1,0 +1,90 @@
+{
+  "id": "backlog-176-settings-accordion-section-summaries",
+  "task_file": "codex/tasks/backlog-176-settings-accordion-section-summaries.json",
+  "task_type": "corrective_product_slice",
+  "title": "Settings accordion: add one-line summary text to collapsed sections so operators know what each section contains",
+  "goal": "The Settings screen has many accordion/collapsible panel sections (ai_provider, default_network_scope, default_scan_profile, integrations, notifications, threat_intel, instance, engagement_siem, engagement_jira, engagement_cicd) that are collapsed by default. When collapsed, operators only see the section title with no indication of current state or what's inside. Add a one-line status/summary text next to each collapsed section header showing: (1) current configured state (e.g. 'AI Provider: ChatGPT connected', 'Default scope: 192.168.1.0/24', 'Jira: not configured'), or (2) if unconfigured, a 5-word description of what the section controls (e.g. 'Set default scan target range'). This prevents operators from having to open every panel to find what they need.",
+  "scope": "System review 2026-05-01: Settings screen shows collapsed accordion panels with only a title. Operators cannot determine which sections are configured, which need attention, or what each section does without opening each one individually. This wastes time in enterprise deployments where Settings is visited to check configuration state.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: Settings collapsed sections have no summary — operators must open each panel to understand configuration state.",
+  "source_context": {
+    "queue_index": 176,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "settings_ux_clarity",
+    "source_documents": [
+      "ui/assets/modules/settings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only add summary text to collapsed panel headers. Do not redesign settings layout or add new settings.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Each collapsible Settings section header shows a one-line status/description when collapsed.",
+    "Status text reflects actual configured state where state is available in the JS settings state.",
+    "Unconfigured sections show a brief description of what they control.",
+    "Expanding/collapsing sections still works as before.",
+    "No regression in Settings E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/settings.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Settings data model",
+    "Backend settings API",
+    "Settings save/load logic"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "All collapsed settings panels show a status or description line.",
+      "Status lines are accurate (reflect actual settings state).",
+      "Settings E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Settings layout redesign",
+    "New settings fields",
+    "Backend settings changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

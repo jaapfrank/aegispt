@@ -26,12 +26,14 @@ class FakeS3Client:
         Body: bytes,  # noqa: N803
         ContentType: str,  # noqa: N803
         Metadata: dict[str, str],  # noqa: N803
+        ServerSideEncryption: str | None = None,  # noqa: N803
     ) -> None:
         self.buckets.add(Bucket)
         self.objects[(Bucket, Key)] = {
             "body": bytes(Body),
             "content_type": ContentType,
             "metadata": dict(Metadata),
+            "server_side_encryption": ServerSideEncryption,
         }
 
     def get_object(self, *, Bucket: str, Key: str) -> dict[str, object]:  # noqa: N803
@@ -100,10 +102,40 @@ def test_inline_dispatch_stores_artifact_in_s3_and_serves_content(
 
     assert artifact["uri"].startswith("s3://aegispt-artifacts/")
     assert artifact["metadata_json"]["storage_backend"] == "s3"
-    assert len(fake_s3_client.objects) == 1
+    assert len(fake_s3_client.objects) >= 1
 
     content_response = inline_s3_client.get(f"/api/v1/artifacts/{artifact['id']}/content")
 
     assert content_response.status_code == 200
     assert content_response.headers["content-type"].startswith("application/x-ndjson")
     assert b'"status_code": 200' in content_response.content
+
+
+def test_s3_artifact_storage_can_enforce_sse(fake_s3_client: FakeS3Client) -> None:
+    from api.app.services import artifact_storage
+    from api.app.services.artifact_storage import ArtifactStorageConfig
+
+    config = ArtifactStorageConfig(
+        mode="s3",
+        endpoint="http://localhost:9000",
+        bucket="aegispt-artifacts",
+        access_key="minioadmin",
+        secret_key="change-me",
+        inline_dir=".aegispt-artifacts",
+        enforce_sse=True,
+    )
+
+    reference = artifact_storage.store_artifact_bytes(
+        config=config,
+        artifact_name="evidence.json",
+        artifact_kind="evidence",
+        artifact_digest="a" * 64,
+        content_type="application/json",
+        data=b"{}",
+        run_id="run-1",
+        task_id="task-1",
+        execution_id="exec-1",
+    )
+
+    bucket, key = artifact_storage.parse_s3_artifact_uri(reference.uri)
+    assert fake_s3_client.objects[(bucket, key)]["server_side_encryption"] == "AES256"

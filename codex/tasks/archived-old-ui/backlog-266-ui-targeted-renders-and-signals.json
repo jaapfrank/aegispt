@@ -1,0 +1,99 @@
+{
+  "id": "backlog-266-ui-targeted-renders-and-signals",
+  "task_file": "codex/tasks/backlog-266-ui-targeted-renders-and-signals.json",
+  "task_type": "product_slice",
+  "title": "UI reactive foundation: replace global renderAll() with targeted component renders and add Preact Signals for AI loop state \u2014 no framework rewrite",
+  "goal": "The current UI calls renderAll() on every state change, which re-renders all 7000+ lines of mission-control.js and wizard.js on each update. For the AI loop (backlog-260+), this means the iteration counter, AI reasoning text, and findings panel would flicker on every tick. The AI loop UI also requires genuinely reactive state (signals) for smooth real-time updates. Fix in two steps: (1) TARGETED RENDERS: Replace renderAll() with renderComponent(componentName) calls. Each component (wizard, mission-control, findings, settings, reports, dashboard) has its own render function. State changes only trigger the relevant component's render. This alone removes the flicker and improves performance significantly. The existing render functions already exist (renderMissionControl, renderWizard, etc.) \u2014 the change is in how they're triggered. (2) SIGNALS FOR AI LOOP STATE: Add Preact Signals (~2KB, no bundler needed, works via CDN/import) as a reactive primitive for AI loop-specific state only: currentIteration, aiReasoning, whatWeKnow, currentAction, tierEscalationNeeded. These signals auto-update the relevant DOM nodes without triggering a full component render. Usage: const iteration = signal(0); effect(() => { document.getElementById('iteration-counter').textContent = iteration.value; }). No migration of existing code needed \u2014 signals are only used for NEW AI loop UI components. Add as an ES module import. Test: iteration counter should update smoothly every second without any screen flicker or focus loss.",
+  "scope": "UI architecture review 2026-05-07: renderAll() re-renders everything on each state change \u2014 31K lines of JS. AI loop needs real-time smooth updates (iteration counter, streaming AI text, growing findings list). Preact Signals adds 2KB and gives true reactivity without a full framework rewrite.",
+  "status": "queued",
+  "generated_by": "ui-framework-review-2026-05-07",
+  "generation_reason": "renderAll() is incompatible with smooth real-time AI loop UI. Targeted renders + signals solve this without a framework rewrite.",
+  "source_context": {
+    "queue_index": 265,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-262-mission-control-ai-loop-ui.json",
+      "codex/tasks/backlog-260-ai-continuous-assessment-loop.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_reactive_foundation",
+    "source_documents": [
+      "ui/assets/app.js",
+      "ui/assets/modules/runtime.js",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Targeted renders: route existing renderX() calls correctly. Signals: only for NEW AI loop state, not existing state. Do not migrate existing state to signals. No bundler changes.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "State changes only trigger the relevant component render, not all components.",
+    "Wizard state change does not re-render Mission Control.",
+    "Mission Control state change does not re-render Wizard.",
+    "Preact Signals imported as ES module (CDN or local copy).",
+    "AI loop iteration counter signal updates DOM without flicker.",
+    "AI reasoning text signal updates character by character without re-rendering full MC panel.",
+    "No visual regression on any existing screen.",
+    "All existing E2E tests pass."
+  ],
+  "likely_touched_files": [
+    "ui/assets/app.js",
+    "ui/assets/modules/runtime.js",
+    "ui/index.html",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing render function logic",
+    "State object structure",
+    "Any module other than app.js and runtime.js"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest ui/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Targeted renders: wizard change doesn't re-render MC.",
+      "Signals: iteration counter updates smoothly.",
+      "No visual regression.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full React/Vue/Svelte migration",
+    "Migrating existing state to signals",
+    "Bundler/build system changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

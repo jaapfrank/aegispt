@@ -1,0 +1,95 @@
+{
+  "id": "backlog-143-assessment-chain-phase1-iot-discovery-step",
+  "task_file": "codex/tasks/backlog-143-assessment-chain-phase1-iot-discovery-step.json",
+  "task_type": "corrective_test_slice",
+  "title": "Fix assessment chain test regression from Phase 1 gaining passive-lan-iot-discovery step (backlog-133)",
+  "goal": "Update test_assessment_chain_skips_zero_target_follow_up_steps_without_failing to complete both Phase 1 steps before asserting pending_phase_approval. After the first run completes and the chain starts the passive-lan-iot-discovery run, create and complete a second run for passive-lan-iot-discovery so that Phase 1 finishes and the chain advances to the Phase 2 approval gate. Alternatively, update the test to assert that after step 1 the chain is active (starting step 2), and add an assertion that after step 2 the chain is pending_phase_approval.",
+  "scope": "api/tests/test_assessment_chain.py::test_assessment_chain_skips_zero_target_follow_up_steps_without_failing fails with 'AssertionError: assert active == pending_phase_approval'. The test creates a run for 'passive-network-discovery' (Phase 1, Step 1 of FULL-INTERNAL-LAN), marks it completed, calls advance_assessment_chain_for_completed_run, and expects the chain to move to pending_phase_approval (Phase 2 requires active-tier approval). But since backlog-133 added 'passive-lan-iot-discovery' as a second step in Phase 1, the chain advances to start Step 2 within Phase 1 rather than completing Phase 1 and requesting Phase 2 approval. The chain status is therefore 'active' (running passive-lan-iot-discovery), not 'pending_phase_approval'.",
+  "status": "queued",
+  "generated_by": "full-system-assessment-2026-04-30",
+  "generation_reason": "api/tests/test_assessment_chain.py::test_assessment_chain_skips_zero_target_follow_up_steps_without_failing fails with 'AssertionError: assert active == pending_phase_approval'. The test creates a run for 'passive-network-discovery' (Phase 1, Step 1 of FULL-INTERNAL-LAN), marks it completed, calls advance_assessment_chain_for_completed_run, and expects the chain to move to pending_phase_approval (Phase 2 requires active-tier approval). But since backlog-133 added 'passive-lan-iot-discovery' as a second step in Phase 1, the chain advances to start Step 2 within Phase 1 rather than completing Phase 1 and requesting Phase 2 approval. The chain status is therefore 'active' (running passive-lan-iot-discovery), not 'pending_phase_approval'.",
+  "source_context": {
+    "queue_index": 141,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "full_system_regression_unblockers",
+    "source_documents": [
+      "api/tests/test_assessment_chain.py",
+      "TASK_QUEUE.md",
+      "NEXT_TASK.md"
+    ],
+    "affected_tests": [
+      "api/tests/test_assessment_chain.py::test_assessment_chain_skips_zero_target_follow_up_steps_without_failing"
+    ],
+    "root_cause": "backlog-133 added passive-lan-iot-discovery as a second profile in Phase 1 of FULL-INTERNAL-LAN. The test was written when Phase 1 had only passive-network-discovery. After completing Step 1, the chain correctly advances to Step 2 (passive-lan-iot-discovery) instead of moving to Phase 2. The test expectation is now stale."
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep the fix to the named regression slice. Do not use this task for broad UI/product redesign or unrelated runtime changes.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "test_assessment_chain_skips_zero_target_follow_up_steps_without_failing passes.",
+    "All other assessment chain tests continue to pass."
+  ],
+  "likely_touched_files": [
+    "api/tests/test_assessment_chain.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "approval or scope gate bypass",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py --tb=short -q",
+      "Confirm no other assessment chain tests regressed",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "test_assessment_chain_skips_zero_target_follow_up_steps_without_failing passes.",
+      "All other assessment chain tests continue to pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad product redesign",
+    "Installing new tools",
+    "Running live customer or intrusive targets",
+    "Changing unrelated schemas or prompts"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,108 @@
+{
+  "id": "backlog-15-attack-path-graph-visualization-foundation",
+  "task_file": "codex/tasks/backlog-15-attack-path-graph-visualization-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Attack-Path Graph Visualization Foundation",
+  "goal": "Turn the existing attack-path summary into a clearer relationship view without changing the attack-path data model or adding heavy graph dependencies by default.",
+  "scope": "Add a first visual attack-path graph or structured relationship view inside the existing Surface / Attack Map using current attack-path API output, inventory, findings, and choke-point summaries. Keep the slice focused on visualization and explanation, not new inference, risk scoring, or identity-aware path expansion.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 15,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/attack_path_engine.md",
+      "docs/midterm_review_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "attack_path_intelligence",
+    "source_documents": [
+      "docs/attack_path_engine.md",
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/ui_phase_architecture.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only visualize existing attack-path API data. Defer new path inference, identity chaining, cloud chaining, and remediation-impact scoring.",
+    "runtime_mutation": false,
+    "no_new_graph_backend": true,
+    "notes": [
+      "Prefer a dependency-free or very small rendering approach for this first slice.",
+      "Zero-data and low-confidence states must remain explicit."
+    ]
+  },
+  "success_criteria": [
+    "Surface / Attack Map renders a clearer relationship view for existing candidate paths and choke points.",
+    "The graph or relationship view remains usable for zero-data, low-confidence, and multi-host runs.",
+    "Each visual path can be traced back to existing API output and evidence-backed finding/inventory records.",
+    "Browser coverage proves normal and empty-state rendering.",
+    "No new attack inference or scoring model is introduced."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_product_feature_matrix_e2e.py",
+    "docs/attack_path_engine.md",
+    "docs/ui_phase_architecture.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "api/app/models/control.py",
+    "workers/orchestration/tasks.py",
+    "pack registry and runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The view uses existing attack-path API output.",
+      "No graph view claims path certainty beyond the source confidence.",
+      "No identity-aware or cloud-aware inference is silently added."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The existing attack-path summary API remains the source of truth."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with visualization changes and validation evidence.",
+      "Update CURRENT_STATE.md with the new attack-path visualization baseline and remaining graph gaps.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "New attack-path backend model",
+    "Identity-aware path inference",
+    "Cloud-to-on-prem attack chaining",
+    "Risk scoring",
+    "Remediation-impact optimization"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

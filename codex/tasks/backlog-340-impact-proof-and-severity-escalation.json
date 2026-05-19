@@ -1,0 +1,105 @@
+{
+  "id": "backlog-340-impact-proof-and-severity-escalation",
+  "task_file": "codex/tasks/backlog-340-impact-proof-and-severity-escalation.json",
+  "task_type": "ai_reasoning_capability",
+  "title": "Impact Proof Chain: Severity Escalation When Finding Chain Demonstrates Real Access",
+  "goal": "A single XSS finding is medium severity. XSS that leads to session token theft that leads to authenticated admin access is critical. AegisPT must automatically escalate finding severity and generate an impact proof record when the pivot chain demonstrates real access. Concretely: when a pivot context of type 'session_token_pivot' or 'rce_shell_pivot' results in a confirmed follow-up finding (e.g., authenticated surface IDOR or admin panel access), the AI agent must: (1) create a FindingChain linking the original finding to the follow-up finding; (2) escalate the original finding severity to match the highest-severity step in the chain; (3) generate an impact proof summary: 'XSS on /login confirmed \u2192 session token extracted \u2192 admin panel at /admin/users accessed \u2014 real user data exposure confirmed'. This proof appears in Findings Theater and in the Report. Without this, operators see isolated low/medium findings and miss the full impact.",
+  "scope": "api/app/services/ai_planner.py, api/app/services/finding_chains.py, api/app/services/ai_agent.py",
+  "status": "queued",
+  "generated_by": "gap-analysis-no-impact-proof",
+  "generation_reason": "The pivot engine creates context docs and queues follow-up scans but does not connect the original finding to the follow-up finding in a FindingChain, nor does it escalate severity or produce an impact proof statement. Operators and clients cannot see the full attack chain impact from the report.",
+  "source_context": {
+    "queue_index": 292,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "REQUIRES: backlog-337",
+    "broader_theme": "ai_chained_exploitation",
+    "key_files": [
+      "api/app/services/ai_planner.py",
+      "api/app/services/finding_chains.py",
+      "api/app/services/ai_agent.py",
+      "api/app/models/control.py"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_finding_mutation": "Do not mutate evidence_ref, title, or target_id of existing findings. Only update severity and add summary text additively.",
+    "audit_trail": "Every severity change must create an audit event with the chain that caused it.",
+    "no_auto_escalate_without_evidence": "Severity escalation requires a confirmed follow-up finding, not just a queued task. The follow-up finding must have status='open' and non-empty evidence_ref.",
+    "existing_tests": "pytest api/tests/test_ai_chain_detection.py and test_pivot_engine.py must pass.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "trigger": "In _maybe_detect_and_record_pivots() in tasks.py, after a pivot context spawns a follow-up task that completes with a finding, link original_finding \u2192 follow_up_finding via FindingChain.",
+    "severity_escalation": "If follow_up_finding.severity in {'critical','high'} and original_finding.severity in {'low','medium'}, escalate original_finding.severity to match and record the chain as the escalation evidence.",
+    "impact_proof": "Add an impact_proof_json field to the FindingChain record summarizing: original_finding.title + pivot_type + follow_up_finding.title + what_was_accessed.",
+    "findings_theater": "The impact proof should appear in the FindingChain summary so Findings Theater can display it."
+  },
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_pivot_engine.py",
+      "pytest api/tests/test_ai_chain_detection.py",
+      "pytest api/tests/"
+    ],
+    "acceptance_criteria": [
+      "When XSS finding leads to a confirmed authenticated-surface finding via pivot, a FindingChain is created linking both.",
+      "The original XSS finding severity is escalated if the follow-up has higher severity.",
+      "An impact_proof_json summary is stored on the FindingChain.",
+      "An audit event records the severity escalation with chain evidence.",
+      "Findings Theater shows the chain and escalated severity."
+    ]
+  },
+  "success_criteria": [
+    "When XSS finding leads to a confirmed authenticated-surface finding via pivot, a FindingChain is created linking both.",
+    "The original XSS finding severity is escalated if the follow-up has higher severity.",
+    "An impact_proof_json summary is stored on the FindingChain.",
+    "An audit event records the severity escalation with chain evidence.",
+    "Findings Theater shows the chain and escalated severity."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_planner.py",
+    "api/app/services/finding_chains.py",
+    "api/app/services/ai_agent.py",
+    "api/app/models/control.py"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,93 @@
+{
+  "id": "backlog-252-full-external-web-chain-missing-new-runners",
+  "task_file": "codex/tasks/backlog-252-full-external-web-chain-missing-new-runners.json",
+  "task_type": "corrective_product_slice",
+  "title": "Add 14 missing new security runners to FULL-EXTERNAL-WEB chain so they are actually dispatched",
+  "goal": "Live verification 2026-05-06 confirmed: FULL-EXTERNAL-WEB chain Phase 2 in assessment_chain.py has only 5 profiles (nuclei, zap, burp, business-logic, oauth-probe). 14 new security runners have RunProfile entries in run_profiles.py but are missing from the chain \u2014 they are NEVER dispatched in any External Web assessment. Add to FULL-EXTERNAL-WEB Phase 1 (passive, no approval needed): 'passive-web-vuln-components', 'passive-web-headers-security'. Add to FULL-EXTERNAL-WEB Phase 2 (active, 1 approval): 'active-web-xxe-probe', 'active-web-jwt-probe', 'active-web-xss-extended', 'active-web-ssrf-probe', 'active-web-deserialization-probe', 'active-web-ssti-probe', 'active-web-http-smuggling', 'active-web-graphql-probe'. Add to FULL-EXTERNAL-WEB Phase 2 with auth-context gate (only when auth context is configured): 'active-web-session-security', 'active-web-auth-flow', 'active-web-idor-bac', 'active-web-client-state'. Also add the non-auth-required profiles to the api-security tile execution plan in wizard.js so API Security assessments get xxe, jwt, graphql, ssrf, deserialization. After this fix, the External Web + Active wizard preview should show at least 18 runners instead of the current 9.",
+  "scope": "Live verification 2026-05-06: test_wizard_active_depth_triggers_new_profiles_in_preview FAILED \u2014 only logging and oauth visible. Chain grep confirms Phase 2 has only 5 profiles. All new profiles exist in run_profiles.py but assessment_chain.py was not updated by backlog-250.",
+  "status": "queued",
+  "generated_by": "live-verification-2026-05-06",
+  "generation_reason": "CRITICAL: 14 new security runners built in tasks 214-250 are never dispatched \u2014 FULL-EXTERNAL-WEB chain missing all of them except oauth-probe.",
+  "source_context": {
+    "queue_index": 212,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-250-new-runners-wizard-profile-wiring.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "chain_runner_completeness",
+    "source_documents": [
+      "api/app/services/assessment_chain.py",
+      "ui/assets/modules/wizard.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only add profiles to chain phases. Do not change profile definitions in run_profiles.py or runner implementations.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "FULL-EXTERNAL-WEB Phase 1 includes passive-web-vuln-components and passive-web-headers-security.",
+    "FULL-EXTERNAL-WEB Phase 2 includes xxe, jwt, xss-extended, ssrf, deserialization, ssti, http-smuggling, graphql.",
+    "Auth-context runners (session, auth-flow, idor-bac, client-state) gated on requires_auth_context.",
+    "Wizard preview External Web + Active shows at least 18 runners (was 9).",
+    "test_wizard_active_depth_triggers_new_profiles_in_preview passes with found >= 8.",
+    "No regression in existing chain or wizard tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_chain.py",
+    "ui/assets/modules/wizard.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "run_profiles.py",
+    "Runner implementations",
+    "FULL-INTERNAL-LAN chain"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Chain Phase 2 has all listed profiles.",
+      "Wizard preview shows new tools.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "run_profiles.py changes",
+    "FULL-INTERNAL-LAN chain",
+    "Runner implementation changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

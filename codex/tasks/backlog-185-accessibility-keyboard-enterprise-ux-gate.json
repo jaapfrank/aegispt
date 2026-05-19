@@ -1,0 +1,103 @@
+{
+  "id": "backlog-185-accessibility-keyboard-enterprise-ux-gate",
+  "task_file": "codex/tasks/backlog-185-accessibility-keyboard-enterprise-ux-gate.json",
+  "task_type": "enterprise_readiness_slice",
+  "title": "Accessibility and keyboard-only enterprise UX gate",
+  "goal": "Make AegisPT usable and testable for keyboard-only and assistive-technology users, with WCAG AA as the minimum product-quality bar.",
+  "scope": "Create a dedicated accessibility acceptance gate for the operator console. Audit and fix keyboard navigation, visible focus, focus trapping in modals/drawers, Escape behavior, aria-labels/names for icon buttons, form labels/help text, color contrast, reduced-motion behavior for Cinema/scan maps, and screen-reader-friendly empty/error states. This complements general IA work; it is a specific WCAG/keyboard gate.",
+  "status": "queued",
+  "generated_by": "enterprise-readiness-audit-2026-05-01",
+  "generation_reason": "Existing UI tasks mention clarity and accessibility generally, but enterprise readiness needs a concrete accessibility gate. The product has many icon buttons, animated surfaces, drawers, modals, dense cards, and status badges that need keyboard and assistive-technology proof.",
+  "source_context": {
+    "queue_index": 161,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-115-full-mockup-product-parity-and-navigation-binding.json",
+      "codex/tasks/backlog-153-enterprise-information-architecture-and-page-ux-clarity.json",
+      "codex/tasks/backlog-167-wizard-step-labels-shorten.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "accessibility_and_enterprise_usability",
+    "source_documents": [
+      "ui/index.html",
+      "ui/assets/styles.css",
+      "ui/assets/app.js",
+      "ui/assets/modules/",
+      "ui/tests/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Accessibility acceptance and fixes only. Do not redesign app architecture or change backend runtime behavior.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Keyboard-only navigation reaches all primary screens, primary actions, drawers, and modals in logical order.",
+    "Focus is visible and never lost after opening/closing drawers, modals, Cinema Mode, or wizard steps.",
+    "Icon-only buttons have accessible names and do not rely on color alone.",
+    "Core text/status contrast meets WCAG AA; exceptions are documented and corrected.",
+    "Reduced-motion mode disables or substantially calms live animation surfaces.",
+    "Automated and manual accessibility evidence is recorded under codex/results/."
+  ],
+  "likely_touched_files": [
+    "ui/index.html",
+    "ui/assets/styles.css",
+    "ui/assets/app.js",
+    "ui/assets/modules/*.js",
+    "ui/tests/test_accessibility_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "backend run dispatch behavior",
+    "finding schema fields",
+    "pack/runtime validation gates"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_accessibility_e2e.py -q",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A keyboard-only user can launch a safe local assessment path and inspect output without pointer input.",
+      "Known animated surfaces honor reduced-motion preference.",
+      "Accessibility findings are recorded with screenshots or DOM evidence."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full visual redesign",
+    "Screen-reader certification by an external auditor",
+    "Backend feature work"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

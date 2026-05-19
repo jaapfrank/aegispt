@@ -1,0 +1,28 @@
+# Copy this file to docker-compose.override.yml when you want a local
+# developer-style Compose run with live-mounted source files.
+
+services:
+  aegispt-api:
+    volumes:
+      - ./api:/app/api:ro
+      - ./workers:/app/workers:ro
+      - ./migrations:/app/migrations:ro
+      - ./ui:/app/ui:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - aegispt-playwright:/ms-playwright
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        alembic upgrade head
+        exec uvicorn api.app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  aegispt-worker:
+    volumes:
+      - ./api:/app/api:ro
+      - ./workers:/app/workers:ro
+      - aegispt-playwright:/ms-playwright
+
+  aegispt-tools:
+    ports:
+      - "${AEGISPT_ZAP_PORT:-8080}:8080"

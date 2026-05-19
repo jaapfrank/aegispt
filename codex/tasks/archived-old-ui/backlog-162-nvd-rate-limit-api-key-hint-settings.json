@@ -1,0 +1,92 @@
+{
+  "id": "backlog-162-nvd-rate-limit-api-key-hint-settings",
+  "task_file": "codex/tasks/backlog-162-nvd-rate-limit-api-key-hint-settings.json",
+  "task_type": "corrective_product_slice",
+  "title": "Add NVD API key hint when NVD feed fails with HTTP 429 rate limit in Settings Threat Intel",
+  "goal": "In the Settings Threat Intel section, when the NVD CVE feed status shows HTTP 429 or reason=rate_limited, display an actionable hint below the error text: 'NVD rate-limits unauthenticated requests. Configure an NVD API key in Settings to increase your quota.' with a link or scroll anchor to the nvd_api_key input field. The nvd_api_key setting already exists in the settings schema. This task is UI-only - no backend changes needed.",
+  "scope": "Walkthrough 2026-04-30: Settings shows NVD feed failing with HTTP 429. No API key hint.",
+  "status": "queued",
+  "generated_by": "ui-walkthrough-2026-04-30",
+  "generation_reason": "Walkthrough 2026-04-30: Settings shows NVD feed failing with HTTP 429. No API key hint.",
+  "source_context": {
+    "queue_index": 162,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/ui-walkthrough-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_bug_fixes_walkthrough_2026-04-30",
+    "source_documents": [
+      "ui/assets/modules/settings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Fix only the specific bug described. Do not use this task for broad redesign.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "When NVD feed status shows 429 or rate_limited, an actionable hint appears below the error.",
+    "Hint explains NVD rate limiting and points to the NVD API key setting field.",
+    "No new API endpoints or backend changes needed.",
+    "No regression in threat intel settings tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/settings.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "approval or scope gate bypass",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "When NVD feed status shows 429 or rate_limited, an actionable hint appears below the error.",
+      "Hint explains NVD rate limiting and points to the NVD API key setting field.",
+      "No new API endpoints or backend changes needed.",
+      "No regression in threat intel settings tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad product redesign",
+    "Installing new tools",
+    "Running live customer or intrusive targets",
+    "Changing unrelated schemas or prompts"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

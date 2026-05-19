@@ -1,0 +1,94 @@
+{
+  "id": "backlog-174-dashboard-first-run-empty-state",
+  "task_file": "codex/tasks/backlog-174-dashboard-first-run-empty-state.json",
+  "task_type": "corrective_product_slice",
+  "title": "Dashboard first-run empty state: guide new operators with one actionable message instead of a blank screen",
+  "goal": "When an operator opens AegisPT for the first time (no engagements, no runs, no findings), the Dashboard screen shows little to no content — tiles are empty or absent, leaving operators with no clear next step. The Dashboard empty state should show: (1) a welcome message with a one-line description of what AegisPT does, (2) a single primary call-to-action button: 'Start Your First Assessment' that navigates to the wizard, (3) optionally: three summary tiles showing '0 Active Runs', '0 Open Findings', '0 Engagements' with muted styling to establish the layout pattern without being misleading. The existing setup checklist (when visible) covers onboarding; this task addresses the empty dashboard layout specifically when the checklist is dismissed or not shown.",
+  "scope": "System review 2026-05-01: Dashboard screen (screen-dashboard, dashboard-content div) shows a near-blank screen when no engagements or runs exist. New operators have no guidance on what to do. The screen-copy says 'Track the active run, risk posture, open problems, schedule, recent activity, and setup readiness' but none of these items exist to track, so the screen feels broken.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: Dashboard blank for new operators — needs actionable empty state with clear first step.",
+  "source_context": {
+    "queue_index": 174,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-83-dashboard-home-screen.json",
+      "codex/tasks/backlog-80-first-run-onboarding.json",
+      "codex/tasks/backlog-130-setup-checklist-fix.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "empty_state_first_run_guidance",
+    "source_documents": [
+      "ui/assets/modules/dashboard.js",
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only add the empty state for the zero-engagement case. Do not rebuild the full dashboard for populated states.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "When no engagements exist: Dashboard shows a welcome heading, one-line description, and 'Start Your First Assessment' button.",
+    "When engagements exist but no active run: Dashboard shows engagement/run summary tiles (existing behavior, not broken).",
+    "Empty state button navigates to the wizard screen.",
+    "No regression in Dashboard E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/dashboard.js",
+    "ui/index.html",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Dashboard populated-state rendering",
+    "Setup checklist logic",
+    "Backend API"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Zero-engagement Dashboard shows welcome message and CTA.",
+      "CTA navigates to wizard.",
+      "Populated Dashboard unchanged.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full dashboard rebuild",
+    "Onboarding overlay",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

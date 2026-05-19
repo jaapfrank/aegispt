@@ -1,0 +1,105 @@
+{
+  "id": "backlog-359-react-v2-bundle-splitting-performance-budget",
+  "task_file": "codex/tasks/backlog-359-react-v2-bundle-splitting-performance-budget.json",
+  "task_type": "frontend_performance",
+  "title": "React v2 Bundle Splitting and Performance Budget",
+  "goal": "Reduce the React v2 production bundle risk by adding sensible code splitting or manual chunks and documenting a performance budget without changing operator workflows.",
+  "scope": "Vite build configuration, React route/component loading boundaries, performance budget documentation, and React v2 build/e2e validation.",
+  "status": "queued",
+  "generated_by": "codex-codebase-review-20260512",
+  "generation_reason": "Review-time npm run build passed but produced a large main JavaScript bundle warning around 2.1 MB minified, which will slow operator console loads and make future UI growth more fragile.",
+  "source_context": {
+    "queue_index": 309,
+    "queue_file": "TASK_QUEUE.md",
+    "review_findings": [
+      "cd ui-v2 && npm run build passed with Vite chunk-size warning",
+      "ui-v2 currently bundles large visual dependencies and all screens together",
+      "React v2 is the active browser release lane"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "frontend_performance_and_operability",
+    "key_files": [
+      "ui-v2/vite.config.ts",
+      "ui-v2/src/App.tsx",
+      "ui-v2/src/components/screens/",
+      "ui-v2/src/components/CinemaMode.tsx",
+      "ui-v2/tests/react-v2-critical-paths.spec.ts"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Focus on bundle splitting and load performance. Do not redesign screens or add product features.",
+    "no_runtime_semantic_change": "Operator workflows, API calls, dispatch, approvals, and data rendering behavior must remain unchanged."
+  },
+  "success_criteria": [
+    "The main React v2 production bundle is split so heavy screens or 3D/Cinema dependencies are not all forced into the initial chunk.",
+    "Vite build no longer emits the current oversized main chunk warning, or a documented budget explains any remaining unavoidable chunk with measured size.",
+    "Critical routes still load correctly under Playwright.",
+    "Lazy-loading states are polished enough not to create blank screens or Crash Recovery false positives.",
+    "No backend, runner, approval, scope, credential, or report semantics change."
+  ],
+  "likely_touched_files": [
+    "ui-v2/vite.config.ts",
+    "ui-v2/src/App.tsx",
+    "ui-v2/src/components/CinemaMode.tsx",
+    "ui-v2/src/components/screens/",
+    "ui-v2/tests/react-v2-critical-paths.spec.ts",
+    "docs/frontend_modularization.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "workers/runners/core/",
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run lint",
+      "cd ui-v2 && npm run test:e2e",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Build output demonstrates smaller initial chunking or records an explicit accepted budget.",
+      "React v2 critical routes pass Playwright after lazy-loading changes.",
+      "No feature, runtime, scanning, approval, scope, credential, or backend behavior changes occur."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Visual redesign of the operator console.",
+    "Dependency upgrades unrelated to bundle splitting.",
+    "Changing API contracts.",
+    "Changing runner dispatch, approvals, scope/ROE, credentials, or kill-switch behavior."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

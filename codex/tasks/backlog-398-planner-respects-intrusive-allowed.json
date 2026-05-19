@@ -1,0 +1,96 @@
+{
+  "id": "backlog-398-planner-respects-intrusive-allowed",
+  "task_file": "codex/tasks/backlog-398-planner-respects-intrusive-allowed.json",
+  "task_type": "ai_loop",
+  "title": "assessment_planner respects run.autonomous_intrusive_allowed; stop gating exec_plan when operator opted-in",
+  "goal": "The assessment_planner statically marks every intrusive-tier capability as NEEDS_APPROVAL \u2014 even when the run has `autonomous_intrusive_allowed=True`. This blocks the AI picker from queuing the exec_plan / impacket / metasploit / netexec / credential_attacks / file_upload-RCE chains the Mythos design depends on. Empirically confirmed on live Gruyere 2026-05-18 (run 9f951a0f): 24 picker reasonings, 0 exec_plan picks, picker falls back to random residual tools (ai-shell / c2-ingest / graphql / iot-default-creds), stops at max_iterations_reached, 0/17 known Gruyere classes found.",
+  "scope": "Single-file fix in `api/app/services/assessment_planner.py`. Thread `run.autonomous_intrusive_allowed` from `build_assessment_plan_for_run` into `_score_capability`. When intrusive-tier AND `autonomous_intrusive_allowed=True`, the decision falls through the SAME evidence-driven logic as active/passive (RUN if triggers match, WAIT if weak, SKIP if blockers). Only when intrusive-tier AND NOT allowed do we still emit NEEDS_APPROVAL. Update the `_decision_sentence` to drop 'Controlled proof work needs the explicit approval gate' for the allowed-intrusive path.",
+  "status": "queued",
+  "generated_by": "live-gruyere-diagnosis-20260518",
+  "generation_reason": "Live Gruyere run 9f951a0f produced 0/17 known vulnerability classes despite ai_loop + autonomous_intrusive_allowed=True. Root cause traced to assessment_planner._score_capability lines 277-279: 'if risk_tier in INTRUSIVE_TIERS: decision = NEEDS_APPROVAL' \u2014 no consultation of the run flag. The picker (Claude Opus) reads the correct INTRUSIVE-AUTHORIZED system-prompt block; the planner overrides it. Operator pushback 2026-05-18: 'het onderliggende systeem werkt niet goed en reliable... had naar mijn idee een fluitje van een cent moeten zijn'. This is one of the 3 root-cause bugs identified during the live diagnosis.",
+  "source_context": {
+    "queue_index": 336,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_live_reliability_fix",
+    "key_files": [
+      "api/app/services/assessment_planner.py",
+      "api/app/services/assessment_loop.py",
+      "api/tests/test_assessment_planner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Single-function refactor + tests only. Do NOT add new capability tiers, do NOT change INTRUSIVE_TIERS set membership, do NOT modify the system prompt's intrusive-tier block (it's already correct), do NOT touch workers/runners or workers/orchestration.",
+    "preserve_approval_path": "When autonomous_intrusive_allowed=False, NEEDS_APPROVAL semantics must remain unchanged \u2014 existing approval workflows + audit events must keep working.",
+    "audit_trail": "Every plan item that runs an intrusive runner under the auto-allowed path must carry an audit-event field documenting `autonomous_intrusive_allowed=True` so post-hoc reviewers can see which decisions used the bypass."
+  },
+  "success_criteria": [
+    "build_assessment_plan_for_run threads run.autonomous_intrusive_allowed into _score_capability.",
+    "When autonomous_intrusive_allowed=True, intrusive-tier capabilities with matched triggers decide RUN (not NEEDS_APPROVAL).",
+    "When autonomous_intrusive_allowed=False, intrusive-tier capabilities still decide NEEDS_APPROVAL (existing contract preserved).",
+    "Live test against juice-shop/testfire with autonomous_intrusive_allowed=True: at least 1 exec_plan task gets queued during a 20-advance run (currently: 0).",
+    "Unit tests cover: allowed+triggered \u2192 RUN; allowed+blocker \u2192 SKIP; allowed+no_triggers \u2192 WAIT; not_allowed+anything \u2192 NEEDS_APPROVAL.",
+    "AgentReasoning.thought_text for an allowed-intrusive run no longer contains the 'Controlled proof work needs the explicit approval gate' template."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_planner.py",
+    "api/tests/test_assessment_planner.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT (already correctly describes the allowed-intrusive case)",
+    "INTRUSIVE_TIERS set membership",
+    "approval_workflows.py / approvals.py",
+    "workers/runners/",
+    "workers/orchestration/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_assessment_planner.py api/tests/test_assessment_loop.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/assessment_planner.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Intrusive-tier capabilities decide RUN under autonomous_intrusive_allowed=True.",
+      "Approval workflow unchanged for non-allowed runs.",
+      "Audit-event field documents the auto-allowed path."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "Bugs 399 + 400 should land AFTER this one \u2014 fixing the planner gate first unlocks the live test signal we need for them."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with before/after exec_plan-pick-count from a live test.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-399 (auth_discoverer hardcoded REGISTER_PATHS) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "New approval-workflow UX.",
+    "Per-runner intrusive opt-in (whole-run flag stays the gate).",
+    "Migration of existing in-flight runs (this is a fresh-run behavior change)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

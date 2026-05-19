@@ -4,13 +4,13 @@ import json
 import os
 import socket
 import subprocess
+import time
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
-import time
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
@@ -18,6 +18,12 @@ from uuid import uuid4
 import httpx
 
 SAFE_TARGET_CLASSIFICATIONS = {"local_dev", "authorized_customer", "training_lab"}
+TARGET_RUNNABILITY_STATES = {
+    "runnable",
+    "fixture_backed",
+    "documentation_only",
+    "disabled_template",
+}
 DEFAULT_MODULE_STATE = {
     "discovery": False,
     "web_crawling": False,
@@ -29,6 +35,14 @@ DEFAULT_MODULE_STATE = {
     "business_logic_testing": False,
     "adaptive_ai_generated_tests": False,
     "internal_validation_modules": False,
+    "api_security_testing": False,
+    "mobile_static_review": False,
+    "cloud_native_static_review": False,
+    "cicd_security_review": False,
+    "secrets_hygiene_review": False,
+    "llm_application_probing": False,
+    "ad_lab_validation": False,
+    "benchmark_fixture_review": False,
 }
 DEFAULT_SAFETY = {
     "rate_limit_rps": 2,
@@ -39,14 +53,47 @@ DEFAULT_SAFETY = {
     "max_validation_depth": "standard",
 }
 RUN_PROFILE_TOOL_HINTS = {
+    "active-ai-shell": ["ai-shell"],
     "passive-network-discovery": ["nmap"],
     "passive-web-baseline": ["httpx"],
+    "passive-crypto-audit": ["crypto-audit"],
+    "passive-web-logging-probe": ["logging-probe"],
+    "passive-web-vuln-components": ["vuln-components"],
+    "passive-web-headers-security": ["headers-security"],
+    "passive-web-nikto-scan": ["nikto"],
     "passive-web-nuclei-audit": ["nuclei"],
+    "active-web-rce-nuclei-audit": ["nuclei"],
     "passive-code-semgrep-audit": ["semgrep"],
+    "passive-cicd-security-assessment": ["cicd-security"],
+    "passive-cloud-native-assessment": ["cloud-native"],
+    "passive-mobile-android-static": ["mobile-android"],
     "active-web-safe": ["zap"],
     "active-web-zap-active": ["zap"],
+    "active-web-oauth-probe": ["oauth-probe"],
+    "active-web-xxe-probe": ["xxe-probe"],
+    "active-web-jwt-probe": ["jwt-probe"],
+    "active-web-vuln-components": ["vuln-components"],
+    "active-web-xss-extended": ["xss-extended"],
+    "active-web-ssrf-probe": ["ssrf-probe"],
+    "active-web-deserialization-probe": ["deserialization-probe"],
+    "active-web-session-security": ["session-security"],
+    "active-web-auth-flow": ["auth-flow"],
+    "active-web-client-state": ["client-state"],
+    "active-web-headers-security": ["headers-security"],
+    "active-web-graphql-probe": ["graphql-probe"],
+    "intrusive-web-graphql-command-injection": ["graphql-command-injection"],
+    "active-web-ssti-probe": ["ssti-probe"],
+    "active-web-http-smuggling": ["http-smuggling"],
+    "active-web-idor-bac": ["idor-bac"],
+    "active-api-assessment": ["api-assessment", "jwt-probe", "graphql-probe", "oauth-probe"],
+    "active-llm-application-probe": ["llm-probe"],
+    "intrusive-credential-priv-esc-linux": ["priv-esc-linux"],
     "intrusive-validation": ["zap", "nuclei"],
+    "active-lan-ssh-brute": ["ssh-brute"],
+    "passive-lan-network-capture": ["network-capture"],
+    "intrusive-lan-arp-spoof": ["network-capture"],
 }
+PROFILE_TOOL_MAP = RUN_PROFILE_TOOL_HINTS
 TERMINAL_RUN_STATUSES = {
     "completed",
     "completed_with_errors",
@@ -127,7 +174,98 @@ def load_target_catalog(path: str | Path | None = None) -> dict[str, Any]:
     return load_json(path or default_target_catalog_path())
 
 
-def list_enabled_scenarios(matrix: dict[str, Any], *, lane: str | None = None) -> list[dict[str, Any]]:
+def _target_runnability(target: dict[str, Any]) -> str:
+    raw_value = (
+        target.get("runnability")
+        or target.get("runnable_state")
+        or target.get("execution_state")
+        or "runnable"
+    )
+    return str(raw_value).strip().lower()
+
+
+def validate_target_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
+    targets = catalog.get("targets")
+    scenarios = catalog.get("real_run_scenarios")
+    if not isinstance(targets, list):
+        raise ValueError("target catalog must contain a targets list")
+    if scenarios is not None and not isinstance(scenarios, list):
+        raise ValueError("target catalog real_run_scenarios must be a list when present")
+
+    seen_targets: set[str] = set()
+    runnable_counts = {state: 0 for state in TARGET_RUNNABILITY_STATES}
+    surface_kinds: set[str] = set()
+    for target in targets:
+        if not isinstance(target, dict):
+            raise ValueError("target catalog entries must be objects")
+        target_id = str(target.get("id") or "").strip()
+        if not target_id:
+            raise ValueError("target catalog entry missing id")
+        if target_id in seen_targets:
+            raise ValueError(f"duplicate target id: {target_id}")
+        seen_targets.add(target_id)
+
+        classification = target.get("classification")
+        if classification not in SAFE_TARGET_CLASSIFICATIONS:
+            raise ValueError(f"Target {target_id} is not in an approved safe classification.")
+        if target.get("unauthorized_public") is True:
+            raise ValueError(f"Target {target_id} is marked as unauthorized public scope.")
+
+        runnability = _target_runnability(target)
+        if runnability not in TARGET_RUNNABILITY_STATES:
+            raise ValueError(f"Target {target_id} has unsupported runnability: {runnability}")
+        runnable_counts[runnability] += 1
+        if target.get("enabled", True) is True and runnability == "documentation_only":
+            raise ValueError(
+                f"Documentation-only target {target_id} must not be enabled for execution."
+            )
+        if target.get("surface_kind"):
+            surface_kinds.add(str(target["surface_kind"]))
+
+        benchmark_metadata = target.get("benchmark_metadata")
+        if benchmark_metadata is not None:
+            if not isinstance(benchmark_metadata, dict):
+                raise ValueError(f"Target {target_id} benchmark_metadata must be an object")
+            vulnerable_families = benchmark_metadata.get("vulnerable_families")
+            prerequisites = benchmark_metadata.get("prerequisites")
+            if not isinstance(vulnerable_families, list):
+                raise ValueError(
+                    f"Target {target_id} benchmark_metadata.vulnerable_families must be a list"
+                )
+            if prerequisites is not None and not isinstance(prerequisites, list):
+                raise ValueError(
+                    f"Target {target_id} benchmark_metadata.prerequisites must be a list"
+                )
+
+    seen_scenarios: set[str] = set()
+    scenario_count = 0
+    for scenario in scenarios or []:
+        if not isinstance(scenario, dict):
+            raise ValueError("real-run scenarios must be objects")
+        scenario_id = str(scenario.get("id") or "").strip()
+        if not scenario_id:
+            raise ValueError("real-run scenario missing id")
+        if scenario_id in seen_scenarios:
+            raise ValueError(f"duplicate real-run scenario id: {scenario_id}")
+        seen_scenarios.add(scenario_id)
+        scenario_count += 1
+        target_id = str(scenario.get("target_id") or "").strip()
+        if target_id not in seen_targets:
+            raise ValueError(
+                f"real-run scenario {scenario_id} references unknown target {target_id}"
+            )
+
+    return {
+        "target_count": len(targets),
+        "scenario_count": scenario_count,
+        "runnability_counts": runnable_counts,
+        "surface_kinds": sorted(surface_kinds),
+    }
+
+
+def list_enabled_scenarios(
+    matrix: dict[str, Any], *, lane: str | None = None
+) -> list[dict[str, Any]]:
     scenarios = [
         deepcopy(item)
         for item in matrix.get("scenarios", [])
@@ -215,7 +353,9 @@ def _wait_for_http_ready(
                 last_error = str(exc)
             time.sleep(1.0)
 
-    raise RuntimeError(f"runtime target {url} did not become ready within {timeout_seconds:.0f}s ({last_error})")
+    raise RuntimeError(
+        f"runtime target {url} did not become ready within {timeout_seconds:.0f}s ({last_error})"
+    )
 
 
 def _verify_zap_daemon() -> dict[str, str]:
@@ -241,8 +381,14 @@ def _verify_zap_daemon() -> dict[str, str]:
     return {"zap_base_url": base_url, "zap_version": version}
 
 
-def assert_runtime_prerequisites(*, scenario: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
-    run_profile = scenario.get("run_profile") or target.get("recommended_run_profile") or "passive-web-baseline"
+def assert_runtime_prerequisites(
+    *, scenario: dict[str, Any], target: dict[str, Any]
+) -> dict[str, Any]:
+    run_profile = (
+        scenario.get("run_profile")
+        or target.get("recommended_run_profile")
+        or "passive-web-baseline"
+    )
     tool_hints = RUN_PROFILE_TOOL_HINTS.get(run_profile, [])
     context: dict[str, Any] = {"run_profile": run_profile, "tool_hints": list(tool_hints)}
 
@@ -271,6 +417,72 @@ def assert_runtime_prerequisites(*, scenario: dict[str, Any], target: dict[str, 
 def activate_runtime_target(target: dict[str, Any]):
     prepared = deepcopy(target)
     fixture = prepared.get("runtime_fixture")
+    if fixture == "docker_gruyere":
+        template_url = _primary_scope_url(prepared)
+        image = str(prepared.get("runtime_fixture_image") or "karthequian/gruyere:latest")
+        app_container_port = int(prepared.get("runtime_fixture_container_port") or 8008)
+        startup_timeout = float(prepared.get("runtime_fixture_startup_timeout_seconds") or 90.0)
+        container_name = f"aegispt-gruyere-{uuid4().hex[:12]}"
+        host = "127.0.0.1"
+        app_port = _reserve_loopback_port()
+
+        subprocess.run(
+            ["docker", "rm", "-f", container_name],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "-p",
+                    f"{host}:{app_port}:{app_container_port}",
+                    image,
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else str(exc)
+            raise RuntimeError(f"failed to launch Gruyere runtime fixture: {stderr}") from exc
+
+        resolved_url = _rewrite_scope_url(template_url, host=host, port=app_port)
+        _wait_for_http_ready(resolved_url, timeout_seconds=startup_timeout)
+        scope = deepcopy(prepared.get("scope") or {})
+        scope["urls"] = [resolved_url]
+        prepared["scope"] = scope
+        prepared.setdefault("runtime_fixture_context", {})
+        prepared["runtime_fixture_context"].update(
+            {
+                "fixture": fixture,
+                "container_name": container_name,
+                "resolved_url": resolved_url,
+                "runtime_image": image,
+            }
+        )
+        _append_target_note(
+            prepared,
+            f"Auto-spawned Gruyere fixture resolved to {resolved_url} with an isolated loopback port.",
+        )
+
+        try:
+            yield prepared
+        finally:
+            subprocess.run(
+                ["docker", "rm", "-f", container_name],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        return
+
     if fixture == "docker_webgoat":
         template_url = _primary_scope_url(prepared)
         image = str(prepared.get("runtime_fixture_image") or "webgoat/webgoat")
@@ -416,11 +628,7 @@ def select_next_real_run_scenario(
     scenarios = list_real_run_scenarios(catalog)
     if not scenarios:
         raise ValueError("No enabled real-run scenarios are available.")
-    passed = {
-        item.get("scenario_id")
-        for item in history or []
-        if item.get("status") == "passed"
-    }
+    passed = {item.get("scenario_id") for item in history or [] if item.get("status") == "passed"}
     for scenario in scenarios:
         if scenario.get("id") not in passed:
             return scenario
@@ -448,20 +656,33 @@ def build_target_inputs(target: dict[str, Any]) -> dict[str, list[str]]:
     return {
         "domains": list(scope.get("domains", [])),
         "subdomains": list(scope.get("subdomains", [])),
+        "directory_domains": list(scope.get("directory_domains", [])),
         "urls": list(scope.get("urls", [])),
         "ip_addresses": list(scope.get("hosts", [])),
         "cidr_ranges": list(scope.get("cidrs", [])),
         "api_base_urls": list(scope.get("api_base_urls", [])),
+        "pipeline_config_paths": list(scope.get("pipeline_config_paths", [])),
+        "repositories": list(scope.get("repositories", [])),
+        "llm_endpoints": list(scope.get("llm_endpoints", [])),
+        "apk_paths": list(scope.get("apk_paths", [])),
+        "container_images": list(scope.get("container_images", [])),
+        "kubernetes_manifest_paths": list(scope.get("kubernetes_manifest_paths", [])),
     }
 
 
 def build_allowlist_from_target(target: dict[str, Any]) -> dict[str, list[str]]:
     inputs = build_target_inputs(target)
     return {
-        "domains": [*inputs["domains"], *inputs["subdomains"]],
+        "domains": [*inputs["domains"], *inputs["subdomains"], *inputs["directory_domains"]],
         "urls": [*inputs["urls"], *inputs["api_base_urls"]],
         "hosts": list(inputs["ip_addresses"]),
         "cidrs": list(inputs["cidr_ranges"]),
+        "pipeline_config_paths": list(inputs["pipeline_config_paths"]),
+        "repositories": list(inputs["repositories"]),
+        "llm_endpoints": list(inputs["llm_endpoints"]),
+        "apk_paths": list(inputs["apk_paths"]),
+        "container_images": list(inputs["container_images"]),
+        "kubernetes_manifest_paths": list(inputs["kubernetes_manifest_paths"]),
     }
 
 
@@ -513,13 +734,15 @@ def build_run_configuration(
     scenario: dict[str, Any],
     target: dict[str, Any],
 ) -> dict[str, Any]:
-    run_profile = scenario.get("run_profile") or target.get("recommended_run_profile") or "passive-web-baseline"
+    run_profile = (
+        scenario.get("run_profile")
+        or target.get("recommended_run_profile")
+        or "passive-web-baseline"
+    )
     safety = merge_safety(scenario.get("safety") or target.get("recommended_safety"))
     target_inputs = build_target_inputs(target)
     modules = build_module_state(
-        scenario.get("modules")
-        or target.get("recommended_modules")
-        or ["discovery"]
+        scenario.get("modules") or target.get("recommended_modules") or ["discovery"]
     )
     eta = deepcopy(scenario.get("eta") or {})
     eta.setdefault("estimated_total_minutes", scenario.get("estimated_total_minutes", 45))
@@ -536,13 +759,17 @@ def build_run_configuration(
         "expected_outputs": list(scenario.get("expected_outputs", [])),
     }
     return {
-        "assessment_type": scenario.get("assessment_type") or target.get("assessment_type") or "Website / Web App",
+        "assessment_type": scenario.get("assessment_type")
+        or target.get("assessment_type")
+        or "Website / Web App",
         "test_profile": scenario.get("profile") or target.get("recommended_profile") or "Standard",
         "execution_profile": run_profile,
         "execution_plan": {
             "profile_name": run_profile,
             "planned_tools": RUN_PROFILE_TOOL_HINTS.get(run_profile, []),
-            "description": scenario.get("description") or target.get("notes") or "Acceptance harness run.",
+            "description": scenario.get("description")
+            or target.get("notes")
+            or "Acceptance harness run.",
         },
         "targets": target_inputs,
         "modules": modules,
@@ -557,7 +784,9 @@ def build_engagement_payload(*, scenario: dict[str, Any], target: dict[str, Any]
     return {
         "name": f"Acceptance · {scenario.get('name', scenario.get('id', 'scenario'))} · {suffix}",
         "client": target.get("owner") or "Safe Target Catalog",
-        "roe_ref": scenario.get("roe_ref") or target.get("authorization_ref") or "SAFE-LAB-ACCEPTANCE",
+        "roe_ref": scenario.get("roe_ref")
+        or target.get("authorization_ref")
+        or "SAFE-LAB-ACCEPTANCE",
     }
 
 
@@ -584,13 +813,20 @@ def summarize_result(
     )
     checks = {
         "run_created": bool(run.get("id")),
-        "run_terminal": run.get("status") in TERMINAL_RUN_STATUSES if scenario.get("dispatch", True) else True,
+        "run_terminal": (
+            run.get("status") in TERMINAL_RUN_STATUSES if scenario.get("dispatch", True) else True
+        ),
         "findings_surface_available": isinstance(findings, list),
-        "report_catalog_available": isinstance(reports, list) and len(report_variants) >= scenario.get("minimum_reports", 1),
-        "inventory_available": not expected_outputs.intersection({"inventory", "inventory_snapshot"}) or bool(inventory),
+        "report_catalog_available": isinstance(reports, list)
+        and len(report_variants) >= scenario.get("minimum_reports", 1),
+        "inventory_available": not expected_outputs.intersection(
+            {"inventory", "inventory_snapshot"}
+        )
+        or bool(inventory),
         "task_execution_available": "task_evidence" not in expected_outputs or any_execution,
         "artifact_available": "task_evidence" not in expected_outputs or any_artifact,
-        "pack_visibility_available": "pack_state" not in expected_outputs or isinstance(packs, list),
+        "pack_visibility_available": "pack_state" not in expected_outputs
+        or isinstance(packs, list),
         "minimum_findings_met": len(findings) >= scenario.get("minimum_findings", 0),
     }
     passed = all(checks.values())
@@ -614,8 +850,16 @@ def summarize_result(
         },
         "links": {
             "operator_console": f"{base_url.rstrip('/')}/app/",
-            "run_report_html": f"{base_url.rstrip('/')}/api/v1/runs/{run_id}/report?format=html&variant=technical" if run_id else None,
-            "run_report_pdf": f"{base_url.rstrip('/')}/api/v1/runs/{run_id}/report?format=pdf&variant=technical" if run_id else None,
+            "run_report_html": (
+                f"{base_url.rstrip('/')}/api/v1/runs/{run_id}/report?format=html&variant=technical"
+                if run_id
+                else None
+            ),
+            "run_report_pdf": (
+                f"{base_url.rstrip('/')}/api/v1/runs/{run_id}/report?format=pdf&variant=technical"
+                if run_id
+                else None
+            ),
         },
         "created_at": datetime.now(tz=UTC).isoformat(),
     }
@@ -623,6 +867,10 @@ def summarize_result(
 
 def write_result(payload: dict[str, Any], *, output_path: str | Path | None = None) -> Path:
     timestamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
-    path = Path(output_path) if output_path else results_dir() / f"acceptance-{payload['scenario_id']}-{timestamp}.json"
+    path = (
+        Path(output_path)
+        if output_path
+        else results_dir() / f"acceptance-{payload['scenario_id']}-{timestamp}.json"
+    )
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path

@@ -1,0 +1,117 @@
+{
+  "id": "backlog-248-ai-free-bash-execution-runner",
+  "task_file": "codex/tasks/backlog-248-ai-free-bash-execution-runner.json",
+  "task_type": "product_slice",
+  "title": "AI Free Bash Execution: let the AI agent run arbitrary shell commands on authorized targets via SSH, with operator-per-command approval",
+  "goal": "AutoPenBench's agent achieves 64% success (assisted) by using free Bash execution. AegisPT currently only dispatches predefined runners. The user has requested free Bash execution for the AI agent. Implement an ai-shell runner that gives the AI the ability to propose arbitrary Bash commands, with a strict operator-approval gate per command. Architecture: (1) The AI agent (ai_agent.py), after analyzing a task, can propose a special 'shell' type proposal: { proposed_tool: 'ai-shell', proposed_target: '10.0.0.1', proposed_params: { command: 'sudo -l', via: 'ssh', credentials_ref: 'primary-account' }, reasoning_text: 'Checking sudo permissions to enumerate privilege escalation paths.' } (2) This proposal appears in the Mission Control AI Proposals Inbox (backlog-205) with the exact command visible: 'AI wants to run: sudo -l on 10.0.0.1 via SSH (Primary Account)'. (3) Operator clicks Approve \u2192 command executes via SSH on the approved target. Output captured and returned. (4) AI sees the output in the next analysis cycle and can propose the next command. This creates the Summary\u2192Thought\u2192Action loop from AutoPenBench but with per-command operator approval. (5) Safety boundaries: (a) Only executes on hosts within the engagement's approved CIDR/target list. (b) Banned command list: rm -rf, dd, mkfs, shutdown, reboot, iptables -F, passwd changes, useradd, crontab -r, > /dev/sda, wget|curl to external URLs not in scope. (c) Command output capped at 8000 chars. (d) Each command requires individual operator approval \u2014 no auto-run. (e) Full audit log of every command proposed, approved/rejected, and executed. (f) Kill switch: operator can disable ai-shell for the engagement. (6) Implementation: new workers/runners/ai_shell/runner.py that executes a single SSH command and returns structured output. The runner is invoked when an ai-shell AgentProposal is approved. WIZARD WIRING (mandatory): (1) Add to api/app/services/run_profiles.py: name=active-ai-shell, run_class=ACTIVE, tools=[ai-shell], required_approvals=1, approval_step_id: active-ai-shell. (2) Add profile active-ai-shell to NOT wizard-triggered - only from Mission Control AI Proposals Inbox in api/app/services/assessment_chain.py. (3) Add to wizard.js resolveExecutionProfile: when AI proposal type shell approved in Mission Control, include active-ai-shell in planned profiles. (4) Add to scripts/acceptance_harness.py PROFILE_TOOL_MAP: active-ai-shell: [ai-shell].",
+  "scope": "User request: 'Free Bash execution door AI moet er in komen.' AutoPenBench validates this: their assisted agent (human approves each step) achieves 64% vs 21% autonomous. AegisPT has predefined runners only. AI-shell with per-command approval adds AutoPenBench's key capability while keeping human control.",
+  "status": "queued",
+  "generated_by": "user-request-2026-05-05",
+  "generation_reason": "User explicitly requested free Bash execution for AI. AutoPenBench proves this is the key capability difference. Per-command approval gate keeps the human in control.",
+  "source_context": {
+    "queue_index": 208,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json",
+      "codex/tasks/backlog-232-ai-reasoning-transparency-summary-thought-action.json",
+      "codex/tasks/backlog-238-ai-cross-task-working-memory.json",
+      "codex/tasks/backlog-250-new-runners-wizard-profile-wiring.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-205 (AI Proposals Inbox) must be completed first \u2014 operator approval UI is required before AI can propose shell commands.",
+    "broader_theme": "ai_free_bash_execution",
+    "source_documents": [
+      "api/app/services/ai_agent.py",
+      "workers/orchestration/tasks.py",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Per-command approval REQUIRED for every shell command. No batch approval. No auto-run mode for shell commands. Banned command list strictly enforced.",
+    "safety": "NEVER execute ai-shell commands on the AegisPT host itself \u2014 only on approved engagement targets via SSH. Full audit log mandatory. Banned commands: rm -rf, dd, mkfs, shutdown, reboot, iptables -F, passwd, useradd, crontab -r, wget/curl to non-scope URLs.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "AI can propose 'shell' type proposals with command, target, and SSH credential reference.",
+    "Proposals appear in Mission Control AI Proposals panel with exact command visible.",
+    "Operator approval executes command via SSH on target.",
+    "Command output returned and fed into next AI analysis cycle.",
+    "Banned command list enforced before SSH execution.",
+    "Only executes on hosts within engagement CIDR.",
+    "Full audit log: proposed, approved/rejected, executed, output hash.",
+    "Kill switch per engagement to disable ai-shell.",
+    "AutoPenBench-style Summary\u2192Thought\u2192Action loop possible via successive shell proposals.",
+    "No regression in existing AI agent or runner tests.",
+    "RunProfile active-ai-shell added to run_profiles.py.",
+    "Runner reachable via wizard when: AI proposal type shell approved in Mission Control."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_agent.py",
+    "workers/orchestration/tasks.py",
+    "workers/runners/ai_shell/runner.py",
+    "ui/assets/modules/mission-control.js",
+    "api/app/models/control.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "api/app/services/run_profiles.py",
+    "api/app/services/assessment_chain.py",
+    "ui/assets/modules/wizard.js",
+    "scripts/acceptance_harness.py"
+  ],
+  "must_not_touch": [
+    "Intrusive exploitation gates",
+    "Core scope enforcement",
+    "Existing predefined runners"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "ai-shell proposal type accepted by AI agent.",
+      "Proposal shows exact command in Mission Control UI.",
+      "Approval executes via SSH, output returned.",
+      "Banned commands blocked before execution.",
+      "Audit log entry created for every command.",
+      "All existing tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-205 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Auto-approval of shell commands",
+    "Batch command execution without per-command approval",
+    "Execution on non-SSH targets (HTTP command injection etc.)",
+    "Execution on the AegisPT host itself"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

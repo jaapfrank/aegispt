@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 from hashlib import sha256
@@ -23,6 +24,14 @@ DEFAULT_SEMGREP_RULE = """rules:
 
 CURATED_RULE_ID = "aegispt.python.hardcoded-secret"
 CURATED_RULE_SOURCE = "aegispt-curated"
+_PROXY_ENV_KEYS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
 
 
 def curated_semgrep_rule_sha256() -> str:
@@ -51,6 +60,15 @@ def normalize_semgrep_payload(payload: dict[str, object]) -> dict[str, object]:
             result["check_id"] = normalize_semgrep_rule_id(check_id)
 
     return payload
+
+
+def _semgrep_env() -> dict[str, str]:
+    env = dict(os.environ)
+    for key in _PROXY_ENV_KEYS:
+        value = env.get(key)
+        if value is not None and not value.strip():
+            env.pop(key, None)
+    return env
 
 
 def build_semgrep_command(
@@ -90,6 +108,7 @@ def get_semgrep_version(binary: str) -> str:
         capture_output=True,
         text=True,
         check=False,
+        env=_semgrep_env(),
     )
     version_output = (result.stdout or result.stderr).strip()
     return version_output or "semgrep"
@@ -147,6 +166,7 @@ def execute_semgrep_scan(
                 capture_output=True,
                 text=True,
                 check=False,
+                env=_semgrep_env(),
             )
             if process.returncode != 0:
                 exit_code = 1

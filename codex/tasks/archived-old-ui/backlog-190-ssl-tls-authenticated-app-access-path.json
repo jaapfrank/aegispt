@@ -1,0 +1,91 @@
+{
+  "id": "backlog-190-ssl-tls-authenticated-app-access-path",
+  "task_file": "codex/tasks/backlog-190-ssl-tls-authenticated-app-access-path.json",
+  "task_type": "corrective_product_slice",
+  "title": "SSL/TLS Only and Authenticated App: restore discoverability as dedicated wizard tiles or depth sub-options",
+  "goal": "Live audit confirmed that ssl-tls and authenticated-app are not present as standalone wizard tiles (tile grid shows 10 tiles; ssl-tls and authenticated-app are absent). The depth options for External Web are only Passive / Active Scan / Full Pentest — no SSL/TLS Only or Authenticated App sub-option. Operators wanting a TLS certificate audit or an authenticated web application scan have no clear self-service path. Fix with one of these approaches in priority order: (1) Add ssl-tls and authenticated-app back as tiles in the ASSESSMENT_TILE_OPTIONS array in wizard.js with appropriate icons, descriptions, and phase tags — preferred. (2) If tile addition causes layout issues, add them as depth sub-options under External Web tile: alongside Passive/Active/Full Pentest, add 'SSL/TLS Only' and 'Authenticated' depth cards. Do not remove or change any existing tile or depth option.",
+  "scope": "Live audit 2026-05-01: test_ssl_tls_and_authenticated_not_standalone_tiles confirmed ssl-tls and authenticated-app absent from tile grid. External Web depth options are ['passive', 'active', 'full'] — no SSL or authenticated option. This was present in the old conversational wizard and is missing from the new tile wizard.",
+  "status": "queued",
+  "generated_by": "live-wizard-audit-2026-05-01",
+  "generation_reason": "Live audit 2026-05-01: SSL/TLS Only and Authenticated App assessment types have no discoverable entry path in the tile wizard.",
+  "source_context": {
+    "queue_index": 190,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_assessment_coverage",
+    "source_documents": [
+      "ui/assets/modules/wizard.js",
+      "ui/assets/modules/constants.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only restore the two missing assessment types. Do not redesign the tile grid layout or change existing tiles.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "SSL/TLS Only assessment type is reachable from the wizard without needing Advanced Configuration.",
+    "Authenticated App assessment type is reachable from the wizard without needing Advanced Configuration.",
+    "Both map to the correct execution profiles (ssl-tls-only and authenticated web lane).",
+    "Existing tiles and depth options unchanged.",
+    "No regression in wizard E2E or matrix tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/constants.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing tile entries",
+    "Backend profile definitions",
+    "Existing depth options (Passive, Active Scan, Full Pentest)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "page.locator('[data-testid=\"wizard-assessment-tile-ssl-tls\"]').count() > 0",
+      "page.locator('[data-testid=\"wizard-assessment-tile-authenticated-app\"]').count() > 0",
+      "Selecting ssl-tls tile reaches a preview with SSL methodology.",
+      "No regression in existing tile tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "New execution profiles for these types",
+    "Backend runner changes",
+    "Removing conversational wizard fallback"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

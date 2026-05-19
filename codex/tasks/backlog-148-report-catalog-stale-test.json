@@ -1,0 +1,95 @@
+{
+  "id": "backlog-148-report-catalog-stale-test",
+  "task_file": "codex/tasks/backlog-148-report-catalog-stale-test.json",
+  "task_type": "corrective_test_slice",
+  "title": "Fix stale report catalog assertion in test_adaptive_pack_pipeline_binds_to_run_and_exports_reports_end_to_end",
+  "goal": "Update the stale product feature matrix assertion to match the adaptive report catalog introduced by backlog-118, without reverting the product consolidation.",
+  "scope": "api/tests/test_product_feature_matrix.py still asserts the old report catalog variants {executive, technical, evidence, retest, soc2, iso27001, pci_dss, assurance, attack_narrative, nis2, dora}, while backlog-118 replaced the catalog with the consolidated set {summary, technical, compliance, retest}. Fix the test expectation and any follow-up lookup that still uses executive instead of summary.",
+  "status": "queued",
+  "generated_by": "full-system-assessment-2026-04-30",
+  "generation_reason": "Discovered during full-system assessment: product feature matrix timed out/not green and an existing unqueued task package captured the stale report catalog assertion after adaptive report consolidation.",
+  "source_context": {
+    "queue_index": 145,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md",
+      "codex/tasks/backlog-118-adaptive-report-consolidation.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "full_system_regression_unblockers",
+    "source_documents": [
+      "api/tests/test_product_feature_matrix.py",
+      "api/app/services/reports.py",
+      "TASK_QUEUE.md",
+      "NEXT_TASK.md"
+    ],
+    "affected_tests": [
+      "api/tests/test_product_feature_matrix.py::test_adaptive_pack_pipeline_binds_to_run_and_exports_reports_end_to_end"
+    ],
+    "root_cause": "backlog-118 replaced 11 flat report variants with summary, technical, compliance, and retest, but the product feature matrix still asserts the old variants."
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Test expectation update only. Do not revert adaptive report consolidation or change product report variants unless product behavior is proven wrong.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "test_adaptive_pack_pipeline_binds_to_run_and_exports_reports_end_to_end passes.",
+    "No other product feature matrix tests regressed.",
+    "The asserted report variants match the adaptive catalog: summary, technical, compliance, retest."
+  ],
+  "likely_touched_files": [
+    "api/tests/test_product_feature_matrix.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "adaptive report consolidation product behavior",
+    "pack registry bypass",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_product_feature_matrix.py --tb=short -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The stale catalog assertion is updated to the current adaptive report variants and the focused product feature matrix test passes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad report redesign",
+    "Changing product report variants to satisfy a stale test",
+    "Running live customer or intrusive targets"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

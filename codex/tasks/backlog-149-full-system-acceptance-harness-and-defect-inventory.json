@@ -1,0 +1,101 @@
+{
+  "id": "backlog-149-full-system-acceptance-harness-and-defect-inventory",
+  "task_file": "codex/tasks/backlog-149-full-system-acceptance-harness-and-defect-inventory.json",
+  "task_type": "backlog_slice",
+  "title": "Full System Acceptance Harness and Defect Inventory",
+  "goal": "Create a deterministic product-wide acceptance harness that exercises every visible screen, navigation item, primary button, form field, setting section, and safe operator flow, then records a durable defect inventory with evidence.",
+  "scope": "Build a fast, repeatable acceptance layer that crawls the live UI and API in a safe localhost fixture. It must enumerate screens, controls, fields, disabled actions, console/network errors, empty states, and unsafe/ambiguous copy. It must fill representative safe values into fields without dispatching live customer targets, verify navigation and action contracts, and write a machine-readable plus human-readable defect inventory under codex/results/.",
+  "status": "queued",
+  "generated_by": "operator-system-audit-2026-04-30",
+  "generation_reason": "The operator reported that many buttons and options do not work or are unclear. Existing tests are broad but do not systematically prove every visible control and field. This is not a duplicate of backlog-117; backlog-117 fixed selected clarity gaps, while this task creates a durable full-system acceptance harness and defect inventory gate.",
+  "queue_index": 149,
+  "source_context": {
+    "queue_index": 146,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md",
+      "codex/results/full-system-live-visible-screen-crawl-20260430.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "product_acceptance_and_operator_quality",
+    "source_documents": [
+      "ui/assets/app.js",
+      "ui/assets/modules/",
+      "api/app/routers/",
+      "ui/tests/",
+      "api/tests/",
+      "scripts/run_ui_fast_tests.sh",
+      "scripts/run_product_e2e_matrix.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Acceptance harness and defect inventory only. Do not fix the product defects in this task except where a tiny testability hook is needed for evidence capture.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "A safe automated crawl enumerates every primary screen and route.",
+    "The harness records every visible button, disabled button, form field, required input, ambiguous action, console error, network error, and empty/error state.",
+    "The harness can fill representative safe values into settings and wizard fields without launching unsafe target actions.",
+    "The output includes a prioritized defect inventory grouped by page and operator journey.",
+    "The output cross-checks new findings against existing backlog items to avoid duplicates.",
+    "The harness runs in a bounded time target suitable for repeated use during build-lane work."
+  ],
+  "likely_touched_files": [
+    "scripts/run_full_system_acceptance_audit.py",
+    "ui/tests/test_full_system_acceptance_audit.py",
+    "codex/results/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "runtime self-modification"
+  ],
+  "out_of_scope": [
+    "Fixing all discovered defects in the same task",
+    "Running live customer targets",
+    "Intrusive LAN, AD, IoT, cloud, or web scans",
+    "Changing finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check",
+      "Run the new full-system acceptance audit against localhost",
+      "Run targeted smoke coverage proving the harness detects at least one seeded broken-control fixture"
+    ],
+    "acceptance_criteria": [
+      "codex/results contains a full-system defect inventory with screen, control, evidence, severity, duplicate-status, and recommended backlog target for each issue."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "backlog-142 through backlog-148 concrete regression/test unblockers are either completed or explicitly deferred by the operator.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

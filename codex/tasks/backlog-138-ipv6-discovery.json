@@ -1,0 +1,90 @@
+{
+  "id": "backlog-138-ipv6-discovery",
+  "task_file": "codex/tasks/backlog-138-ipv6-discovery.json",
+  "task_type": "backlog_slice",
+  "title": "IPv6 Neighbor Discovery and Link-Local Scanning",
+  "goal": "Discover IPv6-enabled hosts on the LAN using Neighbor Discovery Protocol, scan their link-local and global addresses, and identify IPv6-specific misconfigurations.",
+  "scope": "Add IPv6 support to the network discovery runner. Create workers/runners/ipv6_discovery/runner.py: (1) NEIGHBOR DISCOVERY: send ICMPv6 Neighbor Solicitation to ff02::1 (all-nodes multicast) to get all link-local IPv6 addresses on the segment. Also send Router Solicitation to ff02::2 to find IPv6 routers. Parse Neighbor Advertisement responses to build a list of link-local addresses and their MAC addresses. (2) GLOBAL IPv6 ENUMERATION: if a global IPv6 prefix is available (from Router Advertisement), scan the /64 network using ndp-scan or nmap -6 against the discovered link-local addresses. (3) IPv6-SPECIFIC FINDINGS: check for: hosts reachable via IPv6 that have no IPv4 firewall rules (classic bypass), SLAAC privacy extensions disabled (stable addresses that can be tracked), IPv6 management interfaces on devices that have IPv4 management locked down (many IoT devices enable IPv6 by default), DHCPv6 in use (check for rogue DHCPv6 responses). (4) NMAP IPv6: run nmap -6 against all discovered IPv6 addresses with the same port list as IPv4 scan. Add finding: 'Host X has IPv6 address but no IPv6 firewall rule detected' when IPv6 is accessible without corresponding IPv4 access. Add profile passive-lan-ipv6-discovery.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "Modern home networks and enterprise networks have IPv6 enabled by default. Many IoT devices (Unifi, Philips Hue, Home Assistant) support IPv6. A common bypass technique is to access a host via its IPv6 link-local address even when IPv4 firewall blocks it. AegisPT has zero IPv6 support.",
+  "queue_index": 138,
+  "source_context": {
+    "queue_index": 136,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_iot_testing",
+    "source_documents": [
+      "workers/runners/nmap/runner.py",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Passive discovery only. No IPv6 attacks. Multicast queries limited to local segment. No rogue RA injection.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "ICMPv6 neighbor solicitation discovers link-local addresses.",
+    "Router solicitation finds IPv6 routers.",
+    "nmap -6 runs against discovered IPv6 addresses.",
+    "Finding created for hosts accessible via IPv6 but not IPv4.",
+    "IPv6 addresses added to inventory alongside IPv4.",
+    "Profile passive-lan-ipv6-discovery added.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "workers/runners/ipv6_discovery/runner.py",
+    "api/app/services/run_profiles.py",
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "IPv6 exploitation",
+    "Rogue Router Advertisement injection",
+    "DHCPv6 attacks"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "IPv6 addresses discovered. nmap -6 runs. IPv6-only reachability findings created."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

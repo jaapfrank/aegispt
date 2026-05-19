@@ -1,0 +1,107 @@
+{
+  "id": "backlog-37-remediation-portfolio-sla-foundation",
+  "task_file": "codex/tasks/backlog-37-remediation-portfolio-sla-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Remediation Portfolio SLA Foundation",
+  "goal": "Extend first-slice remediation into portfolio-level closure visibility without replacing the existing finding workflow.",
+  "scope": "Add a first portfolio remediation queue with SLA visibility, ownership filters, and batch retest planning based on existing remediation records and linked retest runs. Keep actual retest dispatch approval-aware and explicit.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found SLA tracking and batch remediation follow-up were not explicit after the first remediation slice.",
+  "source_context": {
+    "queue_index": 37,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "remediation_closure",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Build portfolio visibility and planning only. Do not add automatic retest dispatch, SLA enforcement, or ticketing worker automation.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Batch retests must remain explicit and approval-aware.",
+      "SLA status must be transparent and configurable, not hard-coded as contractual truth."
+    ]
+  },
+  "success_criteria": [
+    "Operators can review remediation items across findings or runs with owner and SLA context.",
+    "Batch retest planning can group eligible findings without automatically dispatching scans.",
+    "Overdue, due-soon, verified, and blocked states are distinguishable.",
+    "Browser/API tests cover portfolio review and approval-aware retest planning.",
+    "Existing single-finding remediation flow remains intact."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/findings.py",
+    "api/app/services/remediation.py",
+    "api/app/schemas/finding_views.py",
+    "ui/assets/modules/findings.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "api/tests/test_findings.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_findings.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Portfolio remediation view uses existing remediation records.",
+      "Batch retest planning does not bypass approval.",
+      "Single-finding remediation remains compatible."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Existing remediation record and retest linkage behavior is inspected."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with remediation portfolio changes and validation evidence.",
+      "Update CURRENT_STATE.md with the remediation portfolio baseline and remaining automation limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Automatic retest dispatch",
+    "Ticketing background workers",
+    "Contractual SLA enforcement",
+    "Changing finding schema fields",
+    "Bypassing approval gates"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

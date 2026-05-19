@@ -89,7 +89,8 @@ def test_static_operator_console_is_served(client) -> None:
 
     assert response.status_code == 200
     assert "AegisPT Operator Console" in response.text
-    assert "Conversational Mission Intake" in response.text
+    assert "What do you want to test?" in response.text
+    assert "Problems Center" in response.text
     assert "Mission Control" in response.text
 
 

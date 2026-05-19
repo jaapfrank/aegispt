@@ -1,0 +1,31 @@
+{
+  "approval_status": "not_requested",
+  "constraints": {
+    "runtime_mutation": false
+  },
+  "created_at": "2026-05-04T09:56:05.089938Z",
+  "expected_output": {
+    "validation_required": true,
+    "workspace_export": true
+  },
+  "generated_by": "codex",
+  "generation_reason": "Refine report-pack coverage before future promotion decisions.",
+  "id": "task-20260504095605-pack-refinement-fed03f4e",
+  "inputs": {
+    "review_bundle": true
+  },
+  "requested_by": "codex-planner",
+  "scope": "Review the bound adaptive pack in the supervised build lane.",
+  "source_context": {
+    "inventory_snapshot_id": null,
+    "pack_id": "5896dd57-d0d8-4a01-b2f4-ee6b3d71c2a9",
+    "pack_version": "v1",
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "status": "prepared",
+  "task_file": "codex/tasks/task-20260504095605-pack-refinement-fed03f4e.json",
+  "task_type": "pack_refinement",
+  "updated_at": "2026-05-04T09:56:05.098961Z",
+  "validation_status": "ready_for_existing_pipeline"
+}

@@ -1,0 +1,49 @@
+name: AegisPT Ephemeral URL Scan
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Deployed ephemeral environment URL already covered by the AegisPT engagement scope
+        required: true
+
+jobs:
+  aegispt-ephemeral-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      AEGISPT_BASE_URL: ${{ secrets.AEGISPT_BASE_URL }}
+      AEGISPT_ENGAGEMENT_ID: ${{ secrets.AEGISPT_ENGAGEMENT_ID }}
+      AEGISPT_API_KEY: ${{ secrets.AEGISPT_API_KEY }}
+      AEGISPT_TARGET_URL: ${{ inputs.target_url || vars.AEGISPT_EPHEMERAL_TARGET_URL }}
+    steps:
+      - name: Launch AegisPT ephemeral scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -nc \
+            --arg target_url "$AEGISPT_TARGET_URL" \
+            --arg ref "$GITHUB_REF" \
+            --arg sha "$GITHUB_SHA" \
+            --arg repo "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --arg run_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{target_url:$target_url, ref:$ref, commit_sha:$sha, repository_url:$repo, metadata_json:{github_run_url:$run_url}}')"
+          curl --fail --show-error --silent \
+            -X POST "$AEGISPT_BASE_URL/api/v1/engagements/$AEGISPT_ENGAGEMENT_ID/cicd/ephemeral-scans" \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $AEGISPT_API_KEY" \
+            --data-binary "$payload" \
+            | tee aegispt-ephemeral-scan.json
+
+      - name: Read initial pass/fail status
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(jq -r '.pass_fail_status' aegispt-ephemeral-scan.json)"
+          echo "AegisPT initial status: $status"
+          test "$status" != "error"

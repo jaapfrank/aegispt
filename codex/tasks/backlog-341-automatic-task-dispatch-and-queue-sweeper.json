@@ -1,0 +1,112 @@
+{
+  "id": "backlog-341-automatic-task-dispatch-and-queue-sweeper",
+  "task_file": "codex/tasks/backlog-341-automatic-task-dispatch-and-queue-sweeper.json",
+  "task_type": "operational_reliability",
+  "title": "Automatic Task Dispatch: Queue Sweeper + Correct Default Mode",
+  "goal": "Tasks must never sit in 'queued' status indefinitely without being executed. Currently three code paths leave tasks stuck: (1) config.py defaults task_dispatch_mode to 'manual' so any server started without the run_host_api.sh script never dispatches; (2) ai_loop passive tasks created by advance_assessment_loop() are queued but not dispatched; (3) pivot engine follow-up tasks (backlog-337) are queued but not dispatched. This task fixes all three: change the default dispatch mode to 'inline', add a background queue sweeper that runs every 10 seconds to dispatch any tasks that have been in 'queued' status for more than 5 seconds (safety window), and ensure every code path that creates queued tasks dispatches them inline immediately. The result: operator creates a run, tasks start executing within seconds, no 'Start Queued Checks' button required.",
+  "scope": "api/app/config.py, api/app/main.py, api/app/services/task_dispatch.py, workers/orchestration/tasks.py",
+  "status": "queued",
+  "generated_by": "gap-analysis-tasks-stuck-in-queue",
+  "generation_reason": "Operators report that tasks sit in 'queued' status and never execute unless they click 'Start Queued Checks'. This is caused by the 'manual' dispatch default and missing dispatch calls in the ai_loop and pivot code paths.",
+  "source_context": {
+    "queue_index": 293,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "NONE",
+    "broader_theme": "operational_reliability",
+    "key_files": [
+      "api/app/config.py",
+      "api/app/main.py",
+      "api/app/services/task_dispatch.py",
+      "api/app/services/assessment_loop.py",
+      "workers/orchestration/tasks.py"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "kill_switch": "The queue sweeper must check execution_kill_switch_enabled() before dispatching any task. If kill switch is on, the sweeper must not dispatch anything.",
+    "scope_and_roe": "The sweeper dispatches tasks that are already created and scoped. It does not create new tasks. Scope/ROE is enforced at task creation time.",
+    "no_double_dispatch": "The sweeper must only dispatch tasks with status='queued'. It must atomically update task status to 'dispatching' before dispatching to prevent double-dispatch under concurrent requests.",
+    "inline_only": "The sweeper uses the existing process_task_by_id() inline executor. It does not require Dramatiq or Celery.",
+    "existing_tests": "pytest api/tests/ must pass without modification to existing tests.",
+    "backward_compat": "If TASK_DISPATCH_MODE env var is explicitly set to 'manual' or 'dramatiq', respect it. The default change only affects unset/default installs.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "step1_default_change": "In api/app/config.py change: task_dispatch_mode: str = 'manual' -> task_dispatch_mode: str = 'inline'. Add comment: 'inline runs tasks in-process via background threads; use dramatiq for production scale-out'.",
+    "step2_sweeper_service": "Create api/app/services/task_sweeper.py with a function start_task_sweeper(settings) that starts a daemon thread. The thread: (a) sleeps 10 seconds, (b) opens a DB session, (c) queries for tasks WHERE status='queued' AND created_at < now()-5s AND run.status NOT IN ('cancelled','cancelling','rejected'), (d) checks kill switch, (e) for each task calls process_task_by_id(task_id) in a ThreadPoolExecutor with max_workers=4, (f) catches all exceptions per task and logs them.",
+    "step3_lifespan": "In api/app/main.py, in the FastAPI lifespan or startup event, call start_task_sweeper(settings) when task_dispatch_mode == 'inline'. Do not start sweeper in 'manual' or 'dramatiq' mode.",
+    "step4_ai_loop_dispatch": "In workers/orchestration/tasks.py, in _maybe_advance_assessment_loop_after_task(), after advance_assessment_loop() returns, extract queued_task_id from the result and call dispatch_task_execution(queued_task_id, settings) immediately. Do not wait for the sweeper.",
+    "step5_pivot_dispatch": "In _maybe_detect_and_record_pivots() in tasks.py, after pivot follow-up tasks are created (from backlog-337), dispatch them immediately via dispatch_task_execution().",
+    "step6_test": "Add api/tests/test_task_sweeper.py with a test that: creates a run with queued tasks, waits for sweeper to pick them up in a test that uses time-mocking, asserts tasks move from queued to completed/failed."
+  },
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/",
+      "cd ui-v2 && npm run build"
+    ],
+    "acceptance_criteria": [
+      "Server started without run_host_api.sh: tasks dispatch automatically within 15 seconds of creation.",
+      "ai_loop passive task: dispatched immediately after advance_assessment_loop() returns.",
+      "Pivot follow-up task: dispatched immediately after pivot context document is created.",
+      "Kill switch enabled: sweeper does NOT dispatch any tasks.",
+      "Task with status 'queued' older than 5 seconds AND kill switch off: picked up by sweeper and executed.",
+      "No task is dispatched twice (atomic status check prevents double-dispatch)."
+    ]
+  },
+  "success_criteria": [
+    "Server started without run_host_api.sh: tasks dispatch automatically within 15 seconds of creation.",
+    "ai_loop passive task: dispatched immediately after advance_assessment_loop() returns.",
+    "Pivot follow-up task: dispatched immediately after pivot context document is created.",
+    "Kill switch enabled: sweeper does NOT dispatch any tasks.",
+    "Task with status 'queued' older than 5 seconds AND kill switch off: picked up by sweeper and executed.",
+    "No task is dispatched twice (atomic status check prevents double-dispatch)."
+  ],
+  "likely_touched_files": [
+    "api/app/config.py",
+    "api/app/main.py",
+    "api/app/services/task_dispatch.py",
+    "api/app/services/assessment_loop.py",
+    "workers/orchestration/tasks.py"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,90 @@
+{
+  "id": "backlog-175-topbar-stats-chips-label-clarity",
+  "task_file": "codex/tasks/backlog-175-topbar-stats-chips-label-clarity.json",
+  "task_type": "corrective_product_slice",
+  "title": "Fix topbar stats chips: label ambiguity and redundant subtitle labels",
+  "goal": "The topbar stats chip row shows labels like '4 ENGAGEMENTS · DOSSIERS · 4 RUNS · MISSIONS · 5 FINDINGS · 4 CRITICAL · 5 OPEN ITEMS · BASELINE'. Several problems: (1) 'ENGAGEMENTS · DOSSIERS' reads as two separate counts but is one number — the '· DOSSIERS' suffix is redundant; simplify to '4 Engagements', (2) 'RUNS · MISSIONS' — same issue; simplify to '4 Runs', (3) 'OPEN ITEMS · BASELINE' — unclear what BASELINE means here; remove the baseline suffix or show it as a separate badge only when a baseline comparison is active, (4) Chip font size and contrast may be too small to read at a glance — verify minimum 11px and adequate contrast against the dark topbar background. Update the chip rendering logic in app.js renderTopbarStats or equivalent function.",
+  "scope": "System review 2026-05-01: Topbar stats chips show concatenated labels ('ENGAGEMENTS · DOSSIERS', 'RUNS · MISSIONS', 'OPEN ITEMS · BASELINE') that are confusing. The middle terms appear to be secondary descriptor words appended to counts but add no value and create parsing difficulty.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: Topbar stats chips have confusing concatenated labels — simplify to single-noun count chips.",
+  "source_context": {
+    "queue_index": 175,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "topbar_data_clarity",
+    "source_documents": [
+      "ui/assets/app.js",
+      "ui/assets/modules/runtime.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only update chip label strings and rendering. Do not change data fetching or topbar layout.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Each chip shows one count and one noun: '4 Engagements', '4 Runs', '5 Findings', '4 Critical', '5 Open'.",
+    "No chip has a mid-dot separator with a secondary descriptor word.",
+    "BASELINE chip only shows when a baseline comparison is active (or is removed entirely).",
+    "Chips are readable at 11px min font size on dark background.",
+    "No regression in E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/app.js",
+    "ui/assets/modules/runtime.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Engagement/run/finding data fetching",
+    "Backend API",
+    "Topbar layout structure"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "All chips follow 'N Noun' pattern.",
+      "No mid-dot secondary labels.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Topbar redesign",
+    "Chip navigation behavior",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,133 @@
+{
+  "id": "backlog-142-roe-authorization-checkbox-test-helper",
+  "task_file": "codex/tasks/backlog-142-roe-authorization-checkbox-test-helper.json",
+  "task_type": "corrective_test_slice",
+  "title": "Fix ROE authorization checkbox not handled in _launch_guided_mission_from_preview test helper",
+  "goal": "In both test files, update the _launch_guided_mission_from_preview helper to also handle the wizard-roe-authorization-checkbox case. After advancing to step 4, before clicking Create Mission, check if the button is disabled and if the wizard-roe-authorization-checkbox is present and unchecked \u2014 if so, check it. This is the correct product behavior (authorization must be acknowledged) so the fix is in the tests, not the wizard.",
+  "scope": "After backlog-120 added the ROE gate, the wizard shows an authorization checkbox (wizard-roe-authorization-checkbox) when a new mission is created without an ROE reference. The Create Mission button stays disabled until the checkbox is checked. The _launch_guided_mission_from_preview helper in both test_operator_console_e2e.py and test_product_feature_matrix_e2e.py handles the 'wizard-full-authorization-input' (typed target confirmation) case but NOT the 'wizard-roe-authorization-checkbox' case. This causes over 30 E2E tests to fail with TimeoutError: Locator.click: Timeout 15000ms exceeded on [data-wizard-create-mission=true] because the button is disabled.",
+  "status": "queued",
+  "generated_by": "full-system-assessment-2026-04-30",
+  "generation_reason": "After backlog-120 added the ROE gate, the wizard shows an authorization checkbox (wizard-roe-authorization-checkbox) when a new mission is created without an ROE reference. The Create Mission button stays disabled until the checkbox is checked. The _launch_guided_mission_from_preview helper in both test_operator_console_e2e.py and test_product_feature_matrix_e2e.py handles the 'wizard-full-authorization-input' (typed target confirmation) case but NOT the 'wizard-roe-authorization-checkbox' case. This causes over 30 E2E tests to fail with TimeoutError: Locator.click: Timeout 15000ms exceeded on [data-wizard-create-mission=true] because the button is disabled.",
+  "source_context": {
+    "queue_index": 140,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "full_system_regression_unblockers",
+    "source_documents": [
+      "ui/tests/test_operator_console_e2e.py",
+      "ui/tests/test_product_feature_matrix_e2e.py",
+      "TASK_QUEUE.md",
+      "NEXT_TASK.md"
+    ],
+    "affected_tests": [
+      "test_external_infrastructure_tile_routes_to_external_infrastructure_execution_lane",
+      "test_authenticated_webapp_flow_supports_reports_and_secret_binding",
+      "test_customer_portal_intent_enters_authenticated_app_path",
+      "test_ai_signal_provider_disabled_state_is_static_and_readable",
+      "test_surface_map_shows_only_functional_tabs_and_light_empty_state_before_inventory_exists",
+      "test_findings_filters_and_retest_queue_start_collapsed",
+      "test_mission_control_groups_secondary_context_into_calmer_snapshot_panels",
+      "test_reports_use_verified_hash_label_and_history_empty_state_is_guided",
+      "test_discovery_report_center_shows_inventory_even_without_findings",
+      "test_discovery_evidence_replay_shows_run_level_context_without_findings",
+      "test_surface_map_search_filters_large_inventory_without_losing_detail",
+      "test_explorer_dossier_summary_makes_follow_up_review_actionable",
+      "test_history_comparison_includes_inventory_delta_and_search",
+      "test_guided_web_preview_and_launch_copy_follow_selected_surface",
+      "test_guided_passive_lan_preview_only_promises_discovery_phase",
+      "test_inventory_follow_up_can_launch_service_identification",
+      "test_internal_validation_conversation_stays_operational_without_credentials",
+      "test_authenticated_app_can_stay_unauthenticated_without_access_dead_end",
+      "test_internal_range_authenticated_review_stages_discovery_first_with_access_context",
+      "test_internal_range_deep_assessment_stages_discovery_first",
+      "test_internal_range_adaptive_testing_stages_discovery_first",
+      "test_web_internal_validation_intent_normalizes_to_deep_assessment",
+      "test_scope_revision_from_authenticated_web_to_internal_range_realigns_to_discovery_first_internal_plan",
+      "test_scope_revision_from_adaptive_web_to_internal_range_realigns_to_discovery_first_internal_plan",
+      "test_scope_revision_from_api_to_plain_web_url_reclassifies_scope_truthfully",
+      "test_scope_revision_from_internal_report_only_boundaries_to_web_clears_stale_lateral_copy",
+      "test_scope_revision_from_internal_validation_lan_realigns_to_deep_web_plan",
+      "test_profile_matrix_presets_create_truthful_run_dossiers (8 variants)",
+      "test_multi_role_access_matrix_keeps_role_context_visible_from_intake_to_dossier",
+      "test_execution_outcome_matrix_surfaces_blocked_pending_approval_state",
+      "test_report_download_actions_create_real_browser_files",
+      "test_dispatch_and_status_history_work_after_conversational_intake",
+      "test_ready_to_start_and_thin_output_states_keep_one_dispatch_action_and_truthful_completion",
+      "test_manual_dispatch_mode_explains_why_start_validation_does_not_launch_work"
+    ],
+    "root_cause": "needsRoeAuthorizationConfirmation() in wizard.js returns true when no roe_ref is provided and no authorization_confirmed_at exists on the engagement. The Create Mission button gets disabled=true. The test helpers do not check for or click the 'wizard-roe-authorization-checkbox' to enable the button before clicking."
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep the fix to the named regression slice. Do not use this task for broad UI/product redesign or unrelated runtime changes.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "All previously-failing tests that were blocked on disabled Create Mission button now pass.",
+    "No regression in tests that were already passing.",
+    "The wizard ROE authorization checkbox is still shown and required when no roe_ref is provided."
+  ],
+  "likely_touched_files": [
+    "ui/tests/test_operator_console_e2e.py",
+    "ui/tests/test_product_feature_matrix_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "approval or scope gate bypass",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py ui/tests/test_product_feature_matrix_e2e.py --tb=short -q 2>&1 | tail -20",
+      "Confirm the previously-failing tests now pass",
+      "Confirm no new test failures introduced",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "All previously-failing tests that were blocked on disabled Create Mission button now pass.",
+      "No regression in tests that were already passing.",
+      "The wizard ROE authorization checkbox is still shown and required when no roe_ref is provided."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad product redesign",
+    "Installing new tools",
+    "Running live customer or intrusive targets",
+    "Changing unrelated schemas or prompts"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

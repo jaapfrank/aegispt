@@ -1,0 +1,96 @@
+{
+  "id": "backlog-267-responsive-css-breakpoints-grid",
+  "task_file": "codex/tasks/backlog-267-responsive-css-breakpoints-grid.json",
+  "task_type": "product_slice",
+  "title": "Responsive CSS: add tablet breakpoints (768px, 1024px), CSS Grid for AI loop 4-panel layout, and tile grid 2-column fallback",
+  "goal": "The current CSS has only two media queries (900px and 640px) \u2014 no tablet support. The AI loop Mission Control UI (backlog-262) introduces a 4-panel layout that requires proper responsive design from the start. Fix: (1) ADD BREAKPOINTS: @media (max-width: 1280px) for large desktop adjustments, @media (max-width: 1024px) for tablet landscape, @media (max-width: 768px) for tablet portrait/large mobile, @media (max-width: 640px) for existing mobile. (2) AI LOOP 4-PANEL LAYOUT using CSS Grid: desktop (>1280px): 2-column main + 1-column sidebar (Current Action | What We Know + AI Reasoning | Timeline). tablet landscape (1024px): 2-column layout (Current Action + What We Know | AI Reasoning). tablet portrait (768px): 1-column stacked. mobile: 1-column with collapsible panels. (3) TILE GRID: at 1024px breakpoint: 3 columns \u2192 2 columns (not the current 3\u21921 jump at 900px). At 768px: 2 columns \u2192 1 column. (4) SETTINGS TABS: at 768px, tabs become a horizontal scroll row (same height, no line break). At 640px, tabs become a select dropdown. (5) WIZARD: target input card full-width at 768px. Depth cards stack vertically at 640px. (6) SIDEBAR: collapses to icon-only at 768px, hidden completely at 640px (hamburger menu). Use CSS Grid and Flexbox. Keep the existing design tokens from backlog-199 (--spacing-xs etc.) \u2014 this task adds the responsive layout rules using those tokens.",
+  "scope": "UI responsiveness review 2026-05-07: CSS has only 2 media queries, missing tablet. AI loop 4-panel UI requires proper CSS Grid from the start. Tile grid jumps from 3\u21921 columns with no 2-column intermediate. Settings tabs and wizard have no tablet layout.",
+  "status": "queued",
+  "generated_by": "ui-framework-review-2026-05-07",
+  "generation_reason": "AI loop 4-panel layout + settings tabs + wizard need responsive design. Only 2 media queries currently. Must address before AI loop UI goes live.",
+  "source_context": {
+    "queue_index": 266,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-199-css-design-system-tokens.json",
+      "codex/tasks/backlog-262-mission-control-ai-loop-ui.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "responsive_css_grid",
+    "source_documents": [
+      "ui/assets/styles.css"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add responsive rules to existing CSS. Do not change component design, colours, or typography. Do not add new CSS classes \u2014 only media query variants of existing ones.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "4 media breakpoints: 1280px, 1024px, 768px, 640px all present.",
+    "Tile grid: 3 columns at >1024px, 2 columns at 768-1024px, 1 column at <768px.",
+    "Settings tabs: horizontal scroll at 768px, dropdown at 640px.",
+    "Wizard depth cards: stack vertically at 640px.",
+    "AI loop 4-panel layout: 2-column at 1024px, 1-column at 768px.",
+    "Sidebar: icon-only at 768px.",
+    "Tested visually at 1440px, 1024px, 768px, 375px viewports.",
+    "No regression in existing E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/styles.css",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Component design",
+    "Colours",
+    "Typography",
+    "JavaScript"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest ui/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "4 breakpoints present in styles.css.",
+      "Tile grid 2-column at 768-1024px viewport.",
+      "Settings tabs scroll at 768px.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Mobile-first redesign",
+    "New CSS components",
+    "Dark/light mode"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

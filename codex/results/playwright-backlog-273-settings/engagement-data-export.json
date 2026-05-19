@@ -1,0 +1,303 @@
+{
+  "exported_at": "2026-05-07T22:25:33.687147+00:00",
+  "exported_by": "operator-ui",
+  "credential_material_included": false,
+  "engagement": {
+    "id": "a412bab7-e93d-4717-a253-def0f598ded6",
+    "name": "React v2 Report Center Validation",
+    "client": "AegisPT Local Lab",
+    "tenant_id": "default",
+    "roe_ref": "local-validation-only",
+    "status": "active",
+    "retention_days": 90,
+    "created_at": "2026-05-07T21:55:29",
+    "updated_at": "2026-05-07T21:55:29",
+    "deleted_at": null
+  },
+  "scopes": [],
+  "runs": [
+    {
+      "id": "c02cbf4f-2252-40c7-b17f-e71e0b23afd9",
+      "profile_id": "ba82e544-eb4d-44d9-85f0-232b0486eade",
+      "status": "completed",
+      "requested_by": "codex-validation",
+      "configuration_json": {
+        "assessment_type": "Website / Web App",
+        "targets": {
+          "urls": [
+            "https://report-validation.example.test"
+          ]
+        },
+        "enabled_modules": [
+          "httpx"
+        ]
+      },
+      "started_at": "2026-05-05T21:45:29.536091",
+      "created_at": "2026-05-05T21:55:29.536091",
+      "updated_at": "2026-05-07T21:55:29",
+      "deleted_at": null
+    },
+    {
+      "id": "0b9d6123-078d-4bf5-8074-b3032d4981a3",
+      "profile_id": "ba82e544-eb4d-44d9-85f0-232b0486eade",
+      "status": "completed",
+      "requested_by": "codex-validation",
+      "configuration_json": {
+        "assessment_type": "Website / Web App",
+        "targets": {
+          "urls": [
+            "https://report-validation.example.test"
+          ]
+        },
+        "enabled_modules": [
+          "httpx",
+          "nuclei"
+        ]
+      },
+      "started_at": "2026-05-07T21:43:29.536091",
+      "created_at": "2026-05-07T21:55:29.536091",
+      "updated_at": "2026-05-07T21:55:29",
+      "deleted_at": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "1baa0f16-9245-4dff-8bbe-d578beba30ed",
+      "run_id": "c02cbf4f-2252-40c7-b17f-e71e0b23afd9",
+      "tool": "httpx",
+      "target_id": "https://report-validation.example.test",
+      "params_json": {
+        "validation": "previous"
+      },
+      "status": "completed",
+      "created_at": "2026-05-07T21:55:29",
+      "updated_at": "2026-05-07T21:55:29"
+    },
+    {
+      "id": "5f68f304-d347-48c7-9b9a-7c84729d18b7",
+      "run_id": "0b9d6123-078d-4bf5-8074-b3032d4981a3",
+      "tool": "httpx",
+      "target_id": "https://report-validation.example.test",
+      "params_json": {
+        "validation": "current"
+      },
+      "status": "completed",
+      "created_at": "2026-05-07T21:55:29",
+      "updated_at": "2026-05-07T21:55:29"
+    }
+  ],
+  "tool_executions": [
+    {
+      "id": "18760ccd-71c0-486f-9819-dbe718c30044",
+      "task_id": "1baa0f16-9245-4dff-8bbe-d578beba30ed",
+      "runner_digest": "sha256:report-previous",
+      "tool_version": "httpx validation",
+      "exit_code": 0,
+      "stdout_text": "[redacted task output]",
+      "stderr_text": "",
+      "created_at": "2026-05-07T21:55:29"
+    },
+    {
+      "id": "a2738821-e38e-4263-8ef1-f6c009bcc225",
+      "task_id": "5f68f304-d347-48c7-9b9a-7c84729d18b7",
+      "runner_digest": "sha256:report-current",
+      "tool_version": "httpx validation",
+      "exit_code": 0,
+      "stdout_text": "[redacted task output]",
+      "stderr_text": "",
+      "created_at": "2026-05-07T21:55:29"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "83cc7dc8-8b01-4178-9907-0f4cec4fa0da",
+      "tool_execution_id": "18760ccd-71c0-486f-9819-dbe718c30044",
+      "kind": "stdout",
+      "uri": "artifact://report-center/previous/httpx-output",
+      "sha256": "0f343b0931126a20f133d67c2b018a3b60405ea2dc34fe74e7d035301de43de6",
+      "redaction_state": "clean",
+      "metadata_json": {},
+      "created_at": "2026-05-07T21:55:29"
+    },
+    {
+      "id": "d63e273c-b7b7-4778-a1d7-474fd465b913",
+      "tool_execution_id": "a2738821-e38e-4263-8ef1-f6c009bcc225",
+      "kind": "stdout",
+      "uri": "artifact://report-center/current/httpx-output",
+      "sha256": "64a24648c3955acaa5215678adc1f34b9b6df8cbe1fa6911c7f9c7335bb71fd8",
+      "redaction_state": "clean",
+      "metadata_json": {},
+      "created_at": "2026-05-07T21:55:29"
+    }
+  ],
+  "findings": [
+    {
+      "id": "2f4a2510-f07f-4461-873c-d1cd1c4e8eb4",
+      "run_id": "0b9d6123-078d-4bf5-8074-b3032d4981a3",
+      "title": "Session cookie missing SameSite",
+      "severity": "high",
+      "target_id": "https://report-validation.example.test/login",
+      "evidence_ref": "artifact://report-center/current/cookie",
+      "status": "open",
+      "summary": "Stored HTTP evidence shows a session cookie without SameSite.",
+      "control_family": null,
+      "methodology_tags": [
+        "OWASP-WSTG",
+        "WSTG-SESS-02",
+        "owasp",
+        "owasp-a07"
+      ],
+      "created_at": "2026-05-07T21:55:29",
+      "updated_at": "2026-05-07T22:00:29"
+    },
+    {
+      "id": "3fdbeaf5-d15a-4d7c-929b-a1384cca936f",
+      "run_id": "c02cbf4f-2252-40c7-b17f-e71e0b23afd9",
+      "title": "Missing security header",
+      "severity": "medium",
+      "target_id": "https://report-validation.example.test",
+      "evidence_ref": "artifact://report-center/previous/header",
+      "status": "open",
+      "summary": "Earlier run recorded a missing clickjacking header.",
+      "control_family": null,
+      "methodology_tags": [
+        "OWASP-WSTG",
+        "owasp",
+        "owasp-a05"
+      ],
+      "created_at": "2026-05-07T21:55:29",
+      "updated_at": "2026-05-07T22:01:16"
+    },
+    {
+      "id": "4b926eea-2740-4aac-a92b-9d91345ad92e",
+      "run_id": "0b9d6123-078d-4bf5-8074-b3032d4981a3",
+      "title": "Missing security header",
+      "severity": "medium",
+      "target_id": "https://report-validation.example.test",
+      "evidence_ref": "artifact://report-center/current/header",
+      "status": "resolved",
+      "summary": "Current evidence shows the header remediation is complete.",
+      "control_family": null,
+      "methodology_tags": [
+        "OWASP-WSTG",
+        "owasp",
+        "owasp-a05"
+      ],
+      "created_at": "2026-05-07T21:55:29",
+      "updated_at": "2026-05-07T21:58:44"
+    }
+  ],
+  "inventory_snapshots": [
+    {
+      "id": "8e74811b-9f53-4f19-85df-24117d08ced3",
+      "source_tools_json": [
+        "httpx"
+      ],
+      "summary_json": {
+        "host_count": 1,
+        "service_count": 1,
+        "endpoint_count": 1,
+        "technology_count": 2
+      },
+      "normalized_inventory_json": {
+        "hosts": [
+          {
+            "host": "report-validation.example.test"
+          }
+        ],
+        "services": [
+          {
+            "host": "report-validation.example.test",
+            "port": 443,
+            "service": "https"
+          }
+        ],
+        "http_endpoints": [
+          {
+            "url": "https://report-validation.example.test/login"
+          }
+        ]
+      },
+      "confidence_score": 0.92,
+      "created_at": "2026-05-07T21:55:29"
+    },
+    {
+      "id": "e01a5687-5410-4c4b-8aba-523956b0b9aa",
+      "source_tools_json": [
+        "httpx"
+      ],
+      "summary_json": {
+        "host_count": 1,
+        "service_count": 1,
+        "endpoint_count": 1,
+        "technology_count": 2
+      },
+      "normalized_inventory_json": {
+        "hosts": [
+          {
+            "host": "report-validation.example.test"
+          }
+        ],
+        "services": [
+          {
+            "host": "report-validation.example.test",
+            "port": 443,
+            "service": "https"
+          }
+        ],
+        "http_endpoints": [
+          {
+            "url": "https://report-validation.example.test/login"
+          }
+        ]
+      },
+      "confidence_score": 0.92,
+      "created_at": "2026-05-07T21:55:29"
+    }
+  ],
+  "secret_refs": [],
+  "audit_events": [
+    {
+      "id": "36e2fdd4-b093-4822-89d5-3c0e6210db93",
+      "actor": "operator-ui",
+      "action": "engagement.data_exported",
+      "object_type": "engagement",
+      "object_id": "a412bab7-e93d-4717-a253-def0f598ded6",
+      "metadata_json": {
+        "runs": 2,
+        "findings": 3,
+        "inventory_snapshots": 2,
+        "credential_material_included": "[redacted]"
+      },
+      "created_at": "2026-05-07T22:21:51"
+    },
+    {
+      "id": "dd7ab337-7666-48b3-9e63-4058feeadc43",
+      "actor": "operator-ui",
+      "action": "engagement.data_exported",
+      "object_type": "engagement",
+      "object_id": "a412bab7-e93d-4717-a253-def0f598ded6",
+      "metadata_json": {
+        "runs": 2,
+        "findings": 3,
+        "inventory_snapshots": 2,
+        "credential_material_included": "[redacted]"
+      },
+      "created_at": "2026-05-07T22:22:52"
+    },
+    {
+      "id": "ff00b08b-e613-45a3-bc52-abfdf649d5f1",
+      "actor": "operator-ui",
+      "action": "engagement.data_exported",
+      "object_type": "engagement",
+      "object_id": "a412bab7-e93d-4717-a253-def0f598ded6",
+      "metadata_json": {
+        "runs": 2,
+        "findings": 3,
+        "inventory_snapshots": 2,
+        "credential_material_included": "[redacted]"
+      },
+      "created_at": "2026-05-07T22:24:55"
+    }
+  ]
+}

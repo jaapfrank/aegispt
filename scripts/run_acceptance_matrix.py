@@ -30,6 +30,7 @@ from scripts.acceptance_harness import (
     select_next_real_run_scenario,
     select_real_run_scenario,
     summarize_result,
+    validate_target_catalog,
     write_result,
 )
 
@@ -116,11 +117,13 @@ def collect_task_details(client: httpx.Client, run: dict[str, Any], actor: str) 
 def main() -> int:
     args = parse_args()
     catalog = load_target_catalog(args.catalog)
+    catalog_summary = validate_target_catalog(catalog)
 
     if args.list_scenarios:
         payload = {
             "scenarios": list_real_run_scenarios(catalog),
             "targets": catalog.get("targets", []),
+            "catalog_summary": catalog_summary,
         }
         print(json.dumps(payload, indent=2))
         return 0

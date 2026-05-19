@@ -1,0 +1,105 @@
+{
+  "id": "backlog-96-gdpr-avg-data-handling",
+  "task_file": "codex/tasks/backlog-96-gdpr-avg-data-handling.json",
+  "task_type": "backlog_slice",
+  "title": "GDPR/AVG Data Handling \u2014 Retention, Export, Deletion, and Processor Agreement",
+  "goal": "Make AegisPT compliant with GDPR/AVG for the data it processes \u2014 assessment findings, IP addresses, usernames, credential hashes, and vulnerability details are personal and sensitive data under GDPR.",
+  "scope": "Five data handling capabilities: (1) DATA RETENTION POLICY: Add retention_days setting (default 90) per engagement. After retention period, run data (findings, artifacts, inventory, task output) is automatically soft-deleted. A Settings > Data Retention section shows current policy and next scheduled cleanup. Manual 'Delete All Assessment Data for Engagement' option. (2) DATA EXPORT (Right of Access): GET /api/v1/engagements/{id}/data-export returns a complete JSON export of all data for that engagement \u2014 runs, findings, artifacts metadata, inventory, audit events. No credential material included. For operators who need to provide data to data subjects or regulators. (3) RIGHT TO ERASURE: DELETE /api/v1/engagements/{id}/purge performs hard delete of all assessment data for that engagement. Requires typed confirmation. Audit event logged with timestamp and actor. (4) DATA PROCESSING INVENTORY: A docs/data_processing_inventory.md document listing: what personal data is collected (IP addresses, usernames, service banners, vulnerability details), legal basis (legitimate interest for security testing), retention period, third parties (none by default \u2014 AegisPT is self-hosted), and data subject rights. (5) PROCESSOR AGREEMENT TEMPLATE: docs/verwerkersovereenkomst_template.md \u2014 a Dutch/EU compliant data processing agreement template that operators can use when providing AegisPT-generated reports to clients. Includes: parties, purpose, data categories, technical/organisational measures, sub-processors (none), breach notification procedure.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AegisPT processes personal data (IP addresses, usernames, vulnerability details, credential hashes) and is used in EU jurisdictions. GDPR/AVG compliance is a legal requirement, not optional. Without retention policy, data export, and deletion capabilities, operators using AegisPT for client engagements may violate GDPR. This is particularly important for the Dutch market where AVG enforcement is active.",
+  "source_context": {
+    "queue_index": 100,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/secret_handling_baseline.md",
+      "docs/operational_truth_signoff.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "compliance",
+    "source_documents": [
+      "api/app/models/control.py",
+      "api/app/routers/engagements.py",
+      "api/app/services/settings.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Data handling and documentation only. No credential material in exports. Hard delete is irreversible \u2014 requires typed confirmation. Retention policy is per-engagement, not global-only.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Retention policy setting exists with default 90 days.",
+    "Soft-delete runs after retention period expires.",
+    "Data export endpoint returns complete engagement data without credential material.",
+    "Hard purge endpoint works with typed confirmation and audit log.",
+    "docs/data_processing_inventory.md is complete and accurate.",
+    "docs/verwerkersovereenkomst_template.md is a usable Dutch/EU DPA template.",
+    "Settings > Data Retention shows current policy and next cleanup.",
+    "Tests cover retention, export, purge, and no-credential-in-export.",
+    "Full test suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/engagements.py",
+    "api/app/services/settings.py",
+    "api/app/models/control.py",
+    "api/app/config.py",
+    "docs/data_processing_inventory.md",
+    "docs/verwerkersovereenkomst_template.md",
+    "ui/assets/modules/settings.js",
+    "api/tests/test_gdpr_data_handling.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Credential material in exports",
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_gdpr_data_handling.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Retention, export, purge all work.",
+      "No credentials in export.",
+      "DPA template exists.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Compliance gap advisor (backlog-95) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with GDPR data handling implementation.",
+      "Update CURRENT_STATE.md with GDPR-compliant data handling as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "GDPR compliance certification",
+    "Automatic breach notification",
+    "Cookie consent (AegisPT has no public web frontend)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

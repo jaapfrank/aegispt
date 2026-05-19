@@ -1,0 +1,182 @@
+{
+  "acceptance": {
+    "cache_bust_present": true,
+    "internal_lan_all_depths_include_network_capture": true,
+    "no_page_errors": true,
+    "smart_home_lan_all_depths_include_network_capture": true
+  },
+  "app_script": "./assets/app.js?v=20260506-network-capture-1",
+  "base_url_status": 200,
+  "body_contains_network_capture": false,
+  "cache_bust_present": true,
+  "collected_at": "2026-05-06T11:29:15.451186+00:00",
+  "console_messages": [],
+  "internal_lan": {
+    "depths": {
+      "active": {
+        "assessment_mode": "FULL-INTERNAL-LAN",
+        "expected_chain_profiles": [
+          "passive-network-discovery",
+          "passive-lan-iot-discovery",
+          "passive-lan-network-capture",
+          "passive-identity-ldap-enum",
+          "passive-easm-discovery",
+          "passive-network-service-enumeration",
+          "passive-web-baseline",
+          "passive-web-nuclei-audit",
+          "active-ad-bloodhound",
+          "active-lan-ssh-brute",
+          "passive-lan-smb-enum",
+          "intrusive-lan-credential-capture",
+          "active-ad-kerberoast",
+          "active-ad-asreproast",
+          "active-offline-hash-crack",
+          "intrusive-credential-priv-esc-linux",
+          "intrusive-lan-smb-auth",
+          "intrusive-ad-password-spray",
+          "intrusive-exploitation",
+          "intrusive-impacket-remote-exec",
+          "intrusive-impacket-secretsdump",
+          "intrusive-impacket-dcsync"
+        ],
+        "expected_execution_profile": "passive-network-discovery",
+        "includes_network_capture": true
+      },
+      "full": {
+        "assessment_mode": "FULL-INTERNAL-LAN",
+        "expected_chain_profiles": [
+          "passive-network-discovery",
+          "passive-lan-iot-discovery",
+          "passive-lan-network-capture",
+          "passive-identity-ldap-enum",
+          "passive-easm-discovery",
+          "passive-network-service-enumeration",
+          "passive-web-baseline",
+          "passive-web-nuclei-audit",
+          "active-ad-bloodhound",
+          "active-lan-ssh-brute",
+          "passive-lan-smb-enum",
+          "intrusive-lan-credential-capture",
+          "active-ad-kerberoast",
+          "active-ad-asreproast",
+          "active-offline-hash-crack",
+          "intrusive-credential-priv-esc-linux",
+          "intrusive-lan-smb-auth",
+          "intrusive-ad-password-spray",
+          "intrusive-exploitation",
+          "intrusive-impacket-remote-exec",
+          "intrusive-impacket-secretsdump",
+          "intrusive-impacket-dcsync"
+        ],
+        "expected_execution_profile": "passive-network-discovery",
+        "includes_network_capture": true
+      },
+      "passive": {
+        "assessment_mode": "FULL-INTERNAL-LAN",
+        "expected_chain_profiles": [
+          "passive-network-discovery",
+          "passive-lan-iot-discovery",
+          "passive-lan-network-capture",
+          "passive-identity-ldap-enum",
+          "passive-easm-discovery",
+          "passive-network-service-enumeration",
+          "passive-web-baseline",
+          "passive-web-nuclei-audit",
+          "active-ad-bloodhound",
+          "active-lan-ssh-brute",
+          "passive-lan-smb-enum",
+          "intrusive-lan-credential-capture",
+          "active-ad-kerberoast",
+          "active-ad-asreproast",
+          "active-offline-hash-crack",
+          "intrusive-credential-priv-esc-linux",
+          "intrusive-lan-smb-auth",
+          "intrusive-ad-password-spray",
+          "intrusive-exploitation",
+          "intrusive-impacket-remote-exec",
+          "intrusive-impacket-secretsdump",
+          "intrusive-impacket-dcsync"
+        ],
+        "expected_execution_profile": "passive-network-discovery",
+        "includes_network_capture": true
+      }
+    },
+    "label": "Internal LAN"
+  },
+  "location": "http://127.0.0.1:8000/app/",
+  "page_errors": [],
+  "screenshot": "codex/results/backlog-246-wizard-network-capture-8000.png",
+  "smart_home_lan": {
+    "depths": {
+      "active": {
+        "assessment_mode": "FULL-LAN-IOT",
+        "expected_chain_profiles": [
+          "passive-network-discovery",
+          "passive-lan-iot-discovery",
+          "passive-lan-network-capture",
+          "passive-network-service-enumeration",
+          "passive-lan-nse-full",
+          "passive-lan-snmp-enum",
+          "passive-lan-smart-home-audit",
+          "active-lan-camera-audit",
+          "active-lan-default-creds-audit",
+          "active-lan-ssh-brute",
+          "passive-lan-smb-enum",
+          "passive-lan-segmentation-check",
+          "passive-lan-ipv6-discovery",
+          "passive-lan-infrastructure-audit",
+          "intrusive-lan-credential-capture"
+        ],
+        "expected_execution_profile": "passive-network-discovery",
+        "includes_network_capture": true
+      },
+      "full": {
+        "assessment_mode": "FULL-LAN-IOT",
+        "expected_chain_profiles": [
+          "passive-network-discovery",
+          "passive-lan-iot-discovery",
+          "passive-lan-network-capture",
+          "passive-network-service-enumeration",
+          "passive-lan-nse-full",
+          "passive-lan-snmp-enum",
+          "passive-lan-smart-home-audit",
+          "active-lan-camera-audit",
+          "active-lan-default-creds-audit",
+          "active-lan-ssh-brute",
+          "passive-lan-smb-enum",
+          "passive-lan-segmentation-check",
+          "passive-lan-ipv6-discovery",
+          "passive-lan-infrastructure-audit",
+          "intrusive-lan-credential-capture"
+        ],
+        "expected_execution_profile": "passive-network-discovery",
+        "includes_network_capture": true
+      },
+      "passive": {
+        "assessment_mode": "FULL-LAN-IOT",
+        "expected_chain_profiles": [
+          "passive-network-discovery",
+          "passive-lan-iot-discovery",
+          "passive-lan-network-capture",
+          "passive-network-service-enumeration",
+          "passive-lan-nse-full",
+          "passive-lan-snmp-enum",
+          "passive-lan-smart-home-audit",
+          "active-lan-camera-audit",
+          "active-lan-default-creds-audit",
+          "active-lan-ssh-brute",
+          "passive-lan-smb-enum",
+          "passive-lan-segmentation-check",
+          "passive-lan-ipv6-discovery",
+          "passive-lan-infrastructure-audit",
+          "intrusive-lan-credential-capture"
+        ],
+        "expected_execution_profile": "passive-network-discovery",
+        "includes_network_capture": true
+      }
+    },
+    "label": "Smart Home / IoT LAN"
+  },
+  "task": "Network traffic capture runner wizard/planning surface acceptance",
+  "title": "AegisPT Operator Console"
+}

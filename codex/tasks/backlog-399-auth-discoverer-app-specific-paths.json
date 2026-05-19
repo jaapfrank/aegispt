@@ -1,0 +1,96 @@
+{
+  "id": "backlog-399-auth-discoverer-app-specific-paths",
+  "task_file": "codex/tasks/backlog-399-auth-discoverer-app-specific-paths.json",
+  "task_type": "auth_pipeline",
+  "title": "auth_discoverer: discover register/login from target_intel observations or HTML link-scan, not just a hardcoded REGISTER_PATHS list",
+  "goal": "auth_discoverer.fetch_auth_pages probes a hardcoded list of 15 register-paths + 13 login-paths. When a target's real auth endpoints are NOT in that list (Gruyere's `signup.gtl` + `saveprofile?action=new`; most production apps with `/account/new` variants, `/users` POST endpoints, SPA-routed `#/signup`, framework-specific paths like Rails `/users/sign_up`, ASP.NET `Account/Register`), fingerprint_application returns register_form=None. acquire_session() then returns None, and the 5 #328-migrated probes that consume it no-op with 0 findings. Live Gruyere confirms this 2026-05-18: register_form=None despite a working Gruyere instance with both register + login surfaces.",
+  "scope": "Extend `api/app/services/auth_discoverer.fetch_auth_pages` to derive its probe-path set from TWO sources additive to the existing catalog: (1) URLs in the target's homepage HTML that text-match REGISTER_LINK_KEYWORDS / LOGIN_LINK_KEYWORDS (the existing link-scan in lines 292-340 already does this but is bounded by `probe_limit + 5` AND only fires when the index path is the FIRST candidate); (2) Stack-specific extensions injected from `target_intel` observations \u2014 if `stack_hints` contains `python_gruyere`, append `signup.gtl` + `saveprofile`; for `aspnet_webforms` append `Account/Register.aspx`; for `rails`, `/users/sign_up`; for `django`, `accounts/signup`. Plus: when fingerprint_application returns register_form=None BUT a form exists on a page classified as `kind=register` (even if score < threshold), elevate it to register_form rather than discard.",
+  "status": "queued",
+  "generated_by": "live-gruyere-diagnosis-20260518",
+  "generation_reason": "Live Gruyere run 9f951a0f: 16 pages fetched (Gruyere serves HTTP 200 on every path = soft-404), 0 with a register form, fingerprint says register_form=None. Gruyere's real register endpoint `/signup.gtl` is NOT in REGISTER_PATHS \u2014 `.gtl` paths were specifically stripped 'for generality' in #328. We threw away the working heuristic and the generic catalog covers 0% of Gruyere's auth surface. The #325 design \u2014 'probe a fixed list of common paths' \u2014 is fundamentally insufficient for any app with non-standard endpoints. Per `feedback_no_prescriptive_recipes` we can't seed `.gtl` BACK into the list as a Gruyere-specific marker, but we can make the discovery target_intel-driven instead of catalog-driven.",
+  "source_context": {
+    "queue_index": 337,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_live_reliability_fix",
+    "key_files": [
+      "api/app/services/auth_discoverer.py",
+      "workers/runners/target_intel/runner.py",
+      "api/tests/test_auth_discoverer.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Additive paths only \u2014 do NOT remove anything from the existing REGISTER_PATHS / LOGIN_PATHS catalogs (they still work for the apps they cover). Do NOT add app-specific RECIPES; only path-DISCOVERY hints. The recipe construction stays Claude-driven via build_recipe.",
+    "no_prescriptive_recipes": "Per `feedback_no_prescriptive_recipes`: a `signup.gtl` path-string is a discovery hint, not an exploit recipe. The probes still need build_recipe / acquire_session to learn the form fields + flow. We're only saying 'try this path too', not 'send is_admin=True to this path'.",
+    "honest_link_scan": "Tighten the existing index-page link-scan: when the index returns 200 + a body, scan ALL anchor hrefs (not just the first probe_limit+5), and ALWAYS include matched register/login candidates even if they put us over probe_limit. Probe limit was meant to bound NETWORK cost, not discovery breadth."
+  },
+  "success_criteria": [
+    "Live test against Gruyere (https://google-gruyere.appspot.com/<instance>/): fingerprint_application returns register_form != None AND login_form != None.",
+    "acquire_session() succeeds (returns a non-None session dict) against Gruyere.",
+    "After acquire_session succeeds, at least one of the 5 #328 migrated probes emits >= 1 finding on Gruyere (target: stored_xss_probe finds snippet XSS; OR param_pollution_probe finds is_admin=True mass assignment; OR cookie_tamper_probe finds pipe-delimiter forgery).",
+    "No regression: existing 17 fingerprint tests + 16 acquire_session tests still pass on Gruyere mock + ASP.NET mock + PHP mock.",
+    "target_intel observations with stack_hints drive path-set expansion (verifiable in unit test with a mocked target_intel observation feeding python_gruyere hint).",
+    "Link-scan picks up index-page `<a href=\"signup.gtl\">` hrefs that the keyword regex matches, regardless of probe_limit."
+  ],
+  "likely_touched_files": [
+    "api/app/services/auth_discoverer.py",
+    "api/tests/test_auth_discoverer.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "build_recipe (#326 contract \u2014 still synthesizes recipes from fingerprint)",
+    "5 migrated probes (consume acquire_session unchanged)",
+    "workers/runners/target_intel/runner.py (we only READ its observations; no signature change)",
+    "memory_backend / cache layer (#327 contract)",
+    "_AI_PICKER_SYSTEM_PROMPT"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_auth_discoverer.py api/tests/test_auth_discoverer_acquire_session.py api/tests/test_auth_discoverer_recipe.py api/tests/test_auth_discoverer_cache.py api/tests/test_auth_discoverer_credentialed.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/auth_discoverer.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "fingerprint_application returns register_form != None on Gruyere live.",
+      "At least one #328 probe emits >= 1 finding on Gruyere live.",
+      "All existing auth_discoverer tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-398 (planner respects intrusive_allowed) should be merged first \u2014 fixing the gate unblocks the live-test exec_plan path we use to verify the discovery improvement."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the live before/after on Gruyere: 0 \u2192 N findings.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-400 (probe path-catalog augmentation) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "AI-driven exhaustive site crawl (separate larger task).",
+    "SPA-style fragment-routed auth flows (Vue/React `#/signup`) \u2014 deferred to a Playwright-driven discoverer task.",
+    "OAuth/OIDC discovery (.well-known endpoints) \u2014 separate task."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

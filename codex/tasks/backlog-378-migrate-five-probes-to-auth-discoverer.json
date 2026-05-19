@@ -1,0 +1,104 @@
+{
+  "id": "backlog-378-migrate-five-probes-to-auth-discoverer",
+  "task_file": "codex/tasks/backlog-378-migrate-five-probes-to-auth-discoverer.json",
+  "task_type": "runner_refactor",
+  "title": "Migrate Five Probes from Gruyere Auth Pattern to Auth Discoverer",
+  "goal": "Refactor info_disclosure_probe, param_pollution_probe, stored_xss_probe, cookie_tamper_probe, and file_upload_probe to call auth_discoverer (cache -> fingerprint -> AI recipe -> verify) instead of their hardcoded saveprofile?action=new pattern. Validate that all five produce non-zero findings on at least 2 non-Gruyere targets and continue to find Gruyere R1/R2/R3/R5/R7/R10/R15/R20 on Gruyere.",
+  "scope": "Replace each probe's local _register_as_author / _register_with_delimiter logic with a call to auth_discoverer.acquire_session(target, scope_allowlist). Keep the probe's vulnerability-specific testing logic. Add an empirical generality test that runs each probe against Gruyere + juice-shop + demo.testfire.net + testasp.vulnweb.com and records findings_count per (probe, target).",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Empirical test on 2026-05-15 confirmed these 5 probes silently no-op on non-Gruyere targets due to hardcoded saveprofile auth pattern. This is the visible payoff of phase 2: same probes now work on diverse stacks.",
+  "source_context": {
+    "queue_index": 328,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_2_universal_auth",
+    "key_files": [
+      "workers/runners/info_disclosure_probe/runner.py",
+      "workers/runners/param_pollution_probe/runner.py",
+      "workers/runners/stored_xss_probe/runner.py",
+      "workers/runners/cookie_tamper_probe/runner.py",
+      "workers/runners/file_upload_probe/runner.py",
+      "api/app/services/auth_discoverer.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Migrate ONLY the named 5 probes. Do NOT touch xss_proof, smart_web_probe, or other runners.",
+    "no_regression_gruyere": "Each migrated probe MUST still find on Gruyere the vulnerability classes it found before migration (R1/R2/R3/R5/R7/R10/R15/R20 as applicable).",
+    "test_targets_required": "Probes must be validated against at least Gruyere + 2 of {juice-shop.herokuapp.com, demo.testfire.net, testasp.vulnweb.com}. Where a target lacks the vulnerability class, 0 findings is acceptable, but the probe MUST reach the testing stage (attempts > 0)."
+  },
+  "success_criteria": [
+    "Each of the 5 probes imports auth_discoverer and removes its local registration helper.",
+    "Each probe's findings on Gruyere remain at parity with pre-migration findings.",
+    "Each probe makes at least 1 attempt on each of the 4 test targets (attempts > 0 in trace, even if 0 findings).",
+    "Generality test script runs all 5 probes against all 4 targets in CI/integration and emits a matrix.",
+    "AGENT_SYSTEM_MAP.md section 3 is updated to move these 5 probes from Gruyere-specific to Verified-generic."
+  ],
+  "likely_touched_files": [
+    "workers/runners/info_disclosure_probe/runner.py",
+    "workers/runners/param_pollution_probe/runner.py",
+    "workers/runners/stored_xss_probe/runner.py",
+    "workers/runners/cookie_tamper_probe/runner.py",
+    "workers/runners/file_upload_probe/runner.py",
+    "scripts/test_probe_generality.py",
+    "docs/AGENT_SYSTEM_MAP.md",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/assessment_loop.py",
+    "api/app/services/auth_discoverer.py core API",
+    "workers/runners/xss_proof/",
+    "workers/runners/smart_web_probe/",
+    "workers/orchestration/tasks.py SUPPORTED_TOOLS set"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_info_disclosure_probe.py workers/tests/test_param_pollution_probe.py workers/tests/test_stored_xss_probe.py workers/tests/test_cookie_tamper_probe.py workers/tests/test_file_upload_probe.py",
+      "python3 -m compileall -q workers",
+      ".venv/bin/ruff check workers/runners/info_disclosure_probe workers/runners/param_pollution_probe workers/runners/stored_xss_probe workers/runners/cookie_tamper_probe workers/runners/file_upload_probe",
+      "python3 scripts/test_probe_generality.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Generality matrix shows attempts > 0 for at least 3 non-Gruyere targets per probe.",
+      "Gruyere parity: each probe finds the same vulnerability classes it did before migration.",
+      "No Gruyere-specific endpoint pattern remains hardcoded in any of the 5 probes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-375, -376, -377 must be merged."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-379 (review checkpoint) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Migrating other runners.",
+    "Non-form auth flows (OAuth, SAML, JWT-only API auth).",
+    "Cross-target chains (task #334)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AegisPT — Wizard Mockup v2</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f7fa;--surface:#fff;--surface2:#f0f3f8;--border:#e2e8f0;
+  --border-strong:#c8d4e8;--text:#0f1923;--text-soft:#3d5166;--text-muted:#7a90a8;
+  --cyan:#0ea5e9;--cyan-bg:rgba(14,165,233,0.08);--cyan-border:rgba(14,165,233,0.28);
+  --amber:#f59e0b;--amber-bg:rgba(245,158,11,0.08);--green:#10b981;
+  --green-bg:rgba(16,185,129,0.08);--red:#ef4444;--red-bg:rgba(239,68,68,0.07);
+  --violet:#8b5cf6;--violet-bg:rgba(139,92,246,0.08);
+  --r:10px;--r-sm:6px;--shadow:0 1px 3px rgba(0,0,0,0.07);--shadow-md:0 4px 16px rgba(0,0,0,0.09)
+}
+html,body{min-height:100vh;background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:14px;color:var(--text)}
+
+/* ── TOPBAR ── */
+.topbar{height:48px;background:#0d1220;border-bottom:1px solid rgba(120,177,212,0.15);display:flex;align-items:center;padding:0 20px;gap:16px;position:fixed;top:0;left:0;right:0;z-index:100}
+.tb-brand{display:flex;align-items:center;gap:8px}
+.tb-mark{width:24px;height:24px;background:#0ea5e9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#060d18}
+.tb-name{font-size:14px;font-weight:600;color:#e4eeff}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.tb-ghost{padding:5px 12px;border:1px solid rgba(120,177,212,0.2);border-radius:var(--r-sm);background:transparent;color:rgba(200,218,245,0.65);font-size:12px;cursor:pointer;font-family:inherit}
+
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - 48px);margin-top:48px}
+.sidebar{background:#0d1220;border-right:1px solid rgba(120,177,212,0.12);padding:14px 0}
+.sb-item{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:13px;color:rgba(160,185,220,0.55);cursor:pointer}
+.sb-item.active{background:rgba(14,165,233,0.08);color:#5ecfff;border-right:2px solid #5ecfff}
+.content{padding:36px 40px;max-width:920px}
+
+/* ── STEP INDICATOR ── */
+.steps{display:flex;align-items:center;margin-bottom:32px}
+.step{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.step-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;transition:all 0.2s}
+.step-dot.done{background:var(--green);color:white}
+.step-dot.active{background:var(--cyan);color:white}
+.step-dot.pending{background:var(--surface);border:2px solid var(--border-strong);color:var(--text-muted)}
+.step-label{font-size:12px;font-weight:500;white-space:nowrap}
+.step-label.active{color:var(--cyan)}
+.step-label.done{color:var(--green)}
+.step-label.pending{color:var(--text-muted)}
+.step-line{flex:1;height:2px;background:var(--border);margin:0 10px;min-width:24px;transition:background 0.2s}
+.step-line.done{background:var(--green)}
+.step-line.active{background:var(--cyan)}
+
+/* ── HEADINGS ── */
+.page-h{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text-muted);margin-bottom:28px}
+
+/* ── RECENT MISSIONS ── */
+.recent-section{margin-bottom:24px}
+.recent-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted);margin-bottom:10px}
+.recent-row{display:flex;gap:10px}
+.recent-card{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;transition:all 0.12s;box-shadow:var(--shadow)}
+.recent-card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md)}
+.recent-icon{font-size:18px}
+.recent-name{font-size:12px;font-weight:600;color:var(--text-soft)}
+.recent-meta{font-size:11px;color:var(--text-muted)}
+.recent-arrow{color:var(--text-muted);font-size:12px;margin-left:4px}
+
+/* ── TILE GRID ── */
+.tile-section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted);margin-bottom:10px}
+.tile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.tile{
+  background:var(--surface);border:2px solid var(--border);border-radius:var(--r);
+  padding:18px 16px;cursor:pointer;transition:all 0.15s;position:relative;
+  box-shadow:var(--shadow);
+}
+.tile:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.tile.selected{border-color:var(--cyan);background:var(--cyan-bg)}
+.tile.selected.t2{border-color:#8b5cf6;background:var(--violet-bg)}
+.tile-num{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:var(--cyan);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s;border:2px solid var(--bg)}
+.tile.selected .tile-num{opacity:1}
+.tile.selected.t2 .tile-num{background:#8b5cf6}
+.tile-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.tile-icon{font-size:28px}
+.tile-badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
+.badge-amber{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,0.25)}
+.badge-red{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,0.2)}
+.badge-violet{background:var(--violet-bg);color:var(--violet);border:1px solid rgba(139,92,246,0.2)}
+.badge-green{background:var(--green-bg);color:var(--green);border:1px solid rgba(16,185,129,0.2)}
+.tile-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
+.tile-desc{font-size:11.5px;color:var(--text-muted);line-height:1.4}
+.tile-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.tag{padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600}
+.tag-p{background:var(--green-bg);color:var(--green)}
+.tag-a{background:var(--cyan-bg);color:var(--cyan)}
+.tag-c{background:var(--amber-bg);color:var(--amber)}
+.tag-e{background:var(--red-bg);color:var(--red)}
+
+/* Combination hint */
+.combo-hint{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--violet-bg);border:1px solid rgba(139,92,246,0.2);border-radius:var(--r-sm);margin-bottom:16px;font-size:12px}
+.combo-hint-icon{font-size:16px}
+.combo-hint-text{color:var(--text-soft);flex:1}
+.combo-add{padding:4px 12px;border:1px solid rgba(139,92,246,0.35);border-radius:4px;background:transparent;color:var(--violet);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.combo-add:hover{background:var(--violet-bg)}
+
+/* Selection bar */
+.selection-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:20px;box-shadow:var(--shadow)}
+.sel-label{font-size:12px;color:var(--text-muted)}
+.sel-chips{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.sel-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:var(--cyan-bg);border:1px solid var(--cyan-border);color:var(--cyan)}
+.sel-chip.c2{background:var(--violet-bg);border-color:rgba(139,92,246,0.3);color:var(--violet)}
+.sel-chip-remove{font-size:14px;cursor:pointer;opacity:0.7}
+.sel-chip-remove:hover{opacity:1}
+.sel-clear{font-size:11px;color:var(--text-muted);cursor:pointer;text-decoration:underline}
+.sel-clear:hover{color:var(--text-soft)}
+
+/* ── STEP 2 QUESTIONS ── */
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px 28px;box-shadow:var(--shadow-md);margin-bottom:16px}
+.q-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.q-step-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted)}
+.q-badge{padding:3px 10px;border-radius:10px;font-size:11px;background:var(--cyan-bg);color:var(--cyan);border:1px solid var(--cyan-border)}
+.q-text{font-size:18px;font-weight:700;color:var(--text);margin-bottom:16px}
+.q-input{width:100%;padding:11px 16px;background:var(--surface2);border:2px solid var(--border-strong);border-radius:var(--r-sm);color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color 0.12s}
+.q-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(14,165,233,0.09)}
+.q-input::placeholder{color:var(--text-muted)}
+.q-hint{margin-top:7px;font-size:11.5px;color:var(--text-muted)}
+.q-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.q-tag{padding:4px 12px;border-radius:16px;border:1px solid var(--border-strong);background:var(--surface);font-size:12px;color:var(--text-soft);cursor:pointer;transition:all 0.1s}
+.q-tag:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* Depth tiles */
+.depth-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.d-tile{padding:16px;border:2px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all 0.12s;background:var(--surface);text-align:center}
+.d-tile:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.d-tile.dsel{border-color:var(--cyan);background:var(--cyan-bg)}
+.d-tile.dsel.damber{border-color:var(--amber);background:var(--amber-bg)}
+.d-tile.dsel.dred{border-color:var(--red);background:var(--red-bg)}
+.d-icon{font-size:26px;margin-bottom:7px}
+.d-title{font-size:13px;font-weight:700;margin-bottom:3px}
+.d-desc{font-size:11px;color:var(--text-muted);line-height:1.35}
+.d-phases{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:8px}
+
+/* ── STEP 3 PREVIEW ── */
+.preview-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-md)}
+.preview-hd{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.preview-hd-title{font-size:16px;font-weight:700}
+.preview-chips{display:flex;gap:8px;flex-wrap:wrap}
+.p-chip{padding:4px 12px;border-radius:20px;font-size:12px;border:1px solid var(--border-strong);background:var(--surface2);color:var(--text-soft)}
+
+/* Target bar */
+.tgt-bar{display:flex;align-items:center;gap:10px;padding:12px 22px;background:var(--surface2);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tgt-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted)}
+.tgt-node{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--surface);font-size:12px;font-weight:500;color:var(--text-soft)}
+.tgt-note{font-size:11px;color:var(--text-muted)}
+
+/* Phase diagram */
+.phase-diagram{padding:20px 22px}
+.phase-row{display:grid;align-items:start;gap:0}
+.phase-cols-4{grid-template-columns:1fr 28px 1fr 28px 1fr 28px 1fr}
+.phase-cols-2{grid-template-columns:1fr 28px 1fr}
+.ph-card{border:2px solid var(--border);border-radius:var(--r);padding:14px 14px;transition:all 0.15s}
+.ph-card.ph-p{border-color:rgba(16,185,129,0.4);background:rgba(16,185,129,0.03)}
+.ph-card.ph-a{border-color:rgba(14,165,233,0.35);background:rgba(14,165,233,0.03)}
+.ph-card.ph-c{border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.03)}
+.ph-card.ph-e{border-color:rgba(239,68,68,0.35);background:rgba(239,68,68,0.03)}
+.ph-num{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px}
+.ph-p .ph-num{color:var(--green)}
+.ph-a .ph-num{color:var(--cyan)}
+.ph-c .ph-num{color:var(--amber)}
+.ph-e .ph-num{color:var(--red)}
+.ph-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px}
+.ph-tools{display:flex;flex-direction:column;gap:5px}
+.ph-tool{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-soft)}
+.ph-tool-icon{font-size:13px;width:16px;text-align:center}
+.ph-dur{margin-top:9px;padding-top:7px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px}
+.ph-arrow{display:flex;align-items:center;justify-content:center;padding-top:18px;color:var(--border-strong);font-size:18px;font-weight:300}
+
+/* Auth */
+.auth-area{padding:18px 22px;border-top:1px solid var(--border);background:var(--surface2)}
+.auth-title{font-size:13px;font-weight:700;margin-bottom:12px}
+.auth-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.a-opt{padding:13px;border:2px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all 0.12s;background:var(--surface)}
+.a-opt:hover{border-color:var(--border-strong)}
+.a-opt.asel-g{border-color:var(--green);background:var(--green-bg)}
+.a-opt.asel-a{border-color:var(--amber);background:var(--amber-bg)}
+.a-opt.asel-r{border-color:var(--red);background:var(--red-bg)}
+.a-icon{font-size:20px;margin-bottom:5px}
+.a-title{font-size:13px;font-weight:700;margin-bottom:2px}
+.a-desc{font-size:11px;color:var(--text-muted);line-height:1.35}
+.confirm-area{background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.2);border-radius:var(--r-sm);padding:14px 16px}
+.confirm-text{font-size:12px;color:var(--text-soft);line-height:1.6;margin-bottom:10px}
+.confirm-text strong{color:var(--red)}
+.confirm-row{display:flex;align-items:center;gap:10px}
+.confirm-input{flex:1;padding:9px 14px;border:2px solid var(--border-strong);border-radius:var(--r-sm);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text);transition:border-color 0.12s}
+.confirm-input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,0.07)}
+.confirm-input.valid{border-color:var(--green)}
+.confirm-status{font-size:11px;font-weight:600;min-width:90px}
+
+/* ── BUTTONS ── */
+.btn{padding:9px 20px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.12s;font-family:inherit}
+.btn-p{background:var(--cyan);border-color:var(--cyan);color:white}
+.btn-p:hover{background:#0284c7}
+.btn-p:disabled{opacity:0.38;cursor:not-allowed}
+.btn-s{background:var(--surface);border-color:var(--border-strong);color:var(--text-soft)}
+.btn-s:hover{background:var(--surface2)}
+.btn-r{background:var(--red);border-color:var(--red);color:white;font-size:14px;padding:11px 26px}
+.btn-r:disabled{opacity:0.38;cursor:not-allowed}
+.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
+
+/* ── STEP 4 LAUNCHED ── */
+.launched{text-align:center;padding:56px 0}
+.launched-icon{font-size:60px;margin-bottom:20px}
+.launch-missions{display:flex;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.launch-mission-chip{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:1px solid var(--border-strong);background:var(--surface);font-size:13px;font-weight:500;color:var(--text-soft)}
+
+/* ── DEMO BAR ── */
+.demo-bar{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:var(--surface);border:1px solid var(--border-strong);border-radius:24px;padding:4px 6px;z-index:300;box-shadow:var(--shadow-md)}
+.demo-tab{padding:5px 16px;border-radius:20px;font-size:12px;cursor:pointer;color:var(--text-muted);background:none;border:none;font-family:inherit;font-weight:500;transition:all 0.12s}
+.demo-tab:hover{color:var(--text);background:var(--surface2)}
+.demo-tab.on{background:var(--cyan);color:white}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="tb-brand">
+    <div class="tb-mark">A</div>
+    <span class="tb-name">AegisPT</span>
+  </div>
+  <div class="tb-right">
+    <button class="tb-ghost">Advanced Settings</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sb-item active">⬡  Intake</div>
+    <div class="sb-item">◈  Mission Control</div>
+    <div class="sb-item">⚠  Findings</div>
+    <div class="sb-item">☰  Reports</div>
+    <div class="sb-item">⚙  Settings</div>
+  </aside>
+
+  <main class="content">
+
+    <!-- STEP INDICATOR -->
+    <div class="steps" id="steps">
+      <div class="step"><div class="step-dot done" id="d1">✓</div><span class="step-label done" id="l1">Assessment</span></div>
+      <div class="step-line done" id="ln1"></div>
+      <div class="step"><div class="step-dot active" id="d2">2</div><span class="step-label active" id="l2">Target & Depth</span></div>
+      <div class="step-line" id="ln2"></div>
+      <div class="step"><div class="step-dot pending" id="d3">3</div><span class="step-label pending" id="l3">Preview</span></div>
+      <div class="step-line" id="ln3"></div>
+      <div class="step"><div class="step-dot pending" id="d4">4</div><span class="step-label pending" id="l4">Authorise</span></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- STEP 1: ASSESSMENT TYPE TILES -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <div id="s1" class="hidden">
+      <div class="page-h">What do you want to test?</div>
+      <div class="page-sub">Select one or more assessment types. They will be combined into a single mission.</div>
+
+      <!-- Recent missions -->
+      <div class="recent-section">
+        <div class="recent-label">Recent Missions</div>
+        <div class="recent-row">
+          <div class="recent-card" onclick="loadRecent('internal-lan')">
+            <span class="recent-icon">🏠</span>
+            <div><div class="recent-name">Internal LAN + AD</div><div class="recent-meta">Yesterday · 10.0.20.0/24</div></div>
+            <span class="recent-arrow">↗</span>
+          </div>
+          <div class="recent-card" onclick="loadRecent('external-web')">
+            <span class="recent-icon">🌐</span>
+            <div><div class="recent-name">External Web</div><div class="recent-meta">3 days ago · api.example.com</div></div>
+            <span class="recent-arrow">↗</span>
+          </div>
+          <div class="recent-card" onclick="loadRecent('full')">
+            <span class="recent-icon">🎯</span>
+            <div><div class="recent-name">Full Internal</div><div class="recent-meta">Last week · 192.168.1.0/24</div></div>
+            <span class="recent-arrow">↗</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tile-section-label">Assessment Types — select one or more</div>
+
+      <!-- Selection bar (shows when ≥1 selected) -->
+      <div class="selection-bar" id="selbar" style="display:none">
+        <span class="sel-label">Selected:</span>
+        <div class="sel-chips" id="sel-chips"></div>
+        <span class="sel-clear" onclick="clearAll()">Clear all</span>
+      </div>
+
+      <!-- Tile grid: 3×3 -->
+      <div class="tile-grid">
+
+        <div class="tile" id="t-web" onclick="toggleTile('web','🌐','External Web')">
+          <div class="tile-num" id="n-web">1</div>
+          <div class="tile-top"><span class="tile-icon">🌐</span><span class="tile-badge badge-amber">Popular</span></div>
+          <div class="tile-title">External Web</div>
+          <div class="tile-desc">Websites, web apps, APIs reachable from the internet</div>
+          <div class="tile-tags"><span class="tag tag-p">passive</span><span class="tag tag-a">active</span></div>
+        </div>
+
+        <div class="tile" id="t-extip" onclick="toggleTile('extip','🖧','External IPs')">
+          <div class="tile-num" id="n-extip">1</div>
+          <div class="tile-top"><span class="tile-icon">🖧</span><span class="tile-badge badge-green">New</span></div>
+          <div class="tile-title">External IPs</div>
+          <div class="tile-desc">External IP ranges, SSH/RDP/VPN exposure, infrastructure services</div>
+          <div class="tile-tags"><span class="tag tag-p">passive</span><span class="tag tag-a">active</span></div>
+        </div>
+
+        <div class="tile selected" id="t-lan" onclick="toggleTile('lan','🏠','Internal LAN')">
+          <div class="tile-num" id="n-lan" style="opacity:1">1</div>
+          <div class="tile-top"><span class="tile-icon">🏠</span><span class="tile-badge badge-amber">Popular</span></div>
+          <div class="tile-title">Internal LAN</div>
+          <div class="tile-desc">Internal network, subnets, on-premise servers</div>
+          <div class="tile-tags"><span class="tag tag-p">passive</span><span class="tag tag-a">active</span><span class="tag tag-c">credential</span></div>
+        </div>
+
+        <div class="tile selected t2" id="t-ad" onclick="toggleTile('ad','🛡️','Active Directory')">
+          <div class="tile-num" id="n-ad" style="opacity:1;background:#8b5cf6">2</div>
+          <div class="tile-top"><span class="tile-icon">🛡️</span><span class="tile-badge badge-violet">AD</span></div>
+          <div class="tile-title">Active Directory</div>
+          <div class="tile-desc">Domain controllers, AD users, attack paths, BloodHound</div>
+          <div class="tile-tags"><span class="tag tag-p">passive</span><span class="tag tag-a">active</span><span class="tag tag-c">credential</span><span class="tag tag-e">exploit</span></div>
+        </div>
+
+        <div class="tile" id="t-api" onclick="toggleTile('api','{ }','API Security')">
+          <div class="tile-num" id="n-api">1</div>
+          <div class="tile-top"><span class="tile-icon">{ }</span></div>
+          <div class="tile-title">API Security</div>
+          <div class="tile-desc">REST, GraphQL, gRPC endpoints and business logic testing</div>
+          <div class="tile-tags"><span class="tag tag-p">passive</span><span class="tag tag-a">active</span></div>
+        </div>
+
+        <div class="tile" id="t-cloud" onclick="toggleTile('cloud','☁️','Cloud (AWS/Azure)')">
+          <div class="tile-num" id="n-cloud">1</div>
+          <div class="tile-top"><span class="tile-icon">☁️</span></div>
+          <div class="tile-title">Cloud</div>
+          <div class="tile-desc">AWS/Azure infrastructure, IAM policies, exposed cloud resources</div>
+          <div class="tile-tags"><span class="tag tag-p">passive</span><span class="tag tag-a">active</span></div>
+        </div>
+
+        <div class="tile" id="t-ai" onclick="toggleTile('ai','🤖','LLM / AI App')">
+          <div class="tile-num" id="n-ai">1</div>
+          <div class="tile-top"><span class="tile-icon">🤖</span><span class="tile-badge badge-violet">New</span></div>
+          <div class="tile-title">LLM / AI App</div>
+          <div class="tile-desc">AI applications, prompt injection, LLM security testing</div>
+          <div class="tile-tags"><span class="tag tag-a">active</span></div>
+        </div>
+
+        <div class="tile" id="t-full" onclick="selectFullInternal()">
+          <div class="tile-top"><span class="tile-icon">🎯</span><span class="tile-badge badge-red">Complete</span></div>
+          <div class="tile-title">Full Internal</div>
+          <div class="tile-desc">LAN + AD + credential attacks + exploitation — everything</div>
+          <div class="tile-tags"><span class="tag tag-p">P1</span><span class="tag tag-a">P2</span><span class="tag tag-c">P3</span><span class="tag tag-e">P4</span></div>
+        </div>
+
+        <div class="tile" id="t-custom" onclick="toggleTile('custom','⚙️','Custom')">
+          <div class="tile-num" id="n-custom">+</div>
+          <div class="tile-top"><span class="tile-icon">⚙️</span></div>
+          <div class="tile-title">Custom</div>
+          <div class="tile-desc">Add to your selection, then fine-tune in Advanced Settings</div>
+          <div class="tile-tags"><span class="tag" style="background:var(--surface2);color:var(--text-muted)">fine-tune</span></div>
+        </div>
+
+      </div>
+
+      <!-- Smart combination hint -->
+      <div class="combo-hint" id="combo-hint">
+        <span class="combo-hint-icon">💡</span>
+        <span class="combo-hint-text">Internal LAN + Active Directory is a common combination. BloodHound attack paths map across both.</span>
+        <button class="combo-add" onclick="goStep(2)">Use this combo →</button>
+      </div>
+
+      <div class="nav-row">
+        <div style="font-size:12px;color:var(--text-muted)" id="sel-count">2 types selected</div>
+        <button class="btn btn-p" onclick="goStep(2)">Next: Set Target →</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- STEP 2: TARGET & DEPTH -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <div id="s2">
+      <div class="page-h">Internal LAN + Active Directory</div>
+      <div class="page-sub">Two quick questions — we'll generate the mission plan from your answers.</div>
+
+      <div class="q-card">
+        <div class="q-meta">
+          <span class="q-step-label">Question 1 of 2 · Target</span>
+          <span class="q-badge">Required</span>
+        </div>
+        <div class="q-text">What is the target network?</div>
+        <input class="q-input" type="text" value="10.0.20.0/24" placeholder="e.g. 10.0.20.0/24 or 192.168.1.0/24"/>
+        <div class="q-tags">
+          <div class="q-tag">10.0.20.0/24</div>
+          <div class="q-tag">192.168.1.0/24</div>
+          <div class="q-tag">172.16.0.0/16</div>
+          <div class="q-tag">+ Add range</div>
+        </div>
+        <div class="q-hint">Multiple targets? Add them with the + button. Discovered hosts are added automatically during Phase 1.</div>
+      </div>
+
+      <div class="q-card">
+        <div class="q-meta">
+          <span class="q-step-label">Question 2 of 2 · Depth</span>
+          <span class="q-badge">Required</span>
+        </div>
+        <div class="q-text">How deep should the assessment go?</div>
+        <div class="depth-grid">
+          <div class="d-tile" onclick="selDepth(this,'p')">
+            <div class="d-icon">🔍</div>
+            <div class="d-title">Passive</div>
+            <div class="d-desc">Discovery and enumeration only</div>
+            <div class="d-phases"><span class="tag tag-p">Phase 1</span></div>
+          </div>
+          <div class="d-tile" onclick="selDepth(this,'a')">
+            <div class="d-icon">⚡</div>
+            <div class="d-title">Active Scan</div>
+            <div class="d-desc">Vulnerability detection + AD mapping</div>
+            <div class="d-phases"><span class="tag tag-p">P1</span><span class="tag tag-a">P2</span></div>
+          </div>
+          <div class="d-tile dsel damber" onclick="selDepth(this,'f')">
+            <div class="d-icon">🎯</div>
+            <div class="d-title" style="color:var(--amber)">Full Pentest</div>
+            <div class="d-desc">Credential attacks + exploitation</div>
+            <div class="d-phases"><span class="tag tag-p">P1</span><span class="tag tag-a">P2</span><span class="tag tag-c">P3</span><span class="tag tag-e">P4</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-row">
+        <button class="btn btn-s" onclick="goStep(1)">← Back</button>
+        <button class="btn btn-p" onclick="goStep(3)">Preview Mission →</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- STEP 3: VISUAL PREVIEW + AUTHORIZATION -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <div id="s3" class="hidden">
+      <div class="page-h">Mission Preview</div>
+      <div class="page-sub">Here is exactly what AegisPT will do. Review, then choose your authorisation level.</div>
+
+      <div class="preview-box">
+
+        <div class="preview-hd">
+          <div class="preview-hd-title">Internal LAN + Active Directory</div>
+          <div class="preview-chips">
+            <span class="p-chip">🎯 10.0.20.0/24</span>
+            <span class="p-chip">⏱ ~2–3 hours</span>
+            <span class="p-chip">4 phases · 11 tools</span>
+          </div>
+        </div>
+
+        <div class="tgt-bar">
+          <span class="tgt-label">Targets</span>
+          <div class="tgt-node">🌐 10.0.20.0/24</div>
+          <span class="tgt-note">+ hosts discovered in Phase 1 automatically included in later phases</span>
+        </div>
+
+        <div class="phase-diagram">
+          <div class="phase-row phase-cols-4">
+
+            <div class="ph-card ph-p">
+              <div class="ph-num">Phase 1 · Auto</div>
+              <div class="ph-name">🟢 Discovery</div>
+              <div class="ph-tools">
+                <div class="ph-tool"><span class="ph-tool-icon">🔍</span>nmap host discovery</div>
+                <div class="ph-tool"><span class="ph-tool-icon">👤</span>LDAP enumeration</div>
+                <div class="ph-tool"><span class="ph-tool-icon">🩺</span>Service fingerprint</div>
+              </div>
+              <div class="ph-dur">⏱ ~15 min · no approval</div>
+            </div>
+
+            <div class="ph-arrow">→</div>
+
+            <div class="ph-card ph-a">
+              <div class="ph-num">Phase 2 · 1× approval</div>
+              <div class="ph-name">🔵 Analysis</div>
+              <div class="ph-tools">
+                <div class="ph-tool"><span class="ph-tool-icon">🎯</span>nuclei CVE scan</div>
+                <div class="ph-tool"><span class="ph-tool-icon">🩸</span>BloodHound AD map</div>
+                <div class="ph-tool"><span class="ph-tool-icon">🖧</span>NetExec SMB enum</div>
+              </div>
+              <div class="ph-dur">⏱ ~30 min · 1 approval</div>
+            </div>
+
+            <div class="ph-arrow">→</div>
+
+            <div class="ph-card ph-c">
+              <div class="ph-num">Phase 3 · 1× approval</div>
+              <div class="ph-name">🟠 Credentials</div>
+              <div class="ph-tools">
+                <div class="ph-tool"><span class="ph-tool-icon">🎣</span>Responder LLMNR</div>
+                <div class="ph-tool"><span class="ph-tool-icon">🔑</span>Kerberoast / AS-REP</div>
+                <div class="ph-tool"><span class="ph-tool-icon">🔨</span>hashcat crack</div>
+                <div class="ph-tool"><span class="ph-tool-icon">🔐</span>pass-the-hash test</div>
+              </div>
+              <div class="ph-dur">⏱ ~45 min · 1 approval</div>
+            </div>
+
+            <div class="ph-arrow">→</div>
+
+            <div class="ph-card ph-e">
+              <div class="ph-num">Phase 4 · explicit auth</div>
+              <div class="ph-name">🔴 Exploitation</div>
+              <div class="ph-tools">
+                <div class="ph-tool"><span class="ph-tool-icon">💥</span>Metasploit</div>
+                <div class="ph-tool"><span class="ph-tool-icon">🔗</span>Impacket lateral</div>
+                <div class="ph-tool"><span class="ph-tool-icon">💀</span>DCSync (DA confirm)</div>
+              </div>
+              <div class="ph-dur">⏱ ~30 min · full auth</div>
+            </div>
+
+          </div>
+
+          <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:12px">
+            🤖 AI analyses results after each phase and adapts the plan · Kill switch available at all times
+          </div>
+        </div>
+
+        <div class="auth-area">
+          <div class="auth-title">How far should AegisPT go?</div>
+          <div class="auth-grid">
+            <div class="a-opt" onclick="selAuth(this,'g')">
+              <div class="a-icon">🔍</div>
+              <div class="a-title">Phases 1 only</div>
+              <div class="a-desc">Passive discovery. Stops automatically after Phase 1.</div>
+            </div>
+            <div class="a-opt" onclick="selAuth(this,'a')">
+              <div class="a-icon">⚡</div>
+              <div class="a-title">Phases 1–3</div>
+              <div class="a-desc">Discovery + analysis + credentials. Manual confirmation before Phase 4.</div>
+            </div>
+            <div class="a-opt asel-r" onclick="selAuth(this,'r')">
+              <div class="a-icon">🎯</div>
+              <div class="a-title" style="color:var(--red)">Full — all 4 phases</div>
+              <div class="a-desc">Runs everything including Metasploit and Impacket automatically.</div>
+            </div>
+          </div>
+
+          <div class="confirm-area">
+            <div class="confirm-text">
+              I confirm I have <strong>written authorisation</strong> from the system owner to run exploitation tools including <strong>Metasploit, Impacket, and DCSync</strong> against <strong>10.0.20.0/24</strong>. AegisPT will execute all four phases without further confirmation.
+            </div>
+            <div class="confirm-row">
+              <input class="confirm-input" id="conf-in" type="text" placeholder="Type target to confirm: 10.0.20.0/24" oninput="chkConf(this)"/>
+              <span class="confirm-status" id="conf-status" style="color:var(--text-muted)">Not confirmed</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="nav-row">
+        <button class="btn btn-s" onclick="goStep(2)">← Back</button>
+        <button class="btn btn-r" id="launch-btn" disabled onclick="goStep(4)">🚀 Launch Full Assessment</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- STEP 4: LAUNCHED -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <div id="s4" class="hidden">
+      <div class="launched">
+        <div class="launched-icon">🚀</div>
+        <div class="page-h" style="text-align:center">Assessment Launched</div>
+        <div class="page-sub" style="text-align:center;max-width:480px;margin:8px auto 24px">All 4 phases will execute automatically. Phase results appear in Mission Control as they complete.</div>
+        <div class="launch-missions">
+          <div class="launch-mission-chip">🏠 Internal LAN — Phase 1 running</div>
+          <div class="launch-mission-chip">🛡️ Active Directory — queued after Phase 2</div>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:28px">
+          <button class="btn btn-p" style="font-size:14px;padding:11px 26px">Open Mission Control →</button>
+          <button class="btn" style="border-color:rgba(239,68,68,0.35);color:var(--red);background:transparent;font-size:14px;padding:11px 26px">⬜ Kill Switch</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- DEMO BAR -->
+<div class="demo-bar">
+  <button class="demo-tab" onclick="goStep(1)">1 · Choose</button>
+  <button class="demo-tab on" onclick="goStep(2)">2 · Target</button>
+  <button class="demo-tab" onclick="goStep(3)">3 · Preview</button>
+  <button class="demo-tab" onclick="goStep(4)">4 · Launch</button>
+</div>
+
+<script>
+// State
+let selected = {lan:1, ad:2};
+let selOrder = 2;
+
+const steps = [null,'s1','s2','s3','s4'];
+
+function goStep(n){
+  [1,2,3,4].forEach(i=>{ const el=document.getElementById(steps[i]); if(el) el.classList.toggle('hidden',i!==n); });
+  document.querySelectorAll('.demo-tab').forEach((t,i)=>t.classList.toggle('on',i+1===n));
+  updateDots(n);
+}
+
+function updateDots(n){
+  [1,2,3,4].forEach(i=>{
+    const d=document.getElementById('d'+i), l=document.getElementById('l'+i);
+    if(!d) return;
+    if(i<n){ d.className='step-dot done'; d.textContent='✓'; l.className='step-label done'; }
+    else if(i===n){ d.className='step-dot active'; d.textContent=i; l.className='step-label active'; }
+    else{ d.className='step-dot pending'; d.textContent=i; l.className='step-label pending'; }
+    const ln=document.getElementById('ln'+i);
+    if(ln) ln.className='step-line'+(i<n?' done':i===n?' active':'');
+  });
+}
+
+function toggleTile(id, icon, name){
+  const tile=document.getElementById('t-'+id);
+  const num=document.getElementById('n-'+id);
+  if(selected[id]){
+    // deselect
+    const oldOrder=selected[id];
+    delete selected[id];
+    tile.classList.remove('selected','t2');
+    num.style.opacity='0';
+    // reorder remaining
+    const reordered={};
+    let i=1;
+    Object.keys(selected).sort((a,b)=>selected[a]-selected[b]).forEach(k=>{ reordered[k]=i; document.getElementById('n-'+k).textContent=i; i++; });
+    selected=reordered;
+    selOrder=Object.keys(selected).length;
+  } else {
+    selOrder++;
+    selected[id]=selOrder;
+    tile.classList.add('selected');
+    if(Object.keys(selected).length>1) tile.classList.add('t2');
+    num.textContent=selOrder;
+    num.style.opacity='1';
+    if(id==='custom') { document.querySelector('.tb-ghost').style.background='rgba(14,165,233,0.12)'; document.querySelector('.tb-ghost').style.color='#5ecfff'; }
+  }
+  updateSelBar();
+}
+
+function updateSelBar(){
+  const bar=document.getElementById('selbar');
+  const chips=document.getElementById('sel-chips');
+  const names={lan:'Internal LAN',ad:'Active Directory',web:'External Web',extip:'External IPs',api:'API Security',cloud:'Cloud',ai:'LLM / AI App',custom:'Custom',full:'Full Internal'};
+  const icons={lan:'🏠',ad:'🛡️',web:'🌐',extip:'🖧',api:'{}',cloud:'☁️',ai:'🤖',custom:'⚙️',full:'🎯'};
+  if(Object.keys(selected).length===0){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  chips.innerHTML=Object.keys(selected).sort((a,b)=>selected[a]-selected[b]).map((k,i)=>
+    `<div class="sel-chip ${i>0?'c2':''}">${icons[k]||''} ${names[k]||k}<span class="sel-chip-remove" onclick="toggleTile('${k}','','')">×</span></div>`
+  ).join('');
+  document.getElementById('sel-count').textContent=Object.keys(selected).length+' type'+(Object.keys(selected).length>1?'s':'')+' selected';
+}
+
+function clearAll(){
+  Object.keys(selected).forEach(k=>{
+    const tile=document.getElementById('t-'+k);
+    if(tile){ tile.classList.remove('selected','t2'); }
+    const num=document.getElementById('n-'+k);
+    if(num) num.style.opacity='0';
+  });
+  selected={}; selOrder=0;
+  updateSelBar();
+}
+
+function selectFullInternal(){
+  clearAll();
+  selected={lan:1,ad:2}; selOrder=2;
+  const tiles={lan:1,ad:2};
+  Object.entries(tiles).forEach(([k,v])=>{
+    const t=document.getElementById('t-'+k);
+    const n=document.getElementById('n-'+k);
+    if(t){ t.classList.add('selected'); if(v>1) t.classList.add('t2'); }
+    if(n){ n.textContent=v; n.style.opacity='1'; }
+  });
+  updateSelBar();
+  goStep(2);
+}
+
+function loadRecent(type){ goStep(2); }
+
+function selDepth(el, d){
+  document.querySelectorAll('.d-tile').forEach(t=>{ t.classList.remove('dsel','damber','dred'); });
+  el.classList.add('dsel');
+  if(d==='a') el.classList.add('damber');
+  if(d==='f') el.classList.add('damber');
+}
+
+function selAuth(el, lvl){
+  document.querySelectorAll('.a-opt').forEach(t=>t.classList.remove('asel-g','asel-a','asel-r'));
+  const cls={g:'asel-g',a:'asel-a',r:'asel-r'};
+  el.classList.add(cls[lvl]);
+  document.querySelector('.confirm-area').style.display=lvl==='r'?'block':'none';
+}
+
+function chkConf(inp){
+  const v=inp.value.trim()==='10.0.20.0/24';
+  inp.classList.toggle('valid',v);
+  const st=document.getElementById('conf-status');
+  st.textContent=v?'✓ Confirmed':'Not confirmed';
+  st.style.color=v?'var(--green)':'var(--text-muted)';
+  document.getElementById('launch-btn').disabled=!v;
+}
+
+// Init
+goStep(2);
+updateSelBar();
+document.querySelector('.confirm-area').style.display='block';
+</script>
+</body>
+</html>

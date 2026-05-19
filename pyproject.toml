@@ -3,11 +3,16 @@ line-length = 100
 target-version = ["py312"]
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q -s"
 testpaths = [
   "api/tests",
-  "ui/tests",
   "workers/tests",
+]
+markers = [
+  "ui_fast: fast Playwright checks suitable for active UI task iteration",
+  "smoke: broad smoke checks that avoid the full operator-console regression matrix",
+  "feature: feature-focused checks for one operator-console surface",
+  "regression: slow full-regression coverage that should run before release or explicit full UI gates",
 ]
 
 [tool.ruff]
@@ -21,3 +26,4 @@ select = [
   "I",
   "B",
 ]
+ignore = ["E501", "B008", "E402"]

@@ -1,0 +1,94 @@
+{
+  "id": "backlog-228-ssti-server-side-template-injection",
+  "task_file": "codex/tasks/backlog-228-ssti-server-side-template-injection.json",
+  "task_type": "product_slice",
+  "title": "SSTI runner: detect Server-Side Template Injection in Jinja2, Twig, Freemarker, and similar template engines",
+  "goal": "Server-Side Template Injection is not detected by ZAP or Nuclei by default and is absent from AegisPT's toolkit. SSTI leads directly to RCE and is in OWASP Top 10 (A03 - Injection). Gruyere uses a custom template language (GTL) that was exploited for code execution. Implement an ssti-probe runner: (1) Detection probes: inject mathematical expressions into all string parameters: {{7*7}}, ${7*7}, #{7*7}, <#assign x=7*7>${x}, {{7*'7'}}. If response contains '49' or '7777777' \u2192 SSTI confirmed for specific engine. (2) Engine fingerprinting: use different payloads to identify: Jinja2 (Python): {{config}} returns app config; Twig (PHP): {{_self.env.registerUndefinedFilterCallback}}; Freemarker (Java): ${7*7}; Smarty (PHP): {$smarty.version}; Velocity (Java): #set($x=7*7)$x. (3) Context-aware probing: test both reflected (parameters) and stored (form fields that render in templates) locations. (4) Gruyere GTL: the {{snippet}} template replacement in Gruyere \u2014 test for injection in custom template languages. (5) Findings: 'SSTI Confirmed (Engine: Jinja2) \u2014 Remote Code Execution Possible'. Severity Critical. Active tier. Tool: tplmap or custom payload list.",
+  "scope": "Gruyere custom template language GTL was exploited for code execution. SSTI is not in AegisPT tooling. Tplmap tool automates SSTI detection and engine identification. High-value finding: SSTI \u2192 RCE.",
+  "status": "queued",
+  "generated_by": "coverage-gap-analysis-2026-05-03",
+  "generation_reason": "Gruyere's GTL template injection + general SSTI absence from AegisPT tooling \u2014 mathematical expression injection is the standard detection approach, leads to Critical RCE findings.",
+  "source_context": {
+    "queue_index": 184,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "injection_coverage_ssti",
+    "source_documents": [
+      "workers/orchestration/tasks.py",
+      "scripts/install_security_tools.sh"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Detection probes only \u2014 mathematical expression injection. DO NOT send OS command execution payloads in this task. Detection is confirmed by '49' response, not by actual command execution.",
+    "safety": "SSTI payloads MUST be mathematical expressions only (7*7). No __import__, no config dumps beyond detection, no os.system payloads.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "ssti-probe detects Jinja2/Twig/Freemarker via mathematical expression response.",
+    "Engine identified in finding.",
+    "Detects Gruyere GTL template injection.",
+    "Critical severity finding produced.",
+    "Active tier requiring approval.",
+    "NEVER sends OS command payloads \u2014 math expressions only.",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Metasploit/intrusive tier",
+    "Existing injection runners"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "ssti-probe in supported tools.",
+      "Detects Jinja2 SSTI on test target.",
+      "No RCE payloads in codebase.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "RCE via SSTI execution",
+    "Config data exfiltration via SSTI"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

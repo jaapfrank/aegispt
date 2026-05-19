@@ -1,0 +1,111 @@
+{
+  "id": "backlog-360-role-aware-differential-authorization-testing",
+  "task_file": "codex/tasks/backlog-360-role-aware-differential-authorization-testing.json",
+  "task_type": "ai_evidence_testing",
+  "title": "Role-Aware Differential Authorization Testing",
+  "goal": "Detect more authorization vulnerabilities by comparing the same discovered routes, objects, and actions across multiple approved roles and sessions while preserving evidence-first traceability.",
+  "scope": "Authenticated web/API testing services, runner parameters, evidence normalization, finding generation, and tests for role-differential authorization behavior.",
+  "status": "queued",
+  "generated_by": "operator-ai-first-evidence-first-gap-analysis",
+  "generation_reason": "The operator asked what should happen next in an AI-first evidence-first pentest system to discover more vulnerabilities. Role-aware differential testing is a high-value next step for IDOR, broken access control, privilege escalation, and tenant boundary findings.",
+  "source_context": {
+    "queue_index": 310,
+    "queue_file": "TASK_QUEUE.md",
+    "review_findings": [
+      "More vulnerabilities require authenticated role comparison, not only single-session scanning.",
+      "Existing authenticated scanning and run credential vault work provide a safe foundation.",
+      "Evidence-first output must compare responses and actions without leaking secrets."
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-351 authenticated web scanning chain and existing credential protection lanes",
+    "broader_theme": "ai_first_evidence_first_vulnerability_discovery",
+    "key_files": [
+      "workers/runners/auth_flow/runner.py",
+      "workers/runners/idor_bac/runner.py",
+      "workers/runners/playwright_web/runner.py",
+      "workers/orchestration/findings.py",
+      "api/app/services/assessment_loop.py",
+      "api/app/services/run_credential_vault.py",
+      "api/tests/",
+      "workers/tests/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Focus on differential authorization evidence across approved accounts and sessions. Do not build a general exploit framework or bypass approval gates.",
+    "credential_safety": "Use existing protected secret references and runtime binding. Do not persist plaintext credentials or response bodies containing secret material."
+  },
+  "success_criteria": [
+    "The system can test the same route/object/action as anonymous, low-privilege, peer-user, and higher-privilege roles when those approved contexts exist.",
+    "Response comparisons capture status code, redirect behavior, stable content fingerprints, object ownership signals, and write-action outcomes without storing raw secrets.",
+    "Findings distinguish horizontal IDOR, vertical privilege escalation, anonymous access leakage, and tenant boundary issues.",
+    "Evidence artifacts include both allowed and denied control observations so findings are reproducible.",
+    "AI-loop or planner output can propose role-differential tests only when prerequisite sessions and scope are present."
+  ],
+  "likely_touched_files": [
+    "workers/runners/idor_bac/runner.py",
+    "workers/runners/auth_flow/runner.py",
+    "workers/runners/playwright_web/runner.py",
+    "workers/orchestration/findings.py",
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_assessment_loop.py",
+    "workers/tests/test_idor_bac_runner.py",
+    "workers/tests/test_playwright_web_runner.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "api/app/services/secrets.py",
+    "Prompt 1 and Prompt 2 foundations",
+    "workers/runners/core/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_idor_bac_runner.py workers/tests/test_playwright_web_runner.py api/tests/test_assessment_loop.py",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check workers/runners/idor_bac workers/runners/playwright_web workers/orchestration/findings.py api/app/services/assessment_loop.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Tests prove a peer-user object access is detected as horizontal authorization risk.",
+      "Tests prove admin-only or high-privilege action access by a lower role is detected as vertical authorization risk.",
+      "Tests prove missing role/session prerequisites produce a coverage gap rather than a false pass.",
+      "No approval, scope/ROE, credential, runtime binding, or kill-switch bypass occurs."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Creating or guessing unauthorized accounts.",
+    "Credential stuffing, password spraying, or brute force.",
+    "Bypassing scope/ROE, approval gates, runtime binding, or kill-switch behavior.",
+    "Changing existing finding schema fields."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

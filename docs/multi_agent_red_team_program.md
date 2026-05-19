@@ -190,6 +190,22 @@ Before this program can be activated as a real product layer, AegisPT should req
 - degraded-state handling when one agent or worker fails
 - operator override and kill switch handling
 
+## Inactive preparation baseline
+
+The first implementation slice is deliberately not a runtime.
+
+Run API responses expose `multi_agent_orchestration` as an inactive planning object that represents the future control-plane shape:
+
+- bounded role primitives for Mission Lead, Inventory and Surface, Threat and Relevance, Capability Forge, Execution Planner, Evidence and QA, Reporting and Assurance, and Safety and Policy
+- inactive handoff primitives with allowed payload categories and forbidden effects
+- blocking-default policy checks for scope authorization, operator approval, pack lifecycle gates, worker identity, evidence provenance, and kill-switch readiness
+- a provenance metadata shape for future role outputs, including role id, handoff type, source run/task/evidence refs, policy check ids, operator actor, worker identity, and creation time
+- activation requirements that are stricter than normal single-agent planning
+
+The baseline is visible to operators and tests, but it does not create agent records, create tasks, dispatch work, grant approvals, validate packs, approve packs, deploy packs, bind runtime packs, or coordinate workers.
+
+If a run configuration includes a `multi_agent_orchestration` activation request, the response records that request as blocked and non-executable. This preserves the future shape without creating a hidden activation path.
+
 ## Competitive implication
 
 Current competitors frequently market:

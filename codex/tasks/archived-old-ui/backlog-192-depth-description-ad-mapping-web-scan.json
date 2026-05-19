@@ -1,0 +1,87 @@
+{
+  "id": "backlog-192-depth-description-ad-mapping-web-scan",
+  "task_file": "codex/tasks/backlog-192-depth-description-ad-mapping-web-scan.json",
+  "task_type": "corrective_product_slice",
+  "title": "Fix depth option description: 'Active Scan — Vulnerability detection + AD mapping' is wrong for web/API scans",
+  "goal": "The wizard step 2 depth selection shows three cards: Passive / Active Scan / Full Pentest. The 'Active Scan' card description reads 'Vulnerability detection + AD mapping'. 'AD mapping' (Active Directory mapping) is a LAN/identity concept and is NOT performed during an External Web Active Scan. This description misleads web scan operators into thinking Active Directory will be probed when it will not. Fix: gate the description by selected tile type. For web/API tiles, show 'Vulnerability detection + web application analysis'. For LAN/AD tiles, keep 'Vulnerability detection + AD mapping'. In wizard.js, find where the depth choice cards are rendered and make the description conditional on the selected tile keys.",
+  "scope": "Live audit 2026-05-01: screenshot wizard-complete-2026-05-01/external-web-s2-target-step.png shows External Web step 2 with Active Scan described as 'Vulnerability detection + AD mapping' — AD mapping is not applicable for web scans.",
+  "status": "queued",
+  "generated_by": "live-wizard-audit-2026-05-01",
+  "generation_reason": "Live audit 2026-05-01: Active Scan depth option shows 'AD mapping' description on External Web scan — incorrect and misleading.",
+  "source_context": {
+    "queue_index": 192,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_contextual_descriptions",
+    "source_documents": [
+      "ui/assets/modules/wizard.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only change the description text for the Active Scan depth card based on tile context. Do not change execution behaviour or the options themselves.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "External Web Active Scan card does not mention 'AD mapping'.",
+    "Internal LAN / AD Active Scan card still shows 'AD mapping' in description where relevant.",
+    "Description is accurate and operator-appropriate for each tile context.",
+    "No regression in wizard E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Depth choice values (passive/active/full)",
+    "Backend execution profiles",
+    "Phase definitions"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "External Web wizard step 2 Active Scan description does not contain 'AD mapping'.",
+      "LAN wizard step 2 Active Scan description retains relevant description.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Changing depth card visual design",
+    "Adding new depth options",
+    "Backend execution changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,105 @@
+{
+  "id": "backlog-44-threat-intel-feed-cache-badges-foundation",
+  "task_file": "codex/tasks/backlog-44-threat-intel-feed-cache-badges-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Threat Intel Feed Cache and Finding Badges Foundation",
+  "goal": "Expand threat intelligence from curated records into local feed-backed context and finding badges.",
+  "scope": "Add a local, approved-feed threat-intel cache and sync path for sources such as CISA KEV, ATT&CK technique data, and CVE/CVSS metadata where safely available. Finding surfaces may display KEV, ATT&CK, and source-reference badges when matched, but no external lookup may occur during assessment analysis.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AI_PENTESTING_AGENT.md calls for local KEV, ATT&CK, NVD/CVSS, and threat-intel context beyond the current static threat-context mapping.",
+  "source_context": {
+    "queue_index": 44,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/threat_intel_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "local_threat_intelligence",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/threat_intel_model.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Threat-intel lookups must be local at analysis time. Do not download exploits, call external APIs during scans, or claim actor attribution.",
+    "runtime_mutation": false,
+    "operator_control_required": true
+  },
+  "success_criteria": [
+    "Approved threat-intel feeds can be synced or imported into local normalized records.",
+    "Finding surfaces can show KEV/ATT&CK/CVSS-style badges only when matched to stored local data.",
+    "Assessment-time matching does not depend on external network availability.",
+    "Sparse or stale feed data is labeled truthfully.",
+    "Tests cover sync/import, matching, stale data, and no-external-call behavior."
+  ],
+  "likely_touched_files": [
+    "api/app/services/threat_intel.py",
+    "api/app/routers/threat_intel.py",
+    "api/app/schemas/threat_intel.py",
+    "api/app/services/finding_views.py",
+    "ui/assets/modules/findings.js",
+    "api/tests/test_threat_intel.py",
+    "docs/threat_intel_model.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "exploit download or execution paths"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_threat_intel.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Threat-intel matching uses local records at analysis time.",
+      "Badges are source-linked and non-attributional.",
+      "No exploit fetching or scan-time external feed dependency is introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Vulnerability chain detection foundation is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Approved feed list and stale-cache behavior are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with threat-intel cache changes and validation evidence.",
+      "Update CURRENT_STATE.md with local threat-intel feed and badge behavior.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Threat actor attribution claims",
+    "External API calls during finding analysis",
+    "Exploit download or execution",
+    "Severity mutation without operator review",
+    "Finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

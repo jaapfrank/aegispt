@@ -1,0 +1,80 @@
+{
+  "active_acceptance_passed": true,
+  "active_criteria": {
+    "agents_reachable_via_mission_control": true,
+    "all_sidebar_items_open_screens": true,
+    "bottom_nav_absent": true,
+    "current_asset_versions_served": true,
+    "no_fixed_bottom_nav_like_nodes": true
+  },
+  "agents_reachable_via_mission_control": true,
+  "app_screen_switcher_count": 0,
+  "base_url": "http://127.0.0.1:8000",
+  "bottom_fixed_nav_like_nodes": [],
+  "bottom_nav_buttons": 0,
+  "bottom_nav_count": 0,
+  "note": "Settings navigation on the existing local database emitted pre-existing Jira integration 404 noise; active bottom-nav acceptance criteria were evaluated separately and passed.",
+  "observed_bad_responses": [
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8000/api/v1/engagements/82dda22d-74df-4991-84b1-36c1ca3cd5ca/integrations/jira"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8000/api/v1/engagements/82dda22d-74df-4991-84b1-36c1ca3cd5ca/integrations/jira"
+    }
+  ],
+  "observed_console_messages": [
+    {
+      "location": {
+        "columnNumber": 0,
+        "lineNumber": 0,
+        "url": "http://127.0.0.1:8000/api/v1/engagements/82dda22d-74df-4991-84b1-36c1ca3cd5ca/integrations/jira"
+      },
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "type": "error"
+    },
+    {
+      "location": {
+        "columnNumber": 0,
+        "lineNumber": 0,
+        "url": "http://127.0.0.1:8000/api/v1/engagements/82dda22d-74df-4991-84b1-36c1ca3cd5ca/integrations/jira"
+      },
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "type": "error"
+    }
+  ],
+  "observed_request_failures": [
+    {
+      "failure": "net::ERR_ABORTED",
+      "url": "http://127.0.0.1:8000/api/v1/engagements/3e83309d-6b7a-4d44-aa3e-5fd851317493/scope?optional=true"
+    },
+    {
+      "failure": "net::ERR_ABORTED",
+      "url": "http://127.0.0.1:8000/api/v1/engagements/40cfcb61-2fdd-4c05-a5ec-e58db31a8029/scope?optional=true"
+    },
+    {
+      "failure": "net::ERR_ABORTED",
+      "url": "http://127.0.0.1:8000/api/v1/tasks/5f809c9f-5f5c-4e9d-ac93-7a3aa621924d/stdout/events"
+    }
+  ],
+  "screenshot": "codex/results/backlog-200-bottom-nav-removed-8000.png",
+  "sidebar_navigation": {
+    "nav-attack-map": true,
+    "nav-custom-vulnerabilities": true,
+    "nav-dashboard": true,
+    "nav-findings": true,
+    "nav-history": true,
+    "nav-mission-control": true,
+    "nav-packs": true,
+    "nav-problems": true,
+    "nav-reports": true,
+    "nav-research": true,
+    "nav-settings": true,
+    "nav-wizard": true
+  },
+  "viewport": {
+    "height": 900,
+    "width": 1280
+  }
+}

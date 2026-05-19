@@ -1,0 +1,98 @@
+{
+  "id": "backlog-101-user-documentation",
+  "task_file": "codex/tasks/backlog-101-user-documentation.json",
+  "task_type": "backlog_slice",
+  "title": "User Documentation \u2014 Operator Manual, Getting Started, and API Reference",
+  "goal": "Give every new operator everything they need to go from zero to completed first scan without reading internal governance docs or asking for help.",
+  "scope": "Four documentation deliverables: (1) OPERATOR MANUAL (docs/manual/operator-manual.md): A complete end-user manual covering: what AegisPT is and what it does (1 page), installation (link to install docs), first scan walkthrough (wizard \u2192 mission control \u2192 findings \u2192 report), understanding findings (severity, evidence, methodology), remediation workflow, report types and when to use each, Settings configuration, AI features how-to (connect ChatGPT, enable features), troubleshooting common problems (no findings on LAN \u2192 wrong profile, settings loading \u2192 server issue, etc.). Written for a security consultant, not a developer. No internal governance language. (2) GETTING STARTED GUIDE (docs/manual/getting-started.md): A 5-minute guide: install \u2192 connect \u2192 first scan \u2192 first report. The single document a new operator reads before anything else. (3) API REFERENCE: Enable FastAPI's built-in OpenAPI/Swagger documentation at /api/docs (currently disabled or not linked). Every endpoint documented with: description, request/response examples, error codes. Available at http://localhost:8000/api/docs when the server runs. (4) UPDATE README.md: The current README describes the first operational slice from a year ago. Update to reflect the current product state, capabilities, and links to the new documentation.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "There is no user-facing documentation. The 70+ docs in docs/ are all internal governance docs for Codex. A new operator finds a README describing the system as it was a year ago, with no guide on how to use the product. For a commercial product, documentation is part of the product.",
+  "source_context": {
+    "queue_index": 105,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "README.md",
+      "docs/host_service_install.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "documentation",
+    "source_documents": [
+      "README.md",
+      "docs/host_service_install.md",
+      "docs/acceptance_runbook.md",
+      "api/app/main.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Documentation and API spec exposure only. No product code changes beyond enabling OpenAPI docs endpoint.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "docs/manual/operator-manual.md covers all major operator workflows.",
+    "docs/manual/getting-started.md guides a new operator to first scan in 5 minutes.",
+    "GET /api/docs returns the OpenAPI/Swagger UI.",
+    "README.md reflects the current product state and links to manual.",
+    "No internal governance language in user-facing docs.",
+    "A non-developer can follow the getting-started guide without asking questions."
+  ],
+  "likely_touched_files": [
+    "README.md",
+    "docs/manual/operator-manual.md",
+    "docs/manual/getting-started.md",
+    "api/app/main.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Internal governance docs",
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Manual exists and covers all workflows.",
+      "OpenAPI docs accessible.",
+      "README updated."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "AegisPT security self-test (backlog-100) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with documentation deliverables.",
+      "Update CURRENT_STATE.md with user documentation as active.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Video tutorials",
+    "Translated documentation",
+    "Marketing copy"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

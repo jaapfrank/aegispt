@@ -1,0 +1,82 @@
+{
+  "id": "backlog-299-continuous-exposure-drift-detection",
+  "task_file": "codex/tasks/backlog-299-continuous-exposure-drift-detection.json",
+  "task_type": "competitive_edge_feature",
+  "title": "Continuous Exposure Drift Detection",
+  "goal": "For scheduled continuous pentests, the AI must compare the current context document and findings against the previous run. It flags 'Drift'\u2014e.g., 'A new port 8080 opened since yesterday', or 'The React version downgraded'. This alerts the SOC to shadow IT or unauthorized changes before an attacker finds them.",
+  "scope": "Remediation logic, attack graphing, and continuous execution.",
+  "status": "queued",
+  "generated_by": "competitive-analysis-planning",
+  "generation_reason": "To ensure AegisPT out-competes market leaders like Pentera and XM Cyber by offering best-in-class remediation intelligence, proof of resolution, and cloud attack path visualization.",
+  "source_context": {
+    "queue_index": 251,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/competitive_landscape_2026.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-296",
+    "broader_theme": "enterprise_competitive_edge",
+    "source_documents": [
+      "docs/competitive_landscape_2026.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Ensure these features generate measurable, provable evidence (like a retest log or a drift report) rather than just UI dashboards.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "AI successfully identifies choke-points in an attack graph.",
+    "Micro-scanner can replay an exact finding payload and verify a fix.",
+    "Drift detection accurately spots differences between two runs on the same target.",
+    "Cloud IAM findings map visually to traditional network/web findings."
+  ],
+  "likely_touched_files": [
+    "api/app/services/remediation_engine.py",
+    "api/app/services/attack_graph.py",
+    "api/app/runners/micro_scanner.py"
+  ],
+  "must_not_touch": [
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/"
+    ],
+    "acceptance_criteria": [
+      "All new intelligence engines function safely and produce accurate programmatic output in the local lab."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Building a complete new cloud security posture management (CSPM) tool from scratch"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,107 @@
+{
+  "id": "backlog-11-operational-assurance-matrix-foundation",
+  "task_file": "codex/tasks/backlog-11-operational-assurance-matrix-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Operational Assurance Matrix Foundation",
+  "goal": "Turn the remaining operational-assurance gap into a repo-owned supported-combination matrix before more product features are added.",
+  "scope": "Create the first assurance-matrix slice that maps supported assessment types, profiles, access modes, safety modes, analysis surfaces, export paths, and known unsupported or blocked combinations to existing validation evidence and explicit gaps. Keep this slice focused on truth mapping and signoff discipline, not product behavior changes.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 11,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/operator_console_stabilization_plan.md",
+      "docs/operational_truth_signoff.md",
+      "CURRENT_STATE.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "operational_assurance",
+    "source_documents": [
+      "docs/operator_console_stabilization_plan.md",
+      "docs/operational_truth_signoff.md",
+      "codex/tasks/product_acceptance_matrix.json",
+      "codex/tasks/ui_acceptance_matrix.json",
+      "codex/tasks/target_lab_matrix.json"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Stay inside assurance mapping, evidence references, and known-gap classification. Do not add new product behavior in this slice.",
+    "runtime_mutation": false,
+    "no_product_feature_changes": true,
+    "notes": [
+      "Use existing matrix files and docs as inputs.",
+      "Every row must be classified as supported-and-tested, supported-with-gap, blocked, or intentionally-unsupported."
+    ]
+  },
+  "success_criteria": [
+    "A repo-owned operational assurance matrix exists and references the current supported operator paths.",
+    "Supported, blocked, and intentionally unsupported combinations are explicit instead of implied.",
+    "Existing evidence references are captured without overstating completeness.",
+    "Open signoff gaps are listed as future task candidates rather than hidden in prose.",
+    "No product code or runtime behavior is changed."
+  ],
+  "likely_touched_files": [
+    "docs/operator_product_operational_assurance.md",
+    "docs/operational_truth_signoff.md",
+    "docs/acceptance_runbook.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "api/app/models/control.py",
+    "workers/orchestration/tasks.py",
+    "ui/assets/app.js",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The matrix is specific enough for future tasks to pick rows without new product decisions.",
+      "The matrix does not claim exhaustive validation where evidence is missing.",
+      "The task leaves exactly one active task in NEXT_TASK.md."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The previous active task is closed or is the explicit holding state.",
+      "python3 scripts/validate_backlog_tasks.py passes with this package queued.",
+      "TASK_QUEUE.md includes this package exactly once."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the assurance-matrix slice and validation evidence.",
+      "Update CURRENT_STATE.md with the new assurance truth and remaining gaps.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "New UI behavior",
+    "New backend endpoints",
+    "New worker execution paths",
+    "New report variants",
+    "Claims that the whole product is complete"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "approved_for_promotion"
+}

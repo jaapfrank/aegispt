@@ -1,0 +1,93 @@
+{
+  "id": "backlog-171-report-center-copy-cleanup",
+  "task_file": "codex/tasks/backlog-171-report-center-copy-cleanup.json",
+  "task_type": "corrective_product_slice",
+  "title": "Clean up Report Center copy: remove internal dev language and improve empty state messaging",
+  "goal": "Audit all user-visible strings in ui/assets/modules/reports.js and ui/index.html for the Report Center screen. Remove or rewrite: (1) the screen-copy 'Work from the current run strip, open the report you need, and export without a side metadata rail.' — 'without a side metadata rail' is internal UI design language not useful to operators; rewrite to 'Review and export technical, executive, and compliance reports for the selected run.' (2) The 'Prior Report Delta' label and its instruction 'Select a baseline run to History & Compared to contrast report periods' — rewrite to be clearer: 'Compare with Earlier Run' with instruction 'Select a previous run to compare findings, coverage, and risk score changes.' (3) Any placeholder text visible in the report Reader panel when no report is selected — replace with a one-sentence empty state. (4) 'reportPlaceholder' function strings that are developer-facing descriptions.",
+  "scope": "System review 2026-05-01: Report Center screen copy contains internal design language ('without a side metadata rail'), confusing labels ('Prior Report Delta', 'History & Compared'), and developer-facing placeholder text. Enterprise operators should see clear product copy at all times.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: Report Center contains internal dev language in operator-visible copy — clean up for enterprise readiness.",
+  "source_context": {
+    "queue_index": 171,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-94-report-quality-overhaul.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_copy_enterprise_quality",
+    "source_documents": [
+      "ui/assets/modules/reports.js",
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only update string copy and empty state messages. Do not restructure report layout, change report generation, or modify backend.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Report Center screen-copy is operator-appropriate and does not mention internal design terms.",
+    "'Prior Report Delta' section has a clear label and instruction that operators understand without context.",
+    "Report Reader empty state guides the operator to select a report.",
+    "No internal/dev-facing strings visible to operators in the Report Center.",
+    "No regression in report E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/reports.js",
+    "ui/index.html",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Report generation logic",
+    "Report export/download",
+    "Backend report API",
+    "PDF generation"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "No internal design terms ('metadata rail', 'History & Compared') in operator-visible Report Center copy.",
+      "Empty states are one sentence with one action.",
+      "Report Center E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Report layout restructure",
+    "New report types",
+    "Backend report generation changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

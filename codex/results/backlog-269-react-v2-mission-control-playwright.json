@@ -1,0 +1,50 @@
+[
+  {
+    "width": 1440,
+    "status_visible": true,
+    "task_output_visible": true,
+    "ai_proposal_visible": true,
+    "phase_visible": true,
+    "map_visible": true,
+    "task_expanded": true,
+    "cinema_guard_visible": true,
+    "errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-269-react-v2-mission-control-1440.png"
+  },
+  {
+    "width": 1024,
+    "status_visible": true,
+    "task_output_visible": true,
+    "ai_proposal_visible": true,
+    "phase_visible": true,
+    "map_visible": true,
+    "task_expanded": true,
+    "cinema_guard_visible": true,
+    "errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-269-react-v2-mission-control-1024.png"
+  },
+  {
+    "width": 768,
+    "status_visible": true,
+    "task_output_visible": true,
+    "ai_proposal_visible": true,
+    "phase_visible": true,
+    "map_visible": true,
+    "task_expanded": true,
+    "cinema_guard_visible": true,
+    "errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-269-react-v2-mission-control-768.png"
+  },
+  {
+    "width": 375,
+    "status_visible": true,
+    "task_output_visible": true,
+    "ai_proposal_visible": true,
+    "phase_visible": true,
+    "map_visible": true,
+    "task_expanded": true,
+    "cinema_guard_visible": true,
+    "errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-269-react-v2-mission-control-375.png"
+  }
+]

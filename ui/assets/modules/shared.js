@@ -4,7 +4,7 @@ const RUN_PROFILE_PLAN_FALLBACKS = {
   "passive-network-discovery": {
     run_class: "passive",
     limits_json: {
-      description: "Passive-safe host and range discovery using Nmap ping scan semantics.",
+      description: "Low-impact host and range discovery using Nmap ping scan semantics. This sends network traffic and does not perform exploitation.",
       required_approvals: 0,
       tools: ["nmap"],
     },
@@ -12,7 +12,7 @@ const RUN_PROFILE_PLAN_FALLBACKS = {
   "passive-network-service-enumeration": {
     run_class: "passive",
     limits_json: {
-      description: "Passive-safe service identification across discovered hosts using Nmap top-port and service detection.",
+      description: "Low-impact service identification across discovered hosts using Nmap top-port and service detection.",
       required_approvals: 0,
       tools: ["nmap"],
     },
@@ -20,9 +20,25 @@ const RUN_PROFILE_PLAN_FALLBACKS = {
   "passive-web-baseline": {
     run_class: "passive",
     limits_json: {
-      description: "Passive HTTP fingerprinting with the Python httpx runner.",
+      description: "Low-impact HTTP fingerprinting with the Python httpx runner. This sends network traffic and does not perform exploitation.",
       required_approvals: 0,
       tools: ["httpx"],
+    },
+  },
+  "passive-easm-discovery": {
+    run_class: "passive",
+    limits_json: {
+      description: "Passive external attack-surface discovery from approved root domains.",
+      required_approvals: 0,
+      tools: ["easm-discover"],
+    },
+  },
+  "passive-external-infrastructure": {
+    run_class: "passive",
+    limits_json: {
+      description: "Passive external infrastructure assessment with EASM-assisted expansion, full-port service detection, HTTP follow-up, SSH audit, and optional passive SMB checks.",
+      required_approvals: 0,
+      tools: ["external-infra"],
     },
   },
   "passive-code-semgrep-audit": {
@@ -49,12 +65,36 @@ const RUN_PROFILE_PLAN_FALLBACKS = {
       tools: ["zap"],
     },
   },
+  "active-external-infrastructure": {
+    run_class: "active",
+    limits_json: {
+      description: "Approval-gated external infrastructure assessment that adds infrastructure-focused nuclei validation after the passive service baseline.",
+      required_approvals: 1,
+      tools: ["external-infra"],
+    },
+  },
   "active-web-zap-active": {
     run_class: "active",
     limits_json: {
       description: "Approval-gated ZAP spider plus active scan against allowlisted web targets.",
       required_approvals: 1,
       tools: ["zap"],
+    },
+  },
+  "active-lan-ssh-brute": {
+    run_class: "active",
+    limits_json: {
+      description: "Approval-gated Hydra weak-credential validation for approved SSH, FTP, Telnet, and RDP services.",
+      required_approvals: 1,
+      tools: ["ssh-brute"],
+    },
+  },
+  "passive-lan-network-capture": {
+    run_class: "passive",
+    limits_json: {
+      description: "Passive LAN tcpdump capture and ARP consistency review with redacted credential evidence.",
+      required_approvals: 0,
+      tools: ["network-capture"],
     },
   },
   "intrusive-validation": {
@@ -127,16 +167,91 @@ export function formatDurationLabel(value) {
 
 export function minutesSince(value) {
   if (!value) return 0;
-  return Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
+  const timestamp = parseBackendTimestamp(value);
+  if (!Number.isFinite(timestamp)) return 0;
+  return Math.max(0, Math.round((Date.now() - timestamp) / 60000));
 }
 
 export function formatElapsedMinutes(value, offset = 0) {
   return formatDurationLabel(minutesSince(value) + offset);
 }
 
+export function parseBackendTimestamp(value) {
+  if (!value) return NaN;
+  if (value instanceof Date) return value.getTime();
+  const raw = String(value).trim();
+  if (!raw) return NaN;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw) && !/(Z|[+-]\d{2}:?\d{2})$/.test(raw)) {
+    return new Date(`${raw}Z`).getTime();
+  }
+  return new Date(raw).getTime();
+}
+
 export function toPercent(value) {
   const number = Number(value || 0);
   return `${Math.round(number * 100)}%`;
+}
+
+export function formatExposureScore(value) {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric)) return "0";
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(1);
+}
+
+export function exposureTrendLabel(value) {
+  const normalized = String(value || "stable").trim().toLowerCase();
+  const labels = {
+    improving: "Improving",
+    worsening: "Worsening",
+    stable: "Stable",
+  };
+  return labels[normalized] || "Stable";
+}
+
+export function exposureScoreTone(value) {
+  const score = Number(value || 0);
+  if (score >= 75) return "critical";
+  if (score >= 50) return "warning";
+  if (score >= 20) return "watch";
+  return "healthy";
+}
+
+export function renderExposureSparkline(history, options = {}) {
+  const points = Array.isArray(history) ? history : [];
+  const width = Math.max(40, Number(options.width || 160));
+  const height = Math.max(20, Number(options.height || 34));
+  const className = String(options.className || "").trim();
+  const testId = String(options.testId || "").trim();
+  if (!points.length) {
+    return `
+      <div class="exposure-sparkline is-empty ${escapeHtml(className)}" ${testId ? `data-testid="${escapeHtml(testId)}"` : ""}>
+        <span>No score history yet</span>
+      </div>
+    `;
+  }
+  const values = points.map((point) => Math.max(0, Math.min(100, Number(point?.score || 0))));
+  const denominator = Math.max(values.length - 1, 1);
+  const coordinates = values.map((value, index) => {
+    const x = (index / denominator) * width;
+    const y = height - (value / 100) * height;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  const area = [`0,${height}`, ...coordinates, `${width},${height}`].join(" ");
+  const line = coordinates.join(" ");
+  return `
+    <svg
+      class="exposure-sparkline ${escapeHtml(className)}"
+      ${testId ? `data-testid="${escapeHtml(testId)}"` : ""}
+      width="${width}"
+      height="${height}"
+      viewBox="0 0 ${width} ${height}"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <polygon points="${area}" class="exposure-sparkline-area"></polygon>
+      <polyline points="${line}" class="exposure-sparkline-line"></polyline>
+    </svg>
+  `;
 }
 
 export function isLikelyUrl(value) {
@@ -363,10 +478,6 @@ export function lineSvg(x1, y1, x2, y2) {
   return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(107,215,255,0.18)" stroke-width="0.4" stroke-dasharray="1 1" />`;
 }
 
-export function heroChip(label, meta) {
-  return `<div class="hero-chip">${escapeHtml(label)} · ${escapeHtml(meta)}</div>`;
-}
-
 export function renderBadgeList(items, className = "") {
   const filtered = (items || []).filter(Boolean);
   if (!filtered.length) return "";
@@ -445,8 +556,44 @@ export function textareaField(
   `;
 }
 
-export function emptyState(message) {
-  return `<div class="empty-state">${escapeHtml(message)}</div>`;
+export function emptyState(message, action = null) {
+  const config =
+    action && typeof action === "object"
+      ? {
+          label: String(action.label || "").trim(),
+          screen: String(action.screen || "").trim(),
+          href: String(action.href || "").trim(),
+          className: String(action.className || "ghost").trim() || "ghost",
+          testId: String(action.testId || "").trim(),
+        }
+      : null;
+  const actionMarkup = config?.label
+    ? config.href
+      ? `
+        <a
+          class="action ${escapeHtml(config.className)} empty-state-action"
+          href="${escapeHtml(config.href)}"
+          ${config.testId ? `data-testid="${escapeHtml(config.testId)}"` : ""}
+        >${escapeHtml(config.label)}</a>
+      `
+      : `
+        <button
+          class="action ${escapeHtml(config.className)} empty-state-action"
+          type="button"
+          ${config.screen ? `data-nav-screen="${escapeHtml(config.screen)}"` : ""}
+          ${config.testId ? `data-testid="${escapeHtml(config.testId)}"` : ""}
+        >${escapeHtml(config.label)}</button>
+      `
+    : "";
+  return `
+    <div class="empty-state">
+      <div class="empty-state-copy">
+        <span class="empty-icon" aria-hidden="true"></span>
+        <span>${escapeHtml(message)}</span>
+      </div>
+      ${actionMarkup}
+    </div>
+  `;
 }
 
 export function statusPill(status) {

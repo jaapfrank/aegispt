@@ -1,0 +1,115 @@
+{
+  "id": "backlog-180-launch-authorization-auto-advance-contract",
+  "task_file": "codex/tasks/backlog-180-launch-authorization-auto-advance-contract.json",
+  "task_type": "corrective_product_slice",
+  "title": "Launch authorization and phase auto-advance contract",
+  "goal": "Make mission launch authorization carry through the assessment chain so operators are not forced to re-confirm every phase when they already selected and authorized the intended depth at launch.",
+  "scope": "Fix the operator contract around Full / all-phases launch, phase gates, auto-advance, and authorization visibility. If an operator selects a profile/depth that explicitly authorizes later phases, the chain should automatically continue through the authorized non-exploitation phases when prerequisites are met. Any remaining gate must explain exactly why it still requires confirmation, such as missing credentials, missing prerequisite evidence, out-of-scope expansion, destructive/intrusive exploitation, or a safety boundary. The UI must show which phases are pre-authorized, which are pending, and what will run next without requiring repeated guesswork.",
+  "status": "queued",
+  "generated_by": "operator-feedback-2026-05-01",
+  "generation_reason": "Operator feedback after repo-state push: per-phase confirmation after already authorizing a full mission is confusing and inefficient. The system must preserve safety gates while honoring launch-time authorization and explaining any remaining required approval.",
+  "source_context": {
+    "queue_index": 156,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-76-assessment-mode-automated-chain.json",
+      "codex/tasks/backlog-78-visual-mission-preview-and-full-authorization.json",
+      "codex/tasks/backlog-150-run-lifecycle-dispatch-and-chain-recovery-truth.json",
+      "codex/tasks/backlog-151-wizard-input-prediction-and-assessment-matrix.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "authorization_and_auto_advance_truth",
+    "source_documents": [
+      "api/app/services/assessment_chain.py",
+      "api/app/services/runs.py",
+      "api/app/routers/runs.py",
+      "ui/assets/modules/wizard.js",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/modules/runtime.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only fix launch-time authorization carry-through, phase auto-advance clarity, and remaining-gate explanations. Do not bypass pack validation, runtime binding, scope enforcement, kill switch, credential prerequisites, or explicit exploitation authorization.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "A Full / all-phases mission launched with explicit authorization records a durable authorization summary that Mission Control can display.",
+    "Authorized non-exploitation phases auto-advance when prerequisites are satisfied instead of asking the operator to confirm the same intent again.",
+    "Any phase that still blocks shows the exact reason and the safe next action: missing credential, missing finding/evidence prerequisite, missing tool readiness, scope expansion, intrusive exploitation, or failed runner review.",
+    "Wizard preview clearly states which phases will auto-advance after launch and which phase types can still require manual approval.",
+    "Mission Control phase cards distinguish pre-authorized, auto-advancing, waiting-on-prerequisite, and manual-approval-required states.",
+    "Tests cover Full Internal LAN / full-depth launch, no-credentials launch, credentialed launch, and exploitation-gated launch behavior without weakening safety boundaries."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_chain.py",
+    "api/app/services/runs.py",
+    "api/app/routers/runs.py",
+    "api/tests/test_assessment_chain.py",
+    "api/tests/test_runs.py",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "ui/tests/test_operator_console_smoke_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "capability pack registry bypass",
+    "pack validation bypass",
+    "runtime binding bypass",
+    "scope enforcement bypass",
+    "kill switch bypass",
+    "finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py api/tests/test_runs.py -q",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py ui/tests/test_operator_console_smoke_e2e.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Full Internal LAN with launch-time authorization does not ask for redundant phase confirmations for already-authorized non-exploitation phases.",
+      "A no-credentials mission explains credential-dependent gates instead of silently skipping or repeatedly asking for approval.",
+      "Intrusive exploitation remains explicitly gated unless the launch flow recorded a specific exploitation authorization that satisfies the existing safety contract.",
+      "Mission Control shows what is authorized, what is next, and why anything is blocked."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad Mission Control redesign beyond the authorization/phase contract",
+    "Installing or executing new tools",
+    "Running live customer or intrusive targets",
+    "Adding uncontrolled autonomous execution",
+    "Weakening explicit exploitation, credential, scope, or kill-switch gates"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,1608 @@
+{
+  "authorized_root": "http://127.0.0.1:5013/",
+  "docker": {
+    "container_name": "aegispt-dvga-backlog242",
+    "digest": "sha256:040aa33c199d99f3380c9ff9a1ee5d725e9abca7b189c63a35a2a73bda79c957",
+    "image": "dolevf/dvga:latest",
+    "run_command": "docker run -d --rm -p 127.0.0.1:5013:5013 -e WEB_HOST=0.0.0.0 --name aegispt-dvga-backlog242 dolevf/dvga"
+  },
+  "execution": {
+    "exit_code": 0,
+    "metadata": {
+      "check_count": 20,
+      "finding_count": 5,
+      "runner_digest": "workers.graphql_probe.runner:v1",
+      "status": "ok",
+      "tool_version": "custom-python-bounded"
+    },
+    "stderr": "",
+    "summary": {
+      "candidate_endpoint_count": 4,
+      "check_count": 20,
+      "depth_findings": 1,
+      "discovered_endpoint_count": 1,
+      "finding_count": 5,
+      "injection_findings": 1,
+      "introspection_findings": 1,
+      "schema_map_count": 1,
+      "suggestion_findings": 1,
+      "target_count": 1
+    }
+  },
+  "expected_vs_actual": {
+    "argument_injection_error_signal": true,
+    "batching_capability": true,
+    "bounded_depth_signal": true,
+    "endpoint_discovery": true,
+    "field_suggestions": true,
+    "graphiql_exposure": true,
+    "introspection": true
+  },
+  "normalized_findings": [
+    {
+      "methodology_tags": [
+        "api_security",
+        "graphql_security",
+        "owasp-api-top-10-2023",
+        "graphql-probe-validation"
+      ],
+      "severity": "medium",
+      "summary": "A GraphQL IDE or playground interface is reachable in approved scope.",
+      "target_id": "http://127.0.0.1:5013/graphiql",
+      "title": "GraphQL Playground or IDE Exposed"
+    },
+    {
+      "methodology_tags": [
+        "api_security",
+        "graphql_security",
+        "owasp-api-top-10-2023",
+        "graphql-probe-validation"
+      ],
+      "severity": "medium",
+      "summary": "The GraphQL endpoint returned a full introspection schema in approved scope.",
+      "target_id": "http://127.0.0.1:5013/graphql",
+      "title": "GraphQL Introspection Enabled - Full Schema Disclosed"
+    },
+    {
+      "methodology_tags": [
+        "api_security",
+        "graphql_security",
+        "owasp-api-top-10-2023",
+        "graphql-probe-validation"
+      ],
+      "severity": "low",
+      "summary": "GraphQL validation errors disclose field-name suggestions useful for schema enumeration.",
+      "target_id": "http://127.0.0.1:5013/graphql",
+      "title": "GraphQL Field Suggestion Leakage"
+    },
+    {
+      "methodology_tags": [
+        "api_security",
+        "graphql_security",
+        "owasp-api-top-10-2023",
+        "graphql-probe-validation"
+      ],
+      "severity": "medium",
+      "summary": "A bounded nested GraphQL query of at least 10 levels was accepted without depth-limit evidence.",
+      "target_id": "http://127.0.0.1:5013/graphql",
+      "title": "GraphQL Missing Query Depth Limit"
+    },
+    {
+      "methodology_tags": [
+        "api_security",
+        "graphql_security",
+        "owasp-api-top-10-2023",
+        "graphql-probe-validation"
+      ],
+      "severity": "high",
+      "summary": "A bounded GraphQL string argument probe produced backend error evidence consistent with injection risk.",
+      "target_id": "http://127.0.0.1:5013/graphql",
+      "title": "GraphQL Argument Injection Error Signal"
+    }
+  ],
+  "normalized_findings_count": 5,
+  "request_count": 19,
+  "requests": [
+    {
+      "body_marker": null,
+      "headers": {
+        "accept": "text/html,application/xhtml+xml",
+        "user-agent": "AegisPT/graphql-probe IDE discovery"
+      },
+      "method": "GET",
+      "url": "http://127.0.0.1:5013/graphiql?query=query+AegisPTGraphiQL+%7B+__typename+%7D"
+    },
+    {
+      "body_marker": null,
+      "headers": {
+        "accept": "text/html,application/xhtml+xml",
+        "user-agent": "AegisPT/graphql-probe IDE discovery"
+      },
+      "method": "GET",
+      "url": "http://127.0.0.1:5013/playground?query=query+AegisPTGraphiQL+%7B+__typename+%7D"
+    },
+    {
+      "body_marker": "query AegisPTDetect",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTIntrospection",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTSuggestion",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTDepthProbe",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTInjection($value: String)",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTInjection($value: String)",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTInjection($value: String)",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTInjection($value: String)",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTInjection($value: String)",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTInjection($value: String)",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTInjection($value: String)",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTInjection($value: String)",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTInjection($value: String)",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "batch-size-2",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/graphql"
+    },
+    {
+      "body_marker": "query AegisPTDetect",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/api/graphql"
+    },
+    {
+      "body_marker": "query AegisPTDetect",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/v1/graphql"
+    },
+    {
+      "body_marker": "query AegisPTDetect",
+      "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "AegisPT/graphql-probe bounded validation"
+      },
+      "method": "POST",
+      "url": "http://127.0.0.1:5013/gql"
+    }
+  ],
+  "runner_artifact": {
+    "checks": [
+      {
+        "base_target": "http://127.0.0.1:5013/graphiql",
+        "check_type": "graphql_ide_discovery",
+        "exposed": true,
+        "response_hash": "d4a6636aa8d20488f4f4a546cb38bd45540ce027c60b5d47b721c691f74fb65f",
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphiql?query=query+AegisPTGraphiQL+%7B+__typename+%7D"
+      },
+      {
+        "base_target": "http://127.0.0.1:5013/playground",
+        "check_type": "graphql_ide_discovery",
+        "exposed": false,
+        "response_hash": "e9639e3c4681ce85f852fbac48e2eeee5ba51296dbfec57c200d59b76237ab80",
+        "status_code": 404,
+        "target": "http://127.0.0.1:5013/playground?query=query+AegisPTGraphiQL+%7B+__typename+%7D"
+      },
+      {
+        "body_excerpt": "{\"data\":{\"__typename\":\"Query\"}}",
+        "check_type": "graphql_endpoint_detection",
+        "detected": true,
+        "response_hash": "c0cbf0efb8510e4432204c3d5d5fe3926c796896f917c2af570eeddc192a6e56",
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "check_type": "graphql_introspection",
+        "enabled": true,
+        "response_hash": "a9b23919424e9fcc6b9aaffd88c355b274fdeff350b5264a026fad518711cb79",
+        "schema_map": {
+          "mutation_fields": [
+            {
+              "args": [
+                {
+                  "name": "burn",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Boolean",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "content",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "public",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Boolean",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "title",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "createPaste",
+              "type": {
+                "kind": "OBJECT",
+                "name": "CreatePaste",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "content",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "id",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Int",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "title",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "editPaste",
+              "type": {
+                "kind": "OBJECT",
+                "name": "EditPaste",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "id",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Int",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "deletePaste",
+              "type": {
+                "kind": "OBJECT",
+                "name": "DeletePaste",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "content",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": [
+                      "NON_NULL"
+                    ]
+                  }
+                },
+                {
+                  "name": "filename",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": [
+                      "NON_NULL"
+                    ]
+                  }
+                }
+              ],
+              "name": "uploadPaste",
+              "type": {
+                "kind": "OBJECT",
+                "name": "UploadPaste",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "host",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": [
+                      "NON_NULL"
+                    ]
+                  }
+                },
+                {
+                  "name": "path",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": [
+                      "NON_NULL"
+                    ]
+                  }
+                },
+                {
+                  "name": "port",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Int",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "scheme",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": [
+                      "NON_NULL"
+                    ]
+                  }
+                }
+              ],
+              "name": "importPaste",
+              "type": {
+                "kind": "OBJECT",
+                "name": "ImportPaste",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "userData",
+                  "type": {
+                    "kind": "INPUT_OBJECT",
+                    "name": "UserInput",
+                    "wrappers": [
+                      "NON_NULL"
+                    ]
+                  }
+                }
+              ],
+              "name": "createUser",
+              "type": {
+                "kind": "OBJECT",
+                "name": "CreateUser",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "password",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "username",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "login",
+              "type": {
+                "kind": "OBJECT",
+                "name": "Login",
+                "wrappers": []
+              }
+            }
+          ],
+          "mutation_type": "Mutations",
+          "query_fields": [
+            {
+              "args": [
+                {
+                  "name": "public",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Boolean",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "limit",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Int",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "filter",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "pastes",
+              "type": {
+                "kind": "OBJECT",
+                "name": "PasteObject",
+                "wrappers": [
+                  "LIST"
+                ]
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "id",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Int",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "title",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "paste",
+              "type": {
+                "kind": "OBJECT",
+                "name": "PasteObject",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [],
+              "name": "systemUpdate",
+              "type": {
+                "kind": "SCALAR",
+                "name": "String",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "username",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "password",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                },
+                {
+                  "name": "cmd",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "systemDiagnostics",
+              "type": {
+                "kind": "SCALAR",
+                "name": "String",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "arg",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "systemDebug",
+              "type": {
+                "kind": "SCALAR",
+                "name": "String",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [],
+              "name": "systemHealth",
+              "type": {
+                "kind": "SCALAR",
+                "name": "String",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "id",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Int",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "users",
+              "type": {
+                "kind": "OBJECT",
+                "name": "UserObject",
+                "wrappers": [
+                  "LIST"
+                ]
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "id",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Int",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "readAndBurn",
+              "type": {
+                "kind": "OBJECT",
+                "name": "PasteObject",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "keyword",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "search",
+              "type": {
+                "kind": "UNION",
+                "name": "SearchResult",
+                "wrappers": [
+                  "LIST"
+                ]
+              }
+            },
+            {
+              "args": [],
+              "name": "audits",
+              "type": {
+                "kind": "OBJECT",
+                "name": "AuditObject",
+                "wrappers": [
+                  "LIST"
+                ]
+              }
+            },
+            {
+              "args": [],
+              "name": "deleteAllPastes",
+              "type": {
+                "kind": "SCALAR",
+                "name": "Boolean",
+                "wrappers": []
+              }
+            },
+            {
+              "args": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "wrappers": []
+                  }
+                }
+              ],
+              "name": "me",
+              "type": {
+                "kind": "OBJECT",
+                "name": "UserObject",
+                "wrappers": []
+              }
+            }
+          ],
+          "query_type": "Query",
+          "type_count": 29
+        },
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "check_type": "graphql_field_suggestion",
+        "error_excerpt": "Cannot query field \"pstes\" on type \"Query\". Did you mean \"pastes\" or \"paste\"?",
+        "probe_field": "pstes",
+        "status_code": 400,
+        "suggestion_leak": true,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "accepted_without_depth_error": true,
+        "check_type": "graphql_depth_probe",
+        "depth_limited": false,
+        "error_excerpt": "",
+        "requested_depth": 20,
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "argument": "filter",
+        "backend_error_signal": true,
+        "check_type": "graphql_argument_injection",
+        "field": "pastes",
+        "payload_family": "sql-or-nosql-marker",
+        "response_hash": "9cd5c2bdc34a43b19fc3759e072e69712914498d11e23115ca9c5d118e1959db",
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "argument": "title",
+        "backend_error_signal": false,
+        "check_type": "graphql_argument_injection",
+        "field": "paste",
+        "payload_family": "sql-or-nosql-marker",
+        "response_hash": "5ee7e4788d857874ca3a691570deda896030acae640e99e72531f29efb31c7ca",
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "argument": "title",
+        "backend_error_signal": false,
+        "check_type": "graphql_argument_injection",
+        "field": "paste",
+        "payload_family": "sql-or-nosql-marker",
+        "response_hash": "5ee7e4788d857874ca3a691570deda896030acae640e99e72531f29efb31c7ca",
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "argument": "title",
+        "backend_error_signal": false,
+        "check_type": "graphql_argument_injection",
+        "field": "paste",
+        "payload_family": "sql-or-nosql-marker",
+        "response_hash": "5ee7e4788d857874ca3a691570deda896030acae640e99e72531f29efb31c7ca",
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "argument": "title",
+        "backend_error_signal": false,
+        "check_type": "graphql_argument_injection",
+        "field": "paste",
+        "payload_family": "sql-or-nosql-marker",
+        "response_hash": "5ee7e4788d857874ca3a691570deda896030acae640e99e72531f29efb31c7ca",
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "argument": "keyword",
+        "backend_error_signal": false,
+        "check_type": "graphql_argument_injection",
+        "field": "search",
+        "payload_family": "sql-or-nosql-marker",
+        "response_hash": "5d5329b50a5a7662056dcd191092fe4cc898fa5f7e1621c658507d2a875110a6",
+        "status_code": 400,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "argument": "keyword",
+        "backend_error_signal": false,
+        "check_type": "graphql_argument_injection",
+        "field": "search",
+        "payload_family": "sql-or-nosql-marker",
+        "response_hash": "5d5329b50a5a7662056dcd191092fe4cc898fa5f7e1621c658507d2a875110a6",
+        "status_code": 400,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "argument": "keyword",
+        "backend_error_signal": false,
+        "check_type": "graphql_argument_injection",
+        "field": "search",
+        "payload_family": "sql-or-nosql-marker",
+        "response_hash": "5d5329b50a5a7662056dcd191092fe4cc898fa5f7e1621c658507d2a875110a6",
+        "status_code": 400,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "argument": "keyword",
+        "backend_error_signal": false,
+        "check_type": "graphql_argument_injection",
+        "field": "search",
+        "payload_family": "sql-or-nosql-marker",
+        "response_hash": "5d5329b50a5a7662056dcd191092fe4cc898fa5f7e1621c658507d2a875110a6",
+        "status_code": 400,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "batch_size": 2,
+        "batching_accepted": true,
+        "check_type": "graphql_batching_capability",
+        "rate_limit_bypass_attempted": false,
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      },
+      {
+        "candidate_fields": [
+          "users"
+        ],
+        "check_type": "graphql_authorization_bypass_representation",
+        "requires_configured_auth_context_future_slice": true,
+        "target": "http://127.0.0.1:5013/graphql",
+        "type_confusion_exploitation": false,
+        "unauthenticated_data_extraction": false
+      },
+      {
+        "body_excerpt": "",
+        "check_type": "graphql_endpoint_detection",
+        "detected": false,
+        "response_hash": "e9639e3c4681ce85f852fbac48e2eeee5ba51296dbfec57c200d59b76237ab80",
+        "status_code": 404,
+        "target": "http://127.0.0.1:5013/api/graphql"
+      },
+      {
+        "body_excerpt": "",
+        "check_type": "graphql_endpoint_detection",
+        "detected": false,
+        "response_hash": "e9639e3c4681ce85f852fbac48e2eeee5ba51296dbfec57c200d59b76237ab80",
+        "status_code": 404,
+        "target": "http://127.0.0.1:5013/v1/graphql"
+      },
+      {
+        "body_excerpt": "",
+        "check_type": "graphql_endpoint_detection",
+        "detected": false,
+        "response_hash": "e9639e3c4681ce85f852fbac48e2eeee5ba51296dbfec57c200d59b76237ab80",
+        "status_code": 404,
+        "target": "http://127.0.0.1:5013/gql"
+      }
+    ],
+    "discovered_endpoints": [
+      {
+        "body_excerpt": "{\"data\":{\"__typename\":\"Query\"}}",
+        "check_type": "graphql_endpoint_detection",
+        "detected": true,
+        "response_hash": "c0cbf0efb8510e4432204c3d5d5fe3926c796896f917c2af570eeddc192a6e56",
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql"
+      }
+    ],
+    "findings": [
+      {
+        "confirmed": true,
+        "control_family": "api_security",
+        "evidence": {
+          "body_excerpt": "<!-- The request to this GraphQL server provided the header \"Accept: text/html\" and as a result has been presented GraphiQL - an in-browser IDE for exploring GraphQL. If you wish to receive JSON, provide the header \"Accept: application/json\" or add \"&raw\" to the end of the URL within a browser. --> <!DOCTYPE html> <html> <head> <title>GraphiQL</title> <style> html, body { height: 100%; margin: 0; overflow: hidden; width: 100%; } </style> <meta name=\"referrer\" content=\"no-referrer\"> <link href=\"//cdn.jsdelivr.net/npm/graphiql@0.11.11/graphiql.css\" rel=\"stylesheet\" /> <script src=\"//cdn.jsdelivr.net/fetch/0.9.0/fetch.min.js\"></script> <script src=\"//cdn.jsdelivr.net/react/15.0.0/react.min.js\">",
+          "probe": "ide-discovery",
+          "status_code": 200
+        },
+        "methodology_tags": [
+          "api_security",
+          "graphql_security",
+          "owasp-api-top-10-2023",
+          "graphql-probe-validation"
+        ],
+        "replay_recipe": {
+          "authorization_bypass_exploitation": false,
+          "batch_size": 2,
+          "data_extraction_performed": false,
+          "depth_probe_max_levels": 20,
+          "scope": "approved-graphql-endpoint-only",
+          "target": "http://127.0.0.1:5013/graphiql",
+          "tool": "graphql-probe"
+        },
+        "severity": "medium",
+        "summary": "A GraphQL IDE or playground interface is reachable in approved scope.",
+        "target": "http://127.0.0.1:5013/graphiql",
+        "title": "GraphQL Playground or IDE Exposed",
+        "type": "graphql_ide_exposed"
+      },
+      {
+        "confirmed": true,
+        "control_family": "api_security",
+        "evidence": {
+          "mutation_fields": [
+            "createPaste",
+            "editPaste",
+            "deletePaste",
+            "uploadPaste",
+            "importPaste",
+            "createUser",
+            "login"
+          ],
+          "probe": "introspection",
+          "query_fields": [
+            "pastes",
+            "paste",
+            "systemUpdate",
+            "systemDiagnostics",
+            "systemDebug",
+            "systemHealth",
+            "users",
+            "readAndBurn",
+            "search",
+            "audits",
+            "deleteAllPastes",
+            "me"
+          ],
+          "type_count": 29
+        },
+        "methodology_tags": [
+          "api_security",
+          "graphql_security",
+          "owasp-api-top-10-2023",
+          "graphql-probe-validation"
+        ],
+        "replay_recipe": {
+          "authorization_bypass_exploitation": false,
+          "batch_size": 2,
+          "data_extraction_performed": false,
+          "depth_probe_max_levels": 20,
+          "scope": "approved-graphql-endpoint-only",
+          "target": "http://127.0.0.1:5013/graphql",
+          "tool": "graphql-probe"
+        },
+        "severity": "medium",
+        "summary": "The GraphQL endpoint returned a full introspection schema in approved scope.",
+        "target": "http://127.0.0.1:5013/graphql",
+        "title": "GraphQL Introspection Enabled - Full Schema Disclosed",
+        "type": "graphql_introspection_enabled"
+      },
+      {
+        "confirmed": true,
+        "control_family": "api_security",
+        "evidence": {
+          "error_excerpt": "Cannot query field \"pstes\" on type \"Query\". Did you mean \"pastes\" or \"paste\"?",
+          "field": "pstes",
+          "probe": "field-suggestion"
+        },
+        "methodology_tags": [
+          "api_security",
+          "graphql_security",
+          "owasp-api-top-10-2023",
+          "graphql-probe-validation"
+        ],
+        "replay_recipe": {
+          "authorization_bypass_exploitation": false,
+          "batch_size": 2,
+          "data_extraction_performed": false,
+          "depth_probe_max_levels": 20,
+          "scope": "approved-graphql-endpoint-only",
+          "target": "http://127.0.0.1:5013/graphql",
+          "tool": "graphql-probe"
+        },
+        "severity": "low",
+        "summary": "GraphQL validation errors disclose field-name suggestions useful for schema enumeration.",
+        "target": "http://127.0.0.1:5013/graphql",
+        "title": "GraphQL Field Suggestion Leakage",
+        "type": "graphql_field_suggestion_leakage"
+      },
+      {
+        "confirmed": true,
+        "control_family": "api_security",
+        "evidence": {
+          "max_depth_cap": 20,
+          "probe": "depth",
+          "requested_depth": 20,
+          "status_code": 200
+        },
+        "methodology_tags": [
+          "api_security",
+          "graphql_security",
+          "owasp-api-top-10-2023",
+          "graphql-probe-validation"
+        ],
+        "replay_recipe": {
+          "authorization_bypass_exploitation": false,
+          "batch_size": 2,
+          "data_extraction_performed": false,
+          "depth_probe_max_levels": 20,
+          "scope": "approved-graphql-endpoint-only",
+          "target": "http://127.0.0.1:5013/graphql",
+          "tool": "graphql-probe"
+        },
+        "severity": "medium",
+        "summary": "A bounded nested GraphQL query of at least 10 levels was accepted without depth-limit evidence.",
+        "target": "http://127.0.0.1:5013/graphql",
+        "title": "GraphQL Missing Query Depth Limit",
+        "type": "graphql_missing_query_depth_limit"
+      },
+      {
+        "confirmed": true,
+        "control_family": "api_security",
+        "evidence": {
+          "argument": "filter",
+          "argument_type": "String",
+          "body_excerpt": "{\"errors\":[{\"message\":\"(sqlite3.OperationalError) near \\\"aegispt\\\": syntax error\\n[SQL: SELECT pastes.id AS pastes_id, pastes.title AS pastes_title, pastes.content AS pastes_content, pastes.public AS pastes_public, pastes.user_agent AS pastes_user_agent, pastes.ip_addr AS pastes_ip_addr, pastes.owner_id AS pastes_owner_id, pastes.burn AS pastes_burn \\nFROM pastes \\nWHERE pastes.public = 0 AND pastes.burn = 0 AND title = 'aegispt '' or content = 'aegispt '' ORDER BY pastes.id DESC\\n LIMIT ? OFFSET ?]\\n[parameters: (1000, 0)]\\n(Background on this error at: https://sqlalche.me/e/14/e3q8)\"}],\"data\":{\"pastes\":null}}",
+          "field": "pastes",
+          "payload_family": "sql-or-nosql-marker",
+          "probe": "argument-injection",
+          "status_code": 200
+        },
+        "methodology_tags": [
+          "api_security",
+          "graphql_security",
+          "owasp-api-top-10-2023",
+          "graphql-probe-validation"
+        ],
+        "replay_recipe": {
+          "authorization_bypass_exploitation": false,
+          "batch_size": 2,
+          "data_extraction_performed": false,
+          "depth_probe_max_levels": 20,
+          "scope": "approved-graphql-endpoint-only",
+          "target": "http://127.0.0.1:5013/graphql",
+          "tool": "graphql-probe"
+        },
+        "severity": "high",
+        "summary": "A bounded GraphQL string argument probe produced backend error evidence consistent with injection risk.",
+        "target": "http://127.0.0.1:5013/graphql",
+        "title": "GraphQL Argument Injection Error Signal",
+        "type": "graphql_argument_injection_signal"
+      }
+    ],
+    "safety": {
+      "active_tier_requires_approval": true,
+      "api_assessment_runner_changed": false,
+      "approved_graphql_endpoints_only": true,
+      "authorization_bypass_exploitation": false,
+      "batch_probe_size": 2,
+      "depth_probe_max_levels": 20,
+      "rate_limit_bypass_attempted": false,
+      "runtime_mutation": false,
+      "scope_enforced": true,
+      "unauthenticated_data_extraction": false,
+      "zap_configuration_changed": false
+    },
+    "schema_maps": [
+      {
+        "endpoint": "http://127.0.0.1:5013/graphql",
+        "mutation_fields": [
+          {
+            "args": [
+              {
+                "name": "burn",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "content",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "public",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "title",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "createPaste",
+            "type": {
+              "kind": "OBJECT",
+              "name": "CreatePaste",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "content",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "id",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Int",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "title",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "editPaste",
+            "type": {
+              "kind": "OBJECT",
+              "name": "EditPaste",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "id",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Int",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "deletePaste",
+            "type": {
+              "kind": "OBJECT",
+              "name": "DeletePaste",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "content",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": [
+                    "NON_NULL"
+                  ]
+                }
+              },
+              {
+                "name": "filename",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": [
+                    "NON_NULL"
+                  ]
+                }
+              }
+            ],
+            "name": "uploadPaste",
+            "type": {
+              "kind": "OBJECT",
+              "name": "UploadPaste",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "host",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": [
+                    "NON_NULL"
+                  ]
+                }
+              },
+              {
+                "name": "path",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": [
+                    "NON_NULL"
+                  ]
+                }
+              },
+              {
+                "name": "port",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Int",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "scheme",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": [
+                    "NON_NULL"
+                  ]
+                }
+              }
+            ],
+            "name": "importPaste",
+            "type": {
+              "kind": "OBJECT",
+              "name": "ImportPaste",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "userData",
+                "type": {
+                  "kind": "INPUT_OBJECT",
+                  "name": "UserInput",
+                  "wrappers": [
+                    "NON_NULL"
+                  ]
+                }
+              }
+            ],
+            "name": "createUser",
+            "type": {
+              "kind": "OBJECT",
+              "name": "CreateUser",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "password",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "username",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "login",
+            "type": {
+              "kind": "OBJECT",
+              "name": "Login",
+              "wrappers": []
+            }
+          }
+        ],
+        "mutation_type": "Mutations",
+        "query_fields": [
+          {
+            "args": [
+              {
+                "name": "public",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "limit",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Int",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "filter",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "pastes",
+            "type": {
+              "kind": "OBJECT",
+              "name": "PasteObject",
+              "wrappers": [
+                "LIST"
+              ]
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "id",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Int",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "title",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "paste",
+            "type": {
+              "kind": "OBJECT",
+              "name": "PasteObject",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [],
+            "name": "systemUpdate",
+            "type": {
+              "kind": "SCALAR",
+              "name": "String",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "username",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "password",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              },
+              {
+                "name": "cmd",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "systemDiagnostics",
+            "type": {
+              "kind": "SCALAR",
+              "name": "String",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "arg",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "systemDebug",
+            "type": {
+              "kind": "SCALAR",
+              "name": "String",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [],
+            "name": "systemHealth",
+            "type": {
+              "kind": "SCALAR",
+              "name": "String",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "id",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Int",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "users",
+            "type": {
+              "kind": "OBJECT",
+              "name": "UserObject",
+              "wrappers": [
+                "LIST"
+              ]
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "id",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "Int",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "readAndBurn",
+            "type": {
+              "kind": "OBJECT",
+              "name": "PasteObject",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "keyword",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "search",
+            "type": {
+              "kind": "UNION",
+              "name": "SearchResult",
+              "wrappers": [
+                "LIST"
+              ]
+            }
+          },
+          {
+            "args": [],
+            "name": "audits",
+            "type": {
+              "kind": "OBJECT",
+              "name": "AuditObject",
+              "wrappers": [
+                "LIST"
+              ]
+            }
+          },
+          {
+            "args": [],
+            "name": "deleteAllPastes",
+            "type": {
+              "kind": "SCALAR",
+              "name": "Boolean",
+              "wrappers": []
+            }
+          },
+          {
+            "args": [
+              {
+                "name": "token",
+                "type": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "wrappers": []
+                }
+              }
+            ],
+            "name": "me",
+            "type": {
+              "kind": "OBJECT",
+              "name": "UserObject",
+              "wrappers": []
+            }
+          }
+        ],
+        "query_type": "Query",
+        "type_count": 29
+      }
+    ],
+    "summary": {
+      "candidate_endpoint_count": 4,
+      "check_count": 20,
+      "depth_findings": 1,
+      "discovered_endpoint_count": 1,
+      "finding_count": 5,
+      "injection_findings": 1,
+      "introspection_findings": 1,
+      "schema_map_count": 1,
+      "suggestion_findings": 1,
+      "target_count": 1
+    },
+    "targets": [
+      "http://127.0.0.1:5013/"
+    ],
+    "tool": "graphql-probe"
+  },
+  "task": "backlog-242-authorized-dvga-graphql-live-lab-validation",
+  "timestamp": "2026-05-06T10:45:00+02:00",
+  "unsafe_system_diagnostics_probe": false
+}

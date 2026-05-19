@@ -1,0 +1,102 @@
+{
+  "id": "backlog-263-wizard-ai-drive-vs-manual-mode-choice",
+  "task_file": "codex/tasks/backlog-263-wizard-ai-drive-vs-manual-mode-choice.json",
+  "task_type": "product_slice",
+  "title": "Wizard mode choice cards: 'AI Assisted' and 'Manual assessment' \u2014 cosmetic implementation blocked until backlog-260 and 261 deliver the AI-loop contracts",
+  "goal": "Add a mode selection step at the top of the wizard that shows two cards: (A) 'AI Assisted' \u2014 AI drives the assessment, operator approves at tier boundaries. (B) 'Manual assessment' \u2014 current tile/depth/phase workflow unchanged. IMPORTANT: This task implements the UI cards and routing only. The 'AI Assisted' card MUST check that backlog-260 (AI loop engine) is running and backlog-261 (wizard mode contract) has been deployed. If ai_loop capability is not available: the 'AI Assisted' card shows a 'Coming soon' disabled state rather than a non-functional button. This prevents cosmetic UI without working backend. Card A ('AI Assisted'): visually prominent, project icon (not emoji) for 'automated', Recommended badge. Fields: Target (URL/IP/CIDR/domain), Maximum authorization tier (four options with plain-language descriptions: 'Discovery only \u2014 no active probing' / 'Active scanning \u2014 no credential attacks' / 'Full assessment including credential testing' / 'Full pentest including controlled exploitation'). Optional: credentials reference. CTA: 'Start AI Assessment'. On click: creates run with run_mode=ai_loop, redirects to Mission Control. Card B ('Manual assessment'): secondary styling, project icon for 'sliders/manual'. Label: 'Advanced'. CTA: 'Choose assessment type'. On click: opens current tile selection step unchanged. FRAMING: Not 'AI vs human' but 'AI Assisted' vs 'Manual'. Copy: 'AI Assisted: The assessment adapts to what it finds. AI proposes each next step for your approval.' Manual: 'Full control over every phase and tool selection.' Icon system: use existing Lucide icons or project icon set \u2014 no emoji anywhere in the component.",
+  "scope": "ChatGPT review 2026-05-06: wizard UI cards are right but must not become functional before 260/261 deliver the backend contracts. Cosmetic UI without working motor is worse than nothing. Use project icon system not emoji. Framing: AI Assisted vs Manual, not AI vs Human.",
+  "status": "queued",
+  "generated_by": "ui-loop-audit-2026-05-06-corrected",
+  "generation_reason": "Wizard mode choice UI. Functional only after backlog-260/261 complete. Shows disabled state otherwise. No emoji \u2014 project icon system.",
+  "source_context": {
+    "queue_index": 262,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-260-ai-continuous-assessment-loop.json",
+      "codex/tasks/backlog-261-assessment-loop-wizard-mode.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-260 and backlog-261 MUST be completed before this task is promoted. The 'AI Assisted' card must check for ai_loop capability at runtime \u2014 if absent, show disabled/coming-soon state.",
+    "broader_theme": "wizard_ai_mode_entry_ux",
+    "source_documents": [
+      "ui/assets/modules/wizard.js",
+      "ui/assets/styles.css"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add mode choice before existing tile grid only. Never remove or change the manual tile/depth flow. If ai_loop not available: show disabled card, not broken functionality.",
+    "icon_system": "Use existing project Lucide icons. No emoji anywhere in the component.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Wizard shows two mode cards before tile grid.",
+    "'AI Assisted' card checks ai_loop capability at runtime \u2014 shows disabled if backlog-260 not deployed.",
+    "'Manual assessment' card always enabled and opens existing tile flow.",
+    "Card A creates run with run_mode=ai_loop when functional.",
+    "Card B opens existing tile grid unchanged.",
+    "No emoji anywhere in the component \u2014 existing icon system only.",
+    "Authorization tier options have plain-language descriptions.",
+    "Framing is 'AI Assisted' vs 'Manual', not 'AI' vs 'Human'.",
+    "No regression in existing manual wizard E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "ui/assets/styles.css",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing tile grid",
+    "Depth card selection",
+    "Advanced Configuration drawer"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest ui/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Two mode cards visible on wizard load.",
+      "AI Assisted card disabled when ai_loop not available.",
+      "Manual mode opens tile grid unchanged.",
+      "No emoji visible.",
+      "E2E wizard regression tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-260 and backlog-261 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Changing manual mode",
+    "New assessment types",
+    "Any emoji"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

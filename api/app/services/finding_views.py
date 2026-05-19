@@ -15,16 +15,43 @@ from api.app.methodology import (
     ptes_phase_label,
     wstg_area_for_identifier,
 )
-from api.app.models import CapabilityPack, Finding, FindingRemediation, Run, Task, ToolExecution
+from api.app.models import (
+    CapabilityPack,
+    EvidenceArtifact,
+    Finding,
+    FindingIntegrationLink,
+    FindingRemediation,
+    FindingRepositoryLink,
+    FindingValidationRecord,
+    IntegrationConfiguration,
+    Run,
+    Task,
+    ToolExecution,
+)
 from api.app.schemas.finding_views import (
     FindingEvidenceReplayRead,
     FindingRelatedArtifactRead,
     FindingRelatedExecutionRead,
     FindingTheaterRead,
+    FindingValidationAttemptRead,
 )
 from api.app.schemas.findings import FindingRead
+from api.app.services.ai_enrichment import (
+    build_detection_engineering_for_finding,
+    build_threat_context_for_finding,
+    finding_ai_enrichment_view,
+)
+from api.app.services.autofix import autofix_view
+from api.app.services.finding_chains import build_finding_chain_context
+from api.app.services.finding_quality import apply_finding_quality_defaults, finding_quality_view
+from api.app.services.finding_validator import (
+    serialize_validation_attempt,
+    validation_summary_for_finding,
+)
 from api.app.services.reports import artifact_download_path, remediation_priority_for_finding
+from api.app.services.repository_integration import repository_context_for_finding
 from api.app.services.risk_scoring import calculate_risk
+from api.app.services.threat_intel import build_finding_threat_intel_badges
 
 SEVERITY_RANK = {
     "critical": 0,
@@ -48,6 +75,9 @@ def _load_finding(session: Session, finding_id: UUID | str) -> Finding | None:
             selectinload(Finding.source_pack_artifact),
             selectinload(Finding.source_inventory_snapshot),
             selectinload(Finding.source_relevance_decision),
+            selectinload(Finding.ai_enrichment),
+            selectinload(Finding.repository_links).selectinload(FindingRepositoryLink.repo_integration),
+            selectinload(Finding.validation_records),
         )
         .where(Finding.id == finding_id)
     )
@@ -100,13 +130,53 @@ def _exploitability(finding: Finding) -> str | None:
 
 
 def _verification_status(finding: Finding) -> str:
+    if finding.validation_status == "validated_confirmed":
+        return "minimal re-probe confirmed the finding against the current target"
+    if finding.validation_status == "validated_not_reproduced":
+        return "latest minimal re-probe did not reproduce the original evidence"
+    if finding.validation_status == "validation_running":
+        return "minimal validation re-probe is currently running"
+    if finding.validation_status == "validation_queued":
+        return "minimal validation re-probe is queued"
+    if finding.validation_status == "validation_skipped":
+        return "automated validation was skipped; analyst review remains required"
     if finding.status == "resolved":
         return "resolved and ready for retest confirmation"
     if finding.status in {"accepted_risk", "false_positive"}:
         return "closed with analyst disposition"
-    if finding.evidence_ref:
+    if _finding_has_replay_ready_evidence(finding):
         return "evidence-linked and ready for replay"
+    if finding.evidence_ref:
+        return "evidence linked, but hash/replay recipe completeness still needs review"
     return "needs analyst validation"
+
+
+def _finding_artifact(finding: Finding) -> EvidenceArtifact | None:
+    run = finding.run
+    if run is None:
+        return None
+    for task in run.tasks:
+        for execution in task.executions:
+            for artifact in execution.artifacts:
+                if artifact.uri == finding.evidence_ref:
+                    return artifact
+    return None
+
+
+def _finding_has_replay_ready_evidence(finding: Finding) -> bool:
+    artifact = _finding_artifact(finding)
+    if artifact is None:
+        return False
+    sha256 = (artifact.sha256 or "").strip()
+    recipe = finding.replay_recipe_json if isinstance(finding.replay_recipe_json, dict) else {}
+    return (
+        len(sha256) == 64
+        and sha256 != "hash-unavailable"
+        and bool(recipe.get("tool"))
+        and bool(recipe.get("target"))
+        and bool(recipe.get("params_json") is not None)
+        and bool(recipe.get("scope_allowlist") is not None)
+    )
 
 
 def _next_steps(finding: Finding) -> list[str]:
@@ -175,11 +245,76 @@ def _linked_retests(session: Session, finding: Finding) -> list[dict[str, Any]]:
     return linked_runs
 
 
+def _linked_integrations(session: Session, finding: Finding) -> dict[str, Any]:
+    def link_payload(link: FindingIntegrationLink) -> dict[str, Any]:
+        configuration = link.integration_configuration
+        integration_type = configuration.integration_type if configuration is not None else "unknown"
+        return {
+            "id": str(link.id),
+            "integration_configuration_id": str(link.integration_configuration_id),
+            "integration_type": integration_type,
+            "display_name": configuration.display_name if configuration is not None else None,
+            "issue_key": link.issue_key,
+            "issue_url": link.issue_url,
+            "issue_status": link.issue_status,
+            "last_sync_state": link.last_sync_state,
+            "last_synced_at": _format_datetime(link.last_synced_at),
+            "last_sync_error": link.last_sync_error,
+            "last_sync_payload": dict(link.last_sync_payload_json or {}),
+            "created_by": link.created_by,
+            "updated_by": link.updated_by,
+            "created_at": _format_datetime(link.created_at),
+            "updated_at": _format_datetime(link.updated_at),
+        }
+
+    links = session.scalars(
+        select(FindingIntegrationLink)
+        .join(IntegrationConfiguration)
+        .options(selectinload(FindingIntegrationLink.integration_configuration))
+        .where(
+            FindingIntegrationLink.finding_id == finding.id,
+        )
+        .order_by(FindingIntegrationLink.updated_at.desc(), FindingIntegrationLink.id.desc())
+    ).all()
+
+    linked: dict[str, Any] = {
+        "jira": None,
+        "webhook": None,
+    }
+    for link in links:
+        configuration = link.integration_configuration
+        if configuration is None:
+            continue
+        integration_type = configuration.integration_type
+        if integration_type not in linked:
+            linked[integration_type] = link_payload(link)
+        elif linked[integration_type] is None:
+            linked[integration_type] = link_payload(link)
+
+    return linked
+
+
+def _validation_attempts(finding: Finding) -> list[FindingValidationRecord]:
+    return sorted(
+        list(finding.validation_records or []),
+        key=lambda record: (record.created_at, record.id.hex),
+        reverse=True,
+    )
+
+
+def _validation_history(finding: Finding) -> list[FindingValidationAttemptRead]:
+    return [
+        FindingValidationAttemptRead.model_validate(serialize_validation_attempt(record))
+        for record in _validation_attempts(finding)
+    ]
+
+
 def _remediation_view(
     *,
     finding: Finding,
     remediation: FindingRemediation | None,
     linked_retests: list[dict[str, Any]],
+    linked_integrations: dict[str, Any],
 ) -> dict[str, Any]:
     latest_retest = linked_retests[0] if linked_retests else None
     return {
@@ -191,6 +326,7 @@ def _remediation_view(
             "state": remediation.state,
             "notes": remediation.notes,
             "owner": remediation.owner,
+            "ai_fix_suggestion": remediation.ai_fix_suggestion,
             "created_by": remediation.created_by,
             "updated_by": remediation.updated_by,
             "created_at": _format_datetime(remediation.created_at),
@@ -205,6 +341,7 @@ def _remediation_view(
             item.get("status") == "completed" and item.get("verification_state") in {"requested", "verified"}
             for item in linked_retests
         ),
+        "integrations": linked_integrations,
     }
 
 
@@ -227,6 +364,14 @@ def _related_executions(finding: Finding) -> list[FindingRelatedExecutionRead]:
                         uri=artifact.uri,
                         download_path=artifact_download_path(artifact.id),
                         name=str(artifact.metadata_json.get("name", artifact.id)),
+                        sha256=artifact.sha256,
+                        hash_status=str(artifact.metadata_json.get("hash_status") or "unknown"),
+                        timestamp_status=str(artifact.metadata_json.get("timestamp_status") or "not-available"),
+                        timestamp_response_uri=(
+                            str(artifact.metadata_json.get("timestamp_response_uri"))
+                            if artifact.metadata_json.get("timestamp_response_uri")
+                            else None
+                        ),
                         redaction_state=artifact.redaction_state,
                         created_at=artifact.created_at,
                     )
@@ -242,8 +387,8 @@ def _related_executions(finding: Finding) -> list[FindingRelatedExecutionRead]:
                     task_status=task.status,
                     exit_code=execution.exit_code,
                     tool_version=execution.tool_version,
-                    stdout_excerpt=(execution.stdout_text or "")[:400] or None,
-                    stderr_excerpt=(execution.stderr_text or "")[:400] or None,
+                    stdout_excerpt=_matched_excerpt(finding, execution.stdout_text),
+                    stderr_excerpt=_matched_excerpt(finding, execution.stderr_text),
                     created_at=execution.created_at,
                     artifacts=related_artifacts,
                 )
@@ -251,20 +396,109 @@ def _related_executions(finding: Finding) -> list[FindingRelatedExecutionRead]:
     return matches
 
 
-def build_finding_theater(session: Session, finding_id: UUID | str) -> FindingTheaterRead | None:
+def _matched_excerpt(finding: Finding, output: str | None, *, limit: int = 4000) -> str | None:
+    text = output or ""
+    if not text:
+        return None
+    tokens = [
+        token.strip().lower()
+        for token in (
+            finding.target_id,
+            finding.title,
+            finding.summary or "",
+            str((finding.replay_recipe_json or {}).get("expected_match_pattern") or ""),
+        )
+        if isinstance(token, str) and token.strip()
+    ]
+    matched_lines: list[str] = []
+    for line in text.splitlines():
+        line_lower = line.lower()
+        if any(token and token in line_lower for token in tokens):
+            matched_lines.append(line)
+    excerpt = "\n".join(matched_lines) if matched_lines else text
+    if len(excerpt) <= limit:
+        return excerpt or None
+    return excerpt[: limit - 32].rstrip() + "\n... [truncated for API view]"
+
+
+def _evidence_integrity_summary(finding: Finding) -> dict[str, Any]:
+    artifact = _finding_artifact(finding)
+    recipe = finding.replay_recipe_json if isinstance(finding.replay_recipe_json, dict) else None
+    if artifact is None:
+        return {
+            "status": "incomplete",
+            "hash_status": "missing-artifact-record",
+            "timestamp_status": "not-available",
+            "ready_for_replay": False,
+            "replay_recipe": recipe,
+        }
+    hash_status = str((artifact.metadata_json or {}).get("hash_status") or "unknown")
+    timestamp_status = str((artifact.metadata_json or {}).get("timestamp_status") or "not-available")
+    ready = _finding_has_replay_ready_evidence(finding)
+    return {
+        "status": "ready" if ready else "needs-review",
+        "artifact_id": str(artifact.id),
+        "artifact_uri": artifact.uri,
+        "sha256": artifact.sha256,
+        "hash_status": hash_status,
+        "timestamp_status": timestamp_status,
+        "timestamp_response_uri": (artifact.metadata_json or {}).get("timestamp_response_uri"),
+        "ready_for_replay": ready,
+        "replay_recipe": recipe,
+    }
+
+
+def build_finding_theater(
+    session: Session,
+    finding_id: UUID | str,
+    *,
+    autofix_enabled: bool = False,
+) -> FindingTheaterRead | None:
     finding = _load_finding(session, finding_id)
     if finding is None:
         return None
+    apply_finding_quality_defaults(finding, session=session)
+    quality = finding_quality_view(finding, session=session)
     remediation = _load_remediation(session, finding)
     linked_retests = _linked_retests(session, finding)
+    linked_integrations = _linked_integrations(session, finding)
+    validation_attempts = _validation_attempts(finding)
+    ai_enrichment = finding_ai_enrichment_view(finding.ai_enrichment)
+    has_ai_enrichment = ai_enrichment.get("available") is True
+    business_impact = (
+        str(ai_enrichment.get("business_impact"))
+        if has_ai_enrichment and ai_enrichment.get("business_impact")
+        else _business_impact(finding)
+    )
+    technical_details = (
+        str(ai_enrichment.get("technical_context"))
+        if has_ai_enrichment and ai_enrichment.get("technical_context")
+        else _technical_details(finding)
+    )
+    remediation_view = _remediation_view(
+        finding=finding,
+        remediation=remediation,
+        linked_retests=linked_retests,
+        linked_integrations=linked_integrations,
+    )
+    if has_ai_enrichment and ai_enrichment.get("remediation_narrative"):
+        remediation_view = {
+            **remediation_view,
+            "ai_narrative": str(ai_enrichment["remediation_narrative"]),
+        }
+    repository_context = repository_context_for_finding(
+        session=session,
+        finding=finding,
+        autofix_available=bool(finding.autofix_json),
+    )
 
     return FindingTheaterRead(
         finding=FindingRead.model_validate(finding),
         severity_rank=SEVERITY_RANK.get(finding.severity, SEVERITY_RANK["unknown"]),
         confidence_label=_confidence_label(finding),
         exploitability=_exploitability(finding),
-        business_impact=_business_impact(finding),
-        technical_details=_technical_details(finding),
+        business_impact=business_impact,
+        technical_details=technical_details,
         evidence_summary="Evidence is linked through stored artifact references and replayable task executions."
         if finding.evidence_ref
         else "Evidence linkage is incomplete and should be reviewed.",
@@ -289,12 +523,22 @@ def build_finding_theater(session: Session, finding_id: UUID | str) -> FindingTh
             "asvs_reference": finding.asvs_reference,
             "control_family": control_family_label(finding.control_family),
             "methodology_tags": list(finding.methodology_tags or []),
+            "owasp": quality["owasp"],
         },
-        remediation=_remediation_view(
-            finding=finding,
-            remediation=remediation,
-            linked_retests=linked_retests,
+        remediation=remediation_view,
+        ai_enrichment=ai_enrichment,
+        autofix=autofix_view(
+            autofix_json=finding.autofix_json,
+            enabled=autofix_enabled,
+            ai_fix_suggestion=remediation.ai_fix_suggestion if remediation is not None else None,
         ),
+        repository_context=repository_context,
+        threat_context=build_threat_context_for_finding(finding),
+        detection_engineering=build_detection_engineering_for_finding(finding),
+        vulnerability_chains=build_finding_chain_context(session=session, finding=finding),
+        threat_intel_badges=build_finding_threat_intel_badges(session, finding),
+        validation=validation_summary_for_finding(finding=finding, attempts=validation_attempts),
+        evidence_integrity=_evidence_integrity_summary(finding),
         verification_status=_verification_status(finding),
         next_steps=_next_steps(finding),
         risk_snapshot=calculate_risk(finding),
@@ -305,6 +549,7 @@ def build_finding_evidence_replay(session: Session, finding_id: UUID | str) -> F
     finding = _load_finding(session, finding_id)
     if finding is None:
         return None
+    apply_finding_quality_defaults(finding, session=session)
 
     inventory_source: dict[str, Any] = {}
     if finding.source_inventory_snapshot is not None:
@@ -335,14 +580,7 @@ def build_finding_evidence_replay(session: Session, finding_id: UUID | str) -> F
         }
 
     related_executions = _related_executions(finding)
-    validation_history = [
-        {
-            "status": finding.status,
-            "verification_status": _verification_status(finding),
-            "evidence_linked": bool(finding.evidence_ref),
-            "related_execution_count": len(related_executions),
-        }
-    ]
+    validation_history = _validation_history(finding)
 
     return FindingEvidenceReplayRead(
         finding=FindingRead.model_validate(finding),

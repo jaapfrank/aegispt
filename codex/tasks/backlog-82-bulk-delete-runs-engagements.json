@@ -1,0 +1,109 @@
+{
+  "id": "backlog-82-bulk-delete-runs-engagements",
+  "task_file": "codex/tasks/backlog-82-bulk-delete-runs-engagements.json",
+  "task_type": "backlog_slice",
+  "title": "Bulk Delete \u2014 Runs and Engagements",
+  "goal": "Allow operators to delete one or multiple runs and engagements with a clear impact summary and confirmation \u2014 keeping the data model clean without accumulating stale test data.",
+  "scope": "Implement: (1) SINGLE RUN DELETE: DELETE /api/v1/runs/{run_id} with a dry_run=true preview mode that returns what will be deleted (tasks, findings, artifacts, remediation records, AI enrichments, chain detections, agent proposals). Soft-delete (deleted_at timestamp) with a 30-day hard-delete background job. Running runs cannot be deleted \u2014 return 409 with 'Stop the run before deleting'. (2) BULK RUN DELETE: DELETE /api/v1/runs with a body of run_ids list. Same dry-run preview. (3) ENGAGEMENT DELETE: DELETE /api/v1/engagements/{id} with cascade preview showing: N runs, N findings, N artifacts, N scheduled runs, N integration configs. Requires explicit confirmation string (engagement name). (4) UI \u2014 RUNS: Each run card in History/Mission Control gets a checkbox on hover. A bulk action bar slides up when \u22651 run is checked: 'Delete N runs [confirmation]'. Individual run cards get a '...' menu with Delete option. (5) UI \u2014 ENGAGEMENTS: The engagement dropdown gets a Manage Engagements screen (or modal) showing all engagements as rows with a Delete button per row and a select-all bulk delete option. (6) AUDIT: All deletes are logged to audit_events with actor, timestamp, and item count. Deleted items are excluded from all API responses immediately.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "There is currently no delete functionality in AegisPT. Operators accumulate test runs, acceptance runs, and stale engagements with no way to clean them up. After running 50+ acceptance tests, the engagement list becomes cluttered. Bulk delete with a clear impact preview is standard in every data management UI.",
+  "source_context": {
+    "queue_index": 87,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/operational_truth_signoff.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "data_management",
+    "source_documents": [
+      "api/app/routers/runs.py",
+      "api/app/routers/engagements.py",
+      "api/app/models/control.py",
+      "ui/assets/modules/explorer-history.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Soft-delete with 30-day hard-delete. Running runs cannot be deleted. Engagement delete requires confirmation string. All deletes audit-logged. No cascade delete of pack artifacts or capability packs \u2014 those are independent.",
+    "runtime_mutation": false,
+    "operator_control_required": true
+  },
+  "success_criteria": [
+    "DELETE /api/v1/runs/{id} with dry_run=true returns impact summary.",
+    "Running runs return 409 on delete attempt.",
+    "Bulk DELETE /api/v1/runs with run_ids works.",
+    "DELETE /api/v1/engagements/{id} requires confirmation string and cascades to runs/findings.",
+    "Deleted items excluded from all API responses immediately.",
+    "Audit event logged for every delete.",
+    "UI shows checkboxes on run cards with bulk action bar.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/runs.py",
+    "api/app/routers/engagements.py",
+    "api/app/models/control.py",
+    "api/app/services/audit.py",
+    "migrations/versions/20260423_0022_soft_delete.py",
+    "ui/assets/modules/explorer-history.js",
+    "ui/assets/modules/mission-control.js",
+    "api/tests/test_runs.py",
+    "api/tests/test_engagements.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Capability packs or pack artifacts",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "Active running tasks"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_engagements.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Delete with dry-run preview works.",
+      "Running runs blocked.",
+      "Audit logged.",
+      "Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Installation package (backlog-81) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with bulk delete implementation.",
+      "Update CURRENT_STATE.md with soft-delete as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Hard delete on demand (30-day soft-delete only)",
+    "Delete of capability packs",
+    "Data export before delete"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

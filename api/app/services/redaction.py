@@ -34,6 +34,10 @@ REDACTION_PATTERNS = (
     re.compile(r"(?i)(bearer\s+)([A-Za-z0-9._~+/=-]+)"),
     re.compile(r"(?i)(cookie:\s*)([^\r\n]+)"),
     re.compile(r"(?i)(set-cookie:\s*)([^\r\n]+)"),
+    re.compile(r"(?i)(NTLMv2(?:-SSP)?\s+Hash\s*:\s*)([^\r\n]+)"),
+    re.compile(
+        r"(?i)([A-Za-z0-9._$-]+::[A-Za-z0-9._$ -]*:)([A-Fa-f0-9]{16,}:[A-Fa-f0-9]{16,}:[^\r\n]+)"
+    ),
 )
 
 

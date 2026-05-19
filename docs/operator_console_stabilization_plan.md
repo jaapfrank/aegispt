@@ -538,6 +538,20 @@ Prepare the platform to issue a responsible, evidence-backed assurance or valida
 - AegisPT can issue a professional, honest, evidence-backed assurance package
 - the output demonstrates due diligence and validation depth without claiming impossibility of attack
 
+## Backlog Visual Polish Baseline: Mission Launch
+
+The Mission Launch visual-polish slice is intentionally narrow. Mission Control now has a launch sequence that is driven only by the selected run, queued tasks, approval state, and dispatch state already present in the browser runtime.
+
+The no-run state remains explicit: Mission Control shows that launch motion waits for a confirmed mission and does not imply queued work before Intake creates a real run dossier. After mission creation, the launch sequence shows dossier, queue, and runtime-boundary steps using the real run id, profile, task count, and dispatch readiness.
+
+The ambient scan grid and orbit styling are quieter so the interface reads more like an operator workspace than a decorative scan animation. Reduced-motion users keep a usable non-animated presentation.
+
+Remaining limits:
+
+- the launch sequence does not create telemetry, findings, progress, or backend state
+- per-task stdout streaming remains a future task and is not simulated here
+- broader UI redesign, framework migration, and report-surface changes remain outside this polish slice
+
 ## Documentation upkeep rules
 
 Every stabilization phase must update the relevant documentation before the phase is closed.

@@ -1,0 +1,79 @@
+{
+  "id": "backlog-208-chain-phase-visibility-mission-control",
+  "task_file": "codex/tasks/backlog-208-chain-phase-visibility-mission-control.json",
+  "task_type": "corrective_product_slice",
+  "title": "Chain phase visibility in Mission Control: show current phase, next phase, approval requirement, and phase history clearly",
+  "goal": "Assessment chain execution (api/app/services/assessment_chain.py) is a sophisticated 4-phase system with auto-advance and approval gating. Operators cannot see what phase the chain is in, what comes next, what requires approval, or why the chain is waiting. Mission Control needs a Phase Progress strip: (1) A horizontal phase bar showing all chain phases: [✓ Phase 1: Discovery] → [⏳ Phase 2: Active Enrichment — Awaiting Approval] → [Phase 3: Credential Review] → [Phase 4: Exploitation]. (2) Current phase highlighted. Completed phases show green checkmark + duration. Waiting-for-approval phase shows amber + 'Approve to continue' button. (3) When a phase is pending approval, show a summary card: 'Phase 1 discovered 12 hosts, 3 critical findings. Ready to start Phase 2: Active Enumeration — will run nuclei CVE scans and service analysis. Estimated 25 min.' (4) Single 'Approve Phase 2' primary button when chain is in pending_phase_approval state. (5) The chain phase data is already in assessment_chain.py and returned by the runs API — this is purely a UI rendering task.",
+  "scope": "Code audit 2026-05-03: assessment_chain.py has 1,854 lines with fully implemented phase definitions, auto-advance logic, and approval gating. The UI shows no phase progression strip. Operators running a FULL-INTERNAL-LAN chain cannot see they are in Phase 1, or that Phase 2 needs approval, without inspecting individual run records.",
+  "status": "queued",
+  "generated_by": "ai-code-audit-2026-05-03",
+  "generation_reason": "Chain phase progression is fully implemented in 1,854-line assessment_chain.py but completely invisible in the UI — operators don't know what phase they're in.",
+  "source_context": {
+    "queue_index": 226,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-76-assessment-mode-automated-chain.json",
+      "codex/tasks/backlog-150-run-lifecycle-dispatch-and-chain-recovery-truth.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "chain_phase_transparency",
+    "source_documents": [
+      "ui/assets/modules/mission-control.js",
+      "api/app/services/assessment_chain.py",
+      "api/app/routers/runs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Render existing chain phase data. Do not change chain logic, approval mechanism, or add new chain types.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Mission Control shows a phase progress bar when the active run is part of an assessment chain.",
+    "Completed phases show green + duration.",
+    "Pending-approval phase shows amber + 'Approve Phase N' button.",
+    "Approve button triggers the existing phase approval endpoint.",
+    "Phase bar hidden when run is not part of a chain.",
+    "No regression in Mission Control E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/app.js",
+    "CURRENT_STATE.md", "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Chain phase logic in assessment_chain.py",
+    "Phase approval gating",
+    "Run dispatch logic"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Phase bar renders for chain runs.",
+      "Approve Phase button works.",
+      "Non-chain runs unchanged.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["New chain types", "Chain definition editor", "Backend chain changes"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

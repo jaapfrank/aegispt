@@ -12,6 +12,7 @@ from api.app.models import SecretRef
 
 ACCOUNT_SECRET_FIELDS = {
     "secret_ref": {"binding_key": "password", "secret_kind": "password"},
+    "hash_ref": {"binding_key": "ntlm_hash", "secret_kind": "ntlm_hash"},
     "api_key_ref": {"binding_key": "api_key", "secret_kind": "api_key"},
     "bearer_token_ref": {"binding_key": "bearer_token", "secret_kind": "bearer_token"},
     "session_ref": {"binding_key": "session", "secret_kind": "session"},
@@ -28,17 +29,51 @@ EXTERNAL_REFERENCE_PREFIXES = (
     "aegispt://",
 )
 
-
-def _fernet(settings: Settings) -> Fernet:
-    return Fernet(settings.local_secret_encryption_key.encode("utf-8"))
+ENCRYPTED_SECRET_BACKENDS = {"encrypted_local", "deployment_key_encrypted"}
 
 
-def encrypt_secret_value(value: str, settings: Settings) -> str:
-    return _fernet(settings).encrypt(value.encode("utf-8")).decode("utf-8")
+def _fernet_for_key(key: str, *, label: str) -> Fernet:
+    try:
+        return Fernet(key.encode("utf-8"))
+    except Exception as exc:
+        raise ValueError(f"{label} must be a valid Fernet key") from exc
 
 
-def decrypt_secret_value(value: str, settings: Settings) -> str:
-    return _fernet(settings).decrypt(value.encode("utf-8")).decode("utf-8")
+def _normalized_secret_materialization_mode(settings: Settings) -> str:
+    mode = settings.secret_materialization_mode.strip().lower().replace("-", "_")
+    if mode in {"deployment_key", "deployment_key_encrypted", "deployment"}:
+        return "deployment_key"
+    return "encrypted_local"
+
+
+def direct_secret_storage_backend(settings: Settings) -> tuple[str, bool]:
+    mode = _normalized_secret_materialization_mode(settings)
+    if mode != "deployment_key":
+        return "encrypted_local", False
+
+    if settings.deployment_secret_encryption_key:
+        return "deployment_key_encrypted", False
+
+    if settings.require_deployment_secret_encryption_key:
+        raise ValueError("deployment secret encryption key is required for deployment-key secret materialization")
+
+    return "encrypted_local", True
+
+
+def _fernet(settings: Settings, *, storage_backend: str = "encrypted_local") -> Fernet:
+    if storage_backend == "deployment_key_encrypted":
+        if not settings.deployment_secret_encryption_key:
+            raise ValueError("deployment secret encryption key is required to decrypt deployment-key secrets")
+        return _fernet_for_key(settings.deployment_secret_encryption_key, label="deployment secret encryption key")
+    return _fernet_for_key(settings.local_secret_encryption_key, label="local secret encryption key")
+
+
+def encrypt_secret_value(value: str, settings: Settings, *, storage_backend: str = "encrypted_local") -> str:
+    return _fernet(settings, storage_backend=storage_backend).encrypt(value.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_secret_value(value: str, settings: Settings, *, storage_backend: str = "encrypted_local") -> str:
+    return _fernet(settings, storage_backend=storage_backend).decrypt(value.encode("utf-8")).decode("utf-8")
 
 
 def is_explicit_reference(value: str) -> bool:
@@ -64,9 +99,9 @@ def secret_display_label(value: str, *, secret_kind: str, storage_backend: str) 
             return f"{prefix} reference ({suffix})"
         return f"{secret_kind.replace('_', ' ')} reference ({normalized})"
 
-    if len(normalized) >= 6:
-        return f"{secret_kind.replace('_', ' ')} stored locally (…{normalized[-4:]})"
-    return f"{secret_kind.replace('_', ' ')} stored locally"
+    if storage_backend == "deployment_key_encrypted":
+        return f"{secret_kind.replace('_', ' ')} protected by deployment key"
+    return f"{secret_kind.replace('_', ' ')} protected locally"
 
 
 def public_secret_binding(secret_ref: SecretRef) -> dict[str, Any]:
@@ -125,6 +160,8 @@ def materialize_run_configuration_secrets(
         return payload, []
 
     created_refs: list[SecretRef] = []
+    direct_storage_backend: str | None = None
+    fallback_to_local = False
     for account in accounts:
         if not isinstance(account, dict):
             continue
@@ -139,9 +176,16 @@ def materialize_run_configuration_secrets(
                 continue
 
             if field_name == "session_ref":
-                storage_backend = "encrypted_local" if is_session_material(raw_value) else "external_pointer"
+                needs_direct_storage = is_session_material(raw_value)
             else:
-                storage_backend = "external_pointer" if is_explicit_reference(raw_value) else "encrypted_local"
+                needs_direct_storage = not is_explicit_reference(raw_value)
+
+            if needs_direct_storage:
+                if direct_storage_backend is None:
+                    direct_storage_backend, fallback_to_local = direct_secret_storage_backend(settings)
+                storage_backend = direct_storage_backend
+            else:
+                storage_backend = "external_pointer"
 
             secret_ref_id = uuid.uuid4()
             secret_ref = SecretRef(
@@ -161,9 +205,15 @@ def materialize_run_configuration_secrets(
                     storage_backend=storage_backend,
                 ),
                 encrypted_value=(
-                    encrypt_secret_value(raw_value, settings) if storage_backend == "encrypted_local" else None
+                    encrypt_secret_value(raw_value, settings, storage_backend=storage_backend)
+                    if storage_backend in ENCRYPTED_SECRET_BACKENDS
+                    else None
                 ),
-                metadata_json={"account_label": label},
+                metadata_json={
+                    "account_label": label,
+                    "raw_secret_material_exposed": False,
+                    "fallback_to_local_secret_key": fallback_to_local if storage_backend == "encrypted_local" else False,
+                },
             )
             session.add(secret_ref)
             created_refs.append(secret_ref)
@@ -178,12 +228,15 @@ def materialize_run_configuration_secrets(
             "mode": "indirected",
             "binding_count": len(created_refs),
             "storage_backends": sorted({secret_ref.storage_backend for secret_ref in created_refs}),
+            "direct_secret_backend": direct_storage_backend or "not_used",
+            "fallback_to_local_secret_key": fallback_to_local,
+            "raw_secret_values_exposed": False,
         }
 
     return payload, created_refs
 
 
 def load_secret_value(secret_ref: SecretRef, settings: Settings) -> str | None:
-    if secret_ref.storage_backend != "encrypted_local" or not secret_ref.encrypted_value:
+    if secret_ref.storage_backend not in ENCRYPTED_SECRET_BACKENDS or not secret_ref.encrypted_value:
         return None
-    return decrypt_secret_value(secret_ref.encrypted_value, settings)
+    return decrypt_secret_value(secret_ref.encrypted_value, settings, storage_backend=secret_ref.storage_backend)

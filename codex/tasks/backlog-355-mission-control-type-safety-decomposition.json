@@ -1,0 +1,104 @@
+{
+  "id": "backlog-355-mission-control-type-safety-decomposition",
+  "task_file": "codex/tasks/backlog-355-mission-control-type-safety-decomposition.json",
+  "task_type": "frontend_refactor",
+  "title": "React v2 Mission Control Type Safety and Component Decomposition",
+  "goal": "Remove the Mission Control TypeScript escape hatch and split the oversized screen into typed, testable components without changing operator behavior.",
+  "scope": "React v2 Mission Control component structure, local helper extraction, typed UI models, and focused Playwright/TypeScript validation.",
+  "status": "queued",
+  "generated_by": "codex-codebase-review-20260512",
+  "generation_reason": "Code review found ui-v2/src/components/screens/MissionControl.tsx starts with @ts-nocheck and is about 3000 lines, making active Mission Control work easy to break without TypeScript protection.",
+  "source_context": {
+    "queue_index": 305,
+    "queue_file": "TASK_QUEUE.md",
+    "review_findings": [
+      "ui-v2/src/components/screens/MissionControl.tsx has @ts-nocheck",
+      "Mission Control is the active high-change UI surface",
+      "npm run build cannot protect this screen while ts-nocheck remains"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: complete current Mission Control feature slices before broad refactor",
+    "broader_theme": "frontend_maintainability",
+    "key_files": [
+      "ui-v2/src/components/screens/MissionControl.tsx",
+      "ui-v2/src/components/screens/screenPrimitives.tsx",
+      "ui-v2/src/components/screens/screenUtils.ts",
+      "ui-v2/src/api/types.ts",
+      "ui-v2/tests/react-v2-critical-paths.spec.ts"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Preserve existing Mission Control behavior and visuals. Refactor for type safety and maintainability, not a redesign.",
+    "no_backend_api_change": "Do not add or change backend endpoints for this refactor."
+  },
+  "success_criteria": [
+    "MissionControl.tsx no longer uses @ts-nocheck or blanket unused-vars disabling.",
+    "The screen is decomposed into typed child components or hooks for at least run status, task console, AI signal, phase/loop panel, and action controls.",
+    "Existing standard run, chain run, queued run, and ai_loop run views remain behaviorally unchanged.",
+    "TypeScript build catches Mission Control types normally.",
+    "Focused React v2 Playwright coverage still passes for Mission Control critical paths."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/MissionControl.tsx",
+    "ui-v2/src/components/screens/MissionControl/",
+    "ui-v2/src/api/types.ts",
+    "ui-v2/tests/react-v2-critical-paths.spec.ts",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run lint",
+      "cd ui-v2 && npm run test:e2e -- --grep \"Mission Control\"",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "No @ts-nocheck remains in MissionControl.tsx or extracted Mission Control files.",
+      "Mission Control still renders standard, chain, queued, and ai_loop fixtures.",
+      "No backend routes, runner behavior, approvals, scope/ROE, credentials, or runtime gates are changed."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Redesigning Mission Control visual language.",
+    "Adding new backend AI insight endpoints.",
+    "Changing run lifecycle semantics.",
+    "Changing approval, dispatch, scope, credential, or kill-switch behavior."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,94 @@
+{
+  "id": "backlog-377-auth-pattern-cache-memory-backend",
+  "task_file": "codex/tasks/backlog-377-auth-pattern-cache-memory-backend.json",
+  "task_type": "service_layer",
+  "title": "Auth Pattern Cache Backed by Claude Memory Store",
+  "goal": "Add a per-engagement cache layer over auth_discoverer so successful recipes are stored against the application fingerprint and reused on subsequent runs against similar targets. Cache contents persist via the existing Claude memory backend at /memories/auth-recipes/<fingerprint-hash>.json.",
+  "scope": "Extend auth_discoverer with lookup_recipe(fingerprint) and store_recipe(fingerprint, recipe, confidence). Uses memory_backend.execute as storage. Includes confidence scoring, last_confirmed_at timestamp, replay-verification before trust, and aging so stale recipes are not returned.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Operator proposal 2026-05-15: 'AI checkt site ziet wat voor site het is, kijkt in cache of er al een website is met vergelijkbare code, probeert de cached aanvalspad, geen finding doet een nieuwe run zonder cache en updat de cache'. This is that cache, scoped to auth flow first. Per AGENT_SYSTEM_MAP section 12, recipes must be small and emergent only.",
+  "source_context": {
+    "queue_index": 327,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_2_universal_auth",
+    "key_files": [
+      "api/app/services/auth_discoverer.py",
+      "api/app/services/memory_backend.py",
+      "docs/AGENT_SYSTEM_MAP.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Cache for auth recipes only. Do NOT generalize cache for other attack patterns in this task. Do NOT migrate probes (task #378).",
+    "scope_isolation": "Cache is per-engagement. No cross-engagement or cross-tenant sharing.",
+    "size_cap": "Each recipe file under 2 KB. Total /memories/auth-recipes/ under 50 KB.",
+    "aging": "Recipes older than 30 days OR with last replay failure within last hour MUST be returned as stale to caller (caller may then trigger fresh discovery)."
+  },
+  "success_criteria": [
+    "lookup_recipe(fingerprint) consults memory backend and returns a Recipe + freshness verdict (fresh | stale | absent).",
+    "store_recipe(fingerprint, recipe, confidence) writes to memory backend with bounded size.",
+    "Replay-before-trust: caller invokes verify_recipe(recipe, target) which executes only the verification step of the recipe before trusting it. If verification fails, cache marks the recipe stale.",
+    "Cache miss falls through silently — caller can run full discovery (#375 + #376).",
+    "Unit tests prove fresh hit, stale hit, miss, and replay-failure-marks-stale paths."
+  ],
+  "likely_touched_files": [
+    "api/app/services/auth_discoverer.py",
+    "api/tests/test_auth_discoverer_cache.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "api/app/services/assessment_loop.py",
+    "api/app/services/memory_backend.py core API"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_auth_discoverer_cache.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/auth_discoverer.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Cache hit path requires zero AI calls.",
+      "Replay verification reuses recipe verification step, no additional design.",
+      "Stale or unverified recipes never returned as fresh."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-375 and backlog-376 must be merged."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-378 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Caching for non-auth attack patterns.",
+    "Cross-engagement sharing.",
+    "Probe migration (task #378)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

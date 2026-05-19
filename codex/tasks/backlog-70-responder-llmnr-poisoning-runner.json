@@ -1,0 +1,113 @@
+{
+  "id": "backlog-70-responder-llmnr-poisoning-runner",
+  "task_file": "codex/tasks/backlog-70-responder-llmnr-poisoning-runner.json",
+  "task_type": "backlog_slice",
+  "title": "Responder LLMNR/NBT-NS/MDNS Poisoning Runner",
+  "goal": "Add a controlled Responder runner that poisons LLMNR, NBT-NS, and MDNS within the approved network scope to capture NTLMv2 credential hashes \u2014 a core technique in internal network assessments.",
+  "scope": "Implement a 'responder' runner in workers/runners/responder/ that: (1) Launches Responder (pre-installed on Kali) on the configured network interface within the approved CIDR scope using --interface and listen-only configuration. (2) Runs for a configurable duration (default 10 minutes, max 60 minutes). (3) Captures NTLMv2 hashes from responding hosts, stores them as encrypted artifacts (never plain text). (4) Produces findings: one finding per captured hash with host, username, hash type (NTLMv2), and methodology tags (PTES: Exploitation, WSTG-ATHN, NIST: Credential Access T1557.001). (5) Hash material is stored as a protected secrets_ref \u2014 it is never written to stdout, logs, or run API payloads. (6) A new 'intrusive-lan-poisoning' approval gate class is required before this runner dispatches. (7) The runner terminates cleanly on kill-switch. (8) Run profile: 'intrusive-lan-credential-capture'. Responder log output is stored as an artifact for evidence.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "LLMNR/NBT-NS poisoning via Responder is one of the most effective techniques in internal network assessments and is used in virtually every real LAN pentest. Without it, AegisPT's internal assessment cannot capture credentials that exist on the network. NodeZero includes credential capture as a core internal capability.",
+  "source_context": {
+    "queue_index": 70,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/methodology_mapping.md",
+      "docs/secret_handling_baseline.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_pentest_expansion",
+    "source_documents": [
+      "workers/runners/base/contracts.py",
+      "workers/orchestration/tasks.py",
+      "api/app/services/run_profiles.py",
+      "api/app/services/secrets.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Poisoning only within approved CIDR scope. Hash material stored as encrypted artifact only \u2014 never in plain text. Requires intrusive approval gate. Time-limited run. No hash cracking in this slice (covered in backlog-73). Kill switch terminates Responder immediately.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "kill_switch_required": true,
+    "hash_material_encrypted": true,
+    "requires_intrusive_approval": true
+  },
+  "success_criteria": [
+    "responder runner launches Responder on the configured interface within approved CIDR.",
+    "Runner captures NTLMv2 hashes and stores them as encrypted artifacts.",
+    "Hash material is never written to stdout, logs, or API payloads.",
+    "Findings reference hash presence and host/username without exposing hash value.",
+    "Run terminates after configured duration or on kill switch.",
+    "Intrusive approval gate is required before dispatch.",
+    "Tests cover runner execution, hash storage, kill-switch termination, and no-plaintext-hash enforcement.",
+    "Full existing test suite remains green."
+  ],
+  "likely_touched_files": [
+    "workers/runners/responder/__init__.py",
+    "workers/runners/responder/runner.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/run_profiles.py",
+    "api/app/services/secrets.py",
+    "api/app/config.py",
+    "workers/tests/test_responder_runner.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Storing hash material in plain text anywhere",
+    "Running without intrusive approval gate",
+    "Operating outside approved CIDR scope",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_responder_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Runner produces findings without exposing hash values.",
+      "Hash artifacts encrypted.",
+      "Intrusive gate required.",
+      "Kill switch terminates runner.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Continuous exposure score (backlog-69) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with Responder runner implementation and hash-encryption evidence.",
+      "Update CURRENT_STATE.md with LLMNR poisoning as active intrusive runner.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Hash cracking (covered in backlog-73)",
+    "SMB relay attacks",
+    "IPv6 poisoning (separate slice)",
+    "Running without time limit"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

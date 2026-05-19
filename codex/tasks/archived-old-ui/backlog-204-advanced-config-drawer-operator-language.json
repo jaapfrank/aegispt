@@ -1,0 +1,62 @@
+{
+  "id": "backlog-204-advanced-config-drawer-operator-language",
+  "task_file": "codex/tasks/backlog-204-advanced-config-drawer-operator-language.json",
+  "task_type": "corrective_product_slice",
+  "title": "Advanced Configuration drawer: replace developer language with operator-appropriate copy",
+  "goal": "The wizard's Advanced Configuration drawer shows developer-facing terms that operators should not see: (1) 'ADVANCED CONFIGURATION / Deterministic Run Controls' header — 'Deterministic Run Controls' is implementation terminology. Rename to 'Expert Settings' or just 'Advanced Configuration'. (2) 'These controls write into the same run configuration that the conversational intake is building.' — rewrite to: 'Fine-tune modules, credentials, profiles, and safety limits for this assessment.' (3) The Type tab duplicates the tile grid with radio buttons — this is confusing because the operator already selected tiles. Change the Type tab header to 'Assessment Type (change)' and add a note: 'Already set from tile selection. Change here only to override.' (4) 'What changed?' links throughout — rename to 'Why?' or remove if they are non-functional placeholder links. (5) In the AI section of the drawer, the ChatGPT connection block appears every time the drawer is opened — only show it if ChatGPT is not yet connected; if connected, show a small connected badge instead.",
+  "scope": "Visual audit 2026-05-03: screenshot 03-wizard-advanced-config-open.png shows 'Deterministic Run Controls', developer description text, duplicated Type selection, and 'What changed?' links.",
+  "status": "queued",
+  "generated_by": "visual-audit-2026-05-03",
+  "generation_reason": "Visual audit 2026-05-03: Advanced Config drawer uses developer language throughout — needs operator-appropriate copy.",
+  "source_context": {
+    "queue_index": 241,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_operator_language",
+    "source_documents": ["ui/assets/modules/wizard.js"]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only change string copy and conditional visibility of the ChatGPT block. Do not change drawer functionality, tabs, or field logic.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "'Deterministic Run Controls' does not appear in the advanced drawer.",
+    "Drawer description is operator-appropriate.",
+    "Type tab includes a note that tile selection already sets this.",
+    "ChatGPT block in drawer is hidden or shows minimal badge when already connected.",
+    "No regression in wizard E2E tests."
+  ],
+  "likely_touched_files": ["ui/assets/modules/wizard.js", "CURRENT_STATE.md", "DONE_LOG.md"],
+  "must_not_touch": ["Drawer tab logic", "Field rendering", "Backend API", "Tile grid"],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "grep 'Deterministic Run Controls' ui/assets/modules/wizard.js returns no matches.",
+      "Advanced drawer shows operator-friendly description.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["Drawer restructure", "Tab content changes", "Backend changes"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

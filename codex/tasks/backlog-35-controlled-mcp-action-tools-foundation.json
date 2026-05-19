@@ -1,0 +1,105 @@
+{
+  "id": "backlog-35-controlled-mcp-action-tools-foundation",
+  "task_file": "codex/tasks/backlog-35-controlled-mcp-action-tools-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Controlled MCP Action Tools Foundation",
+  "goal": "Plan and implement the first safe MCP action-tool slice only after read-only MCP context is validated.",
+  "scope": "Add a tightly controlled MCP action-tool foundation for low-risk operator-reviewed actions such as drafting a ticket or requesting a retest proposal. Preserve approval gates and require explicit operator confirmation for state changes.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found MCP write/action tools were intentionally deferred but not queued as a gated future package.",
+  "source_context": {
+    "queue_index": 35,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_mcp_surface",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Action tools must be gated, explicit, and operator-reviewed. Do not add autonomous dispatch, approval bypass, deployment bypass, or secret access.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Read-only MCP must be validated before this package is promoted.",
+      "Prefer proposal-producing tools before state-changing tools."
+    ]
+  },
+  "success_criteria": [
+    "The first MCP action tools are limited to reviewed proposal or low-risk handoff actions.",
+    "Any state-changing action requires explicit operator confirmation and existing authorization checks.",
+    "Approval, dispatch, pack deployment, and runtime binding gates remain intact.",
+    "Tests cover allowed, denied, unauthenticated, and confirmation-required paths.",
+    "Docs list permitted and forbidden MCP actions."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/mcp.py",
+    "api/app/services/mcp_tools.py",
+    "api/tests/test_mcp_tools.py",
+    "docs/product_recommendations_scope_alignment.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding bypasses",
+    "api/app/schemas/findings.py",
+    "Prompt 1 / Prompt 2 foundations",
+    "raw secret material"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_mcp_tools.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "MCP actions are gated and operator-reviewed.",
+      "Forbidden runtime, approval, and secret actions are blocked.",
+      "Existing platform gates are reused, not bypassed."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Read-only MCP baseline is completed and permitted action list is approved."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with MCP action-tool changes and validation evidence.",
+      "Update CURRENT_STATE.md with MCP action-tool baseline and remaining action limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Autonomous scan dispatch",
+    "Approval bypass",
+    "Pack deployment bypass",
+    "Secret access",
+    "Runtime self-modification"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

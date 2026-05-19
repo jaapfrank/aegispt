@@ -1,0 +1,92 @@
+{
+  "id": "backlog-168-complete-assessment-wizard-cta-scoping",
+  "task_file": "codex/tasks/backlog-168-complete-assessment-wizard-cta-scoping.json",
+  "task_type": "corrective_product_slice",
+  "title": "Scope 'Complete Assessment Wizard' CTA: only show when there is no active engagement or the wizard is genuinely incomplete",
+  "goal": "The 'Complete Assessment Wizard' CTA button appears persistently on all screens including Mission Control, Findings, and Reports — even when the operator already has an active, running engagement. This creates noise and suggests something is wrong. Change the display logic so the button is: (a) visible on the Wizard screen always as primary progress CTA, (b) visible on Dashboard/Mission Control only when no engagement has a queued or running run, (c) hidden when a run is active or completed. The button lives in the topbar-nav or screen-head area; find its render condition in app.js or the shared render path and gate it on state.selectedRun being absent or in a terminal state.",
+  "scope": "System review 2026-05-01: Every screen shows a prominent 'Complete Assessment Wizard' CTA even when the operator is actively reviewing findings or running a mission. This is distracting and implies the operator needs to return to the wizard when they do not.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: 'Complete Assessment Wizard' CTA always visible even during active runs — should only show when no mission is in progress.",
+  "source_context": {
+    "queue_index": 168,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "cta_intent_scoping",
+    "source_documents": [
+      "ui/assets/app.js",
+      "ui/assets/modules/runtime.js",
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only change the visibility condition for the wizard CTA. Do not redesign the topbar or navigation.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "When a run is queued or running, the 'Complete Assessment Wizard' CTA is hidden on Mission Control, Findings, Reports, and History screens.",
+    "When no engagement exists or no runs exist, the CTA is visible on Dashboard and Wizard screen.",
+    "The CTA is always reachable via the sidebar Intake nav item regardless of its visibility in the topbar.",
+    "No regression in E2E wizard flow tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/app.js",
+    "ui/assets/modules/runtime.js",
+    "ui/index.html",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Wizard step logic",
+    "Run dispatch or cancellation",
+    "Backend API"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "With active run: CTA hidden on Mission Control, Findings, Reports.",
+      "With no engagements: CTA visible on Dashboard.",
+      "Wizard always accessible via sidebar nav.",
+      "No regression."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Topbar redesign",
+    "Navigation restructure",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

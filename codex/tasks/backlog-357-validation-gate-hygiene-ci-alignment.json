@@ -1,0 +1,108 @@
+{
+  "id": "backlog-357-validation-gate-hygiene-ci-alignment",
+  "task_file": "codex/tasks/backlog-357-validation-gate-hygiene-ci-alignment.json",
+  "task_type": "validation_hardening",
+  "title": "Validation Gate Hygiene: Ruff Clean and CI Alignment with React v2",
+  "goal": "Bring the repository's local validation and GitHub CI gates back into alignment with the active backend, worker, and React v2 release lanes.",
+  "scope": "Ruff cleanup, CI workflow validation steps, React v2 install/build/test wiring, and testing policy consistency.",
+  "status": "queued",
+  "generated_by": "codex-codebase-review-20260512",
+  "generation_reason": "Review-time validation found python compile and selected tests passing, but ruff failed on reports.py and a worker test import. The GitHub CI workflow also still runs legacy ui/tests smoke checks rather than the React v2 active browser gate described in TESTING_POLICY.md.",
+  "source_context": {
+    "queue_index": 307,
+    "queue_file": "TASK_QUEUE.md",
+    "review_findings": [
+      ".venv/bin/ruff check api/app workers scripts failed on reports.py E702 and test_idor_bac_runner.py F401",
+      ".github/workflows/ci.yml does not run ui-v2 npm build/test:e2e/lint",
+      "TESTING_POLICY.md names React v2 Playwright as the active browser release gate"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "release_validation_integrity",
+    "key_files": [
+      "api/app/services/reports.py",
+      "workers/tests/test_idor_bac_runner.py",
+      ".github/workflows/ci.yml",
+      "TESTING_POLICY.md",
+      "pyproject.toml",
+      "ui-v2/package.json",
+      "ui-v2/package-lock.json"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Focus on validation hygiene and CI gate alignment. Do not refactor reporting semantics, runner behavior, or UI features.",
+    "no_force_dependency_upgrades": "Do not run npm audit fix --force or introduce breaking dependency upgrades unless a separate task explicitly approves it."
+  },
+  "success_criteria": [
+    "Ruff passes for api/app, workers, and scripts without suppressing the reported issues unnecessarily.",
+    "GitHub CI runs backlog validation, Python compile, ruff, backend/worker/script tests, and React v2 install/build/lint/Playwright checks aligned with TESTING_POLICY.md.",
+    "Legacy /app/ UI tests remain diagnostic-only unless explicitly reactivated by a future task.",
+    "CI workflow uses reproducible npm install behavior through package-lock.json.",
+    "Documentation states the active release gates accurately."
+  ],
+  "likely_touched_files": [
+    "api/app/services/reports.py",
+    "workers/tests/test_idor_bac_runner.py",
+    ".github/workflows/ci.yml",
+    "TESTING_POLICY.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "workers/runners/core/",
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/ruff check api/app workers scripts",
+      "python3 -m compileall -q api workers scripts",
+      ".venv/bin/pytest api/tests/ workers/tests/ scripts/tests/",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run lint",
+      "cd ui-v2 && npm run test:e2e",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The exact ruff failures found in the review are resolved.",
+      "CI reflects the active React v2 browser release lane rather than relying on retired legacy smoke tests as a release gate.",
+      "No functional runtime, scanning, approval, scope, credential, or finding-schema changes are introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Changing report content or management-report narrative behavior beyond lint-safe formatting.",
+    "Adding new tests for unrelated product features.",
+    "Performing major dependency upgrades or npm audit force fixes.",
+    "Changing runner execution, approval gates, or runtime binding."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

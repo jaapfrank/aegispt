@@ -1,0 +1,91 @@
+{
+  "id": "backlog-221-ssrf-dedicated-runner",
+  "task_file": "codex/tasks/backlog-221-ssrf-dedicated-runner.json",
+  "task_type": "product_slice",
+  "title": "SSRF dedicated runner: server-side request forgery detection via OOB callbacks and internal service probing",
+  "goal": "WebGoat has a dedicated SSRF module. ZAP has basic SSRF checks (scanner 40022) but misses many variants. Implement a dedicated ssrf-probe runner: (1) Parameter-based SSRF: inject OOB callback URLs into all URL-consuming parameters (url=, redirect=, callback=, webhook=, proxy=, fetch=, load=, src=, href=, target=, domain=, host=, endpoint=). Use Interactsh or a self-hosted callback server to detect blind SSRF. (2) Header-based SSRF: inject callback URLs into Host, X-Forwarded-Host, X-Forwarded-For, Referer headers. (3) File/path SSRF: inject file:// and dict:// protocols alongside http://. (4) Internal service detection: attempt requests to http://169.254.169.254 (AWS metadata), http://metadata.google.internal (GCP), http://localhost:80/admin, common internal IPs. Record any 200 responses with internal content. (5) PDF/image conversion SSRF: if PDF/image generation endpoints found (common in modern apps), inject SSRF payload in document URL. All SSRF tests require active tier approval. Findings: 'SSRF - Blind (OOB Confirmed)', 'SSRF - Internal Service Accessible', 'SSRF - Cloud Metadata Exposed'.",
+  "scope": "WebGoat ssrf module + gap analysis: ZAP scanner 40022 covers basic SSRF but misses blind OOB SSRF, header injection SSRF, and cloud metadata endpoints. SSRF is OWASP A10:2021. Current coverage \u26a0\ufe0f (partial).",
+  "status": "queued",
+  "generated_by": "coverage-gap-analysis-2026-05-03",
+  "generation_reason": "SSRF partial coverage \u2014 ZAP misses blind OOB, header SSRF, and cloud metadata variants. WebGoat SSRF module confirms the gap.",
+  "source_context": {
+    "queue_index": 176,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ssrf_complete_coverage",
+    "source_documents": [
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "SSRF detection only \u2014 do not follow SSRF chains to internal services beyond basic response fingerprinting.",
+    "runtime_mutation": false,
+    "safety": "Never use real internal IPs outside the engagement's approved CIDR. Cloud metadata probes only when target is confirmed cloud-hosted."
+  },
+  "success_criteria": [
+    "ssrf-probe detects blind SSRF via OOB callback on WebGoat.",
+    "Detects parameter-based SSRF in common URL params.",
+    "Detects header-based SSRF (Host/X-Forwarded-Host).",
+    "Cloud metadata SSRF produces Critical finding.",
+    "Active tier \u2014 requires approval.",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing ZAP scanner config",
+    "Approval gates"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "ssrf-probe in supported tools.",
+      "Detects SSRF on WebGoat.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "SSRF to RCE escalation",
+    "Internal network pivot via SSRF"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

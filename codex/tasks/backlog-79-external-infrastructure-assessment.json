@@ -1,0 +1,109 @@
+{
+  "id": "backlog-79-external-infrastructure-assessment",
+  "task_file": "codex/tasks/backlog-79-external-infrastructure-assessment.json",
+  "task_type": "backlog_slice",
+  "title": "External Infrastructure Assessment \u2014 External IP Ranges and Non-Web Services",
+  "goal": "Add an external infrastructure assessment mode that tests external IP addresses from an outside-attacker perspective \u2014 covering all exposed services including SSH, RDP, VPN, SMB, databases, and non-web protocols, not just HTTP/HTTPS.",
+  "scope": "Implement: (1) A new 'external-infrastructure' run profile that combines: nmap full port scan (-p- or configurable range) from external perspective against IP ranges/CIDR, service version detection (-sV), nuclei infrastructure CVE templates (not web templates), httpx for any HTTP services found, SSH audit runner (ssh-audit tool, available on Kali) for weak ciphers and key exchange algorithms, optional SMB check from outside (NetExec passive, no auth). (2) A new wizard tile: 'External Infrastructure' with icon \ud83d\udda7, description 'External IP ranges, exposed services, SSH/RDP/VPN endpoints'. (3) A new run profile class: 'passive-external-infrastructure' (nmap discovery + httpx + ssh-audit, no exploitation) and 'active-external-infrastructure' (adds nuclei CVE scan). (4) Integration with EASM (backlog-67): if a domain is provided alongside IPs, EASM discovery runs first to find all IPs associated with the domain, then the infrastructure scan covers the full discovered IP space. (5) Finding normalization includes service-specific methodology tags: SSH weak ciphers \u2192 WSTG-CRYP, RDP exposed \u2192 WSTG-CONFIG, database exposed \u2192 WSTG-INFO. (6) The existing scope allowlist enforcement applies \u2014 only configured external IPs/CIDRs are scanned.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The user requested the ability to test external IP addresses. External infrastructure testing is distinct from web app testing \u2014 it covers all TCP/UDP services exposed to the internet, not just HTTP. Most real external pentests start with 'what does the internet see?' against the full IP space, not just the web application. This is a common enterprise requirement.",
+  "source_context": {
+    "queue_index": 79,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/methodology_mapping.md",
+      "docs/inventory_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runner_expansion",
+    "source_documents": [
+      "workers/runners/base/contracts.py",
+      "workers/runners/nmap/",
+      "workers/runners/httpx/",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Passive and active tiers only \u2014 no exploitation in this slice. Scope allowlist absolute. SSH audit is read-only. No credential attacks against external services.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "scope_enforcement_absolute": true
+  },
+  "success_criteria": [
+    "external-infrastructure run profile runs nmap full port scan + service detection against IP ranges.",
+    "ssh-audit runner tests SSH service configuration.",
+    "nuclei infrastructure CVE templates run against discovered services.",
+    "Findings include SSH weak cipher, exposed database, and exposed management interface finding types.",
+    "EASM integration: domain input triggers subdomain discovery + IP resolution before scan.",
+    "Wizard tile 'External Infrastructure' available in assessment type selection.",
+    "Scope allowlist enforced.",
+    "Tests cover profile execution, finding normalization, EASM integration, scope enforcement.",
+    "Full test suite remains green."
+  ],
+  "likely_touched_files": [
+    "workers/runners/ssh_audit/__init__.py",
+    "workers/runners/ssh_audit/runner.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/run_profiles.py",
+    "ui/assets/modules/wizard.js",
+    "workers/tests/test_external_infra_runner.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Credential attacks against external services",
+    "Exploitation in this slice",
+    "Scanning outside approved scope",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_external_infra_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "External infrastructure profile runs correctly.",
+      "SSH audit produces findings.",
+      "EASM integration works.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Visual mission preview and full-phase authorization (backlog-78) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with external infrastructure assessment implementation.",
+      "Update CURRENT_STATE.md with external infrastructure as active assessment type.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Exploitation of found services",
+    "Credential attacks",
+    "UDP scanning (future slice)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

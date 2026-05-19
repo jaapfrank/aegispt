@@ -1,20 +1,23 @@
 from __future__ import annotations
 
+from subprocess import CompletedProcess
+
 import httpx
 import pytest
-from subprocess import CompletedProcess
 
 import scripts.acceptance_harness as acceptance_harness
 from scripts.acceptance_harness import (
     activate_runtime_target,
     assert_runtime_prerequisites,
+    build_allowlist_from_target,
     build_engagement_payload,
     build_inventory_seed_payload,
-    build_allowlist_from_target,
     build_run_configuration,
-    summarize_result,
+    load_target_catalog,
     resolve_safe_target,
     select_next_real_run_scenario,
+    summarize_result,
+    validate_target_catalog,
 )
 
 
@@ -33,6 +36,81 @@ def test_resolve_safe_target_rejects_unauthorized_public_scope() -> None:
 
     with pytest.raises(ValueError, match="unauthorized public scope"):
         resolve_safe_target(catalog, "public-demo")
+
+
+def test_default_target_catalog_expands_benchmark_truth_safely() -> None:
+    catalog = load_target_catalog()
+
+    summary = validate_target_catalog(catalog)
+    targets = {target["id"]: target for target in catalog["targets"]}
+    scenarios = {scenario["id"]: scenario for scenario in catalog["real_run_scenarios"]}
+
+    assert summary["target_count"] >= 12
+    assert "secrets_lab" in summary["surface_kinds"]
+    assert "llm_app" in summary["surface_kinds"]
+    assert "internal_ad_lab" in summary["surface_kinds"]
+    assert targets["owasp-wrongsecrets-local-template"]["runnability"] == "disabled_template"
+    assert targets["promptme-reference"]["runnability"] == "documentation_only"
+    assert targets["goad-ad-lab-template"]["surface_kind"] == "internal_ad_lab"
+    assert targets["owasp-benchmark-reference"]["benchmark_metadata"]["vulnerable_families"]
+    assert scenarios["wrongsecrets-reference-stub"]["dispatch"] is False
+    assert scenarios["promptme-reference-stub"]["enabled"] is False
+
+
+def test_validate_target_catalog_rejects_enabled_documentation_only_target() -> None:
+    catalog = {
+        "targets": [
+            {
+                "id": "hosted-reference",
+                "classification": "training_lab",
+                "enabled": True,
+                "authorized": False,
+                "runnability": "documentation_only",
+            }
+        ],
+        "real_run_scenarios": [],
+    }
+
+    with pytest.raises(ValueError, match="Documentation-only target"):
+        validate_target_catalog(catalog)
+
+
+def test_build_run_configuration_supports_non_web_scope_inputs() -> None:
+    scenario = {
+        "id": "wrongsecrets-stub",
+        "name": "WrongSecrets Stub",
+        "assessment_type": "CI/CD and Secrets",
+        "profile": "Secrets Hygiene",
+        "run_profile": "passive-cicd-security-assessment",
+        "modules": ["secrets_hygiene_review", "cicd_security_review"],
+        "expected_outputs": ["fixture_metadata"],
+    }
+    target = {
+        "id": "wrongsecrets-template",
+        "label": "WrongSecrets Template",
+        "classification": "training_lab",
+        "scope": {
+            "pipeline_config_paths": ["/tmp/aegispt/pipelines/build.yml"],
+            "repositories": ["acme/repo"],
+            "llm_endpoints": ["http://127.0.0.1:9000/chat"],
+            "apk_paths": ["/tmp/aegispt/app.apk"],
+            "container_images": ["registry.example/app:latest"],
+            "kubernetes_manifest_paths": ["/tmp/aegispt/k8s/app.yaml"],
+            "directory_domains": ["ad.lab.local"],
+        },
+    }
+
+    configuration = build_run_configuration(scenario=scenario, target=target)
+    allowlist = build_allowlist_from_target(target)
+
+    assert configuration["targets"]["pipeline_config_paths"] == ["/tmp/aegispt/pipelines/build.yml"]
+    assert configuration["targets"]["repositories"] == ["acme/repo"]
+    assert configuration["targets"]["directory_domains"] == ["ad.lab.local"]
+    assert configuration["modules"]["secrets_hygiene_review"] is True
+    assert configuration["modules"]["cicd_security_review"] is True
+    assert allowlist["pipeline_config_paths"] == ["/tmp/aegispt/pipelines/build.yml"]
+    assert allowlist["repositories"] == ["acme/repo"]
+    assert allowlist["domains"] == ["ad.lab.local"]
 
 
 def test_build_run_configuration_preserves_acceptance_metadata() -> None:
@@ -137,6 +215,42 @@ def test_activate_runtime_target_materializes_webgoat_fixture(monkeypatch: pytes
         assert materialized["runtime_fixture_context"]["fixture"] == "docker_webgoat"
         assert materialized["runtime_fixture_context"]["webwolf_url"] == "http://127.0.0.1:41090/WebWolf"
         assert "Auto-spawned WebGoat fixture resolved to http://127.0.0.1:41080/WebGoat" in materialized["notes"]
+
+    assert any(call[:3] == ["docker", "run", "-d"] for call in calls)
+    assert any(call[:3] == ["docker", "rm", "-f"] for call in calls)
+
+
+def test_activate_runtime_target_materializes_gruyere_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    target = {
+        "id": "google-gruyere-local",
+        "label": "Google Gruyere Local",
+        "classification": "training_lab",
+        "enabled": True,
+        "authorized": True,
+        "scope": {"urls": ["http://127.0.0.1:8008/"]},
+        "runtime_fixture": "docker_gruyere",
+        "runtime_fixture_image": "karthequian/gruyere:latest",
+        "runtime_fixture_container_port": 8008,
+        "notes": "Training target for benchmark coverage.",
+    }
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(acceptance_harness, "_reserve_loopback_port", lambda: 48008)
+    monkeypatch.setattr(acceptance_harness, "_wait_for_http_ready", lambda *args, **kwargs: 200)
+
+    def fake_run(args, **kwargs):
+        calls.append(list(args))
+        if args[:3] == ["docker", "run", "-d"]:
+            return CompletedProcess(args=args, returncode=0, stdout="gruyere-container\n", stderr="")
+        return CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(acceptance_harness.subprocess, "run", fake_run)
+
+    with activate_runtime_target(target) as materialized:
+        assert materialized["scope"]["urls"] == ["http://127.0.0.1:48008/"]
+        assert materialized["runtime_fixture_context"]["fixture"] == "docker_gruyere"
+        assert materialized["runtime_fixture_context"]["runtime_image"] == "karthequian/gruyere:latest"
+        assert "Auto-spawned Gruyere fixture resolved to http://127.0.0.1:48008/" in materialized["notes"]
 
     assert any(call[:3] == ["docker", "run", "-d"] for call in calls)
     assert any(call[:3] == ["docker", "rm", "-f"] for call in calls)

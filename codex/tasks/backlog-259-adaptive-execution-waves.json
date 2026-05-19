@@ -1,0 +1,112 @@
+{
+  "id": "backlog-259-adaptive-execution-waves",
+  "task_file": "codex/tasks/backlog-259-adaptive-execution-waves.json",
+  "task_type": "product_slice",
+  "title": "Adaptive execution waves: run tools in evidence-driven batches, re-evaluate after each wave, update plan based on new signals \u2014 not one big serial queue",
+  "goal": "Even with adaptive tool selection, running all RUN-column tools in one parallel batch misses chaining opportunities. A better model is adaptive execution waves: after each wave completes, the SignalProfile is updated with new findings and the planner re-evaluates WAIT runners to see if they now have evidence to move to RUN. Implement: (1) Wave 0 (low-impact recon): nmap + httpx \u2192 produces SignalProfile v1. (2) Planner scores all runners \u2192 RUN Wave 1 / WAIT / SKIP. (3) Wave 1 execution: run RUN tools in parallel (e.g. xss-extended, vuln-components, headers-security). (4) After Wave 1 completes: update SignalProfile v2 with new findings. Planner re-scores WAIT runners. Example: sqlmap was WAIT in Wave 1 (no injectable_parameter signal). After Wave 1, xss-extended found a form with a text field that echoed back input \u2014 this is a new signal. Planner re-scores: sqlmap moves to RUN Wave 2. (5) Wave 2: run new RUN tools. (6) After each wave, AI (via backlog-219 compound chain reasoning) checks for compound chains: 'Wave 1 found file-upload + stored-XSS. This combination enables CSRF cookie theft. Propose Wave 2: auth-flow + xss-extended on admin endpoint.' (7) Continue until no more WAIT runners can be unblocked or operator stops. Mission Control shows wave progress: 'Wave 1 complete: 5 runners done. Wave 2: 3 runners promoted from WAIT. 4 runners still SKIP.' The UI target from ChatGPT review: '7 selected, 11 skipped with reason, 5 waiting for evidence/approval' is the per-wave view. PREREQUISITE: backlog-256 (SignalProfile), backlog-258 (RunnerMetadata), backlog-255 (Planner).",
+  "scope": "ChatGPT review 2026-05-06: 'Adaptive Execution Waves \u2014 not everything in one series, but batches: run relevant checks, process evidence, plan next wave.' This is the key architectural difference between AegisPT and simple scanners: continuous evidence-driven replanning.",
+  "status": "queued",
+  "generated_by": "architectural-review-2026-05-06",
+  "generation_reason": "ChatGPT identified adaptive waves as the final piece \u2014 one batch then stop is still suboptimal. Evidence from Wave 1 must feed Wave 2 planning so WAIT runners can be promoted.",
+  "source_context": {
+    "queue_index": 218,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json",
+      "codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json",
+      "codex/tasks/backlog-258-runner-capability-metadata.json",
+      "codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json",
+      "codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-256, backlog-258, backlog-255 must be completed first.",
+    "broader_theme": "adaptive_wave_execution",
+    "source_documents": [
+      "api/app/services/assessment_planner.py",
+      "api/app/services/assessment_chain.py",
+      "ui/assets/modules/mission-control.js",
+      "api/app/services/ai_agent.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Waves are re-planning passes, not autonomous execution. Each wave requires operator approval before launching. WAIT promotions show as new proposals, not auto-dispatched.",
+    "safety": "No wave auto-launches without operator approval. Intrusive runners always require explicit gate regardless of wave position. Maximum 5 waves per engagement to prevent runaway assessments.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "After each wave completes, SignalProfile updated with new evidence from wave findings.",
+    "Planner re-scores WAIT runners against updated SignalProfile.",
+    "Runners promoted from WAIT to RUN appear as new proposals for operator approval.",
+    "Mission Control shows: 'Wave N complete. N runners promoted from WAIT. N still SKIP.'",
+    "sqlmap promoted from WAIT to RUN when Wave 1 finds form field with reflected input.",
+    "AI compound chain reasoning triggers wave proposals: 'file-upload + stored-XSS \u2192 CSRF cookie theft possible, propose auth-flow in next wave'.",
+    "Maximum 5 waves enforced.",
+    "Each wave requires operator approval before launching.",
+    "SKIP decisions persist across waves unless new contradicting signals found.",
+    "No regression in chain or planner tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_planner.py",
+    "api/app/services/assessment_chain.py",
+    "api/app/services/ai_agent.py",
+    "ui/assets/modules/mission-control.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Intrusive approval gates",
+    "Runner implementations",
+    "Core scope enforcement"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Wave 1 completion triggers SignalProfile v2 update.",
+      "WAIT runners re-scored after each wave.",
+      "Promoted runners appear as new proposals.",
+      "Mission Control shows wave progress.",
+      "Max 5 waves enforced.",
+      "Each wave requires approval.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-255, backlog-256, backlog-258 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Autonomous wave execution without approval",
+    "Unlimited waves",
+    "New runner creation"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

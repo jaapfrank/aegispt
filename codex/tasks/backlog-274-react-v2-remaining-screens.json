@@ -1,0 +1,108 @@
+{
+  "id": "backlog-274-react-v2-remaining-screens",
+  "task_file": "codex/tasks/backlog-274-react-v2-remaining-screens.json",
+  "task_type": "product_slice",
+  "title": "React v2 remaining screens: Dashboard, History, Problems Center, Surface Map, Packs, Evidence Replay, Custom CVE Library, Research",
+  "goal": "Build the 8 remaining screens for React v2. REQUIRES backlog-268, 269, 270, 271, 272, 273. Each screen is a separate file in src/components/screens/. (1) DASHBOARD (src/components/screens/Dashboard.tsx): Five metric cards at top: Portfolio (engagement count), Active Tasks (running task count), Portfolio Risk (exposure score), Open Problems (open finding count), Reports (report count). 'FIRST RUN' section when no engagements exist: three steps 'Connect ChatGPT' / 'Create engagement' / 'Run first scan'. Quick Actions section: 4 large buttons (New Mission → /intake, Open Problems → /problems, Reports → /reports, Mission Control → /mission-control). All data from GET /api/v1/dashboard. (2) HISTORY (src/components/screens/History.tsx): Table of all runs across engagements. Columns: date, engagement, profile, status, findings (critical/high/medium), duration. Filters: date range, engagement, status. Clicking a row selects the run and navigates to /mission-control. Comparison: select two rows → 'Compare' button → shows delta panel (N new findings, N resolved, severity changes). Data from GET /api/v1/runs with limit/offset and filter params. (3) PROBLEMS CENTER (src/components/screens/ProblemsCenter.tsx): Cross-engagement finding lifecycle view. Stats bar: Open Critical, Open High, Visible count, All Findings count, Avg Resolve Time, Resolved This Week. Filter bar: engagement, severity, status, assignee, age, methodology. Finding rows showing: severity dot, title, engagement name, target, age, status badge. Bulk actions: select multiple → 'Bulk assign', 'Bulk retest', 'Bulk resolve'. Recently resolved section at bottom. Data from GET /api/v1/problems. (4) SURFACE MAP (src/components/screens/SurfaceMap.tsx): Three tabs: Assets, Attack Map, Insights. Assets tab: table of discovered hosts/endpoints from GET /api/v1/engagements/{id}/inventory/latest with filter and search. Each host shows: IP/hostname, OS, open ports, services, last seen. Attack Map tab: SVG visualization of discovered hosts as nodes. Similar to existing Cinema but static — no animation. Position hosts in a grid layout with connections between related hosts. Findings bubble on top of affected host nodes (colored by severity). Insights tab: summary stats (host count, service count, finding count by host). (5) PACKS (src/components/screens/Packs.tsx): List of capability packs from GET /api/v1/packs. Each pack: name, version, status (deployed/staged/available), methodology tags. Deploy/Approve/Validate buttons. Pack detail expandable showing artifacts list. (6) EVIDENCE REPLAY (src/components/screens/EvidenceReplay.tsx): Run selector. On select: show all task executions with stdout/stderr in a terminal-style view. Each execution is a collapsible block: [tool icon] [target] [timestamp] [duration]. Expanded: full stdout text in monospace scrollable. Download button for each execution artifact. (7) CUSTOM CVE LIBRARY (src/components/screens/CustomCVELibrary.tsx): Table of custom vulnerability definitions. Add/edit/delete. Import from NVD/text. Export button. Each row: CVE ID, title, severity, affected products, scan template status. (8) RESEARCH (src/components/screens/Research.tsx): Three panels: CVE Template Generator (select CVE from threat-intel list → AI generates Nuclei YAML), Custom Script Ideas (text input → AI generates detection script), Research Proposals Log (all generated templates with status). All AI generation calls POST /api/v1/ai/research/generate-script or the threat-intel template generation endpoint.",
+  "scope": "React v2 remaining 8 screens. Each needs real API data.",
+  "status": "queued",
+  "generated_by": "react-v2-planning-2026-05-07",
+  "generation_reason": "Complete all remaining React v2 screens with real API integration.",
+  "source_context": {
+    "queue_index": 226,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json",
+      "codex/tasks/backlog-269-react-v2-mission-control.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-268 through backlog-273 completed first.",
+    "broader_theme": "react_v2_remaining_screens",
+    "source_documents": [
+      "ui-v2/src/api/client.ts",
+      "api/app/routers/engagements.py",
+      "api/app/routers/runs.py",
+      "api/app/routers/findings.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "These 8 screens only. Each screen is a separate file. Do not change other screens.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Dashboard shows real data from GET /api/v1/dashboard.",
+    "History table loads runs with filters.",
+    "Problems Center shows cross-engagement findings with bulk actions.",
+    "Surface Map shows real hosts from inventory snapshot.",
+    "Packs list loads from GET /api/v1/packs.",
+    "Evidence Replay shows task executions with stdout.",
+    "Custom CVE Library has add/edit/delete.",
+    "Research screen shows CVE template generator.",
+    "All 8 screens reachable from sidebar navigation.",
+    "Build succeeds with no TypeScript errors."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/Dashboard.tsx",
+    "ui-v2/src/components/screens/History.tsx",
+    "ui-v2/src/components/screens/ProblemsCenter.tsx",
+    "ui-v2/src/components/screens/SurfaceMap.tsx",
+    "ui-v2/src/components/screens/Packs.tsx",
+    "ui-v2/src/components/screens/EvidenceReplay.tsx",
+    "ui-v2/src/components/screens/CustomCVELibrary.tsx",
+    "ui-v2/src/components/screens/Research.tsx",
+    "ui-v2/src/App.tsx",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "ui/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "All 8 screens render.",
+      "Dashboard loads real data.",
+      "Build passes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-268 through 273 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Backend changes",
+    "Old ui/ changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

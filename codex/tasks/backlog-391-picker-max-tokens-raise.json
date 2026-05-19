@@ -1,0 +1,88 @@
+{
+  "id": "backlog-391-picker-max-tokens-raise",
+  "task_file": "codex/tasks/backlog-391-picker-max-tokens-raise.json",
+  "task_type": "ai_loop",
+  "title": "Picker max_tokens raise: 1024 \u2192 4096 to eliminate truncated-response retry class",
+  "goal": "Empirical Phase 3 validation on 2026-05-17 surfaced that the picker's `max_tokens=1024` is too small for long `level_up` decisions that include a multi-step `plan` body. The response gets truncated mid-string, which is grammatically invalid (so Anthropic structured outputs from #330 cannot reject server-side) and lands on the `_tolerant_json_fix` deprecated fallback warning. `_call_picker_with_retries` (#331) catches it on a second attempt \u2014 but the right fix is to give the picker enough output budget that it doesn't need to retry.",
+  "scope": "Modify the `client.messages.create(...max_tokens=1024)` call in `_claude_select_next_action` (api/app/services/assessment_loop.py) to use a larger limit (4096) that comfortably fits a multi-step plan body + reasoning text. Verify in unit tests that the schema still accepts and that the larger limit doesn't break any existing test fixture.",
+  "status": "queued",
+  "generated_by": "phase3-checkpoint-empirical-finding-20260517",
+  "generation_reason": "Captured live in /tmp/aegispt-api.log on 2026-05-17 during the Phase 3 checkpoint validation: picker output=1024 tokens exactly = response cut off mid-string at char 927. `_call_picker_with_retries` from #331 saved the loop, but this should not be a regular event \u2014 it wastes a Claude call per truncation. The retry mechanism is for transient cases, not predictable budget overruns. See docs/checkpoints/2026-mythos-phase3-review.md \u00a74.2 + \u00a74 follow-up.",
+  "source_context": {
+    "queue_index": 345,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "phase3_picker_hardening_follow_up",
+    "key_files": [
+      "api/app/services/assessment_loop.py",
+      "api/tests/test_assessment_loop_structured_outputs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Single literal change to max_tokens. Do NOT change the schema, the retry wrapper, the system prompt, or anything else.",
+    "cache_friendly": "max_tokens does not affect prompt caching (it's an output budget, not part of the cached prefix). Confirm via a test that prompt-cache behavior is unchanged."
+  },
+  "success_criteria": [
+    "max_tokens raised from 1024 to 4096 in `_claude_select_next_action`.",
+    "All existing Phase 3 tests (test_assessment_loop_structured_outputs.py + test_assessment_loop_soft_retry.py) still pass.",
+    "After deployment, `picker recovered after N retry(ies)` log lines from THIS class disappear (verifiable post-deploy with `scripts/_phase3_checkpoint_mine.py`)."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "_PICKER_OUTPUT_SCHEMA (#330 contract)",
+    "_call_picker_with_retries (#331 contract)",
+    "memory_backend.py truncation (#332 contract)",
+    "_AI_PICKER_SYSTEM_PROMPT"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_assessment_loop_structured_outputs.py api/tests/test_assessment_loop_soft_retry.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/assessment_loop.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "max_tokens literal changed from 1024 to 4096.",
+      "Phase 3 unit tests still green.",
+      "No new lint or compile errors."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Schema changes.",
+    "Retry tuning.",
+    "Cost re-measurement (covered by the next operator-triggered mine of /tmp/aegispt-api.log)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

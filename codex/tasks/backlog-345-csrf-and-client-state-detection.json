@@ -1,0 +1,102 @@
+{
+  "id": "backlog-345-csrf-and-client-state-detection",
+  "task_file": "codex/tasks/backlog-345-csrf-and-client-state-detection.json",
+  "task_type": "scanner_runner",
+  "title": "CSRF, Client-State Manipulation and Privilege Escalation Detection",
+  "goal": "Gruyere has three related vulnerabilities that AegisPT currently cannot detect: (1) CSRF on /deletesnippet \u2014 state-changing GET endpoint with no CSRF token; (2) Client-state manipulation / Elevation of Privilege \u2014 POST /saveprofile accepts is_admin=True without server-side authorization check; (3) Cookie manipulation \u2014 account creation with special characters in username creates malformed cookie that can be parsed as admin. These require an authenticated session context (auth-flow must run first) and targeted parameter injection. Extend the client_state runner to: (a) detect state-changing GET endpoints with no CSRF protection (look for actions like delete, update, admin in URLs accessible via GET without token); (b) inject hidden privilege parameters (is_admin=True, role=admin, admin=1, is_superuser=True) into discovered POST forms and check if the response confirms elevated access; (c) test cookie parsing edge cases by creating test accounts with | and special characters and verifying if the session is mis-parsed. These tests require an active session \u2014 gate them behind authentication context from auth-flow.",
+  "scope": "workers/runners/client_state/runner.py",
+  "status": "queued",
+  "generated_by": "gap-analysis-no-csrf-no-eop",
+  "generation_reason": "Gruyere's CSRF on /deletesnippet and EoP via is_admin=True in POST /saveprofile are not detected. The client_state runner does not test for privilege parameter injection or CSRF on GET endpoints.",
+  "source_context": {
+    "queue_index": 297,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "NONE",
+    "key_files": [
+      "workers/runners/client_state/runner.py",
+      "workers/runners/session_security/runner.py",
+      "workers/runners/auth_flow/runner.py"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "authorized_only": "Only run against authorized targets within approved scope. Never test against live production systems without explicit authorization.",
+    "no_destructive_actions": "Do not delete real data. For CSRF tests, use GET-only probes. For EoP tests, check response for admin indicators but do not persist changes.",
+    "scope_enforcement": "All test URLs must pass web_target_value_is_allowed_with_path() check.",
+    "existing_tests": "pytest api/tests/ must pass.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "csrf_detection": "Find all discovered endpoints where the HTTP method is GET but the URL contains action-words (delete, remove, update, admin, reset, change). Check if a request without a CSRF token succeeds (2xx/3xx response). Report as finding if no token validation occurs.",
+    "eop_detection": "For each discovered POST form, add extra fields: is_admin=True, role=admin, admin=1, privilege=admin. Check if the response body or a subsequent GET to the profile endpoint shows admin-level content. Use string matching: 'admin', 'is_admin', 'administrator', 'privileged'.",
+    "cookie_manipulation": "Test account creation with username containing pipe |, null bytes, and path traversal sequences ../. Check if the resulting session cookie contains unexpected privilege indicators.",
+    "finding_types": [
+      "csrf_state_changing_get",
+      "privilege_parameter_injection",
+      "cookie_manipulation_eop"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "pytest api/tests/",
+      "python3 scripts/validate_backlog_tasks.py"
+    ],
+    "acceptance_criteria": [
+      "client_state runner detects CSRF on /deletesnippet (GET endpoint, no token) and reports finding type='csrf_state_changing_get'.",
+      "client_state runner detects EoP via is_admin=True in POST /saveprofile and reports finding type='privilege_parameter_injection'.",
+      "All test requests respect scope allowlist.",
+      "No destructive actions performed during testing."
+    ]
+  },
+  "success_criteria": [
+    "client_state runner detects CSRF on /deletesnippet (GET endpoint, no token) and reports finding type='csrf_state_changing_get'.",
+    "client_state runner detects EoP via is_admin=True in POST /saveprofile and reports finding type='privilege_parameter_injection'.",
+    "All test requests respect scope allowlist.",
+    "No destructive actions performed during testing."
+  ],
+  "likely_touched_files": [
+    "workers/runners/client_state/runner.py",
+    "workers/runners/session_security/runner.py",
+    "workers/runners/auth_flow/runner.py"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

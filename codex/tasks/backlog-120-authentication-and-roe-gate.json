@@ -1,0 +1,96 @@
+{
+  "id": "backlog-120-authentication-and-roe-gate",
+  "task_file": "codex/tasks/backlog-120-authentication-and-roe-gate.json",
+  "task_type": "backlog_slice",
+  "title": "Real Authentication and Mandatory ROE Gate",
+  "goal": "Replace the X-Actor header with real API key authentication, and block run creation unless a Rules of Engagement reference is confirmed for the engagement.",
+  "scope": "Two changes: (1) API KEY AUTHENTICATION: create api_keys table (id, key_hash VARCHAR 64, actor_name VARCHAR 255, role VARCHAR 50 default operator, created_at, last_used_at, revoked_at nullable). In api/app/auth/__init__.py replace get_current_actor with a function that first checks Authorization: Bearer {key} header, hashes it with SHA-256, looks it up in api_keys, updates last_used_at, returns actor_name. If no Bearer header, fall back to X-Actor for backwards compatibility (with deprecation warning in response headers). Add POST /api/v1/auth/keys endpoint to create keys (admin only in future, for now any actor). Add GET /api/v1/auth/keys to list keys. (2) ROE GATE: add authorization_confirmed_by (VARCHAR 255 nullable) and authorization_confirmed_at (DATETIME nullable) to Engagement model. In create_run (routers/runs.py), if engagement.roe_ref is null AND engagement.authorization_confirmed_at is null, return HTTP 400 with message: 'Written authorization is required before starting a scan. Set roe_ref or confirm authorization via PATCH /api/v1/engagements/{id}/confirm-authorization'. Add PATCH /api/v1/engagements/{id}/confirm-authorization endpoint that sets authorization_confirmed_by and authorization_confirmed_at. In wizard step 4 (renderGuidedLaunchStep), if engagement has no roe_ref, show a confirmation checkbox: 'I confirm I have written authorization from the system owner' that must be checked before Open Mission Control button is enabled.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "X-Actor header is not authentication. Any client on the network can scan as any actor. No ROE enforcement means scans can start without legal authorization.",
+  "queue_index": 120,
+  "source_context": {
+    "queue_index": 119,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "security_foundation",
+    "source_documents": [
+      "api/app/auth/__init__.py",
+      "api/app/models/control.py",
+      "api/app/routers/runs.py",
+      "ui/assets/modules/wizard.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Auth and ROE gate only. No OAuth SSO. X-Actor fallback must remain for backwards compatibility.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "POST /api/v1/auth/keys creates an API key.",
+    "Bearer token authentication works and returns correct actor_name.",
+    "X-Actor fallback still works (backwards compatibility).",
+    "create_run returns 400 if engagement has no roe_ref and no authorization_confirmed_at.",
+    "PATCH /engagements/{id}/confirm-authorization sets confirmation fields.",
+    "Wizard step 4 shows authorization checkbox when roe_ref is missing.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/auth/__init__.py",
+    "api/app/models/control.py",
+    "api/app/routers/runs.py",
+    "api/app/routers/engagements.py",
+    "ui/assets/modules/wizard.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations",
+    "Existing tenant isolation logic"
+  ],
+  "out_of_scope": [
+    "OAuth SSO",
+    "LDAP/Active Directory authentication",
+    "Multi-factor authentication"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "API key auth works. ROE gate blocks unauthorized scans."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

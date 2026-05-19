@@ -1,0 +1,102 @@
+{
+  "id": "backlog-366-ai-fuzz-harness-generator-corpus-curator",
+  "task_file": "codex/tasks/backlog-366-ai-fuzz-harness-generator-corpus-curator.json",
+  "task_type": "defensive_research",
+  "title": "AI Fuzz Harness Generator and Corpus Curator",
+  "goal": "Let AegisPT propose and validate safe fuzz harnesses and seed corpora for authorized code so deeper bugs can be found through reproducible local testing.",
+  "scope": "Codex build lane task generation, local fixture validation, harness metadata, corpus management, and tests for safe harness output.",
+  "status": "queued",
+  "generated_by": "mythos-capability-gap-analysis",
+  "generation_reason": "Frontier models find novel vulnerabilities partly by writing better test harnesses and reaching code paths traditional fuzzing misses. AegisPT should make this a defensive, local-only, reviewable workflow.",
+  "source_context": {
+    "queue_index": 316,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: defensive codebase vulnerability research lane",
+    "broader_theme": "defensive_ai_vulnerability_research",
+    "key_files": [
+      "api/app/services/ai_research.py",
+      "api/app/services/codex_tasks.py",
+      "scripts/",
+      "codex/templates/",
+      "api/tests/test_ai_research.py",
+      "scripts/tests/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Generate local defensive harnesses and corpora only. Do not run fuzzing against live services or external systems.",
+    "local_only": "Harness validation must run only on authorized local fixtures or build-lane snapshots."
+  },
+  "success_criteria": [
+    "The system can propose fuzz harness tasks for parsers, protocol handlers, file decoders, API handlers, and security-critical functions in authorized source.",
+    "Each harness proposal includes target function, input grammar assumptions, seed corpus plan, timeout/resource limits, and expected crash/evidence artifacts.",
+    "Generated harnesses are prepared through Codex task packages or templates, not installed into active runtime.",
+    "A validation harness can report blocked prerequisites honestly when compiler/tooling is missing.",
+    "Tests prove generated metadata is safe, local-only, and does not include exploit payload weaponization."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_research.py",
+    "api/app/services/codex_tasks.py",
+    "scripts/validation/",
+    "scripts/tests/",
+    "codex/templates/",
+    "api/tests/test_ai_research.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/core/",
+    "api/app/models/control.py finding schema fields",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "Prompt 1 and Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_ai_research.py scripts/tests/",
+      "python3 -m compileall -q api scripts",
+      ".venv/bin/ruff check api/app/services/ai_research.py api/app/services/codex_tasks.py scripts",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Harness proposals are local-only and evidence-backed.",
+      "Missing fuzzing prerequisites produce blocked results, not false pass claims.",
+      "No live target execution, uncontrolled tool installation, or runtime mutation occurs."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Running continuous fuzzing infrastructure.",
+    "Exploiting discovered crashes.",
+    "Installing new fuzzing engines automatically.",
+    "Changing live assessment runtime behavior."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

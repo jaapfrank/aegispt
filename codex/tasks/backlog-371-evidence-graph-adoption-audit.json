@@ -1,0 +1,95 @@
+{
+  "id": "backlog-371-evidence-graph-adoption-audit",
+  "task_file": "codex/tasks/backlog-371-evidence-graph-adoption-audit.json",
+  "task_type": "architecture_audit",
+  "title": "Evidence-Graph First-Class Adoption — Audit and Adoption Plan",
+  "goal": "Audit the existing build_normalized_evidence_graph and surrounding services to determine which runners already write structured entities, which write only stdout strings or unparsed JSON, and what minimal changes are needed for the AI picker to read the graph as primary state instead of finding/task summaries.",
+  "scope": "Read-only audit of api/app/services/assessment_graph.py, evidence_integrity.py, next_evidence_action.py, hypothesis_confidence.py; survey of every runner under workers/runners/ to classify how it currently produces evidence; output a written adoption plan in docs/ describing concrete refactor steps for tasks #322 and #323.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Empirical test on 2026-05-15 showed AI picker reads findings + tested_keys + task_outcomes as flat strings rather than the structured evidence graph that already exists. Bridging this is the cheapest single change to enable cross-target reasoning. Audit first to scope the change accurately.",
+  "source_context": {
+    "queue_index": 321,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_1_evidence_graph",
+    "key_files": [
+      "api/app/services/assessment_graph.py",
+      "api/app/services/evidence_integrity.py",
+      "api/app/services/next_evidence_action.py",
+      "api/app/services/hypothesis_confidence.py",
+      "api/app/services/assessment_loop.py",
+      "docs/evidence_graph_normalizer.md",
+      "workers/runners/base/contracts.py",
+      "docs/AGENT_SYSTEM_MAP.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Audit only. No code changes to runners or picker. Output is a written adoption plan document, not refactored code.",
+    "read_only_audit": "This task produces docs and analysis. Any runner refactor must be done in tasks #322 onward."
+  },
+  "success_criteria": [
+    "docs/evidence_graph_adoption_plan.md exists with a per-runner classification table (writes_entities | writes_stdout_only | writes_json_artifacts_only).",
+    "Plan lists exact node types and edge relationships currently produced by build_normalized_evidence_graph and which are still missing for cross-target chains.",
+    "Plan specifies the minimum picker-side change required to consume the normalized graph instead of flat findings/task_outcomes lists.",
+    "Plan identifies 3-5 highest-value runners whose ingestion should be normalized first.",
+    "Plan estimates the LOC change per follow-up task #322 and #323."
+  ],
+  "likely_touched_files": [
+    "docs/evidence_graph_adoption_plan.md",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "api/app/services/assessment_loop.py",
+    "api/app/services/assessment_graph.py",
+    "workers/orchestration/findings.py",
+    "api/app/models/control.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "test -f docs/evidence_graph_adoption_plan.md"
+    ],
+    "acceptance_criteria": [
+      "Adoption plan is concrete enough that task #322 can be promoted with a single defined slice of work.",
+      "Plan distinguishes existing capability from missing capability and does not propose any duplicate evidence model.",
+      "No production code under api/ or workers/ is modified."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-372 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Adding new node types or edge relationships.",
+    "Modifying the picker.",
+    "Refactoring any runner.",
+    "Implementing the pattern cache (task #327)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

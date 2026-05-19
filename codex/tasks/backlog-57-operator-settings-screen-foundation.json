@@ -1,0 +1,135 @@
+{
+  "id": "backlog-57-operator-settings-screen-foundation",
+  "task_file": "codex/tasks/backlog-57-operator-settings-screen-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Operator Settings Screen Foundation",
+  "goal": "Add a persistent Settings screen to the operator console where operators can configure instance-level defaults \u2014 AI provider connection, default network scope, integration credentials, and notification targets \u2014 without editing environment variables or redeploying.",
+  "scope": "Implement the following: (1) A new instance_settings table (Alembic migration) with key/value rows, encrypted where sensitive, tenant-scoped. (2) GET /api/v1/settings and PATCH /api/v1/settings API endpoints. (3) A Settings screen in the UI accessible from the top navigation bar (gear icon or dedicated nav item, always visible regardless of active phase). (4) Settings sections as defined below. All sensitive values (API keys, tokens, credentials) are stored using the existing encrypted secret materialization infrastructure and never returned in plain text via the API. Existing env-var defaults remain as fallbacks when no database setting exists.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The operator console has no persistent settings screen. AI provider OAuth credentials, default network scope, default VLANs, and integration settings currently require environment variable changes and redeployment. A settings screen makes the product self-configurable by operators without infrastructure access.",
+  "source_context": {
+    "queue_index": 57,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/secret_handling_baseline.md",
+      "docs/integrations.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "operator_settings",
+    "source_documents": [
+      "api/app/config.py",
+      "api/app/services/secrets.py",
+      "api/app/services/integrations.py",
+      "ui/assets/app.js",
+      "ui/assets/modules/runtime.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Settings persistence and UI screen only. Do not activate the ChatGPT OAuth flow (covered in backlog-56), do not change existing run/finding/pack/worker behavior, do not add new scan capabilities. Sensitive settings are stored encrypted and never returned plain text.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "sensitive_values_encrypted": true
+  },
+  "success_criteria": [
+    "A Settings screen is accessible from the top navigation bar at all times, independent of the active phase.",
+    "GET /api/v1/settings returns all non-sensitive settings and masked indicators for sensitive fields.",
+    "PATCH /api/v1/settings persists setting changes to the instance_settings table.",
+    "Sensitive settings (API keys, OAuth tokens, webhook secrets) are encrypted at rest using existing secret materialization and never returned in plain text.",
+    "The following setting sections are present and functional:",
+    "  AI Provider: provider selector (disabled/chatgpt_oauth/http), ChatGPT connect status (populated by backlog-56), provider status indicator.",
+    "  Default Network Scope: default LAN CIDR (e.g. 10.0.0.0/8), default domain, additional VLAN CIDRs (multi-entry list), default excluded ranges.",
+    "  Default Scan Profile: preferred assessment profile, default safety level, default execution lane.",
+    "  Integrations: Jira base URL + project key (credentials stored encrypted), Slack webhook URL (encrypted), Teams webhook URL (encrypted), ServiceNow instance URL (encrypted).",
+    "  Notifications: critical finding alert destination (email/Slack/Teams), notify on run completion toggle.",
+    "  Instance: app public base URL, operator display name, tenant ID (read-only if set).",
+    "Env-var values from config.py are used as read-only defaults when no database setting exists, clearly labelled as environment defaults.",
+    "All existing Playwright data-testid selectors continue to pass.",
+    "Full Playwright suite remains green.",
+    "No finding schema fields, Prompt 1 / Prompt 2 foundations, pack gates, or runtime binding are changed."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/models/__init__.py",
+    "api/app/schemas/settings.py",
+    "api/app/routers/settings.py",
+    "api/app/services/settings.py",
+    "api/app/main.py",
+    "api/app/config.py",
+    "migrations/versions/20260423_0015_instance_settings.py",
+    "ui/assets/app.js",
+    "ui/index.html",
+    "ui/assets/styles.css",
+    "ui/assets/modules/settings.js",
+    "api/tests/test_settings.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema fields",
+    "runtime self-modification",
+    "uncontrolled plugin installation",
+    "plain text storage or exposure of sensitive settings"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_settings.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Settings screen is accessible from the top nav bar regardless of active phase.",
+      "All six setting sections are rendered with appropriate input types.",
+      "Sensitive fields are stored encrypted and returned as masked indicators.",
+      "Env-var defaults are visible as read-only labels when no DB setting overrides them.",
+      "Full Playwright suite is green.",
+      "No backend execution or schema changes beyond instance_settings model."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "ChatGPT OAuth provider foundation (backlog-56) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Settings schema and sensitive-field encryption approach are documented in docs/secret_handling_baseline.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with settings screen implementation, encryption approach, and Playwright validation evidence.",
+      "Update CURRENT_STATE.md with persistent operator settings as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "ChatGPT OAuth flow activation (covered in backlog-56)",
+    "User account management or multi-user auth",
+    "RBAC or role-based access to settings",
+    "Scan capability changes",
+    "Worker runtime changes",
+    "Finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

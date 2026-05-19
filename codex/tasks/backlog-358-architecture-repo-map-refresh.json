@@ -1,0 +1,102 @@
+{
+  "id": "backlog-358-architecture-repo-map-refresh",
+  "task_file": "codex/tasks/backlog-358-architecture-repo-map-refresh.json",
+  "task_type": "documentation",
+  "title": "Architecture and Repo Map Refresh for React v2 and Current Runtime",
+  "goal": "Update architecture and repository navigation documentation so it reflects the current FastAPI, worker, React v2, AI-loop, runner, and validation reality rather than older first-slice or legacy UI descriptions.",
+  "scope": "Architecture docs, repo map, README layout section, testing policy cross-references, and current-state documentation.",
+  "status": "queued",
+  "generated_by": "codex-codebase-review-20260512",
+  "generation_reason": "Review found docs/architecture.md still describes a first operational slice and docs/repo_map.md centers the older ui/ operator console, while React v2 and much broader runner/runtime capabilities are now active.",
+  "source_context": {
+    "queue_index": 308,
+    "queue_file": "TASK_QUEUE.md",
+    "review_findings": [
+      "docs/architecture.md line 13 describes the first operational slice despite extensive current capabilities",
+      "docs/repo_map.md still maps ui/ as the primary operator console surface",
+      "README.md repository layout mentions ui/ instead of the current ui-v2 active console lane"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "repo_truth_documentation",
+    "key_files": [
+      "docs/architecture.md",
+      "docs/repo_map.md",
+      "README.md",
+      "TESTING_POLICY.md",
+      "CURRENT_STATE.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Documentation refresh only. Do not make product-code changes unless needed to keep links or validation references correct.",
+    "no_support_overclaim": "Preserve DECISIONS.md support-claim boundaries and mark lab/live gaps honestly."
+  },
+  "success_criteria": [
+    "docs/architecture.md reflects the current control, reasoning, execution, evidence, UI, pack, AI-loop, and validation planes without redefining Prompt 1 or Prompt 2 foundations.",
+    "docs/repo_map.md names ui-v2 as the active operator console and legacy ui/ as retired or diagnostic where applicable.",
+    "README.md repository layout and validation section match the current active lanes.",
+    "Testing docs distinguish release gates from diagnostic gates consistently.",
+    "No support claims are upgraded without evidence according to DECISIONS.md."
+  ],
+  "likely_touched_files": [
+    "docs/architecture.md",
+    "docs/repo_map.md",
+    "README.md",
+    "TESTING_POLICY.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "workers/runners/core/",
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "Prompt 1 and Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "python3 -m compileall -q scripts",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Architecture and repo map docs no longer imply the active UI is the retired legacy console.",
+      "Docs accurately describe current active validation lanes and known diagnostic gaps.",
+      "No runtime behavior, scanning, approval, scope, credential, or schema changes occur."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Redefining methodology mappings.",
+    "Changing product behavior.",
+    "Changing task queue order beyond the normal active-task promotion flow.",
+    "Claiming support levels beyond recorded validation evidence."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

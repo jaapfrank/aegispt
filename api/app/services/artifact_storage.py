@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import boto3
@@ -19,6 +20,8 @@ class ArtifactStorageConfig:
     bucket: str
     access_key: str
     secret_key: str
+    inline_dir: str
+    enforce_sse: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -49,6 +52,8 @@ def artifact_storage_config_from_settings(settings: Settings) -> ArtifactStorage
         bucket=settings.artifacts_s3_bucket,
         access_key=settings.artifacts_s3_access_key,
         secret_key=settings.artifacts_s3_secret_key,
+        inline_dir=settings.artifacts_inline_dir,
+        enforce_sse=settings.artifacts_s3_enforce_sse,
     )
 
 
@@ -59,6 +64,9 @@ def artifact_storage_config_from_env() -> ArtifactStorageConfig:
         bucket=os.getenv("ARTIFACTS_S3_BUCKET", "aegispt-artifacts"),
         access_key=os.getenv("ARTIFACTS_S3_ACCESS_KEY", "minioadmin"),
         secret_key=os.getenv("ARTIFACTS_S3_SECRET_KEY", "change-me"),
+        inline_dir=os.getenv("ARTIFACTS_INLINE_DIR", ".aegispt-artifacts"),
+        enforce_sse=os.getenv("ARTIFACTS_S3_ENFORCE_SSE", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
     )
 
 
@@ -75,6 +83,33 @@ def build_s3_client(config: ArtifactStorageConfig):
 
 def build_inline_artifact_uri(task_id: str, artifact_name: str) -> str:
     return f"inline://tasks/{task_id}/{artifact_name}"
+
+
+def build_inline_stored_artifact_uri(
+    *,
+    run_id: str,
+    task_id: str,
+    execution_id: str,
+    artifact_name: str,
+    artifact_digest: str,
+) -> str:
+    object_key = build_artifact_object_key(
+        run_id=run_id,
+        task_id=task_id,
+        execution_id=execution_id,
+        artifact_name=artifact_name,
+        artifact_digest=artifact_digest,
+    )
+    return f"inline://{object_key}"
+
+
+def parse_inline_artifact_uri(uri: str) -> str:
+    if not uri.startswith("inline://"):
+        raise ValueError(f"unsupported inline artifact uri: {uri}")
+    object_key = uri.removeprefix("inline://").lstrip("/")
+    if not object_key or object_key.startswith("../") or "/../" in object_key:
+        raise ValueError(f"invalid inline artifact uri: {uri}")
+    return object_key
 
 
 def parse_s3_artifact_uri(uri: str) -> tuple[str, str]:
@@ -138,9 +173,23 @@ def store_artifact_bytes(
     execution_id: str,
 ) -> StoredArtifactReference:
     if config.mode != "s3":
+        object_key = build_artifact_object_key(
+            run_id=run_id,
+            task_id=task_id,
+            execution_id=execution_id,
+            artifact_name=artifact_name,
+            artifact_digest=artifact_digest,
+        )
+        inline_root = Path(config.inline_dir)
+        inline_path = inline_root / object_key
+        inline_path.parent.mkdir(parents=True, exist_ok=True)
+        inline_path.write_bytes(data)
         return StoredArtifactReference(
-            uri=build_inline_artifact_uri(task_id=task_id, artifact_name=artifact_name),
-            metadata={"storage_backend": "inline"},
+            uri=f"inline://{object_key}",
+            metadata={
+                "storage_backend": "inline",
+                "inline_object_key": object_key,
+            },
         )
 
     client = build_s3_client(config)
@@ -153,19 +202,22 @@ def store_artifact_bytes(
         artifact_name=artifact_name,
         artifact_digest=artifact_digest,
     )
-    client.put_object(
-        Bucket=config.bucket,
-        Key=object_key,
-        Body=data,
-        ContentType=content_type,
-        Metadata={
+    put_kwargs: dict[str, object] = {
+        "Bucket": config.bucket,
+        "Key": object_key,
+        "Body": data,
+        "ContentType": content_type,
+        "Metadata": {
             "artifact-kind": artifact_kind,
             "sha256": artifact_digest,
             "run-id": run_id,
             "task-id": task_id,
             "execution-id": execution_id,
         },
-    )
+    }
+    if config.enforce_sse:
+        put_kwargs["ServerSideEncryption"] = "AES256"
+    client.put_object(**put_kwargs)
 
     return StoredArtifactReference(
         uri=f"s3://{config.bucket}/{object_key}",
@@ -212,6 +264,16 @@ def store_artifact_bytes_with_fallback(
 
 
 def load_artifact_content(*, config: ArtifactStorageConfig, uri: str) -> ArtifactContent | None:
+    if uri.startswith("inline://"):
+        try:
+            object_key = parse_inline_artifact_uri(uri)
+        except ValueError:
+            return None
+        inline_path = Path(config.inline_dir) / object_key
+        if not inline_path.is_file():
+            return None
+        return ArtifactContent(data=inline_path.read_bytes(), content_type="application/octet-stream")
+
     if not uri.startswith("s3://"):
         return None
 

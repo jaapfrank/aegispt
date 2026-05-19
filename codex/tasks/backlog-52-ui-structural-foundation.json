@@ -1,0 +1,133 @@
+{
+  "id": "backlog-52-ui-structural-foundation",
+  "task_file": "codex/tasks/backlog-52-ui-structural-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "UI Structural Foundation \u2014 Full Layout Overhaul",
+  "goal": "Replace the current landing-page hero + phase-bar + context-strip + phase-locked navigation model with a professional enterprise layout: fixed topbar (48px), persistent sidebar (180px) with all screens always accessible, flat free navigation, enterprise border radius, and removal of all decorative ambient elements.",
+  "scope": "Implement the full structural redesign defined in UI_REDESIGN_SPEC.md. Specifically: (1) Remove .hero, .flow-overview, .context-strip, .bg-orbit, .scan-grid and all related CSS. (2) Add .topbar (48px fixed) containing logo, engagement selector, run status pill, settings gear, actor. (3) Replace .rail + .screen-nav with a .sidebar (180px) that lists ALL screens grouped as OPERATE / ANALYZE / BUILD with Settings pinned at bottom \u2014 no phase locking. (4) Replace PHASE_SUBNAV phase-locked navigation with a flat NAV_ITEMS array where all screens are reachable at all times. (5) Remove the wizard-layout split (1.7fr / 0.78fr) and render the wizard full-width; replace the wizard right panel with an inline context-strip that appears only after the first intake answer is confirmed. (6) Reduce CSS variables: --radius-xl to 10px, --radius-lg to 8px, --radius-md to 6px, --radius-sm to 4px. (7) Replace body radial-gradient background with flat #070e1a. (8) Update .workspace to grid-template-columns: 180px minmax(0, 1fr) with 0 gap, margin-top: 48px. (9) Preserve all existing screen content, API contracts, and data-testid selectors on content components. Update Playwright tests where navigation guard expectations are removed.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "UI_REDESIGN_SPEC.md documents that the current UI wastes ~380px of vertical space on chrome before any content appears, uses phase-locked navigation that prevents reaching Findings/Reports without completing intake, shows 6 empty wizard summary sections by default, and uses 28px border radius that makes it look like a consumer mobile app. A full structural overhaul is needed before adding animations or AI features \u2014 cosmetic fixes will not solve the architectural problems.",
+  "source_context": {
+    "queue_index": 52,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "UI_REDESIGN_SPEC.md",
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "docs/living_system_experience_scope_alignment.md",
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "living_system_experience",
+    "source_documents": [
+      "UI_REDESIGN_SPEC.md",
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "PRODUCT_RECOMMENDATIONS.md",
+      "ui/index.html",
+      "ui/assets/styles.css",
+      "ui/assets/app.js",
+      "ui/assets/modules/runtime.js",
+      "ui/assets/modules/wizard.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Structural layout changes only as specified in UI_REDESIGN_SPEC.md. Do not add animations, SVG components, sound design, AI provider wiring, new backend endpoints, or finding schema changes in this slice. All existing screen content, API contracts, and test IDs on content components must be preserved.",
+    "runtime_mutation": false,
+    "operator_control_required": false,
+    "no_data_loss": true
+  },
+  "success_criteria": [
+    "The .hero block is completely removed \u2014 no large heading visible on the main workspace.",
+    "A fixed topbar of 48px contains logo, engagement selector, run status pill, settings gear icon, and actor.",
+    "A sidebar of 180px lists all screens grouped as OPERATE (Intake, Mission Control, Attack Map) / ANALYZE (Findings, Reports, History) / BUILD (Packs) with Settings pinned at bottom.",
+    "All screens are navigable from the sidebar without any phase gate or intake requirement.",
+    "The .flow-overview phase navigation bar is removed.",
+    "The .context-strip is removed; the engagement selector lives in the topbar.",
+    "The .bg-orbit and .scan-grid decorative elements are removed.",
+    "The body background is flat #070e1a with no radial gradients.",
+    "Border radius variables are reduced: --radius-xl: 10px, --radius-lg: 8px, --radius-md: 6px, --radius-sm: 4px.",
+    "The wizard renders full-width without the competing right summary panel.",
+    "An inline context-strip below the wizard conversation shows confirmed items only when context.confirmedCount > 0.",
+    "The .workspace grid uses 180px sidebar + minmax(0, 1fr) main with margin-top: 48px.",
+    "All existing data-testid selectors on screen content components continue to pass.",
+    "The full ui/tests/test_operator_console_e2e.py suite remains green after navigation expectations are updated.",
+    "No API contracts, backend code, or finding schema fields are changed."
+  ],
+  "likely_touched_files": [
+    "ui/index.html",
+    "ui/assets/styles.css",
+    "ui/assets/app.js",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/runtime.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "finding schema fields",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "No hero block \u2014 topbar visible at top instead.",
+      "Sidebar shows all screens always \u2014 no phase locking.",
+      "Wizard is full-width with inline context strip.",
+      "Body background is plain dark \u2014 no scan-grid or orbit blobs.",
+      "Border radius is 10px or smaller throughout.",
+      "Full Playwright suite is green after navigation expectations are updated.",
+      "No backend or schema changes were introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Living system experience source alignment (backlog-51) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "UI_REDESIGN_SPEC.md is present and referenced from docs/living_system_experience_scope_alignment.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with full structural layout changes, removed elements, and Playwright validation evidence.",
+      "Update CURRENT_STATE.md with new topbar + sidebar + free navigation as active structural baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "CSS animations or keyframe additions (covered in backlog-53)",
+    "SVG scan map (covered in backlog-54)",
+    "AI signal panel (covered in backlog-55)",
+    "Finding drawer detail (covered in backlog-59)",
+    "Sound design",
+    "Anthropic or ChatGPT OAuth provider wiring",
+    "Backend changes",
+    "New API endpoints"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

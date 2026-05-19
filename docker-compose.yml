@@ -1,0 +1,235 @@
+version: "2.4"
+
+x-aegispt-env: &aegispt-env
+  APP_ENV: ${APP_ENV:-development}
+  APP_NAME: ${APP_NAME:-AegisPT}
+  APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:-http://127.0.0.1:8000}
+  DEPLOYMENT_TLS_TERMINATED_BY_PROXY: ${DEPLOYMENT_TLS_TERMINATED_BY_PROXY:-false}
+  DEPLOYMENT_SECURE_COOKIES: ${DEPLOYMENT_SECURE_COOKIES:-false}
+  DEPLOYMENT_TRUSTED_CERTIFICATE_BUNDLE: ${DEPLOYMENT_TRUSTED_CERTIFICATE_BUNDLE:-}
+  DEPLOYMENT_OUTBOUND_PROXY_URL: ${DEPLOYMENT_OUTBOUND_PROXY_URL:-}
+  DEPLOYMENT_NO_INTERNET_MODE: ${DEPLOYMENT_NO_INTERNET_MODE:-false}
+  DEPLOYMENT_OFFLINE_UPDATE_PATH: ${DEPLOYMENT_OFFLINE_UPDATE_PATH:-}
+  DEPLOYMENT_MANUAL_TOOL_UPDATE_PATH: ${DEPLOYMENT_MANUAL_TOOL_UPDATE_PATH:-}
+  DEPLOYMENT_DATABASE_ENCRYPTION_CONFIRMED: ${DEPLOYMENT_DATABASE_ENCRYPTION_CONFIRMED:-false}
+  DEPLOYMENT_ARTIFACT_STORAGE_ENCRYPTION_CONFIRMED: ${DEPLOYMENT_ARTIFACT_STORAGE_ENCRYPTION_CONFIRMED:-false}
+  TASK_DISPATCH_MODE: ${TASK_DISPATCH_MODE:-dramatiq}
+  DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://aegispt:change-me-aegispt-db@aegispt-db:5432/aegispt}
+  AEGISPT_DB_KEY: ${AEGISPT_DB_KEY:-}
+  REDIS_URL: ${REDIS_URL:-redis://aegispt-redis:6379/0}
+  AUTO_CREATE_TABLES: ${AUTO_CREATE_TABLES:-true}
+  ARTIFACTS_STORAGE_MODE: ${ARTIFACTS_STORAGE_MODE:-inline}
+  ARTIFACTS_S3_ENFORCE_SSE: ${ARTIFACTS_S3_ENFORCE_SSE:-false}
+  EXECUTION_KILL_SWITCH: ${EXECUTION_KILL_SWITCH:-false}
+  RUNNER_TIMEOUT_SECONDS: ${RUNNER_TIMEOUT_SECONDS:-10.0}
+  LOCAL_SECRET_ENCRYPTION_KEY: ${LOCAL_SECRET_ENCRYPTION_KEY:-RzggHOVPg3oAV-tqGrk5l7lLcgoT6FYoRu4LkXQAWWc=}
+  SECRET_MATERIALIZATION_MODE: ${SECRET_MATERIALIZATION_MODE:-encrypted_local}
+  REQUIRE_DEPLOYMENT_SECRET_ENCRYPTION_KEY: ${REQUIRE_DEPLOYMENT_SECRET_ENCRYPTION_KEY:-false}
+  ZAP_BASE_URL: ${ZAP_BASE_URL:-http://aegispt-tools:8080}
+  ZAP_API_KEY: ${ZAP_API_KEY:-change-me-zap-key}
+  BURP_API_URL: ${BURP_API_URL:-}
+  BURP_API_KEY: ${BURP_API_KEY:-}
+  METASPLOIT_RPC_URL: ${METASPLOIT_RPC_URL:-http://127.0.0.1:55553/api/1.0}
+  METASPLOIT_RPC_USER: ${METASPLOIT_RPC_USER:-aegispt}
+  METASPLOIT_RPC_PASSWORD: ${METASPLOIT_RPC_PASSWORD:-change-me-metasploit}
+  METASPLOIT_RPC_VERIFY_SSL: ${METASPLOIT_RPC_VERIFY_SSL:-false}
+  METASPLOIT_RPC_AUTO_START: ${METASPLOIT_RPC_AUTO_START:-true}
+  METASPLOIT_RPC_START_BINARY: ${METASPLOIT_RPC_START_BINARY:-msfrpcd}
+  BLOODHOUND_PYTHON_BINARY: ${BLOODHOUND_PYTHON_BINARY:-bloodhound-python}
+  IMPACKET_GETUSERSPNS_BINARY: ${IMPACKET_GETUSERSPNS_BINARY:-GetUserSPNs.py}
+  IMPACKET_GETNPUSERS_BINARY: ${IMPACKET_GETNPUSERS_BINARY:-GetNPUsers.py}
+  IMPACKET_SECRETSDUMP_BINARY: ${IMPACKET_SECRETSDUMP_BINARY:-secretsdump.py}
+  IMPACKET_PSEXEC_BINARY: ${IMPACKET_PSEXEC_BINARY:-psexec.py}
+  IMPACKET_WMIEXEC_BINARY: ${IMPACKET_WMIEXEC_BINARY:-wmiexec.py}
+  NETEXEC_BINARY: ${NETEXEC_BINARY:-nxc}
+  RESPONDER_BINARY: ${RESPONDER_BINARY:-responder}
+  HASHCAT_BINARY: ${HASHCAT_BINARY:-hashcat}
+  HASHCAT_WORDLIST_PATH: ${HASHCAT_WORDLIST_PATH:-/usr/share/wordlists/rockyou.txt}
+  KERBRUTE_BINARY: ${KERBRUTE_BINARY:-kerbrute}
+  EASM_CRTSH_BASE_URL: ${EASM_CRTSH_BASE_URL:-}
+  AI_PROVIDER: ${AI_PROVIDER:-disabled}
+  AI_FINDING_ENRICHMENT_ENABLED: ${AI_FINDING_ENRICHMENT_ENABLED:-false}
+  AI_AUTOFIX_ENABLED: ${AI_AUTOFIX_ENABLED:-false}
+  AI_REPORT_DRAFTING_ENABLED: ${AI_REPORT_DRAFTING_ENABLED:-false}
+  AI_AGENT_POST_TASK_ANALYSIS_ENABLED: ${AI_AGENT_POST_TASK_ANALYSIS_ENABLED:-false}
+  AI_INTAKE_INTERPRETATION_ENABLED: ${AI_INTAKE_INTERPRETATION_ENABLED:-false}
+  CHATGPT_OAUTH_CLIENT_ID: ${CHATGPT_OAUTH_CLIENT_ID:-}
+  CHATGPT_OAUTH_AUTHORIZE_URL: ${CHATGPT_OAUTH_AUTHORIZE_URL:-}
+  CHATGPT_OAUTH_TOKEN_URL: ${CHATGPT_OAUTH_TOKEN_URL:-}
+  CHATGPT_OAUTH_BACKEND_API_URL: ${CHATGPT_OAUTH_BACKEND_API_URL:-}
+  CHATGPT_OAUTH_BACKEND_API_PATH: ${CHATGPT_OAUTH_BACKEND_API_PATH:-/codex/responses}
+  CHATGPT_OAUTH_LOCAL_CALLBACK_ENABLED: ${CHATGPT_OAUTH_LOCAL_CALLBACK_ENABLED:-true}
+  CHATGPT_OAUTH_LOCAL_CALLBACK_URL: ${CHATGPT_OAUTH_LOCAL_CALLBACK_URL:-http://localhost:1455/auth/callback}
+  CHATGPT_OAUTH_ORIGINATOR: ${CHATGPT_OAUTH_ORIGINATOR:-aegispt}
+  CHATGPT_OAUTH_MODEL: ${CHATGPT_OAUTH_MODEL:-gpt-5.4}
+  GITHUB_OAUTH_AUTHORIZE_URL: ${GITHUB_OAUTH_AUTHORIZE_URL:-}
+  GITHUB_OAUTH_TOKEN_URL: ${GITHUB_OAUTH_TOKEN_URL:-}
+  GITHUB_API_URL: ${GITHUB_API_URL:-}
+  GITLAB_OAUTH_AUTHORIZE_URL: ${GITLAB_OAUTH_AUTHORIZE_URL:-}
+  GITLAB_OAUTH_TOKEN_URL: ${GITLAB_OAUTH_TOKEN_URL:-}
+  GITLAB_API_URL: ${GITLAB_API_URL:-}
+  SETTINGS_DEFAULT_LAN_CIDR: ${SETTINGS_DEFAULT_LAN_CIDR:-10.0.0.0/8}
+  SETTINGS_DEFAULT_SCAN_PROFILE: ${SETTINGS_DEFAULT_SCAN_PROFILE:-Standard}
+  SETTINGS_DEFAULT_SAFETY_LEVEL: ${SETTINGS_DEFAULT_SAFETY_LEVEL:-passive}
+  SETTINGS_DEFAULT_EXECUTION_LANE: ${SETTINGS_DEFAULT_EXECUTION_LANE:-passive-network-discovery}
+  SETTINGS_CRITICAL_ALERT_DESTINATION: ${SETTINGS_CRITICAL_ALERT_DESTINATION:-none}
+  SETTINGS_NOTIFY_ON_RUN_COMPLETION: ${SETTINGS_NOTIFY_ON_RUN_COMPLETION:-false}
+  SETTINGS_OPERATOR_DISPLAY_NAME: ${SETTINGS_OPERATOR_DISPLAY_NAME:-operator-ui}
+  PLAYWRIGHT_BROWSERS_PATH: ${PLAYWRIGHT_BROWSERS_PATH:-/ms-playwright}
+
+services:
+  aegispt-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aegispt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-aegispt-db}
+      POSTGRES_DB: ${POSTGRES_DB:-aegispt}
+    volumes:
+      - aegispt-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aegispt} -d ${POSTGRES_DB:-aegispt}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  aegispt-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - aegispt-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  aegispt-api:
+    build:
+      context: .
+      dockerfile: infra/compose/Dockerfile
+      target: runtime
+    image: aegispt/aegispt-runtime:local
+    restart: unless-stopped
+    init: true
+    environment: *aegispt-env
+    ports:
+      - "${AEGISPT_PORT:-8000}:8000"
+    depends_on:
+      aegispt-db:
+        condition: service_healthy
+      aegispt-redis:
+        condition: service_healthy
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        alembic upgrade head
+        exec uvicorn api.app.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - aegispt-playwright:/ms-playwright
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).read()\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  aegispt-worker:
+    image: aegispt/aegispt-runtime:local
+    restart: unless-stopped
+    init: true
+    environment: *aegispt-env
+    depends_on:
+      aegispt-db:
+        condition: service_healthy
+      aegispt-redis:
+        condition: service_healthy
+      aegispt-tools:
+        condition: service_healthy
+    command: ["dramatiq", "workers.orchestration.tasks"]
+    volumes:
+      - aegispt-playwright:/ms-playwright
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'dramatiq workers.orchestration.tasks' >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+
+  aegispt-tools:
+    image: aegispt/aegispt-runtime:local
+    restart: unless-stopped
+    init: true
+    environment: *aegispt-env
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        if command -v zap.sh >/dev/null 2>&1; then
+          exec zap.sh -daemon -host 0.0.0.0 -port 8080 \
+            -config "api.key=${ZAP_API_KEY:-change-me-zap-key}" \
+            -config api.addrs.addr.name=.* \
+            -config api.addrs.addr.regex=true
+        fi
+        if command -v zaproxy >/dev/null 2>&1; then
+          exec zaproxy -daemon -host 0.0.0.0 -port 8080 \
+            -config "api.key=${ZAP_API_KEY:-change-me-zap-key}" \
+            -config api.addrs.addr.name=.* \
+            -config api.addrs.addr.regex=true
+        fi
+        echo "ZAP binary was not found in the tools image." >&2
+        exit 1
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/JSON/core/view/version/?apikey=' + os.environ.get('ZAP_API_KEY', 'change-me-zap-key'), timeout=5).read()\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
+
+  aegispt-benchmark-gruyere:
+    image: karthequian/gruyere:latest
+    profiles: ["benchmark"]
+    ports:
+      - "127.0.0.1:${GRUYERE_PORT:-8008}:8008"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8008/ >/dev/null",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  aegispt-benchmark-webgoat:
+    image: webgoat/webgoat:latest
+    profiles: ["benchmark"]
+    ports:
+      - "127.0.0.1:${WEBGOAT_PORT:-18080}:8080"
+      - "127.0.0.1:${WEBWOLF_PORT:-19090}:9090"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --quiet --tries=1 --timeout=5 --spider http://127.0.0.1:8080/WebGoat",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 24
+      start_period: 60s
+
+volumes:
+  aegispt-postgres-data:
+  aegispt-redis-data:
+  aegispt-playwright:

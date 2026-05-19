@@ -34,13 +34,13 @@ export const MODULES = [
 ];
 
 export const WIZARD_STEPS = [
-  "Assessment Type",
-  "Scope Input",
-  "Credentials / Access",
-  "Test Profile",
-  "Test Modules",
-  "Safety / Limits",
-  "Review / Confirm",
+  "Type",
+  "Scope",
+  "Access",
+  "Profile",
+  "Modules",
+  "Safety",
+  "Confirm",
 ];
 
 export const DEFAULT_MODULE_STATE = {
@@ -63,6 +63,7 @@ export const DEFAULT_SAFETY = {
   active_checks: "guarded",
   adaptive_generation: true,
   max_validation_depth: "standard",
+  nmap_scan_depth: "top-10000",
 };
 
 export const REPORT_VARIANTS = [
@@ -70,6 +71,7 @@ export const REPORT_VARIANTS = [
   ["technical", "Technical Report"],
   ["evidence", "Evidence Appendix"],
   ["retest", "Retest / Verification Report"],
+  ["soc2", "SOC 2 Report Package"],
 ];
 
 export const SEVERITY_RANK = {

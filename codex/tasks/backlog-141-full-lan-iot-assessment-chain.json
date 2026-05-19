@@ -1,0 +1,93 @@
+{
+  "id": "backlog-141-full-lan-iot-assessment-chain",
+  "task_file": "codex/tasks/backlog-141-full-lan-iot-assessment-chain.json",
+  "task_type": "backlog_slice",
+  "title": "Full LAN + IoT Assessment Chain \u2014 Integrated Smart Home and Network Security Assessment",
+  "goal": "Create an integrated assessment chain that combines all LAN and IoT runners into a phased smart home / enterprise LAN assessment that a consultant can launch in a single wizard step.",
+  "scope": "Add a new wizard tile 'Smart Home / IoT LAN' (key: smart-home-lan, icon: \ud83c\udfe0\ud83d\udd12) and a corresponding assessment chain FULL-LAN-IOT. The chain executes these phases in order: Phase 1 - Discovery (passive-network-discovery + passive-lan-iot-discovery): host ping sweep + mDNS/SSDP to find all devices including IoT. Phase 2 - Enumeration (passive-network-service-enumeration + passive-lan-nse-full + passive-lan-snmp-enum): port scan with NSE scripts + SNMP walk on port 161. Phase 3 - Service Analysis (passive-lan-smart-home-audit + active-lan-camera-audit): MQTT/Home Assistant testing + ONVIF/RTSP camera testing. Phase 4 - Credential Testing (active-lan-default-creds-audit + passive-lan-smb-enum): default credential testing on found interfaces + SMB enumeration. Phase 5 - Segmentation (passive-lan-segmentation-check + passive-lan-ipv6-discovery): subnet discovery + IPv6 scan. Phase 6 (optional, requires authorization) - Intrusive (passive-lan-infrastructure-audit + intrusive-lan-credential-capture): full infrastructure scan + Responder poisoning. Each phase gate requires operator approval before proceeding. The chain auto-populates inventory with device types: smart-home-hub (Home Assistant), ip-camera (ONVIF devices), iot-gateway (Hue Bridge), network-infrastructure (Unifi AP/switch), consumer-iot (Xbox, Denon, dishwasher). Final report section: 'IoT Security Summary' with device inventory, unauthenticated services, default credentials found, network segmentation status.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "All the individual IoT/LAN runners (backlog-132 through 139) need to be orchestrated into a coherent assessment flow. A consultant should be able to select Smart Home / IoT LAN in the wizard and get a complete phase-by-phase assessment of the entire smart home network.",
+  "queue_index": 141,
+  "source_context": {
+    "queue_index": 139,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_iot_testing",
+    "source_documents": [
+      "api/app/services/assessment_chain.py",
+      "ui/assets/modules/wizard.js",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Orchestration and chain definition only. Individual runners must be completed in backlog-132 through 139 first. This task only adds the chain and wizard tile.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Smart Home / IoT LAN tile appears in wizard with correct icon and description.",
+    "FULL-LAN-IOT assessment chain defined with 6 phases.",
+    "Each phase uses correct profile combination.",
+    "Phase gate approval required between each phase.",
+    "Device type categories in inventory: smart-home-hub, ip-camera, iot-gateway, network-infrastructure, consumer-iot.",
+    "IoT Security Summary section in Technical Report.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_chain.py",
+    "api/app/services/run_profiles.py",
+    "ui/assets/modules/wizard.js",
+    "api/app/services/reports.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "Physical security testing",
+    "Wireless RF (Zigbee/Z-Wave) testing",
+    "Smart home cloud API testing"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "IoT LAN tile shows in wizard. Chain phases execute in order. IoT device types in inventory. Summary in report."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "backlog-132 through backlog-139 must be completed.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

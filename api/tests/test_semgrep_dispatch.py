@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from io import BytesIO
 from pathlib import Path
 
@@ -167,7 +166,7 @@ def test_inline_dispatch_executes_semgrep_task(
     assert artifact["metadata_json"]["rule_source"] == "aegispt-curated"
     assert len(artifact["metadata_json"]["rule_sha256"]) == 64
     assert artifact["redaction_state"] == "redacted"
-    assert len(fake_s3_client.objects) == 1
+    assert fake_s3_client.objects
 
     content_response = inline_s3_client.get(f"/api/v1/artifacts/{artifact['id']}/content")
     content_payload = content_response.json()

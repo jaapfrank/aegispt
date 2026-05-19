@@ -1,0 +1,107 @@
+{
+  "id": "backlog-24-mission-launch-visual-polish-foundation",
+  "task_file": "codex/tasks/backlog-24-mission-launch-visual-polish-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Mission Launch Visual Polish Foundation",
+  "goal": "Make intake-to-execution feel intentional and premium while keeping every visual cue grounded in real state.",
+  "scope": "Implement a small mission-launch sequence and continue calming ambient scan-grid/orbit styling. Use existing run, task, and selected-profile state only; do not add fake telemetry or backend behavior.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found mission launch and visual-ceiling work needed an explicit queued package.",
+  "source_context": {
+    "queue_index": 24,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/operator_console_stabilization_plan.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "commercial_viability_ui",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/ui_mission_control.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Polish only the intake-to-run transition and ambient styling. Do not add fake progress, fake findings, or new backend events.",
+    "runtime_mutation": false,
+    "notes": [
+      "Motion must be short, state-driven, and accessible.",
+      "Calmer styling should improve boardroom credibility without hiding operational state."
+    ]
+  },
+  "success_criteria": [
+    "Mission launch has a clear transition from confirmed mission to queued or active run.",
+    "Visual effects reflect actual state and do not imply nonexistent execution.",
+    "Scan-grid and ambient effects are reduced, contained, or made less visually dominant.",
+    "Browser tests cover launch transition and no-run fallback behavior.",
+    "Reduced-motion or non-animated behavior remains usable."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/operator_console_stabilization_plan.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py",
+    "workers/orchestration/tasks.py",
+    "api/app/schemas/findings.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Launch polish is visible without creating fake operational state.",
+      "Calmer visual styling remains readable on desktop and narrow screens.",
+      "No backend or runtime behavior changes are bundled."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Existing mission creation and dispatch states are inspected before animation work starts."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with launch-polish changes and validation evidence.",
+      "Update CURRENT_STATE.md with the visual-polish baseline and remaining UI limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Fake live telemetry",
+    "Backend event stream changes",
+    "New report variants",
+    "Large redesign",
+    "Framework rewrite"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

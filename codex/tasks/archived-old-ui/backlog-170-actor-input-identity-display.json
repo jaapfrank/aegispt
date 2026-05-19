@@ -1,0 +1,95 @@
+{
+  "id": "backlog-170-actor-input-identity-display",
+  "task_file": "codex/tasks/backlog-170-actor-input-identity-display.json",
+  "task_type": "corrective_product_slice",
+  "title": "Replace editable actor text input in topbar with a proper identity display pill",
+  "goal": "The topbar currently shows an editable <input type='text'> field (id='actor-input') inside the actor pill, allowing any user to type any actor name and assume any role. This is a testing/development mechanism that should not be visible as a product UI element. Replace the editable input with a read-only display of the current actor name and role badge. The actor name should still be changeable via the Settings screen (Instance / Shell Identity section) where it belongs, not via a live-editable topbar field. The displayed name and 'J' avatar initial should update when the actor name changes via Settings. Keep the localStorage-backed actor persistence logic but route changes through Settings instead of the topbar input.",
+  "scope": "System review 2026-05-01: The topbar actor pill contains an active <input type='text'> field. Operators can type any name and assume any role without authentication. This looks like a development tool exposed in production UI. Enterprise operators should not see a live-editable identity field in the application shell.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: Editable actor input in topbar is a dev testing mechanism exposed as product UI — replace with read-only display.",
+  "source_context": {
+    "queue_index": 170,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-127-rbac.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "identity_and_auth_ux",
+    "source_documents": [
+      "ui/index.html",
+      "ui/assets/app.js",
+      "ui/assets/modules/settings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Replace the input element with a static display. Move actor-change capability to Settings. Do not implement full authentication (that is a separate larger task).",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "The topbar actor area shows the actor name and role badge as read-only text, not an editable input.",
+    "The displayed avatar initial (currently hardcoded 'J') updates to reflect the first letter of the current actor name.",
+    "Actor name can still be changed via Settings > Instance / Shell Identity.",
+    "The x_actor_fallback authentication method continues to work via the actor name set in Settings.",
+    "No regression in actor-dependent approval gate tests."
+  ],
+  "likely_touched_files": [
+    "ui/index.html",
+    "ui/assets/app.js",
+    "ui/assets/modules/settings.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Authentication backend",
+    "Approval gate logic",
+    "API actor header mechanism"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "No <input> element in the topbar actor area.",
+      "Actor name readable and correct from Settings.",
+      "Role badge displays correctly.",
+      "Approval gate tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full authentication/login screen",
+    "RBAC enforcement backend",
+    "Session management"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

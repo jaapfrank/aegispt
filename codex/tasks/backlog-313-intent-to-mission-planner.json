@@ -1,0 +1,90 @@
+{
+  "id": "backlog-313-intent-to-mission-planner",
+  "task_file": "codex/tasks/backlog-313-intent-to-mission-planner.json",
+  "task_type": "ai_intake_planning",
+  "title": "Intent-to-Mission Planner",
+  "goal": "Convert natural-language operator intent into a complete mission configuration, target scope, assessment depth, authorization summary, run mode, and evidence plan. Clear requests such as 'do a full pentest on this URL' must not trigger redundant follow-up questions asking whether a full pentest is desired.",
+  "scope": "AI intake, mission planning, and launch summary.",
+  "status": "queued",
+  "generated_by": "operator-product-strategy",
+  "generation_reason": "The intake should behave like a real assistant that understands operator intent and platform capabilities instead of a language-specific regex or scripted questionnaire.",
+  "source_context": {
+    "queue_index": 265,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-312",
+    "broader_theme": "evidence_driven_ai_assessment",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Intent parsing must not bypass explicit ROE authorization, scope confirmation, exploitation tier, credential consent, or kill-switch gates.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "The planner maps multilingual clear intent to target, assessment type, depth, run_mode, authorization summary, and launch-ready configuration.",
+    "The planner asks follow-up questions only for genuinely missing or unsafe information.",
+    "The launch summary states exactly what will run automatically, what requires approval, and what is out of scope."
+  ],
+  "likely_touched_files": [
+    "api/app/services/intake_intelligence.py",
+    "ui-v2/src/components/Intake.tsx",
+    "api/tests/test_intake_intelligence.py",
+    "ui-v2/src/components/__tests__/intake.test.tsx"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "api/app/services/runner_registry.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_intake_intelligence.py api/tests/test_runs.py",
+      "npm run build",
+      "npm run lint",
+      "Playwright acceptance on 1440, 1024, 768, and 375px",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Dutch and English full-pentest requests produce launch-ready mission previews without redundant full-pentest confirmation.",
+      "Missing ROE authorization still blocks launch with a clear required action.",
+      "Manual wizard path remains available and unchanged."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Launching without ROE authorization",
+    "Replacing the manual wizard",
+    "Using regex-only language detection as the final architecture"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

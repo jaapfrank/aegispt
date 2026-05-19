@@ -1,0 +1,117 @@
+{
+  "id": "backlog-84-problems-center",
+  "task_file": "codex/tasks/backlog-84-problems-center.json",
+  "task_type": "backlog_slice",
+  "title": "Problems Center \u2014 Cross-Engagement Open and Resolved Issues Tracker",
+  "goal": "Give operators a single screen showing all unresolved security findings across every engagement \u2014 with clear status, owner, age, and bulk actions \u2014 so nothing falls through the cracks and resolved problems are visibly celebrated.",
+  "scope": "Implement a Problems Center screen accessible from the sidebar under Analyze. The screen is the unified finding management view across all engagements. Layout: (1) FILTER BAR: filter by engagement, severity, status (open/in-progress/resolved/verified/reoccurred), assignee, age (overdue/due-soon/recent), and methodology. Defaults to: all engagements, critical+high severity, status=open. (2) PROBLEM ROWS: each row shows \u2014 severity dot, finding title, engagement name, target, days open, status badge, assignee chip, and action buttons ([Assign] [Retest] [Resolve] [Delete]). Rows are grouped by severity by default. (3) BULK ACTIONS: checkboxes on rows, bulk action bar: 'Assign N to\u2026', 'Mark N as resolved', 'Schedule retest for N', 'Delete N'. (4) STATUS LIFECYCLE visible as a horizontal pill track on each expanded row: Open \u2192 In Progress \u2192 Resolved \u2192 Verified (or \u2192 Reoccurred if it comes back after verification). (5) RESOLVED SECTION: a collapsible 'Recently Resolved (30 days)' section showing findings fixed in the last 30 days with verification status, retest date, and who fixed them. This section is intentionally positive \u2014 it shows progress. (6) STATS BAR at the top: total open critical, total open high, avg days to resolve (last 30d), findings resolved this week. (7) GET /api/v1/problems aggregates across all accessible engagements respecting tenant_id. Supports cursor pagination. (8) PATCH /api/v1/problems/bulk supports bulk status, assignee, and retest-schedule updates.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The user explicitly asked for a screen showing 'nog op te lossen problemen, opgeloste problemen etc.' (unresolved and resolved problems). Currently findings are scoped per engagement and per run with no cross-engagement view. Security managers and CISOs need to see the full open vulnerability backlog across all assessments in one place \u2014 not hunt through individual engagement/run combinations.",
+  "source_context": {
+    "queue_index": 89,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/identity_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "problems_management",
+    "source_documents": [
+      "api/app/routers/findings.py",
+      "api/app/services/finding_views.py",
+      "api/app/models/control.py",
+      "ui/assets/modules/findings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Aggregated read + bulk status/assignee updates only. No new finding schema fields. Tenant isolation enforced \u2014 operators only see their own tenant's findings. Bulk delete follows the soft-delete pattern from backlog-82. Retest scheduling uses existing single-finding retest path.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "tenant_isolation_enforced": true
+  },
+  "success_criteria": [
+    "Problems Center screen visible in sidebar under Analyze.",
+    "GET /api/v1/problems returns cross-engagement findings with cursor pagination, filtered by severity, status, engagement, assignee.",
+    "Tenant isolation enforced \u2014 operators see only their tenant's findings.",
+    "Problem rows show severity, title, engagement, target, days open, status, assignee.",
+    "Status lifecycle pills (Open \u2192 In Progress \u2192 Resolved \u2192 Verified \u2192 Reoccurred) visible on expanded row.",
+    "Resolved section shows findings fixed in the last 30 days.",
+    "Stats bar shows total open critical, high, avg days to resolve, resolved this week.",
+    "Bulk assign, bulk resolve, and bulk retest-schedule work.",
+    "No new finding schema fields added.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/problems.py",
+    "api/app/schemas/problems.py",
+    "api/app/services/problems.py",
+    "api/app/main.py",
+    "ui/assets/app.js",
+    "ui/assets/modules/problems.js",
+    "ui/assets/styles.css",
+    "ui/index.html",
+    "api/tests/test_problems.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Finding schema severity or evidence fields",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "Cross-tenant data access",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_problems.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Problems Center renders cross-engagement findings.",
+      "Tenant isolation enforced.",
+      "Status lifecycle and bulk actions work.",
+      "Resolved section visible.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Dashboard home screen (backlog-83) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with Problems Center implementation.",
+      "Update CURRENT_STATE.md with Problems Center as active cross-engagement view.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Custom problem workflow states beyond the defined lifecycle",
+    "SLA enforcement automation (covered in backlog-37)",
+    "External ticketing system sync from this screen (Jira/ServiceNow covered in existing integrations)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

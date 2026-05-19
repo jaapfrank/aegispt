@@ -1,0 +1,99 @@
+{
+  "id": "backlog-273-react-v2-settings",
+  "task_file": "codex/tasks/backlog-273-react-v2-settings.json",
+  "task_type": "product_slice",
+  "title": "React v2 Settings: five-tab navigation with AI & Provider, Tools & Runtime, Integrations, Data & Security, Identity & Users panels",
+  "goal": "Build src/components/screens/Settings.tsx. REQUIRES backlog-268. Top of screen: four summary chips (Tenant, No engagement selected / selected engagement name, Model, Role). Five horizontal tabs: (1) AI & PROVIDER: ChatGPT OAuth panel — shows connection status from GET /api/v1/auth/chatgpt/status. 'Connect ChatGPT' button (POST authorize flow). 'Refresh Status' button. Shows model name, token count. AI Provider settings: radio for provider (disabled/chatgpt_oauth). (2) TOOLS & RUNTIME: Runtime readiness card — calls GET /api/v1/settings/readiness. Shows each capability as a status row: green dot = ready, amber = degraded, red = blocked, with summary text. Expandable details for each. Execution: parallel workers slider (1-16), dispatch mode display. Scheduled scans: list of configured schedules with enable/disable toggle. (3) INTEGRATIONS: Jira section (base URL, project key, API token — save/test buttons). SIEM section (Splunk/Elastic/Sentinel — each collapsible with credentials form). CI/CD section (GitHub/GitLab webhook URL + secret). All forms call PATCH /api/v1/settings and show save confirmation toast. (4) DATA & SECURITY: Data retention (days per type — findings/runs/evidence). DB encryption status indicator. Export/backup controls. GDPR: 'Export my data' and 'Request purge' buttons. (5) IDENTITY & USERS: Actor name input (saves to localStorage + store, injected as X-Actor). Role badge. API keys list from GET /api/v1/auth/keys. Create new key button. Delete key button per row. Each panel has collapsible sections. Collapsed sections show a one-line summary of current value (e.g. 'ChatGPT: connected · gpt-5.4' or 'Jira: not configured'). Save Settings button at bottom of each tab saves all dirty fields via PATCH /api/v1/settings. Toast notification on save.",
+  "scope": "React v2 Settings replaces old settings.js. Five-tab layout with real API integration.",
+  "status": "queued",
+  "generated_by": "react-v2-planning-2026-05-07",
+  "generation_reason": "Settings screen needed for all configuration. Five tabs with collapsed sections and real API calls.",
+  "source_context": {
+    "queue_index": 225,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-268 completed first.",
+    "broader_theme": "react_v2_settings",
+    "source_documents": [
+      "ui-v2/src/api/client.ts",
+      "api/app/routers/settings.py",
+      "api/app/routers/auth.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Settings screen only. No backend changes.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Five tabs render: AI & Provider, Tools & Runtime, Integrations, Data & Security, Identity & Users.",
+    "Each collapsed section shows current value summary.",
+    "ChatGPT OAuth connect button works.",
+    "Readiness checks load from GET /api/v1/settings/readiness.",
+    "Jira/SIEM/CI-CD forms save via PATCH /api/v1/settings.",
+    "Actor name saves to localStorage and Zustand store.",
+    "API keys list/create/delete works.",
+    "Save button shows toast on success.",
+    "Build succeeds."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/Settings.tsx",
+    "ui-v2/src/api/client.ts",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "ui/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Five tabs render.",
+      "Readiness loads.",
+      "Forms save.",
+      "Build passes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-268 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Other screens",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

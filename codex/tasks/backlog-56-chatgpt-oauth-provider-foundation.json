@@ -1,0 +1,138 @@
+{
+  "id": "backlog-56-chatgpt-oauth-provider-foundation",
+  "task_file": "codex/tasks/backlog-56-chatgpt-oauth-provider-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "ChatGPT OAuth Provider Foundation",
+  "goal": "Implement PKCE-based OAuth authentication against auth.openai.com so operators can connect their ChatGPT Plus/Pro subscription to AegisPT and use it as the AI provider for finding enrichment, intake intelligence, and post-task analysis \u2014 without requiring a separate paid API key.",
+  "scope": "Implement the following: (1) Backend OAuth service in api/app/services/chatgpt_oauth.py that generates PKCE verifier/challenge pairs, constructs the authorization URL to https://auth.openai.com/oauth/authorize, exchanges the authorization code at https://auth.openai.com/oauth/token, and extracts accountId from the access token. (2) OAuth callback endpoint at GET /api/v1/auth/chatgpt/authorize (returns redirect URL) and GET /api/v1/auth/chatgpt/callback (handles code exchange). (3) Token storage using the existing encrypted secret materialization infrastructure \u2014 store access_token, refresh_token, expires_at, account_id as a protected engagement-level or instance-level secret. (4) Automatic token refresh before expiry. (5) A ChatGPTOAuthProvider that implements the existing AI provider Protocol interfaces in ai_enrichment.py, ai_agent.py, and intake_intelligence.py, routing requests through chatgpt.com/backend-api using the stored OAuth session. (6) A new AI_PROVIDER=chatgpt_oauth config option alongside the existing disabled/deterministic/http options. (7) UI: a Connect ChatGPT button in Advanced Settings that opens the OAuth authorization URL and shows connected/disconnected state with account identifier. All existing disabled/deterministic/failure fallback paths remain intact. The kill switch blocks all OAuth provider calls when active.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The user wants AegisPT to authenticate via ChatGPT OAuth (as implemented by OpenClaw at https://docs.openclaw.ai/concepts/oauth) so operators can use their existing ChatGPT Plus/Pro subscription for AI features without a separate API billing account. This replaces the previously planned direct Anthropic SDK approach.",
+  "source_context": {
+    "queue_index": 56,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/secret_handling_baseline.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_provider_integration",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "api/app/services/ai_enrichment.py",
+      "api/app/services/ai_agent.py",
+      "api/app/services/intake_intelligence.py",
+      "api/app/services/secrets.py",
+      "api/app/config.py",
+      "requirements/base.txt"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "ChatGPT OAuth provider wiring only. Do not add new reasoning logic, new agent roles, autonomous task dispatch, finding schema changes, worker runtime semantic changes, or sound design. Store tokens only via the existing encrypted secret materialization path \u2014 never in plaintext logs, run API payloads, UI surfaces, or report exports.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "kill_switch_required": true,
+    "no_live_oauth_calls_in_tests": true,
+    "token_storage_via_existing_secrets_only": true
+  },
+  "success_criteria": [
+    "GET /api/v1/auth/chatgpt/authorize returns a PKCE authorization URL pointing to https://auth.openai.com/oauth/authorize.",
+    "GET /api/v1/auth/chatgpt/callback exchanges the authorization code at https://auth.openai.com/oauth/token and stores the token set using the existing encrypted secret infrastructure.",
+    "Tokens are never exposed in run API payloads, UI renders, reports, MCP context, or logs.",
+    "Automatic token refresh occurs before expiry without operator intervention.",
+    "Setting AI_PROVIDER=chatgpt_oauth activates the ChatGPT OAuth provider for finding enrichment, intake intelligence, and post-task analysis.",
+    "The execution_kill_switch blocks all ChatGPT OAuth provider calls when active.",
+    "Provider failure falls back to the existing deterministic/disabled behavior without rolling back findings or runs.",
+    "The UI Advanced Settings panel shows a Connect ChatGPT button that opens the OAuth flow and displays connected/disconnected state with account identifier.",
+    "Test suite uses mock OAuth responses and mock chatgpt.com/backend-api responses \u2014 no live OAuth calls required to run tests.",
+    "All existing Playwright data-testid selectors continue to pass.",
+    "No finding schema fields, Prompt 1 / Prompt 2 foundations, pack gates, or runtime binding are changed."
+  ],
+  "likely_touched_files": [
+    "api/app/services/chatgpt_oauth.py",
+    "api/app/services/ai_enrichment.py",
+    "api/app/services/ai_agent.py",
+    "api/app/services/intake_intelligence.py",
+    "api/app/services/secrets.py",
+    "api/app/config.py",
+    "api/app/routers/auth.py",
+    "api/app/main.py",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/styles.css",
+    "requirements/base.txt",
+    "infra/host/aegispt-host.env.example",
+    "api/tests/test_chatgpt_oauth.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema fields",
+    "runtime self-modification",
+    "uncontrolled plugin installation",
+    "automatic task dispatch from AI output",
+    "OAuth token exposure in any API payload, log, report, or UI surface"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_chatgpt_oauth.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "OAuth PKCE flow generates correct authorization URL.",
+      "Token exchange and encrypted storage work without token exposure.",
+      "ChatGPT OAuth provider activates when AI_PROVIDER=chatgpt_oauth is set.",
+      "Kill switch blocks all provider calls.",
+      "Tests pass with mocked OAuth and API responses \u2014 no live calls required.",
+      "Full Playwright suite is green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "AI Signal panel and typing effect foundation (backlog-55) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "OAuth token storage and kill-switch behavior are documented in docs/secret_handling_baseline.md and docs/ai_pentesting_agent_scope_alignment.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with ChatGPT OAuth provider wiring, token storage approach, kill-switch behavior, and test strategy.",
+      "Update CURRENT_STATE.md with ChatGPT OAuth as opt-in active AI provider capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Direct Anthropic SDK or direct OpenAI API key integration",
+    "New reasoning logic or agent roles",
+    "Autonomous task dispatch from AI output",
+    "Sound design",
+    "UI animation changes",
+    "Finding schema changes",
+    "Worker runtime semantic changes",
+    "Training on customer data",
+    "OAuth token exposure in any surface"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

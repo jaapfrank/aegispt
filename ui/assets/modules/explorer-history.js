@@ -3,18 +3,22 @@ import {
   countMeaningfulAccessContexts,
   emptyState,
   escapeHtml,
+  exposureTrendLabel,
   findingKey,
   followUpStrategyLabel,
+  formatExposureScore,
   formatDateTime,
   groupBy,
   hasMeaningfulAccount,
   renderBadgeList,
   renderAccessContextSummary,
   renderDisclosure,
+  renderExposureSparkline,
   renderTargetSummary,
   severityRank,
   statusPill,
 } from "./shared.js";
+import { renderKillChainMatrix } from "./kill-chain.js";
 
 function summarizeDossierExclusions(exclusions) {
   const values = [
@@ -88,15 +92,27 @@ function compareRuns(currentRunId, baselineRunId) {
   const baselineMap = new Map(baselineFindings.map((finding) => [findingKey(finding), finding]));
   const currentMap = new Map(currentFindings.map((finding) => [findingKey(finding), finding]));
   let worsenedCount = 0;
+  let changedCount = 0;
+  let resolvedCount = 0;
   currentFindings.forEach((finding) => {
     const prior = baselineMap.get(findingKey(finding));
     if (!prior) return;
     const currentRank = severityRank(finding.severity);
     const priorRank = severityRank(prior.severity);
     if (currentRank < priorRank) worsenedCount += 1;
+    if (
+      String(finding.severity || "").toLowerCase() !== String(prior.severity || "").toLowerCase() ||
+      String(finding.status || "").toLowerCase() !== String(prior.status || "").toLowerCase()
+    ) {
+      changedCount += 1;
+    }
+    if (!isResolvedFindingStatus(prior.status) && isResolvedFindingStatus(finding.status)) {
+      resolvedCount += 1;
+    }
   });
   const newCount = currentFindings.filter((finding) => !baselineMap.has(findingKey(finding))).length;
   const fixedCount = baselineFindings.filter((finding) => !currentMap.has(findingKey(finding))).length;
+  resolvedCount += fixedCount;
   const persistingCount = currentFindings.filter((finding) => baselineMap.has(findingKey(finding))).length;
   const currentInventory = summarizeInventorySnapshot(runtime.actions.inventorySnapshotForRun?.(currentRunId) || null);
   const baselineInventory = summarizeInventorySnapshot(runtime.actions.inventorySnapshotForRun?.(baselineRunId) || null);
@@ -125,7 +141,86 @@ function compareRuns(currentRunId, baselineRunId) {
       (baselineRun.pack_binding?.pack_version || null),
     baselineLabel: `${baselineRun.profile.name} ${formatDateTime(baselineRun.created_at)}`,
     primaryAction,
-    summary: `Compared against ${baselineRun.profile.name}, this run introduced ${newCount} new findings, closed ${fixedCount}, and changed inventory by ${formatInventoryDeltaSummary(inventoryDelta).toLowerCase()}.`,
+    scheduledTrend: buildScheduledTrendComparison({
+      currentRun,
+      baselineRun,
+      currentInventory,
+      baselineInventory,
+      inventoryDelta,
+      newCount,
+      fixedCount,
+      resolvedCount,
+      persistingCount,
+      changedCount,
+      worsenedCount,
+    }),
+    changedCount,
+    resolvedCount,
+    summary: `Compared against ${baselineRun.profile.name}, this run introduced ${newCount} new findings, resolved ${resolvedCount}, kept ${persistingCount} persistent, changed ${changedCount}, and changed inventory by ${formatInventoryDeltaSummary(inventoryDelta).toLowerCase()}.`,
+  };
+}
+
+function buildScheduledTrendComparison({
+  currentRun,
+  baselineRun,
+  currentInventory,
+  baselineInventory,
+  inventoryDelta,
+  newCount,
+  resolvedCount,
+  persistingCount,
+  changedCount,
+  worsenedCount,
+}) {
+  const currentSchedule = getScheduleMetadata(currentRun);
+  const baselineSchedule = getScheduleMetadata(baselineRun);
+  if (!currentSchedule && !baselineSchedule) {
+    return {
+      comparable: false,
+      label: "Trend unavailable",
+      reason: "Neither run carries scheduled-validation lineage, so AegisPT will not claim continuous drift from this comparison.",
+    };
+  }
+  if (!currentSchedule) {
+    return {
+      comparable: false,
+      label: "Trend unavailable",
+      reason: "The current run is not linked to a scheduled-validation record.",
+    };
+  }
+  if (!baselineSchedule) {
+    return {
+      comparable: false,
+      label: "Trend unavailable",
+      reason: "The baseline run is not linked to a scheduled-validation record.",
+      currentSchedule,
+    };
+  }
+  if (currentSchedule.id !== baselineSchedule.id) {
+    return {
+      comparable: false,
+      label: "Trend unavailable",
+      reason: "The selected runs belong to different schedule lineage, so their drift is not treated as a continuous trend.",
+      currentSchedule,
+      baselineSchedule,
+    };
+  }
+  return {
+    comparable: true,
+    label: "Comparable scheduled validation",
+    reason: `${currentSchedule.cadenceLabel} schedule ${currentSchedule.shortId} has two stored runs available for trend review.`,
+    currentSchedule,
+    baselineSchedule,
+    findingDelta: {
+      new: newCount,
+      resolved: resolvedCount,
+      persistent: persistingCount,
+      changed: changedCount,
+      worsened: worsenedCount,
+    },
+    inventoryDelta,
+    currentInventory,
+    baselineInventory,
   };
 }
 
@@ -222,6 +317,29 @@ function buildNextStepsQueue() {
     }));
 }
 
+function renderComparisonEmptyState() {
+  return `
+    <div class="comparison-empty-state" data-testid="comparison-empty-guidance">
+      <div class="comparison-empty-icon" aria-hidden="true">⇄</div>
+      <div class="comparison-empty-copy">
+        <h4>Pick a baseline run to compare</h4>
+        <p>Choose an earlier run to see finding delta, inventory drift, and whether the selected run expanded or reduced coverage.</p>
+      </div>
+      <div class="comparison-empty-actions split-top">
+        <div class="comparison-empty-action">
+          <strong>1</strong>
+          <span>Load the current run</span>
+        </div>
+        <div class="comparison-empty-arrow" aria-hidden="true">→</div>
+        <div class="comparison-empty-action">
+          <strong>2</strong>
+          <span>Set a baseline run</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export function createExplorerHistoryModule() {
   function renderExplorer() {
     const groupedByCustomer = groupBy(
@@ -239,7 +357,7 @@ export function createExplorerHistoryModule() {
             `
           )
           .join("")
-      : emptyState("Customers will populate as engagements are created.");
+      : emptyState("Create a mission in Conversational Intake first. Customers and engagement dossiers populate after the first mission is created.");
 
     dom.engagementDossiers.innerHTML = state.engagements.length
       ? state.engagements
@@ -257,7 +375,7 @@ export function createExplorerHistoryModule() {
             `;
           })
           .join("")
-      : emptyState("No engagement dossiers exist yet.");
+      : emptyState("No engagement dossiers exist yet. Start in Conversational Intake to create the first mission.");
     dom.engagementDossiers.querySelectorAll("[data-engagement-pick]").forEach((item) => {
       item.addEventListener("click", async () => {
         state.selectedEngagementId = item.dataset.engagementPick;
@@ -269,7 +387,11 @@ export function createExplorerHistoryModule() {
 
     const run = state.selectedRun;
     if (!run) {
-      dom.runDossier.innerHTML = emptyState("Select a run to inspect its dossier.");
+      dom.runDossier.innerHTML = emptyState(
+        state.engagements.length
+          ? "Select a run to inspect its dossier."
+          : "Create a mission first, then load a run here to inspect its dossier."
+      );
       return;
     }
     const config = run.configuration_json || {};
@@ -310,7 +432,14 @@ export function createExplorerHistoryModule() {
           (left, right) => new Date(right.created_at) - new Date(left.created_at)
         )[0]
       : null;
+    const selectedReportStatus = state.reportCatalog[0]?.availability_label || (
+      state.reportCatalog.length ? "Report lifecycle available" : "No report catalog loaded"
+    );
     dom.runDossier.innerHTML = `
+      <div class="section-note split-top" data-testid="explorer-consolidation-note">
+        <strong>Run dossier review is now report-adjacent</strong>
+        <p>Explorer remains available for compatibility and deep inspection, while the practical export-ready dossier summary now appears in Report Center for the selected run.</p>
+      </div>
       <div class="detail-surface emphasis-surface split-top" data-testid="dossier-summary-card">
         <h4>Dossier Summary</h4>
         <p>${escapeHtml(dossierFocus.summary)}</p>
@@ -328,8 +457,8 @@ export function createExplorerHistoryModule() {
           </div>
           <div class="detail-surface">
             <h4>Reports & Pack</h4>
-            <p>${escapeHtml(state.reportCatalog.length ? `${state.reportCatalog.length} report variants ready` : "4 report variants planned")}</p>
-            <p class="micro-copy">${escapeHtml(run.pack_binding?.pack_version || "Standard baseline pack")}</p>
+            <p>${escapeHtml(state.reportCatalog.length ? `${state.reportCatalog.length} report variants · ${selectedReportStatus}` : "Report catalog unavailable for this run state")}</p>
+            <p class="micro-copy">${escapeHtml(state.reportCatalog[0]?.availability_reason || run.pack_binding?.pack_version || "Standard baseline pack")}</p>
           </div>
           <div class="detail-surface">
             <h4>Next Review</h4>
@@ -343,6 +472,7 @@ export function createExplorerHistoryModule() {
           <button class="action ghost" type="button" data-nav-screen="report-center">Open Reports</button>
         </div>
       </div>
+      ${renderKillChainMatrix(run.kill_chain_progress, { testId: "dossier-mitre-attack-matrix" })}
       <h4>${escapeHtml(run.profile.name)} <span class="badge">${escapeHtml(run.status)}</span></h4>
       <p>${escapeHtml(`Requested by ${run.requested_by} · created ${formatDateTime(run.created_at)}`)}</p>
       ${renderBadgeList([
@@ -629,13 +759,69 @@ export function createExplorerHistoryModule() {
     });
   }
 
+  function renderHistoryRunBulkDeleteBar(selectedCount) {
+    if (!selectedCount) return "";
+    return `
+      <div class="bulk-delete-bar" data-testid="history-bulk-delete-bar">
+        <div>
+          <strong>${escapeHtml(`${selectedCount} run${selectedCount === 1 ? "" : "s"} selected`)}</strong>
+          <p class="micro-copy">Soft-delete keeps evidence recoverable during the 30-day retention window.</p>
+        </div>
+        <button class="action secondary danger-action" type="button" data-run-delete-preview="selected" data-testid="bulk-delete-runs">
+          Delete selected runs
+        </button>
+      </div>
+    `;
+  }
+
+  function renderSingleCompletedRunSummary(run) {
+    const findings = state.mission.findingsByRun[run.id] || [];
+    const open = findings.filter((finding) =>
+      ["open", "triaged", "in_progress", "reopened"].includes(finding.status)
+    ).length;
+    const inventorySummary = summarizeInventorySnapshot(runtime.actions.inventorySnapshotForRun?.(run.id) || null);
+    const targetSummary = renderTargetSummary(run.configuration_json?.targets || {});
+    return `
+      <div data-testid="history-single-run-summary">
+        <h4>One completed run available</h4>
+        <p>${escapeHtml(`${run.profile?.name || run.id} is ready for review, but posture comparison needs a second completed run.`)}</p>
+        <div class="compact-definition-grid split-top">
+          <div><span>Status</span><strong>${escapeHtml(run.status || "completed")}</strong></div>
+          <div><span>Findings</span><strong>${escapeHtml(`${findings.length} total · ${open} open`)}</strong></div>
+          <div><span>Inventory</span><strong>${escapeHtml(`${inventorySummary.hosts} hosts · ${inventorySummary.services} services`)}</strong></div>
+          <div><span>Scope</span><strong>${escapeHtml(targetSummary || "Run scope not recorded")}</strong></div>
+        </div>
+      </div>
+      ${renderHistoryComparisonDisabled()}
+    `;
+  }
+
+  function renderHistoryComparisonDisabled() {
+    const reason = "Complete a second run to compare posture changes.";
+    return `
+      <div class="detail-surface split-top" data-testid="history-comparison-disabled" title="${escapeHtml(reason)}">
+        <h4>Comparison unavailable</h4>
+        <p>${escapeHtml(reason)}</p>
+      </div>
+    `;
+  }
+
   function renderHistoryComparison() {
     const sortedRuns = [...state.mission.runs].sort(
       (left, right) => new Date(right.created_at) - new Date(left.created_at)
     );
+    const completedRuns = sortedRuns.filter(isCompletedHistoryRun);
+    const currentHistoryRunId = completedRuns.some((run) => run.id === state.selectedRunId)
+      ? state.selectedRunId
+      : completedRuns[0]?.id || null;
+    const baselineHistoryRunId = completedRuns.some(
+      (run) => run.id === state.comparisonBaselineRunId && run.id !== currentHistoryRunId
+    )
+      ? state.comparisonBaselineRunId
+      : completedRuns.find((run) => run.id !== currentHistoryRunId)?.id || null;
     const historyQuery = String(state.historyQuery || "").trim();
     const normalizedHistoryQuery = historyQuery.toLowerCase();
-    const filteredRuns = sortedRuns.filter((run) => {
+    const filteredRuns = completedRuns.filter((run) => {
       if (!normalizedHistoryQuery) return true;
       const followUp = getFollowUpMetadata(run);
       const sourceRun = followUp?.source_run_id
@@ -644,27 +830,35 @@ export function createExplorerHistoryModule() {
       const inventorySummary = summarizeInventorySnapshot(runtime.actions.inventorySnapshotForRun?.(run.id) || null);
       return historySearchText(run, sourceRun, inventorySummary).includes(normalizedHistoryQuery);
     });
+    const selectedDeleteRunIds = new Set(state.deleteUi?.selectedRunIds || []);
+    const visibleSelectedCount = filteredRuns.filter((run) => selectedDeleteRunIds.has(String(run.id))).length;
+    const currentRunDisabled = completedRuns.length <= 1 ? "disabled" : "";
+    const baselineDisabled = completedRuns.length < 2
+      ? `disabled title="${escapeHtml("Complete a second run to compare posture changes.")}"`
+      : "";
     dom.historyToolbar.innerHTML = `
       <label class="field compact">
         <span>Current Run</span>
-        <select id="history-current-run" data-testid="history-current-run">
-          ${state.mission.runs
-            .map(
-              (run) =>
-                `<option value="${run.id}" ${run.id === state.selectedRunId ? "selected" : ""}>${escapeHtml(run.profile.name)} · ${escapeHtml(run.status)}</option>`
-            )
-            .join("")}
+        <select id="history-current-run" data-testid="history-current-run" ${currentRunDisabled}>
+          ${completedRuns.length
+            ? completedRuns
+                .map(
+                  (run) =>
+                    `<option value="${run.id}" ${run.id === currentHistoryRunId ? "selected" : ""}>${escapeHtml(run.profile?.name || run.id)} · ${escapeHtml(run.status)}</option>`
+                )
+                .join("")
+            : '<option value="">No completed runs</option>'}
         </select>
       </label>
       <label class="field compact">
         <span>Baseline Run</span>
-        <select id="history-baseline-run">
+        <select id="history-baseline-run" ${baselineDisabled}>
           <option value="">No baseline</option>
-          ${state.mission.runs
-            .filter((run) => run.id !== state.selectedRunId)
+          ${completedRuns
+            .filter((run) => run.id !== currentHistoryRunId)
             .map(
               (run) =>
-                `<option value="${run.id}" ${run.id === state.comparisonBaselineRunId ? "selected" : ""}>${escapeHtml(run.profile.name)} · ${escapeHtml(run.status)}</option>`
+                `<option value="${run.id}" ${run.id === baselineHistoryRunId ? "selected" : ""}>${escapeHtml(run.profile?.name || run.id)} · ${escapeHtml(run.status)}</option>`
             )
             .join("")}
         </select>
@@ -680,17 +874,19 @@ export function createExplorerHistoryModule() {
         />
       </label>
       <div class="section-note toolbar-note" data-testid="history-toolbar-summary">
-        <strong>${escapeHtml(`${filteredRuns.length} of ${sortedRuns.length} runs visible`)}</strong>
+        <strong>${escapeHtml(`${filteredRuns.length} of ${completedRuns.length} completed runs visible`)}</strong>
         <p>${escapeHtml("Filter the dossier history without losing direct load, compare, or surface actions.")}</p>
       </div>
     `;
     document.getElementById("history-current-run")?.addEventListener("change", async (event) => {
       state.selectedRunId = event.target.value;
       await runtime.actions.loadSelectedRun?.();
+      await runtime.actions.ensureComparisonFindings?.();
       runtime.actions.renderAll?.();
     });
-    document.getElementById("history-baseline-run")?.addEventListener("change", (event) => {
+    document.getElementById("history-baseline-run")?.addEventListener("change", async (event) => {
       state.comparisonBaselineRunId = event.target.value || null;
+      await runtime.actions.ensureComparisonFindings?.();
       renderHistoryComparison();
       runtime.actions.renderReportCenter?.();
     });
@@ -699,17 +895,18 @@ export function createExplorerHistoryModule() {
       renderHistoryComparison();
     });
 
-    const comparison = compareRuns(state.selectedRunId, state.comparisonBaselineRunId);
+    const comparison = completedRuns.length >= 2 ? compareRuns(currentHistoryRunId, baselineHistoryRunId) : null;
+    const exposure = state.exposureScore;
     dom.comparisonSummary.innerHTML = comparison
       ? `
         <h4>${escapeHtml("Current vs baseline")}</h4>
-        <p>${escapeHtml(`${comparison.newCount} new · ${comparison.fixedCount} fixed · ${comparison.persistingCount} still open`)}</p>
+        <p>${escapeHtml(`${comparison.newCount} new · ${comparison.resolvedCount} resolved · ${comparison.persistingCount} persistent · ${comparison.changedCount} changed`)}</p>
         <p>${escapeHtml(`${comparison.worsenedCount} worsened · pack changed ${comparison.packChanged ? "yes" : "no"}`)}</p>
         <div class="detail-grid split-top comparison-grid">
           <div class="detail-surface">
             <h4>Finding Delta</h4>
-            <p>${escapeHtml(`${comparison.newCount} new · ${comparison.fixedCount} fixed · ${comparison.persistingCount} still open`)}</p>
-            <p class="micro-copy">${escapeHtml(`${comparison.worsenedCount} worsened findings compared with ${comparison.baselineLabel}.`)}</p>
+            <p>${escapeHtml(`${comparison.newCount} new · ${comparison.resolvedCount} resolved · ${comparison.persistingCount} persistent · ${comparison.changedCount} changed`)}</p>
+            <p class="micro-copy">${escapeHtml(`${comparison.worsenedCount} worsened findings compared with ${comparison.baselineLabel}. Missing baseline findings count as resolved only for this stored comparison, not as guaranteed remediation.`)}</p>
           </div>
           <div class="detail-surface" data-testid="comparison-inventory-delta">
             <h4>Inventory Delta</h4>
@@ -717,6 +914,7 @@ export function createExplorerHistoryModule() {
             <p class="micro-copy">${escapeHtml(`Current ${comparison.inventoryCurrent.hosts} hosts / ${comparison.inventoryCurrent.services} services / ${comparison.inventoryCurrent.endpoints} endpoints · baseline ${comparison.inventoryBaseline.hosts} / ${comparison.inventoryBaseline.services} / ${comparison.inventoryBaseline.endpoints}`)}</p>
           </div>
         </div>
+        ${renderContinuousTrendDeltaPanel(comparison)}
         <p class="micro-copy">${escapeHtml(comparison.summary)}</p>
         <div class="panel-actions">
           <button class="action primary" type="button" data-nav-screen="${escapeHtml(comparison.primaryAction.screen)}">${escapeHtml(comparison.primaryAction.label)}</button>
@@ -724,10 +922,15 @@ export function createExplorerHistoryModule() {
           <button class="action ghost" type="button" data-nav-screen="findings-theater">Review Findings</button>
         </div>
       `
-      : emptyState("Choose a baseline run to compare changes over time.");
+      : completedRuns.length === 1
+        ? renderSingleCompletedRunSummary(completedRuns[0])
+        : renderHistoryComparisonDisabled();
 
     dom.historyTrend.innerHTML = filteredRuns.length
-      ? filteredRuns
+      ? [
+          renderHistoryRunBulkDeleteBar(visibleSelectedCount),
+          renderExposureHistoryPanel(exposure),
+          ...filteredRuns
           .map((run) => {
             const findings = state.mission.findingsByRun[run.id] || [];
             const open = findings.filter((finding) =>
@@ -736,6 +939,7 @@ export function createExplorerHistoryModule() {
             const inventorySnapshot = runtime.actions.inventorySnapshotForRun?.(run.id) || null;
             const inventorySummary = summarizeInventorySnapshot(inventorySnapshot);
             const followUp = getFollowUpMetadata(run);
+            const schedule = getScheduleMetadata(run);
             const sourceRun = followUp?.source_run_id
               ? state.mission.runs.find((candidate) => String(candidate.id) === String(followUp.source_run_id)) || null
               : null;
@@ -743,18 +947,38 @@ export function createExplorerHistoryModule() {
             const percent = Math.min(100, findings.length * 12);
             const reviewHint = deriveHistoryReviewHint(run, findings, inventorySummary, followUp);
             return `
-              <div class="trend-card list-card ${run.id === state.selectedRunId ? "selected" : ""}" data-history-run-pick="${run.id}" data-testid="history-run-card">
+              <div class="trend-card list-card ${run.id === currentHistoryRunId ? "selected" : ""}" data-history-run-pick="${run.id}" data-testid="history-run-card">
                 <div class="panel-head compact-head">
                   <div>
-                    <h4>${escapeHtml(run.profile.name)}</h4>
-                    <p class="micro-copy">${escapeHtml(run.id === state.selectedRunId ? "Current run loaded in the operator views." : "Click to load this run across Mission Control, Findings, Surface Map, and Reports.")}</p>
+                    <label class="delete-checkline history-run-delete-toggle" data-run-delete-control>
+                      <input
+                        type="checkbox"
+                        data-run-delete-toggle="${escapeHtml(run.id)}"
+                        ${selectedDeleteRunIds.has(String(run.id)) ? "checked" : ""}
+                        aria-label="Select run for deletion"
+                      />
+                      <span>
+                        <strong class="history-run-title">${escapeHtml(run.profile?.name || run.id)}</strong>
+                        <small>${escapeHtml(run.id === currentHistoryRunId ? "Current run loaded in the operator views." : "Click to load this run across Mission Control, Findings, Surface Map, and Reports.")}</small>
+                      </span>
+                    </label>
                   </div>
                   <div class="pill-grid">
-                    ${run.id === state.selectedRunId ? '<span class="badge">Current Run</span>' : ""}
-                    ${run.id === state.comparisonBaselineRunId ? '<span class="badge">Baseline</span>' : ""}
+                    ${run.id === currentHistoryRunId ? '<span class="badge">Current Run</span>' : ""}
+                    ${run.id === baselineHistoryRunId ? '<span class="badge">Baseline</span>' : ""}
+                    ${schedule ? `<span class="badge">${escapeHtml(`Scheduled ${schedule.cadenceLabel}`)}</span>` : ""}
+                    <details class="run-card-menu" data-run-delete-control>
+                      <summary aria-label="Run actions">...</summary>
+                      <button class="action ghost tiny danger-action" type="button" data-run-delete-preview="${escapeHtml(run.id)}" data-testid="history-delete-run" aria-label="${escapeHtml(`Delete run ${run.name || run.id}`)}">Delete</button>
+                    </details>
                   </div>
                 </div>
                 <p>${statusPill(run.status)} ${escapeHtml(`${findings.length} findings · ${open} still open`)}</p>
+                ${
+                  schedule
+                    ? `<p class="micro-copy">${escapeHtml(`Scheduled validation ${schedule.shortId} · due ${formatDateTime(schedule.dueAt)}`)}</p>`
+                    : ""
+                }
                 ${
                   followUp
                     ? `<p class="micro-copy">${escapeHtml(`${followUpStrategyLabel(followUp.strategy)} from ${sourceRun?.profile?.name || followUp.source_run_id || "a prior run"}`)}</p>`
@@ -778,17 +1002,26 @@ export function createExplorerHistoryModule() {
                 <p class="micro-copy split-top">${escapeHtml(formatDateTime(run.created_at))}</p>
               </div>
             `;
-          })
-          .join("")
-      : emptyState(historyQuery ? `No runs match "${historyQuery}". Clear or widen the history search.` : "Run trend history appears after multiple runs exist in the engagement.");
+          }),
+        ].join("")
+      : emptyState(
+          historyQuery
+            ? `No runs match "${historyQuery}". Clear or widen the history search.`
+            : "Completed runs appear here after an assessment finishes.",
+          historyQuery
+            ? null
+            : { label: "Go to Mission Control", screen: "mission-control", className: "primary", testId: "history-empty-mission-control" }
+        );
     dom.historyTrend.querySelectorAll("[data-history-run-pick]").forEach((item) => {
-      item.addEventListener("click", async () => {
+      item.addEventListener("click", async (event) => {
+        if (event.target.closest("[data-run-delete-control]")) return;
         state.selectedRunId = item.dataset.historyRunPick;
         if (!state.comparisonBaselineRunId || state.comparisonBaselineRunId === state.selectedRunId) {
           state.comparisonBaselineRunId =
             state.mission.runs.find((run) => run.id !== state.selectedRunId)?.id || null;
         }
         await runtime.actions.loadSelectedRun?.();
+        await runtime.actions.ensureComparisonFindings?.();
         renderHistoryComparison();
         runtime.actions.renderFlowOverview?.();
       });
@@ -802,6 +1035,7 @@ export function createExplorerHistoryModule() {
             state.mission.runs.find((run) => run.id !== state.selectedRunId)?.id || null;
         }
         await runtime.actions.loadSelectedRun?.();
+        await runtime.actions.ensureComparisonFindings?.();
         renderHistoryComparison();
         runtime.actions.renderFlowOverview?.();
       });
@@ -816,6 +1050,7 @@ export function createExplorerHistoryModule() {
           await runtime.actions.loadSelectedRun?.();
         }
         state.comparisonBaselineRunId = baselineId;
+        await runtime.actions.ensureComparisonFindings?.();
         renderHistoryComparison();
         runtime.actions.renderFlowOverview?.();
       });
@@ -825,6 +1060,7 @@ export function createExplorerHistoryModule() {
         event.stopPropagation();
         state.selectedRunId = item.dataset.historyOpenSurface;
         await runtime.actions.loadSelectedRun?.();
+        await runtime.actions.ensureComparisonFindings?.();
         runtime.actions.navigateToScreen?.("surface-map");
       });
     });
@@ -833,6 +1069,7 @@ export function createExplorerHistoryModule() {
         event.stopPropagation();
         state.selectedRunId = item.dataset.historyTraceOrigin;
         await runtime.actions.loadSelectedRun?.();
+        await runtime.actions.ensureComparisonFindings?.();
         runtime.actions.navigateToScreen?.("explorer");
       });
     });
@@ -866,6 +1103,54 @@ export function createExplorerHistoryModule() {
           )
           .join("")
       : emptyState("Open findings and their recommended follow-up actions appear here.");
+  }
+
+  function renderExposureHistoryPanel(exposure) {
+    const current = exposure?.current || null;
+    const history = Array.isArray(exposure?.history) ? exposure.history : [];
+    if (!current) {
+      return `
+        <div class="detail-surface split-top" data-testid="exposure-history-panel">
+          <h4>Exposure Score History</h4>
+          <p>Exposure history appears after posture scoring has been computed for the engagement.</p>
+          <p class="micro-copy">Advisory only; this summary never gates runs or approvals.</p>
+        </div>
+      `;
+    }
+    return `
+      <div class="detail-surface split-top exposure-history-panel" data-testid="exposure-history-panel">
+        <div class="panel-head compact-head">
+          <div>
+            <h4>Exposure Score History</h4>
+            <p class="micro-copy">Advisory only; this score summarizes stored posture and does not guarantee security improvement.</p>
+          </div>
+          <span class="metric-pill">${escapeHtml(`${formatExposureScore(current.score)}/100 · ${exposureTrendLabel(current.trend)}`)}</span>
+        </div>
+        ${renderExposureSparkline(history, {
+          width: 520,
+          height: 52,
+          className: "history-exposure-sparkline",
+          testId: "history-exposure-sparkline",
+        })}
+        <div class="compact-definition-grid split-top">
+          <div><span>Critical Open</span><strong>${escapeHtml(String(current.open_critical_count))}</strong></div>
+          <div><span>High Open</span><strong>${escapeHtml(String(current.open_high_count))}</strong></div>
+          <div><span>Remediated</span><strong>${escapeHtml(String(current.remediated_count))}</strong></div>
+          <div><span>Verified</span><strong>${escapeHtml(String(current.verified_count))}</strong></div>
+        </div>
+        <div class="split-top exposure-history-points">
+          ${history
+            .map(
+              (point) => `
+                <div class="metric-pill exposure-history-point">
+                  ${escapeHtml(`${formatDateTime(point.computed_at)} · ${formatExposureScore(point.score)}/100 · ${exposureTrendLabel(point.trend)}`)}
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
   }
 
   return {
@@ -998,6 +1283,10 @@ function deriveDossierFocus({ run, findings, inventorySummary, taskSummary, foll
 }
 
 function deriveHistoryReviewHint(run, findings, inventorySummary, followUp) {
+  const schedule = getScheduleMetadata(run);
+  if (schedule) {
+    return "Compare this scheduled validation run against another run from the same schedule before claiming trend or drift.";
+  }
   if (findings.length) {
     return "Load this run for finding triage, evidence replay, and report export.";
   }
@@ -1011,6 +1300,7 @@ function deriveHistoryReviewHint(run, findings, inventorySummary, followUp) {
 }
 
 function historySearchText(run, sourceRun, inventorySummary) {
+  const schedule = getScheduleMetadata(run);
   return [
     run.profile?.name,
     run.status,
@@ -1021,6 +1311,10 @@ function historySearchText(run, sourceRun, inventorySummary) {
     sourceRun?.profile?.name,
     sourceRun?.id,
     getFollowUpMetadata(run)?.strategy ? followUpStrategyLabel(getFollowUpMetadata(run).strategy) : "",
+    schedule ? "scheduled validation" : "",
+    schedule?.id,
+    schedule?.cadence,
+    schedule?.shortId,
     `${inventorySummary.hosts} hosts`,
     `${inventorySummary.services} services`,
     `${inventorySummary.endpoints} endpoints`,
@@ -1044,4 +1338,71 @@ function formatNamedDelta(value, label) {
   if (value > 0) return `+${abs} ${plural}`;
   if (value < 0) return `-${abs} ${plural}`;
   return `${plural} unchanged`;
+}
+
+function renderContinuousTrendDeltaPanel(comparison) {
+  const trend = comparison?.scheduledTrend || null;
+  if (!trend) return "";
+  if (!trend.comparable) {
+    return `
+      <div class="detail-surface split-top" data-testid="continuous-trend-delta">
+        <div class="task-activity-header">
+          <div>
+            <h4>Scheduled Validation Trend</h4>
+            <p class="micro-copy">${escapeHtml(trend.reason || "This baseline is not comparable for scheduled trend review.")}</p>
+          </div>
+          <span class="metric-pill">${escapeHtml(trend.label || "Trend unavailable")}</span>
+        </div>
+      </div>
+    `;
+  }
+  const findingDelta = trend.findingDelta || {};
+  return `
+    <div class="detail-surface split-top" data-testid="continuous-trend-delta">
+      <div class="task-activity-header">
+        <div>
+          <h4>Scheduled Validation Trend</h4>
+          <p class="micro-copy">${escapeHtml(trend.reason)}</p>
+        </div>
+        <span class="metric-pill">${escapeHtml(trend.label)}</span>
+      </div>
+      <div class="compact-definition-grid split-top">
+        <div><span>New Findings</span><strong>${escapeHtml(String(findingDelta.new || 0))}</strong></div>
+        <div><span>Resolved Findings</span><strong>${escapeHtml(String(findingDelta.resolved || 0))}</strong></div>
+        <div><span>Persistent Findings</span><strong>${escapeHtml(String(findingDelta.persistent || 0))}</strong></div>
+        <div><span>Changed Findings</span><strong>${escapeHtml(String(findingDelta.changed || 0))}</strong></div>
+        <div><span>Inventory Drift</span><strong>${escapeHtml(formatInventoryDeltaSummary(trend.inventoryDelta || {}))}</strong></div>
+        <div><span>Due Window</span><strong>${escapeHtml(formatDateTime(trend.currentSchedule?.dueAt))}</strong></div>
+      </div>
+      <p class="micro-copy split-top">${escapeHtml("Trend output is limited to comparable stored runs from the same schedule lineage. It is not a risk-reduction guarantee and does not launch or schedule work.")}</p>
+    </div>
+  `;
+}
+
+function getScheduleMetadata(run) {
+  const schedule = run?.configuration_json?.schedule;
+  if (!schedule || typeof schedule !== "object") return null;
+  const source = String(schedule.source || "").toLowerCase();
+  const id = String(schedule.scheduled_run_id || "").trim();
+  if (source !== "scheduled-validation" || !id) return null;
+  const cadence = String(schedule.cadence || "scheduled").trim() || "scheduled";
+  return {
+    id,
+    shortId: id.length > 12 ? `${id.slice(0, 8)}…` : id,
+    cadence,
+    cadenceLabel: cadence.replace(/[-_]/g, " "),
+    cron: schedule.cron_expression || "",
+    dueAt: schedule.scheduled_due_at || run.created_at || null,
+  };
+}
+
+function isResolvedFindingStatus(status) {
+  return ["resolved", "accepted_risk", "false_positive", "dismissed"].includes(
+    String(status || "").toLowerCase()
+  );
+}
+
+function isCompletedHistoryRun(run) {
+  const normalized = String(run?.status || "").toLowerCase().replace(/[\s-]+/g, "_");
+  return normalized === "complete" || normalized === "completed" || normalized.startsWith("completed_");
 }

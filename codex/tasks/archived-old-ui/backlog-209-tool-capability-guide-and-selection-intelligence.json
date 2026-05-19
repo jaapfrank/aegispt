@@ -1,0 +1,77 @@
+{
+  "id": "backlog-209-tool-capability-guide-and-selection-intelligence",
+  "task_file": "codex/tasks/backlog-209-tool-capability-guide-and-selection-intelligence.json",
+  "task_type": "product_slice",
+  "title": "Tool capability guide: expose all 33 implemented tools with descriptions, when to use them, and what findings they produce",
+  "goal": "AegisPT has 33 implemented runner tools (nmap, nuclei, zap, burp, metasploit, netexec, impacket, bloodhound, responder, ldap-enum, snmp-enum, mdns-ssdp, ipv6-discovery, aws-inventory, semgrep, playwright-web, credential-attacks, hashcat, llm-probe, camera-test, iot-default-creds, smart-home, api-assessment, biz-logic-probe, mobile-android, cloud-native, cicd-security, desktop-client, network-segmentation, ssh-audit, easm-discover, external-infra, httpx). Operators do not know this. Add a 'Tool Library' view (accessible from the Pack Forge screen or as a tab in Settings) that shows: (1) Grid of all tools with: name, icon, category (Discovery / Web / Credential / Lateral Movement / Specialized), short description (one sentence), typical findings it produces, required authorization tier (passive/active/intrusive/exploitation). (2) For each tool: click to see detailed view with example findings, required prerequisites (e.g. metasploit needs intrusive gate), and which assessment modes include it automatically. (3) Quick-add button: 'Add to current run' — creates a manual task proposal for operator approval. This turns the tool list from internal documentation into an operator-facing capability catalogue.",
+  "scope": "Code audit 2026-05-03: workers/orchestration/tasks.py lines 158-191 lists all 33 supported tools. Operators see none of this. The wizard tiles (10 tiles) give a high-level choice but don't explain which of 33 tools runs for each tile or why. Enterprise operators want to know exactly what is being tested.",
+  "status": "queued",
+  "generated_by": "ai-code-audit-2026-05-03",
+  "generation_reason": "33 implemented tools are invisible to operators — need an in-app tool catalogue so operators understand and can directly invoke capabilities.",
+  "source_context": {
+    "queue_index": 199,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-117-full-product-operator-acceptance-audit.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "tool_transparency_operator_catalogue",
+    "source_documents": [
+      "workers/orchestration/tasks.py",
+      "ui/assets/modules/packs.js",
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Display existing tool capabilities. Do not add new tools or change tool dispatch logic.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Tool Library view accessible from Pack Forge or Settings.",
+    "All 33 tools shown with name, category, description, and auth tier.",
+    "Clicking a tool shows detailed view with findings, prerequisites, chain membership.",
+    "'Add to run' button creates a manual task proposal.",
+    "No regression in packs/runs E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/packs.js",
+    "ui/index.html",
+    "ui/assets/app.js",
+    "CURRENT_STATE.md", "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Tool dispatch logic",
+    "Runner implementations",
+    "Approval gates"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Tool Library shows all 33 tools.",
+      "Each tool has description and auth tier.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["New tools", "Tool configuration UI", "Backend runner changes"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

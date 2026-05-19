@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -12,12 +14,23 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 
 @router.get("/live", response_model=HealthResponse)
-def live(settings: Settings = Depends(get_settings)) -> HealthResponse:
+def live(request: Request, settings: Settings = Depends(get_settings)) -> HealthResponse:
+    runtime_state = str(getattr(request.app.state, "runtime_state", "healthy") or "healthy")
+    status = "ok" if runtime_state == "healthy" else "degraded"
+    detail = "service is running" if runtime_state == "healthy" else f"service is {runtime_state}"
+    diagnostics = [
+        f"runtime_state={runtime_state}",
+        f"public_base_url={settings.app_public_base_url}",
+        "local states: healthy, degraded, shutting_down, unreachable",
+    ]
     return HealthResponse(
-        status="ok",
+        status=status,
         app=settings.app_name,
         environment=settings.app_env,
-        detail="service is running",
+        detail=detail,
+        runtime_state=runtime_state,
+        checked_at=datetime.now(UTC).isoformat(),
+        diagnostics=diagnostics,
     )
 
 

@@ -1,0 +1,87 @@
+{
+  "id": "backlog-189-access-prerequisites-filter-by-assessment-type",
+  "task_file": "codex/tasks/backlog-189-access-prerequisites-filter-by-assessment-type.json",
+  "task_type": "corrective_product_slice",
+  "title": "Filter access prerequisite checkboxes by assessment type: LAN-specific options must not appear on web/API scans",
+  "goal": "The mission preview step shows 'What access or prerequisites do you already have?' with six checkboxes. For an External Web scan, the following LAN-specific options appear incorrectly: 'No credentials available (Unauthenticated LAN lane)' and 'Intrusive LAN checks authorised (Intrusive LAN phase)'. These options are only meaningful for Internal LAN / AD assessments. Gate each prerequisite checkbox by the selected assessment tile(s): web-only tiles (external-web, api-security, ssl-tls, llm-ai-app) must only show web-relevant prerequisites (no credentials / credential info available / API key available). LAN/AD tiles (internal-lan, active-directory, full-internal) show the full set. In wizard.js, find the ACCESS_UNLOCKER_OPTIONS array and add an 'appliesTo' or 'tileKeys' filter field, then filter the rendered checkboxes based on selected tiles.",
+  "scope": "Live wizard audit 2026-05-01: External Web preview shows 'Unauthenticated LAN lane' and 'Intrusive LAN checks authorised' — both are LAN-specific concepts that confuse web scan operators. Screenshots in ui/test-results/wizard-complete-2026-05-01/external-web-s3-preview.png confirm the issue.",
+  "status": "queued",
+  "generated_by": "live-wizard-audit-2026-05-01",
+  "generation_reason": "Live audit 2026-05-01: LAN-specific access prerequisites ('Unauthenticated LAN lane', 'Intrusive LAN checks authorised') show on External Web preview — confusing for web scan operators.",
+  "source_context": {
+    "queue_index": 189,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_contextual_options",
+    "source_documents": [
+      "ui/assets/modules/wizard.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only filter the checkboxes by tile context. Do not restructure the access model or change which phases these options unlock.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "External Web preview does not show 'Unauthenticated LAN lane' or 'Intrusive LAN checks authorised' checkboxes.",
+    "Internal LAN and AD previews still show all six prerequisites including LAN-specific ones.",
+    "Filtering is additive — no existing prerequisite functionality removed.",
+    "No regression in wizard E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Backend run profile logic",
+    "Phase gating or approval gate",
+    "Access unlocker effect on run execution"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "External Web preview shows only web-relevant prerequisites.",
+      "LAN/AD preview shows all prerequisites including LAN-specific ones.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Restructuring access unlocker model",
+    "Backend execution changes",
+    "New prerequisite types"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,96 @@
+{
+  "id": "backlog-375-auth-discoverer-form-detection",
+  "task_file": "codex/tasks/backlog-375-auth-discoverer-form-detection.json",
+  "task_type": "service_layer",
+  "title": "Auth Discoverer: HTML Form Detection and Application Fingerprint",
+  "goal": "Implement a shared service that fetches a target's registration / login page, parses the HTML form structure (action URL, method, field names, hidden inputs), and emits a normalized application fingerprint suitable for use as a cache key and as input to the AI recipe builder (task #376).",
+  "scope": "Create api/app/services/auth_discoverer.py with two pure functions: fetch_auth_pages(base_url, scope_allowlist) and fingerprint_application(html_documents). Reuse existing scope check helpers. No AI calls in this task. Pure HTML parsing + heuristic stack detection.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Empirical test on 2026-05-15 showed cookie-tamper, stored-xss, file-upload, param-pollution probes silently no-op on testasp.vulnweb.com, demo.testfire.net, juice-shop.herokuapp.com because they hardcoded Gruyere's saveprofile?action=new pattern. Form detection is the first universal building block; existing xss_proof/runner.py:_try_register_with_ai is a working reference implementation that can be extracted and generalized.",
+  "source_context": {
+    "queue_index": 325,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_2_universal_auth",
+    "key_files": [
+      "api/app/services/http_fetch_backend.py",
+      "api/app/services/runs.py",
+      "workers/runners/xss_proof/runner.py",
+      "workers/runners/target_intel/runner.py",
+      "docs/AGENT_SYSTEM_MAP.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Form detection + fingerprint only. No AI calls in this task. No cache logic in this task (that is #377). No probe migration in this task (that is #378).",
+    "scope_allowlist_enforced": "All HTTP requests must respect the passed scope_allowlist via web_target_value_is_allowed_with_path."
+  },
+  "success_criteria": [
+    "auth_discoverer.fetch_auth_pages probes common register/login paths and returns observed HTML documents for those that respond 200.",
+    "auth_discoverer.fingerprint_application parses HTML forms and returns a normalized dict: { stack_hints, register_form: { action, method, fields }, login_form: { action, method, fields }, session_cookie_hint }.",
+    "Fingerprint is deterministic for identical inputs (same HTML => same fingerprint).",
+    "Fingerprint correctly distinguishes Gruyere / juice-shop / demo.testfire.net / testasp.vulnweb.com on test fixtures.",
+    "Unit tests cover at least 4 distinct stacks with fixture HTML."
+  ],
+  "likely_touched_files": [
+    "api/app/services/auth_discoverer.py",
+    "api/tests/test_auth_discoverer.py",
+    "api/tests/fixtures/auth_pages/*.html",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "api/app/services/assessment_loop.py",
+    "api/app/services/memory_backend.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_auth_discoverer.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/auth_discoverer.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Fingerprint output is JSON-serializable, under 2 KB per target.",
+      "Module performs no live HTTP during unit tests (uses fixtures).",
+      "No Gruyere-specific identifiers hardcoded in production code (only in test fixtures)."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-374 checkpoint must show go for Phase 2."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-376 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "AI-driven recipe building (task #376).",
+    "Pattern cache storage (task #377).",
+    "Probe migration (task #378).",
+    "OAuth, SAML, or any non-form auth flow."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

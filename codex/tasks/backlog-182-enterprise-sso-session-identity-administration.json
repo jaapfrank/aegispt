@@ -1,0 +1,108 @@
+{
+  "id": "backlog-182-enterprise-sso-session-identity-administration",
+  "task_file": "codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json",
+  "task_type": "enterprise_readiness_slice",
+  "title": "Enterprise SSO, session, and identity administration",
+  "goal": "Move AegisPT from local actor/API-key basics toward enterprise identity controls that operators can understand, configure, and audit.",
+  "scope": "Design and implement the first enterprise identity administration slice: OIDC/SAML configuration model, disabled-by-default Settings surface, session expiry/logout behavior, user and role listing for local mode, clear unauthenticated/degraded states, and audit events for login/logout/key creation/revocation. This does not replace backlog-120 or backlog-127; it builds on them by making enterprise SSO/session management a concrete governed task.",
+  "status": "queued",
+  "generated_by": "enterprise-readiness-audit-2026-05-01",
+  "generation_reason": "Enterprise operators need real identity administration. Existing tasks cover API keys, ROE, and RBAC, while docs explicitly note SSO and tenant membership are still gaps. A topbar editable actor/local identity model is not enough for enterprise readiness.",
+  "source_context": {
+    "queue_index": 158,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-120-authentication-and-roe-gate.json",
+      "codex/tasks/backlog-127-rbac.json",
+      "codex/tasks/backlog-170-actor-input-identity-display.json",
+      "docs/mssp_multitenant_readiness.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "enterprise_identity_and_session_control",
+    "source_documents": [
+      "api/app/auth/",
+      "api/app/models/",
+      "api/app/routers/auth.py",
+      "ui/assets/modules/settings.js",
+      "docs/mssp_multitenant_readiness.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "First enterprise identity slice only. Do not remove local development fallback until explicitly migrated. Do not weaken ROE, tenant isolation, or API-key revocation.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Settings exposes enterprise identity status with clear disabled/configured/error states.",
+    "Local mode still works, but product UI no longer implies unrestricted actor spoofing is enterprise authentication.",
+    "OIDC/SAML configuration is persisted safely without exposing secrets.",
+    "Session timeout/logout behavior is explicit and tested.",
+    "Login/logout/key/admin identity events are audit-logged.",
+    "Docs state what is supported now and what remains future work for full SSO/SCIM."
+  ],
+  "likely_touched_files": [
+    "api/app/auth/",
+    "api/app/routers/auth.py",
+    "api/app/models/",
+    "api/tests/test_auth.py",
+    "ui/assets/modules/settings.js",
+    "ui/assets/app.js",
+    "docs/host_service_install.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "ChatGPT OAuth provider semantics",
+    "scope enforcement",
+    "secret materialization bypass",
+    "finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_auth.py -q",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Operators can see whether enterprise SSO is disabled, configured, or failing.",
+      "Logout/session timeout behavior is visible and does not corrupt active run state.",
+      "Identity admin actions are auditable."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full SCIM provisioning",
+    "Hosted SaaS billing",
+    "Cross-tenant portal",
+    "Removing local development authentication fallback"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

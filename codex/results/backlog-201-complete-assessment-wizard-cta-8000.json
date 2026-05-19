@@ -1,0 +1,25 @@
+{
+  "active_acceptance_passed": true,
+  "active_criteria": {
+    "cta_click_opens_wizard": true,
+    "cta_hidden_after_click_destination_wizard": true,
+    "cta_hidden_on_wizard_screen": true,
+    "cta_hidden_when_engagement_has_runs": true,
+    "cta_hidden_with_queued_run": true,
+    "cta_hidden_with_running_run": true,
+    "cta_visible_on_dashboard_with_no_engagements": true,
+    "current_app_asset_version_served": true
+  },
+  "base_url": "http://127.0.0.1:8000",
+  "dashboard_cta_text": "Complete Assessment Wizard",
+  "observed_bad_responses": [],
+  "observed_console_messages": [],
+  "screenshots": [
+    "codex/results/backlog-201-cta-wizard-hidden-8000.png",
+    "codex/results/backlog-201-cta-dashboard-visible-8000.png"
+  ],
+  "viewport": {
+    "height": 900,
+    "width": 1280
+  }
+}

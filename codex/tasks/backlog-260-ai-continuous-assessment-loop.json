@@ -1,0 +1,123 @@
+{
+  "id": "backlog-260-ai-continuous-assessment-loop",
+  "task_file": "codex/tasks/backlog-260-ai-continuous-assessment-loop.json",
+  "task_type": "product_slice",
+  "title": "AI Continuous Assessment Loop: AI drives the entire assessment as an iterative observe-decide-execute cycle until maximum depth reached or stuck \u2014 replaces fixed phases",
+  "goal": "Replace the fixed Phase 1/Phase 2/Phase 3 assessment model with a continuous AI-driven loop that works for ANY target type (website, internal network, external IP, API, domain) and drills as deep as the target allows. The loop: OBSERVE (build current state from all collected evidence) \u2192 DECIDE (AI picks next highest-value action) \u2192 [APPROVE if needed] \u2192 EXECUTE (run chosen action) \u2192 OBSERVE (update state with new findings) \u2192 repeat until stuck or max depth. Architecture: (1) AssessmentState: at any point the AI sees everything collected so far: { inventory: [hosts, services, endpoints], findings: [vulns found], tested_paths: [what has been run], open_threads: [leads not yet followed], target_type: auto-detected }. (2) AI Decision Engine: given AssessmentState, AI produces NextAction: { tool: <any registered runner>, target: <specific host/endpoint/service>, params: { specific, targeted }, tier: passive|active|intrusive, reasoning: 'Found login form on /admin \u2014 next: test default credentials and auth bypass', confidence: 0.85, follow_up_if_successful: 'if credentials work, test admin panel for IDOR and upload vectors' }. (3) Approval gate (tier-based): passive actions auto-proceed; active actions require one wave approval; intrusive actions require per-action explicit approval. Operator sees: 'AI wants to run: auth-flow against /admin (login form found). Reason: test default credentials, auth bypass, session fixation. Tier: active. Approve?' (4) Execution: run the action, capture output, extract new signals into AssessmentState. (5) Loop decision: if new attack surface found \u2192 continue loop. If no new findings in last 2 iterations \u2192 mark as 'maximum depth reached for current access level'. If intrusive approved \u2192 new deeper loop starts. (6) Works universally: for internal network: nmap \u2192 finds host \u2192 fingerprints service \u2192 finds SSH \u2192 ssh-brute \u2192 if success \u2192 priv-esc-linux \u2192 finds SUID \u2192 [needs intrusive approval] \u2192 exploit SUID \u2192 root. For website: httpx \u2192 finds login form \u2192 tests auth bypass \u2192 finds upload \u2192 tests XSS upload \u2192 confirms stored XSS \u2192 [active approval] \u2192 CSRF chain \u2192 admin cookie \u2192 admin panel \u2192 file write \u2192 [intrusive approval] \u2192 RCE. The AI follows the attack path, not a script. (7) Depth model: passive (tier 0, auto), active (tier 1, one approval), credential (tier 2, explicit), intrusive (tier 3, per-action), exploitation (tier 4, highest gate). (8) Stuck detection: if 3 consecutive iterations produce no new signals or findings, the loop stops and shows: 'Maximum depth reached at tier N. Next tier requires: [specific approval/credentials/tool].' IMPLEMENTATION: Build on existing ai_agent.py (proposal generation) + backlog-248 (AI shell) + backlog-256 (signals) + backlog-258 (runner metadata). Replace assessment_chain.py fixed phases with this loop for AssessmentMode=AI_DRIVEN. Fixed phases remain available as the manual/deterministic option.",
+  "scope": "User vision: AI checks target, picks next step, finds things, executes, goes deeper, repeats until stuck at maximum depth. Works for internal network, website, external IP. This is fundamentally different from fixed phases \u2014 AI is the orchestrator. AutoPenBench's 64% assisted agent success validates this model. backlog-248 (AI Free Bash) is the execution engine. This task is the loop controller that makes the whole thing work.",
+  "status": "queued",
+  "generated_by": "architectural-vision-2026-05-06",
+  "generation_reason": "User: AI should drive the assessment \u2014 observe, decide, execute, repeat until deepest possible state reached. Works for any target type. This is the core intelligence layer.",
+  "source_context": {
+    "queue_index": 219,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-248-ai-free-bash-execution-runner.json",
+      "codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json",
+      "codex/tasks/backlog-258-runner-capability-metadata.json",
+      "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json",
+      "codex/tasks/backlog-233-ai-cross-task-working-memory.json",
+      "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-248 (AI Free Bash) + backlog-256 (SignalProfile) + backlog-258 (RunnerMetadata) must be completed. backlog-205 (AI Proposals Inbox) must be working. This task supersedes the planning layer of backlog-255, backlog-257, backlog-259 \u2014 those describe data foundations that this task uses, but the loop replaces the fixed-phase execution model.",
+    "broader_theme": "ai_driven_continuous_assessment",
+    "source_documents": [
+      "api/app/services/ai_agent.py",
+      "api/app/services/assessment_chain.py",
+      "workers/orchestration/tasks.py",
+      "workers/runners/ai_shell/runner.py",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Loop runs within approved scope only. Each tier escalation requires explicit approval. Stuck detection stops the loop gracefully. Fixed-phase assessment chains remain available as the manual option.",
+    "safety": "Tier-based approval gates are non-negotiable: passive auto-proceeds; active requires wave approval; intrusive/exploitation require per-action explicit approval with ROE confirmation. Kill switch stops loop immediately. Maximum 20 loop iterations per engagement to prevent runaway.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Assessment loop starts from any target type (URL, IP, CIDR, domain) without pre-selecting phases.",
+    "AI produces NextAction with specific tool, target, params, reasoning, and tier for each iteration.",
+    "Passive actions auto-proceed within loop.",
+    "Active actions show operator approval request: exact tool, target, reasoning visible.",
+    "Intrusive actions require explicit per-action approval.",
+    "Loop continues automatically after passive/approved actions.",
+    "Stuck detection stops loop after 3 iterations with no new signals.",
+    "Mission Control shows loop progress: 'Iteration 7: found login form \u2192 testing auth bypass \u2192 found weak credentials \u2192 testing privilege escalation'.",
+    "For Gruyere: loop progresses from reflected XSS \u2192 file upload XSS \u2192 stored XSS \u2192 CSRF chain \u2192 admin access \u2192 path traversal \u2192 RCE without operator having to manually select each tool.",
+    "For LAN: loop progresses from nmap \u2192 service fingerprint \u2192 ssh brute \u2192 credential \u2192 priv-esc \u2192 root without fixed phases.",
+    "Maximum 20 iterations enforced.",
+    "Fixed-phase assessment still works as alternative mode.",
+    "No regression in existing assessment chain tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "api/app/services/ai_agent.py",
+    "api/app/services/assessment_chain.py",
+    "workers/orchestration/tasks.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/wizard.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Fixed-phase assessment chains (keep as manual alternative)",
+    "Scope enforcement",
+    "ROE gate",
+    "Kill switch"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_ai_loop_chain_acceptance.py -v",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Loop starts from URL target and reaches at least 3 iterations without operator picking tools.",
+      "Stuck detection works after 3 no-result iterations.",
+      "Passive actions auto-proceed.",
+      "Active tier approval visible in Mission Control.",
+      "Chain acceptance test (test_ai_loop_chain_acceptance.py) passes: loop reaches at least 4 connected findings on any lab target (WebGoat, DVWA, or custom Docker vulnerable app).",
+      "Chain test is target-agnostic \u2014 does not depend on Gruyere specifically.",
+      "LAN target reaches service discovery \u2192 credential testing in at least 2 loop iterations.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-248, backlog-256, backlog-258 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Fully autonomous exploitation without approval gates",
+    "Removing fixed-phase option",
+    "Infinite loops without stuck detection",
+    "Actions outside engagement scope"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

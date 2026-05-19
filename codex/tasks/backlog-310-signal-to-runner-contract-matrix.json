@@ -1,0 +1,87 @@
+{
+  "id": "backlog-310-signal-to-runner-contract-matrix",
+  "task_file": "codex/tasks/backlog-310-signal-to-runner-contract-matrix.json",
+  "task_type": "runner_governance",
+  "title": "Signal-to-Runner Contract Matrix",
+  "goal": "Require every adaptive runner to declare trigger signals, prerequisites, blockers, risk tier, cost, expected evidence, approval needs, report mappings, and follow-up candidates in a machine-readable contract before the AI planner can select it.",
+  "scope": "Runner metadata, planner safety, and adaptive execution contracts.",
+  "status": "queued",
+  "generated_by": "operator-product-strategy",
+  "generation_reason": "AI cannot choose intelligently unless runners explain when they are useful, what evidence they need, and what proof they are expected to produce.",
+  "source_context": {
+    "queue_index": 262,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-306",
+    "broader_theme": "evidence_driven_ai_assessment",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Contract metadata must strengthen runner selection and must not loosen approvals, scope, ROE, credential handling, or kill-switch behavior.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "A contract schema exists and validates runner trigger signals, prerequisites, blockers, risk tier, cost, expected evidence, approval needs, and report mapping.",
+    "Planner selection refuses adaptive runner use when required contract fields are missing.",
+    "Tests prove at least one RUN, SKIP, WAIT, and APPROVAL decision from contract data."
+  ],
+  "likely_touched_files": [
+    "api/app/services/runner_contracts.py",
+    "api/app/services/runner_registry.py",
+    "api/app/services/ai_action_selector.py",
+    "api/tests/test_runner_contracts.py"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_runner_contracts.py api/tests/test_ai_action_selector.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Missing contract data blocks adaptive selection with a clear error.",
+      "Contract-derived WAIT and APPROVAL states include blocker and approval reason IDs.",
+      "Existing manual/fixed-chain runner dispatch still works."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Rewriting runner implementations",
+    "Adding new detection capability",
+    "Skipping approval gates"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

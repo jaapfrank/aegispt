@@ -1,0 +1,178 @@
+{
+  "id": "backlog-113-post-mockup-ui-closure",
+  "task_file": "codex/tasks/backlog-113-post-mockup-ui-closure.json",
+  "task_type": "backlog_slice",
+  "title": "Post-Mockup UI Closure - Mission Control First Viewport, Readability, and Final Parity",
+  "goal": "Close the remaining visual and operator-readability gap between the live AegisPT UI and the root mockups after the completed backlog-110, backlog-111, and backlog-112 slices, using a hard mockup design-language parity gate rather than subjective polish.",
+  "scope": "Use codex/results/system-review-and-ui-plan-20260425.md, codex/results/mockup-design-language-parity-gate-20260425.md, wizard_mockup.html, ui_mockup.html, and UI_REDESIGN_SPEC.md as the planning inputs. This is a focused UI closure slice only: first extract the root mockup design tokens and component inventory, then make Mission Control show the operational 3-column run view above the fold, make selected-task stdout/latest-output unmistakably readable, repair AI Signal degraded/error states, tighten Findings empty/drawer/filter behavior, and strengthen Surface Map's map-canvas truth. Preserve existing backend contracts and deterministic runtime behavior.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "A planning-only system review on 2026-04-25 found that the completed mockup-alignment work moved the UI in the right direction but still only scores 6.7/10 against wizard_mockup.html and ui_mockup.html. The user approved moving this UI closure directly after the installation package and asked for a stricter way to make the design language match the mockups exactly. The largest live gaps are Mission Control first-viewport priority, readable live task output, AI Signal contrast/error treatment, Findings empty/drawer behavior, Surface Map visual truth, and inconsistent old-vs-new component language.",
+  "source_context": {
+    "queue_index": 86,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/system-review-and-ui-plan-20260425.md",
+      "codex/results/mockup-design-language-parity-gate-20260425.md",
+      "wizard_mockup.html",
+      "ui_mockup.html",
+      "UI_REDESIGN_SPEC.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "post_mockup_ui_quality_closure",
+    "source_documents": [
+      "codex/results/system-review-and-ui-plan-20260425.md",
+      "codex/results/mockup-design-language-parity-gate-20260425.md",
+      "wizard_mockup.html",
+      "ui_mockup.html",
+      "UI_REDESIGN_SPEC.md",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/modules/findings.js",
+      "ui/assets/modules/reports.js",
+      "ui/assets/modules/wizard.js",
+      "ui/assets/styles.css",
+      "ui/index.html"
+    ],
+    "visual_evidence": [
+      "codex/results/system-review-20260425/wizard_mockup.png",
+      "codex/results/system-review-20260425/ui_mockup.png",
+      "codex/results/system-review-20260425/actual-01-intake.png",
+      "codex/results/system-review-20260425/actual-02-mission-control.png",
+      "codex/results/system-review-20260425/actual-03-findings.png",
+      "codex/results/system-review-20260425/actual-04-reports.png",
+      "codex/results/system-review-20260425/actual-05-surface-map.png"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "UI closure only. Do not add new product features, new backend endpoints, new schemas, new runner behavior, or runtime self-modification. Keep changes additive and preserve existing test IDs on data-bearing components.",
+    "runtime_mutation": false,
+    "mockup_is_authority": true,
+    "design_language_gate_required": true,
+    "visual_parity_not_optional": "The task may not close on green tests alone. It must include before/after screenshots, a token/component parity checklist, and a final visual-language score.",
+    "mockup_data_boundary": "Dynamic product data may differ from the static mockups, but shell geometry, component language, spacing, color/radius treatment, and first-viewport hierarchy must match the mockups unless a documented safety/product-truth exception is recorded."
+  },
+  "success_criteria": [
+    "A token parity checklist records the live values for topbar height, sidebar width, content padding, background/surface/border/text/accent colors, radii, shadows, and core type sizes against wizard_mockup.html and ui_mockup.html.",
+    "A component parity checklist covers topbar, sidebar, page headers, cards, chips, badges, buttons, filters, right drawers, report cards, task rows, terminal/output blocks, empty states, and map/canvas panels.",
+    "The post-implementation visual-language score is at least 9.0/10 overall, or any lower score is explicitly accepted by the user before closure.",
+    "No touched first-viewport keeps old large explanatory panels, old decorative strips, raw backend exception text, or compatibility-route chrome as primary visual language.",
+    "Mission Control first viewport at 1440x900 shows scan map, task list, selected-task output/latest command output, and AI/context without the setup checklist dominating the screen.",
+    "Selected or running task output is readable on the main Mission Control screen without requiring Explorer, Evidence Replay, or another route.",
+    "AI Signal provider-error, disabled, empty, and review-needed states use high-contrast compact operator copy and hide raw backend URLs or exception text behind disclosure.",
+    "Findings filters are collapsed by default and zero-finding runs do not force a large empty right drawer.",
+    "Findings with real findings keep the list-plus-drawer pattern from ui_mockup.html with readable row density, severity dots, badges, and detail actions.",
+    "Surface Map either renders a useful readable map visualization from real data or falls back to a compact truthful inventory summary; it must not show a clipped decorative strip.",
+    "Reports remains at least as strong as the current mockup-aligned card-grid/run-strip baseline.",
+    "The live UI score in the follow-up review reaches at least 8.0/10 against wizard_mockup.html and ui_mockup.html.",
+    "No backend, worker, migration, finding schema, pack lifecycle, approval flow, deployment flow, or runtime binding changes."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/findings.js",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/shared.js",
+    "ui/assets/styles.css",
+    "ui/index.html",
+    "ui/tests/test_operator_console_e2e.py",
+    "codex/results/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "pack registry",
+    "pack validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "visual_checks": [
+      "Capture fresh desktop screenshots for intake, Mission Control, Findings, Reports, and Surface Map.",
+      "Capture fresh mobile/narrow screenshots for the touched screens.",
+      "Compare against wizard_mockup.html and ui_mockup.html and record a UI score in codex/results/.",
+      "Capture root mockup screenshots at 1440x900 before implementation.",
+      "Capture live before/after screenshots at 1440x900, 1280x800, and 390x844 for touched screens.",
+      "Record a token/component parity checklist in codex/results/.",
+      "Record the final per-screen and overall UI score in codex/results/."
+    ],
+    "acceptance_criteria": [
+      "Mission Control no longer opens with setup checklist as the dominant first-viewport element when setup is mostly complete.",
+      "Task output/latest command output is visible and readable in Mission Control.",
+      "AI Signal error states are readable and compact.",
+      "Findings empty state and drawer behavior are calm and mockup-consistent.",
+      "Surface Map visual region is useful or explicitly summarized, not decorative/clipped.",
+      "Full Playwright suite remains green.",
+      "Final visual-language score is at least 9.0/10 unless explicitly accepted lower by the user.",
+      "Design-language parity is judged from screenshots and token/component checklist, not only from passing functional tests.",
+      "All documented deviations from the root mockups are product-truth or safety-truth exceptions, not unfinished polish."
+    ],
+    "required_artifacts": [
+      "codex/results/<date>-mockup-parity-before-after-screenshots/",
+      "codex/results/<date>-mockup-token-component-parity.md",
+      "codex/results/<date>-mockup-final-ui-score.md"
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Installation Package (backlog-81) is either complete or the user explicitly reprioritizes UI closure ahead of it.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The visual review artifact codex/results/system-review-and-ui-plan-20260425.md remains available."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the UI closure implementation and final UI score.",
+      "Update CURRENT_STATE.md with the new UI baseline and any residual UI risks.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if promotion is not appropriate."
+    ]
+  },
+  "out_of_scope": [
+    "New dashboard product features",
+    "Cinema Mode",
+    "Risk Molecule",
+    "Bulk delete",
+    "Backend report drafting changes",
+    "New runtime execution lanes",
+    "New pack lifecycle behavior"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted",
+  "design_language_gate": {
+    "authority": [
+      "wizard_mockup.html controls intake, step treatment, tile language, chips, card tone, and general product calmness.",
+      "ui_mockup.html controls the app-wide shell, topbar/sidebar, Mission Control, Findings, Reports, and screen layouts.",
+      "UI_REDESIGN_SPEC.md supports the implementation, but the root mockups win for this closure slice when they conflict with older UI language."
+    ],
+    "parity_target": "Design-language parity, not static sample-data parity.",
+    "minimum_score": "9.0/10 overall unless the user explicitly accepts a lower score.",
+    "must_record": [
+      "before screenshots",
+      "after screenshots",
+      "token parity checklist",
+      "component parity checklist",
+      "per-screen score",
+      "overall score",
+      "documented deviations"
+    ]
+  }
+}

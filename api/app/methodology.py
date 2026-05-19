@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Final
 
 WSTG_STABLE_VERSION: Final[str] = "v4.2"
@@ -68,8 +69,54 @@ TOOL_WSTG_AREAS: Final[dict[str, tuple[str, ...]]] = {
     "httpx": ("Information Gathering",),
     "nmap": ("Information Gathering", "Configuration and Deployment Management Testing"),
     "nuclei": ("Configuration and Deployment Management Testing", "Input Validation Testing"),
-    "ffuf": ("Information Gathering", "Configuration and Deployment Management Testing", "API Testing"),
-    "feroxbuster": ("Information Gathering", "Configuration and Deployment Management Testing", "API Testing"),
+    "content-discovery": (
+        "Information Gathering",
+        "Configuration and Deployment Management Testing",
+        "API Testing",
+    ),
+    "ffuf": (
+        "Information Gathering",
+        "Configuration and Deployment Management Testing",
+        "API Testing",
+    ),
+    "feroxbuster": (
+        "Information Gathering",
+        "Configuration and Deployment Management Testing",
+        "API Testing",
+    ),
+    "nikto": ("Configuration and Deployment Management Testing", "Information Gathering"),
+    "sqlmap": ("Input Validation Testing",),
+    "xxe-probe": ("Input Validation Testing",),
+    "jwt-probe": ("Authentication Testing", "Session Management Testing"),
+    "crypto-audit": (
+        "Weak Cryptography Testing",
+        "Configuration and Deployment Management Testing",
+    ),
+    "auth-flow": ("Authentication Testing",),
+    "social-campaign": ("Identity Management Testing", "Authentication Testing"),
+    "leak-check": ("Identity Management Testing", "Authentication Testing"),
+    "oauth-probe": ("Authentication Testing", "Session Management Testing"),
+    "session-security": ("Session Management Testing", "Authentication Testing"),
+    "idor-bac": ("Authorization Testing", "API Testing"),
+    "client-state": ("Authorization Testing", "Business Logic Testing"),
+    "headers-security": ("Configuration and Deployment Management Testing", "Client-side Testing"),
+    "graphql-probe": ("API Testing", "Input Validation Testing", "Authorization Testing"),
+    "ssti-probe": ("Input Validation Testing",),
+    "http-smuggling": (
+        "Input Validation Testing",
+        "Configuration and Deployment Management Testing",
+    ),
+    "waf-detect": ("Configuration and Deployment Management Testing", "Information Gathering"),
+    "logging-probe": ("Error Handling", "Configuration and Deployment Management Testing"),
+    "ssh-brute": ("Authentication Testing",),
+    "c2-ingest": ("Authorization Testing", "Information Gathering"),
+    "malware-sim": ("Configuration and Deployment Management Testing",),
+    "priv-esc-linux": ("Authorization Testing", "Configuration and Deployment Management Testing"),
+    "vuln-components": ("Configuration and Deployment Management Testing", "Information Gathering"),
+    "xss-extended": ("Input Validation Testing", "Client-side Testing", "API Testing"),
+    "ssrf-probe": ("Input Validation Testing", "API Testing"),
+    "deserialization-probe": ("Input Validation Testing",),
+    "external-osint": ("Information Gathering",),
     "zap": (
         "Information Gathering",
         "Configuration and Deployment Management Testing",
@@ -104,11 +151,47 @@ DEFAULT_CONTROL_FAMILY_BY_TOOL: Final[dict[str, str]] = {
     "httpx": "information_gathering",
     "nmap": "information_gathering",
     "nuclei": "configuration",
+    "content-discovery": "configuration",
     "ffuf": "configuration",
     "feroxbuster": "configuration",
+    "nikto": "configuration",
+    "sqlmap": "input_validation",
+    "xxe-probe": "input_validation",
+    "jwt-probe": "authentication",
+    "crypto-audit": "cryptography",
+    "auth-flow": "authentication",
+    "social-campaign": "identity_management",
+    "leak-check": "identity_management",
+    "oauth-probe": "authentication",
+    "session-security": "session_management",
+    "idor-bac": "business_logic",
+    "client-state": "business_logic",
+    "headers-security": "configuration",
+    "graphql-probe": "api_security",
+    "ssti-probe": "input_validation",
+    "http-smuggling": "input_validation",
+    "waf-detect": "configuration",
+    "logging-probe": "error_handling",
+    "ssh-brute": "authentication",
+    "c2-ingest": "authorization",
+    "malware-sim": "configuration",
+    "priv-esc-linux": "authorization",
+    "vuln-components": "configuration",
+    "xss-extended": "input_validation",
+    "ssrf-probe": "input_validation",
+    "deserialization-probe": "input_validation",
+    "external-osint": "information_gathering",
     "zap": "configuration",
     "semgrep": "secure_code_review",
 }
+
+
+NON_ALNUM_PATTERN: Final[re.Pattern[str]] = re.compile(r"[^a-z0-9]+")
+
+
+def _normalize_match_text(value: str) -> str:
+    return NON_ALNUM_PATTERN.sub(" ", value.strip().lower()).strip()
+
 
 METHODOLOGY_RULES: Final[tuple[dict[str, str | tuple[str, ...]], ...]] = (
     {
@@ -172,27 +255,47 @@ METHODOLOGY_RULES: Final[tuple[dict[str, str | tuple[str, ...]], ...]] = (
         "wstg_id": "WSTG-SESS-05",
     },
     {
-        "terms": ("session timeout",),
+        "terms": ("session timeout", "session not invalidated", "logout replay"),
         "control_family": "session_management",
         "wstg_id": "WSTG-SESS-07",
     },
     {
-        "terms": ("httponly", "secure cookie", "samesite", "cookie attribute"),
+        "terms": (
+            "httponly",
+            "secure cookie",
+            "samesite",
+            "cookie attribute",
+            "session token entropy",
+            "session token in url",
+        ),
         "control_family": "session_management",
         "wstg_id": "WSTG-SESS-02",
     },
     {
-        "terms": ("dom-based cross site scripting", "dom xss"),
+        "terms": (
+            "dom-based cross site scripting",
+            "cross site scripting dom based",
+            "dom xss",
+        ),
         "control_family": "client_security",
         "wstg_id": "WSTG-CLNT-01",
     },
     {
-        "terms": ("stored cross site scripting", "stored xss"),
+        "terms": (
+            "stored cross site scripting",
+            "cross site scripting stored",
+            "stored xss",
+        ),
         "control_family": "input_validation",
         "wstg_id": "WSTG-INPV-02",
     },
     {
-        "terms": ("reflected cross site scripting", "reflected xss", "xss"),
+        "terms": (
+            "reflected cross site scripting",
+            "cross site scripting reflected",
+            "reflected xss",
+            "xss",
+        ),
         "control_family": "input_validation",
         "wstg_id": "WSTG-INPV-01",
     },
@@ -262,7 +365,12 @@ METHODOLOGY_RULES: Final[tuple[dict[str, str | tuple[str, ...]], ...]] = (
         "wstg_id": "WSTG-CRYP-04",
     },
     {
-        "terms": ("workflow bypass", "business logic", "process timing", "circumvention of work flows"),
+        "terms": (
+            "workflow bypass",
+            "business logic",
+            "process timing",
+            "circumvention of work flows",
+        ),
         "control_family": "business_logic",
         "wstg_id": "WSTG-BUSL-06",
     },
@@ -314,7 +422,9 @@ def default_nist_phase_for_run_class(run_class: str | None) -> str:
 
 def operator_workflow_stage_for_run_class(run_class: str | None) -> str:
     normalized = (run_class or "").strip().lower()
-    return RUN_CLASS_TO_OPERATOR_STAGE.get(normalized, OPERATOR_WORKFLOW_STAGES["analysis_validation"])
+    return RUN_CLASS_TO_OPERATOR_STAGE.get(
+        normalized, OPERATOR_WORKFLOW_STAGES["analysis_validation"]
+    )
 
 
 def wstg_area_for_identifier(wstg_id: str | None) -> str | None:
@@ -392,7 +502,9 @@ def derive_finding_methodology(
     run_class: str | None,
 ) -> dict[str, object]:
     normalized_tool = (tool or "").strip().lower()
-    text = " ".join(part.strip().lower() for part in (title, summary or "") if part and part.strip())
+    text = _normalize_match_text(
+        " ".join(part.strip() for part in (title, summary or "") if part and part.strip())
+    )
 
     control_family = DEFAULT_CONTROL_FAMILY_BY_TOOL.get(normalized_tool)
     wstg_id: str | None = None
@@ -402,7 +514,7 @@ def derive_finding_methodology(
         terms = rule["terms"]
         if not isinstance(terms, tuple):
             continue
-        if any(term in text for term in terms):
+        if any(_normalize_match_text(term) in text for term in terms):
             rule_control_family = rule.get("control_family")
             rule_wstg_id = rule.get("wstg_id")
             rule_asvs_reference = rule.get("asvs_reference")
@@ -430,8 +542,35 @@ def derive_finding_methodology(
             "httpx": "reconnaissance",
             "nmap": "reconnaissance",
             "nuclei": "template-validation",
+            "content-discovery": "content-discovery",
             "ffuf": "content-discovery",
             "feroxbuster": "content-discovery",
+            "nikto": "web-configuration",
+            "sqlmap": "sqli-confirmation",
+            "xxe-probe": "xxe-validation",
+            "jwt-probe": "jwt-validation",
+            "crypto-audit": "crypto-audit-validation",
+            "auth-flow": "auth-flow-validation",
+            "social-campaign": "social-engineering-campaign-review",
+            "leak-check": "credential-leak-metadata-review",
+            "oauth-probe": "oauth-oidc-validation",
+            "idor-bac": "idor-bac-validation",
+            "client-state": "client-state-validation",
+            "headers-security": "headers-security-validation",
+            "graphql-probe": "graphql-probe-validation",
+            "ssti-probe": "ssti-probe-validation",
+            "http-smuggling": "http-smuggling-validation",
+            "waf-detect": "waf-detection-review",
+            "logging-probe": "logging-probe-validation",
+            "ssh-brute": "ssh-brute-validation",
+            "c2-ingest": "c2-read-only-evidence-ingest",
+            "malware-sim": "malware-simulation-telemetry-review",
+            "priv-esc-linux": "priv-esc-linux-validation",
+            "vuln-components": "vulnerable-components",
+            "xss-extended": "xss-extended-validation",
+            "ssrf-probe": "ssrf-validation",
+            "deserialization-probe": "deserialization-validation",
+            "external-osint": "passive-osint",
             "zap": "dynamic-analysis",
             "semgrep": "static-analysis",
         }.get(normalized_tool, normalized_tool)

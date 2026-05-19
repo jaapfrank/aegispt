@@ -1,0 +1,108 @@
+{
+  "id": "backlog-28-continuous-trend-delta-foundation",
+  "task_file": "codex/tasks/backlog-28-continuous-trend-delta-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Continuous Trend Delta Foundation",
+  "goal": "Turn scheduled validation history into useful trend, drift, and delta review without adding a second scheduler.",
+  "scope": "Build the first trend and delta view on top of existing scheduled runs, run history, findings, inventory, and reports. Keep scheduling execution on the existing approval-aware task pipeline.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found trend and drift output was missing after scheduled-run foundation.",
+  "source_context": {
+    "queue_index": 28,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/continuous_mode.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "continuous_mode",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/continuous_mode.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add trend/delta review only. Do not add arbitrary cron editing, background recurring workers, or portfolio billing features.",
+    "runtime_mutation": false,
+    "notes": [
+      "Trend claims must be backed by comparable runs.",
+      "Missing or incomparable baselines must be stated honestly."
+    ]
+  },
+  "success_criteria": [
+    "Operators can compare scheduled validation runs for finding, inventory, or report deltas.",
+    "Trend summaries distinguish new, resolved, persistent, and changed findings where evidence supports it.",
+    "Unsupported or incomparable comparisons show truthful fallback copy.",
+    "API and/or browser tests cover comparable and non-comparable histories.",
+    "The existing scheduler and dispatch pipeline remain unchanged unless narrowly required."
+  ],
+  "likely_touched_files": [
+    "api/app/services/reports.py",
+    "api/app/routers/runs.py",
+    "ui/assets/modules/explorer-history.js",
+    "ui/assets/modules/reports.js",
+    "api/tests/test_reports.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/continuous_mode.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "api/app/schemas/findings.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Trend and delta output is based on comparable stored runs.",
+      "Fallbacks are explicit when comparison is not valid.",
+      "No second scheduler or runtime lane is introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Existing scheduled-run lineage fields are inspected."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with trend/delta changes and validation evidence.",
+      "Update CURRENT_STATE.md with the continuous trend baseline and remaining continuous-mode limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Arbitrary cron editor",
+    "Background recurring worker",
+    "Portfolio calendar view",
+    "Billing or MSSP features",
+    "Absolute risk-reduction claims"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

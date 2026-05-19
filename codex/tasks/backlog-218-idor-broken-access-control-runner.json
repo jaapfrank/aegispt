@@ -1,0 +1,95 @@
+{
+  "id": "backlog-218-idor-broken-access-control-runner",
+  "task_file": "codex/tasks/backlog-218-idor-broken-access-control-runner.json",
+  "task_type": "product_slice",
+  "title": "IDOR and broken access control runner: detect insecure direct object references and horizontal/vertical privilege escalation",
+  "goal": "WebGoat has dedicated idor and missingac modules. IDOR is OWASP A01:2021 (Broken Access Control \u2014 the #1 category). AegisPT's biz-logic-probe is very limited. Implement a dedicated idor-bac runner: (1) Object ID enumeration: for endpoints with numeric/sequential IDs in paths (/api/users/123, /orders/456, /files/789), substitute the authenticated user's ID with adjacent IDs (123\u00b11, \u00b15, \u00b110, random) and check if responses differ (access denied vs data returned). Finding: 'IDOR - Horizontal Privilege Escalation'. (2) Role parameter manipulation: identify endpoints with role or admin parameters in request body/query. Change role=user to role=admin, isAdmin=false to isAdmin=true. Finding: 'Broken Access Control - Privilege Escalation via Parameter'. (3) Method override: test if DELETE/PUT/PATCH is accessible when only GET is shown in UI (X-HTTP-Method-Override header bypass). (4) Path-based bypass: try /admin, /dashboard/admin, /.env, /api/admin/users without authentication. (5) UUID replacement: for UUID-based IDs, test with known UUIDs from previous responses (user A accessing user B's data). All tests use credentials from configured accounts. Active tier \u2014 requires authenticated access. Produces Critical/High findings for confirmed IDOR.",
+  "scope": "Gap analysis 2026-05-03: WebGoat idor and missingac modules. OWASP A01:2021 (Broken Access Control) is the #1 web vulnerability. AegisPT's biz-logic-probe runner exists but barely covers this. Burp Suite Pro + Autorize extension detects IDOR automatically by replaying requests with different session tokens.",
+  "status": "queued",
+  "generated_by": "benchmark-gap-analysis-2026-05-03",
+  "generation_reason": "OWASP #1 vulnerability (Broken Access Control/IDOR) is poorly covered \u2014 WebGoat has dedicated modules, Burp has Autorize extension, AegisPT has minimal coverage.",
+  "source_context": {
+    "queue_index": 174,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-65-business-logic-testing-runner.json",
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "broken_access_control_coverage",
+    "source_documents": [
+      "workers/orchestration/tasks.py",
+      "api/app/routers/runs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Test access control on in-scope endpoints only. Only use credentials provided in engagement configuration. Do not brute-force IDs beyond \u00b120 range.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "idor-bac runner identifies numeric ID endpoints automatically.",
+    "Tests ID substitution and detects successful unauthorized access.",
+    "Tests role/admin parameter manipulation.",
+    "Tests common admin path exposure.",
+    "Detects IDOR on local WebGoat instance.",
+    "Finding severity Critical for confirmed data access, High for potential.",
+    "Runner appears in Tool Library under Authentication/Authorization category.",
+    "No regression in existing runner tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing biz-logic-probe",
+    "Auth credential storage",
+    "Approval gates"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "idor-bac in supported tools list.",
+      "Detects IDOR on WebGoat.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Mass ID enumeration beyond \u00b120",
+    "Authenticated multi-user session replay without configured accounts"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

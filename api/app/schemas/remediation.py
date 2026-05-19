@@ -6,7 +6,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
 REMEDIATION_STATES = frozenset(
     {
         "not_started",
@@ -42,6 +41,7 @@ class FindingRemediationRead(BaseModel):
     state: str
     notes: str | None
     owner: str | None
+    ai_fix_suggestion: str | None = None
     created_by: str
     updated_by: str
     created_at: datetime
@@ -58,5 +58,23 @@ class FindingRetestRead(BaseModel):
     source_run_id: UUID
     status: str
     profile_name: str
+    queued_task_ids: list[UUID]
+    configuration_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class FindingMicroScanCreate(BaseModel):
+    notes: str | None = None
+
+
+class FindingMicroScanRead(BaseModel):
+    micro_scan_run_id: UUID
+    source_finding_id: UUID
+    source_run_id: UUID
+    validation_record_id: UUID
+    status: str
+    profile_name: str
+    validator_tool: str
+    validator_target_id: str
+    replay_recipe_sha256: str
     queued_task_ids: list[UUID]
     configuration_json: dict[str, Any] = Field(default_factory=dict)

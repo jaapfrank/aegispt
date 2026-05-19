@@ -1,0 +1,121 @@
+{
+  "id": "backlog-112-full-mockup-alignment",
+  "task_file": "codex/tasks/backlog-112-full-mockup-alignment.json",
+  "task_type": "backlog_slice",
+  "title": "Full UI Mockup Alignment \u2014 wizard_mockup intake language plus app-wide mockup parity",
+  "goal": "Make every screen of AegisPT visually align with the mockup system, treating wizard_mockup.html plus ui_mockup.html as the product-wide UI standard rather than as a screen-specific suggestion for only intake or Mission Control.",
+  "scope": "wizard_mockup.html is authoritative for the intake tone, step treatment, cards, chip language, spacing calmness, and overall product feel across the full UI touched by this slice; ui_mockup.html remains authoritative for the broader screen layouts. ui_mockup.html is the design authority. The mockup establishes a DESIGN SYSTEM that must be consistent across all screens: emoji icons on tiles and cards, capability tags in colored pills (passive=green, active=cyan, credential=amber, exploit=red), numbered selection badges on selected tiles, KEV badges in amber, chain badges in cyan, severity dots as colored circles, finding rows with dot+title+target+tool+badges+arrow. This design language must apply consistently everywhere \u2014 not just the intake tiles or Mission Control. Implement the following screen-by-screen changes: (1) FINDINGS: Replace the current split-panel layout (Finding Groups left + Finding Detail right) with the mockup design: a full-width findings list grouped by severity, where clicking a finding slides a detail drawer in from the right (420px wide). The drawer contains: severity badge, risk gauge SVG, methodology chain pills, threat intel badges, terminal evidence block, AutoFix diff block, action buttons. Filter bar: single '\u25bc Filters' button + 'Group by: Severity \u25be' selector. Finding rows: colored severity dot, title, target path, tool name, KEV badge, chain badge, arrow. No SLA queue visible by default on this screen. (2) REPORTS: Replace the current list+metadata split layout with the mockup card grid. Run context strip at top (run name, date, status badge, finding count, reports-ready count). Below: 2-column auto-fill card grid. Each card: report title, 'ready' badge, one-line description, three inline download buttons (\u2193MD \u2193HTML \u2193PDF). No separate metadata panel. (3) SIDEBAR: Match the mockup sidebar exactly: OPERATE (Intake, Mission Control, Attack Map), ANALYZE (Findings with red badge count, Reports, History), BUILD (Packs), Settings pinned at bottom. Remove COMPATIBILITY section from primary navigation \u2014 Evidence Replay and Explorer remain accessible via compatibility routes but not in the main nav group. (4) MISSION CONTROL: Match the mockup 3-column layout, but make it operationally readable instead of decorative: left column (scan map SVG full height), middle column (compact task list with shimmer, clean aligned cards, severity bars, and a selected-check panel that shows live terminal/stdout output or the latest captured command output for the active/selected task), right column (AI Signal panel dark but concise). Remove the 7-column phase timeline and the Supporting Context section. Replace prose-heavy guidance with compact labels, counts, and short status lines so the operator can see what is actually running, what just ran, and the latest command/output evidence without leaving Mission Control. (5) TOPBAR: Match the mockup topbar exactly: AegisPT logo mark + wordmark | engagement selector with arrow | active run status pill (autonomous badge or count) | notification bell icon | settings gear | user avatar with name. Remove any extra elements not in the mockup.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The user explicitly stated the mockup design is much better than the current implementation and the entire UI should match it. Visual comparison confirms: Findings still uses a split panel (not the drawer from the mockup), Reports uses a list+metadata layout (not the card grid), Mission Control has 10+ sections (not 3 columns), and the sidebar shows a COMPATIBILITY group that is absent in the mockup. ui_mockup.html is the explicit visual reference for all screens.",
+  "source_context": {
+    "queue_index": 84,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "wizard_mockup.html",
+      "ui_mockup.html",
+      "UI_REDESIGN_SPEC.md",
+      "LIVING_SYSTEM_EXPERIENCE.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_mockup_alignment",
+    "source_documents": [
+      "ui_mockup.html",
+      "ui/assets/modules/findings.js",
+      "ui/assets/modules/reports.js",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/app.js",
+      "ui/assets/styles.css"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Visual alignment with ui_mockup.html only. No new features, no new API calls, no new backend endpoints. All existing data-testid selectors on data components must be preserved. Playwright tests must be updated to match the new layouts.",
+    "runtime_mutation": false,
+    "mockup_is_authority": true
+  },
+  "success_criteria": [
+    "Design system is consistent: emoji icons, capability tags (passive/active/credential/exploit), selection badges, KEV/chain badges, severity dots all use the same colors and styles across every screen.",
+    "Findings screen matches ui_mockup.html Findings tab: full-width list + detail drawer slides in on click.",
+    "Finding rows show severity dot, title, target, badges (KEV, chain), arrow \u2014 matching mockup exactly.",
+    "Reports screen matches ui_mockup.html Reports tab: run context strip + 2-column card grid with inline download buttons.",
+    "No separate metadata panel in Reports.",
+    "Sidebar matches mockup: OPERATE/ANALYZE/BUILD groups, no COMPATIBILITY group in primary nav.",
+    "Mission Control matches mockup: 3 columns (scan map | tasks plus selected-task live output | AI signal), no 7-column phase timeline.",
+    "Mission Control shows live terminal/stdout output or the latest captured command output for the selected or currently running task without forcing the operator into another screen.",
+    "Mission Control cards are compact, aligned, and data-first instead of prose-heavy.",
+    "Topbar matches mockup: logo + engagement + status pill + bell + gear + avatar.",
+    "The wizard_mockup/ui_mockup standard is applied consistently across the full UI touched by this slice, not treated as a Mission-Control-only or intake-only special case.",
+    "Full Playwright suite remains green after layout updates.",
+    "No backend or schema changes."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/findings.js",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/app.js",
+    "ui/assets/styles.css",
+    "ui/index.html",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Findings drawer slides in on click \u2014 no split panel.",
+      "Reports shows card grid \u2014 no metadata panel.",
+      "Sidebar has OPERATE/ANALYZE/BUILD \u2014 no COMPATIBILITY group.",
+      "Mission Control has 3 columns \u2014 no phase timeline.",
+      "Mission Control exposes readable live run output in the main screen.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Wizard chrome cleanup (backlog-111) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "ui_mockup.html is accessible as the visual reference."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with full mockup alignment implementation.",
+      "Update CURRENT_STATE.md with ui_mockup.html-aligned screens as active baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Intake step 2/3/4 flow (backlog-78)",
+    "Cinema Mode (backlog-86)",
+    "Risk Molecule (backlog-87)",
+    "New features",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

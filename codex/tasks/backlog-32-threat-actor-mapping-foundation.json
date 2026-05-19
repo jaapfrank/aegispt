@@ -1,0 +1,108 @@
+{
+  "id": "backlog-32-threat-actor-mapping-foundation",
+  "task_file": "codex/tasks/backlog-32-threat-actor-mapping-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Threat Actor Mapping Foundation",
+  "goal": "Map findings to relevant threat-actor or technique context without overstating attribution.",
+  "scope": "Implement a first threat-context mapping slice that connects findings, methodology tags, CWEs/CVEs where present, and evidence to reviewed threat-actor or technique references. Keep output as contextual guidance, not attribution.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found threat-actor mapping was only deferred, not queued.",
+  "source_context": {
+    "queue_index": 32,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/competitive_landscape_2026.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_reporting",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/competitive_landscape_2026.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Provide contextual mapping only. Do not claim actor attribution, breach likelihood certainty, or unverified threat intelligence.",
+    "runtime_mutation": false,
+    "notes": [
+      "Threat context must cite source taxonomy or curated mapping inputs.",
+      "No finding severity or canonical status should be changed by this slice."
+    ]
+  },
+  "success_criteria": [
+    "Findings can display optional threat-context mappings when evidence supports them.",
+    "Mappings distinguish technique relevance from actor attribution.",
+    "Sparse findings degrade gracefully without fabricated threat context.",
+    "Tests cover mapped, unmapped, and low-confidence cases.",
+    "Docs explain the non-attribution boundary."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_enrichment.py",
+    "api/app/schemas/finding_views.py",
+    "ui/assets/modules/findings.js",
+    "api/tests/test_ai_finding_enrichment.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/competitive_landscape_2026.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "api/app/models/control.py",
+    "workers/orchestration/tasks.py",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_finding_enrichment.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Threat context is optional, cited, and non-attributional.",
+      "No sparse finding receives fabricated context.",
+      "No canonical finding fields are changed."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Threat-context source taxonomy is selected and documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with threat-mapping changes and validation evidence.",
+      "Update CURRENT_STATE.md with the threat-context baseline and attribution limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Actor attribution claims",
+    "Severity mutation",
+    "Threat-intel feed ingestion",
+    "Autonomous prioritization",
+    "Changing finding schema fields"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

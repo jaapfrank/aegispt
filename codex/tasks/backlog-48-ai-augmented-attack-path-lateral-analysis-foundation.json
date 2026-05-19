@@ -1,0 +1,109 @@
+{
+  "id": "backlog-48-ai-augmented-attack-path-lateral-analysis-foundation",
+  "task_file": "codex/tasks/backlog-48-ai-augmented-attack-path-lateral-analysis-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "AI-Augmented Attack Path and Lateral Analysis Foundation",
+  "goal": "Add confidence-scored inferred attack-path context without activating lateral movement or exploitation.",
+  "scope": "Extend the deterministic attack-path layer with optional, clearly marked inferred edges and lateral-analysis notes derived from existing inventory, findings, identity/cloud observations, and evidence. Inferred edges must carry confidence and source rationale, stay visually distinct from confirmed edges, and never trigger active pivoting or scope expansion.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AI_PENTESTING_AGENT.md calls for lateral movement reasoning and AI-augmented edge inference beyond the existing deterministic attack-path graph.",
+  "source_context": {
+    "queue_index": 48,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/attack_path_engine.md",
+      "docs/identity_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_attack_path_analysis",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/attack_path_engine.md",
+      "docs/identity_model.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Inferred analysis only. Do not add active pivoting, credential reuse testing, cloud exploitation, lateral movement execution, or scope expansion.",
+    "runtime_mutation": false,
+    "operator_control_required": true
+  },
+  "success_criteria": [
+    "Attack-path responses can include confirmed and inferred edges with clear distinction.",
+    "Inferred edges include confidence, rationale, and evidence/inventory references.",
+    "UI distinguishes inferred analysis from confirmed path data.",
+    "No active lateral movement, credential testing, or pivot execution is introduced.",
+    "Tests cover inferred, confirmed-only, sparse-data, and no-scope-expansion cases."
+  ],
+  "likely_touched_files": [
+    "api/app/services/attack_paths.py",
+    "api/app/schemas/inventory.py",
+    "api/app/services/finding_views.py",
+    "ui/assets/modules/mission-control.js",
+    "api/tests/test_attack_paths.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/attack_path_engine.md",
+    "docs/identity_model.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "api/app/schemas/findings.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "runtime pivot or exploitation code"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_attack_paths.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Inferred edges are clearly marked and confidence-scored.",
+      "Confirmed path data remains deterministic.",
+      "No active lateral movement or scope expansion is introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "LLM-driven intake intelligence foundation is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Inferred-edge semantics and visual distinction are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with AI-augmented attack-path changes and validation evidence.",
+      "Update CURRENT_STATE.md with inferred-path boundaries and remaining lateral limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Active pivoting",
+    "Credential spraying or reuse testing",
+    "Cloud-to-on-prem exploitation",
+    "Finding schema changes",
+    "Automatic task dispatch from inferred edges"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,104 @@
+{
+  "id": "backlog-50-controlled-multi-agent-orchestration-prep-foundation",
+  "task_file": "codex/tasks/backlog-50-controlled-multi-agent-orchestration-prep-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Controlled Multi-Agent Orchestration Preparation Foundation",
+  "goal": "Prepare explicit role, provenance, and orchestration primitives before any multi-agent runtime is activated.",
+  "scope": "Translate the documented multi-agent red-team direction into inactive control-plane primitives such as role definitions, allowed handoff types, provenance metadata, policy checks, and operator-visible activation requirements. Do not enable distributed AI runtime behavior, hidden agents, autonomous tool use, or uncontrolled worker coordination.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AI_PENTESTING_AGENT.md and docs/multi_agent_red_team_program.md both point to a future controlled multi-agent layer that needs explicit preparation before activation.",
+  "source_context": {
+    "queue_index": 50,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/multi_agent_red_team_program.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "controlled_multi_agent_orchestration",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/multi_agent_red_team_program.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Preparation only. Do not activate multiple AI agents, hidden workflows, distributed offensive behavior, or uncontrolled worker lanes.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "kill_switch_required": true
+  },
+  "success_criteria": [
+    "Agent roles, handoff boundaries, policy checks, and provenance metadata are represented as inactive planning primitives.",
+    "Activation requirements are visible and stricter than normal single-agent planning.",
+    "No multi-agent runtime behavior or hidden orchestration is enabled.",
+    "Worker identity and evidence provenance requirements are documented before implementation.",
+    "Tests cover inactive defaults, forbidden activation, and provenance metadata shape where code is added."
+  ],
+  "likely_touched_files": [
+    "docs/multi_agent_red_team_program.md",
+    "docs/ai_pentesting_agent_scope_alignment.md",
+    "api/app/services/codex_tasks.py",
+    "api/app/schemas/runs.py",
+    "api/tests/test_product_feature_matrix.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "runtime self-modification",
+    "uncontrolled plugin installation"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Multi-agent primitives remain inactive by default.",
+      "No hidden distributed offensive runtime is introduced.",
+      "Activation requirements preserve scope, provenance, approval, and kill-switch controls."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Assessment pattern library and pack effectiveness foundation is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Role, handoff, policy, and provenance boundaries are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with multi-agent preparation changes and validation evidence.",
+      "Update CURRENT_STATE.md with inactive multi-agent preparation status and activation limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Active multi-agent runtime",
+    "Uncontrolled worker coordination",
+    "Autonomous tool execution",
+    "Runtime self-modification",
+    "Scope-broadening handoffs"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

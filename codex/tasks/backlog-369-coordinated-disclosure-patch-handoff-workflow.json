@@ -1,0 +1,103 @@
+{
+  "id": "backlog-369-coordinated-disclosure-patch-handoff-workflow",
+  "task_file": "codex/tasks/backlog-369-coordinated-disclosure-patch-handoff-workflow.json",
+  "task_type": "governance_workflow",
+  "title": "Coordinated Vulnerability Disclosure and Patch Handoff Workflow",
+  "goal": "Add a workflow for responsibly handling suspected novel vulnerabilities: evidence packaging, maintainer handoff, embargo tracking, patch task creation, and report-safe language.",
+  "scope": "AI research results, reporting, Codex task creation, audit trail, and documentation for responsible disclosure handling.",
+  "status": "queued",
+  "generated_by": "mythos-capability-gap-analysis",
+  "generation_reason": "If AegisPT gains stronger AI vulnerability research features, it also needs a disclosure and patch handoff workflow so novel findings are handled safely and responsibly.",
+  "source_context": {
+    "queue_index": 319,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "defensive_ai_vulnerability_research",
+    "key_files": [
+      "api/app/services/ai_research.py",
+      "api/app/services/reports.py",
+      "api/app/services/audit.py",
+      "api/app/services/codex_tasks.py",
+      "docs/",
+      "api/tests/test_ai_research.py",
+      "api/tests/test_reports.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Create disclosure and patch handoff governance only. Do not publish vulnerabilities or contact external parties automatically.",
+    "operator_review_required": "All disclosure outputs must remain draft/review state until a human operator approves external communication."
+  },
+  "success_criteria": [
+    "Novel or suspected-zero-day research results can be packaged into a disclosure bundle with evidence refs, affected versions, safe reproduction notes, impact summary, and remediation hypothesis.",
+    "Bundles track status such as draft, under review, disclosed, patched, rejected, or embargoed.",
+    "The workflow can create a Codex patch/test task for owned code without touching live runtime.",
+    "Reports use safe language that avoids public exploit details when disclosure is pending.",
+    "Audit events record who created, reviewed, and changed disclosure status."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_research.py",
+    "api/app/services/reports.py",
+    "api/app/services/audit.py",
+    "api/app/services/codex_tasks.py",
+    "api/tests/test_ai_research.py",
+    "api/tests/test_reports.py",
+    "docs/security_self_assessment.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/core/",
+    "api/app/models/control.py finding schema fields",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "Prompt 1 and Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_ai_research.py api/tests/test_reports.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/ai_research.py api/app/services/reports.py api/app/services/codex_tasks.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Disclosure bundles are draft-only and operator-reviewed.",
+      "Report output suppresses exploit details for pending disclosure cases.",
+      "No external notification, publication, live scan, or runtime mutation occurs automatically."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Automatically contacting maintainers.",
+    "Publishing advisories.",
+    "Generating exploit code.",
+    "Changing live assessment execution."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

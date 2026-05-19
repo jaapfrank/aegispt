@@ -1,0 +1,113 @@
+{
+  "id": "backlog-116-ai-isolated-repair-lane",
+  "task_file": "codex/tasks/backlog-116-ai-isolated-repair-lane.json",
+  "task_type": "backlog_slice",
+  "title": "AI Isolated Repair Lane",
+  "goal": "Create a governed AI repair lane that can inspect failed, blocked, or skipped runner outcomes and propose safe fixes without mutating active runtime state.",
+  "scope": "Add a supervised repair workflow where AI reads evidence, stdout, stderr, runner metadata, pack definitions, and configuration context for failed or skipped tasks, then drafts one of: operator guidance, a config remediation, a pack/template patch staged through existing approval gates, or a code patch in an isolated workspace. The lane must keep all generated changes outside active assessment execution until explicitly reviewed, validated, and approved through existing build-lane and pack gates.",
+  "status": "queued",
+  "generated_by": "operator-request-2026-04-28",
+  "generation_reason": "The operator asked why AI cannot add or change code and suggested a separate folder so AI can help fix failed tools without breaking the system. This task captures that product idea as a governed future slice instead of weakening runtime safety constraints during active assessments.",
+  "source_context": {
+    "queue_index": 115,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AGENTS.md",
+      "DECISIONS.md",
+      "codex/results/assessment-chain-recoverable-failure-auto-triage-hotfix-20260428.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_repair_assistance",
+    "source_documents": [
+      "api/app/models/ai.py",
+      "api/app/services/assessment_chain.py",
+      "api/app/services/ai_provider.py",
+      "api/app/services/runner_registry.py",
+      "codex/tasks/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "AI may propose fixes in an isolated build-lane area only. Do not allow AI to edit active production files, deploy packs, install tools, bypass approvals, dispatch live targets, or continue blocked chains without explicit operator and validation gates.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Failed, blocked, and skipped runner outcomes can be converted into an AI repair request using stored evidence and metadata.",
+    "AI repair output is stored as a reviewable proposal with provenance, source evidence references, confidence, risks, and validation commands.",
+    "Generated patches or templates land only in an isolated draft area and never change active runtime code or deployed packs automatically.",
+    "Pack or Nuclei template changes are routed through the existing pack validation, approval, deployment, and runtime binding flow.",
+    "Code changes require build-lane review and normal tests before merge.",
+    "Mission Control can show a concise AI repair suggestion for a failed or skipped runner, with clear distinction between guidance and executable change.",
+    "Audit records show who requested, reviewed, approved, rejected, or applied any repair proposal.",
+    "Tests prove a repair proposal cannot mutate active runs, active packs, Prompt 1, Prompt 2, or live target execution directly."
+  ],
+  "likely_touched_files": [
+    "api/app/models/ai.py",
+    "api/app/models/repair.py",
+    "api/app/services/ai_provider.py",
+    "api/app/services/repair_lane.py",
+    "api/app/services/assessment_chain.py",
+    "api/app/routes/ai.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/styles.css",
+    "api/tests/test_ai_repair_lane.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 and Prompt 2 foundations",
+    "runtime self-modification safeguards",
+    "pack registry, validation, approval, deployment, or runtime binding bypasses",
+    "active run dispatcher mutation semantics",
+    "finding schema fields unless a future task explicitly allows it"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_repair_lane.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AI repair proposals are reviewable and non-executing by default.",
+      "No active runtime file, pack, or run state is mutated by AI output.",
+      "Existing approval and validation gates remain authoritative.",
+      "Mission Control explains failed/skipped repair suggestions without hiding the original runner outcome."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Report quality, compliance, evidence, documentation, and product stability tasks ahead of this item remain the current priority unless the operator explicitly reprioritizes.",
+      "ChatGPT OAuth/provider stability is sufficient for optional AI-assisted proposals, or the task implements deterministic disabled-state behavior."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with AI isolated repair lane implementation, files, validation, and safety evidence.",
+      "Update CURRENT_STATE.md with the new AI repair product truth and remaining risks.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "AI automatically editing active production code during an assessment.",
+    "AI installing pentest tools or plugins without operator control.",
+    "AI bypassing pack approval, validation, deployment, or runtime binding.",
+    "AI running live target actions outside safe/local/explicitly authorized targets.",
+    "Replacing human operator authorization for intrusive or exploitation phases."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "future_governed_ai_repair_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

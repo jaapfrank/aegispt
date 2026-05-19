@@ -1,0 +1,187 @@
+{
+  "active_target_root": "http://127.0.0.1:5013/",
+  "approval_path": {
+    "approval_step_id": "intrusive-web-graphql-command-injection",
+    "profile": "intrusive-web-graphql-command-injection",
+    "required_approvals": 2,
+    "runner_params": {
+      "allow_command_injection_proof": true,
+      "intrusive_authorized": true,
+      "scope_allowlist": {
+        "urls": [
+          "http://127.0.0.1:5013/"
+        ]
+      }
+    }
+  },
+  "artifact_name": "graphql-command-injection-results.json",
+  "artifact_payload": {
+    "authorized_roots": [
+      "http://127.0.0.1:5013/",
+      "http://localhost:5013/"
+    ],
+    "checks": [
+      {
+        "argument": "cmd",
+        "authorized_root": "http://127.0.0.1:5013/",
+        "check_type": "dvga_system_diagnostics_command_injection",
+        "cleanup_status": "not_required_no_state_change",
+        "command_allowlist_entry": "echo aegispt-command-injection-proof",
+        "command_sha256": "308f3dcf9221cb3fccc3477a7eed7e9bedc24fb0d0694c901fbff52cdd21d40d",
+        "confirmed": true,
+        "credential_context": "dvga-default-local-lab-admin",
+        "error_excerpt": "",
+        "field": "systemDiagnostics",
+        "operation_name": "AegisPTCommandInjection",
+        "output_excerpt": "aegispt-command-injection-proof",
+        "password_stored": false,
+        "response_hash": "e9731968e5210e2393d02d72484a9fa21566f51e29d63d3484636ca0700e3246",
+        "status_code": 200,
+        "target": "http://127.0.0.1:5013/graphql",
+        "username": "admin"
+      }
+    ],
+    "endpoint_path": "/graphql",
+    "findings": [
+      {
+        "confirmed": true,
+        "control_family": "api_security",
+        "evidence": {
+          "argument": "cmd",
+          "authorized_root": "http://127.0.0.1:5013/",
+          "cleanup_status": "not_required_no_state_change",
+          "command_allowlist_entry": "echo aegispt-command-injection-proof",
+          "command_sha256": "308f3dcf9221cb3fccc3477a7eed7e9bedc24fb0d0694c901fbff52cdd21d40d",
+          "credential_context": "dvga-default-local-lab-admin",
+          "field": "systemDiagnostics",
+          "operation_name": "AegisPTCommandInjection",
+          "output_excerpt": "aegispt-command-injection-proof",
+          "password_stored": false,
+          "probe": "dvga-systemDiagnostics-command-injection",
+          "response_hash": "e9731968e5210e2393d02d72484a9fa21566f51e29d63d3484636ca0700e3246",
+          "status_code": 200,
+          "username": "admin"
+        },
+        "methodology_tags": [
+          "api_security",
+          "graphql_security",
+          "owasp-api-top-10-2023",
+          "graphql-command-injection-validation",
+          "intrusive-local-lab"
+        ],
+        "replay_recipe": {
+          "argument": "cmd",
+          "command_allowlist_entry": "echo aegispt-command-injection-proof",
+          "credential_access": false,
+          "credential_context": "dvga-default-local-lab-admin",
+          "destructive_actions": false,
+          "endpoint_path": "/graphql",
+          "field": "systemDiagnostics",
+          "file_write": false,
+          "intrusive_approval_required": true,
+          "network_callback": false,
+          "operation_name": "AegisPTCommandInjection",
+          "password_stored": false,
+          "scope": "local-dvga-lab-only",
+          "target": "http://127.0.0.1:5013/",
+          "tool": "graphql-command-injection",
+          "username": "admin"
+        },
+        "severity": "critical",
+        "summary": "The local DVGA GraphQL systemDiagnostics field executed an allowlisted harmless operating-system command in the approved lab.",
+        "target": "http://127.0.0.1:5013/graphql",
+        "title": "DVGA GraphQL Command Injection Confirmed",
+        "type": "graphql_command_injection_confirmed"
+      }
+    ],
+    "request_summary": {
+      "argument": "cmd",
+      "command_allowlist_entry": "echo aegispt-command-injection-proof",
+      "command_sha256": "308f3dcf9221cb3fccc3477a7eed7e9bedc24fb0d0694c901fbff52cdd21d40d",
+      "credential_context": "dvga-default-local-lab-admin",
+      "field": "systemDiagnostics",
+      "method": "POST",
+      "operation_name": "AegisPTCommandInjection",
+      "password_stored": false,
+      "raw_shell_metacharacters_allowed": false,
+      "username": "admin",
+      "variables": [
+        "cmd",
+        "username",
+        "password"
+      ]
+    },
+    "safety": {
+      "allow_command_injection_proof": true,
+      "allowed_commands": [
+        "echo aegispt-command-injection-proof",
+        "id",
+        "whoami",
+        "uname -a"
+      ],
+      "arbitrary_shell": false,
+      "cleanup_status": "not_required_no_state_change",
+      "credential_access": false,
+      "credential_attack": false,
+      "credential_discovery": false,
+      "dvga_default_lab_credentials_used": true,
+      "file_write": false,
+      "generic_graphql_probe_changed": false,
+      "intrusive_approval_required": true,
+      "intrusive_authorized": true,
+      "lateral_movement": false,
+      "local_dvga_lab_only": true,
+      "network_callback": false,
+      "password_stored": false,
+      "persistence": false,
+      "privilege_escalation": false,
+      "reverse_shell": false,
+      "safe_command_allowlist_enforced": true,
+      "scope_enforced": true
+    },
+    "summary": {
+      "check_count": 1,
+      "confirmed_command_injection_count": 1,
+      "finding_count": 1,
+      "target_count": 1
+    },
+    "targets": [
+      "http://127.0.0.1:5013/"
+    ],
+    "tool": "graphql-command-injection"
+  },
+  "artifact_sha256": "8ea4c377008b8030b0f0a8eb38cabe3107f852423ac93a91556112d1c71d1022",
+  "captured_at": "2026-05-07T01:18:29.660167+00:00",
+  "cleanup": {
+    "container_name": "aegispt-dvga-backlog251",
+    "stopped_after_evidence": true,
+    "stopped_at": "2026-05-07T01:18:56.216986+00:00"
+  },
+  "container": "2ef21c2767ab4edb049acbcc55da81e8403486a302434e66db5f75609f55eafb sha256:040aa33c199d99f3380c9ff9a1ee5d725e9abca7b189c63a35a2a73bda79c957 [map[HostIp:127.0.0.1 HostPort:5013]]",
+  "docker_image": "dolevf/dvga:latest",
+  "notes": [
+    "Live command-bearing validation used only the local DVGA container bound to 127.0.0.1:5013.",
+    "DVGA live schema requires username and password arguments for systemDiagnostics; the runner uses fixed local-lab default DVGA credentials and records no password value in artifact evidence.",
+    "The command allowlist entry was echo aegispt-command-injection-proof; no shell metacharacters, file writes, callbacks, persistence, or credential discovery were used."
+  ],
+  "runner_execution": {
+    "exit_code": 0,
+    "metadata": {
+      "check_count": 1,
+      "finding_count": 1,
+      "local_lab_only": true,
+      "runner_digest": "workers.graphql_command_injection.runner:v1",
+      "status": "ok",
+      "tool_version": "custom-python-dvga-local-lab"
+    },
+    "stderr": "",
+    "stdout_summary": {
+      "check_count": 1,
+      "confirmed_command_injection_count": 1,
+      "finding_count": 1,
+      "target_count": 1
+    },
+    "tool": "graphql-command-injection"
+  },
+  "task": "backlog-251-dvga-graphql-command-injection-runner"
+}

@@ -1,0 +1,115 @@
+{
+  "id": "backlog-215-tool-install-and-enable-control-plane",
+  "task_file": "codex/tasks/backlog-215-tool-install-and-enable-control-plane.json",
+  "task_type": "product_slice",
+  "title": "Tool install and enable control plane: make missing tools repairable and gated features one-click configurable",
+  "goal": "AegisPT must ship with all software-based pentest tool groups installable by the official installer and container image. Settings must not leave operators at vague degraded/blocked labels: each missing software tool group needs a clear Install/Repair path, and each disabled-but-supported capability needs a safe Enable/Configure action that preserves scope, ROE, approval gates, pack registry, deployment, runtime binding, and kill-switch controls.",
+  "scope": "Operator feedback 2026-05-03: Settings reports degraded/blocked states and optional tools not installed, but does not provide a clear way to fix them. Product direction: software tooling should be installed/prepared by default where host permissions allow; risky capabilities may remain disabled until explicitly enabled, but they must be visible and enableable through governed controls.",
+  "status": "queued",
+  "generated_by": "operator-feedback-2026-05-03",
+  "generation_reason": "Operators need AegisPT to be complete after install: all software tools prepared, risky features disabled/gated rather than absent, and Settings must expose actionable repair/enable controls.",
+  "source_context": {
+    "queue_index": 167,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json",
+      "codex/tasks/backlog-203-settings-page-navigation-overhaul.json",
+      "codex/tasks/backlog-209-tool-capability-guide-and-selection-intelligence.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "complete_install_and_capability_enablement",
+    "source_documents": [
+      "scripts/install_security_tools.sh",
+      "scripts/verify_host.sh",
+      "infra/compose/Dockerfile",
+      "api/app/services/settings.py",
+      "ui/assets/modules/settings.js",
+      "docs/host_service_install.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Install/repair and enablement UX only. Do not auto-run pentest tools, do not auto-enable intrusive execution, and do not bypass authorization, approval, scope, pack validation, deployment, runtime binding, or kill-switch controls.",
+    "runtime_mutation": false,
+    "uncontrolled_plugin_installation": false,
+    "live_target_actions": false
+  },
+  "success_criteria": [
+    "Official host installer and Compose image include all tracked software tool groups where packages are available: Nmap, Nuclei, httpx, ZAP, Responder, NetExec, BloodHound, Impacket, Metasploit, Hashcat, SNMP, and WiFi analysis tooling.",
+    "Readiness detection accepts the actual command names installed and used by AegisPT runners, including Impacket `.py` commands and any compatibility aliases.",
+    "Settings shows each degraded software tool group with a concrete Install/Repair action or copyable privileged command, including exact expected binaries and affected assessment families.",
+    "Settings distinguishes software-missing from hardware-missing. WiFi software can be ready while wireless adapter hardware remains blocked until attached.",
+    "Disabled but supported capabilities expose an Enable/Configure button that writes governed settings only; execution still requires the existing ROE, scope, approval, deployment, runtime binding, and kill-switch controls.",
+    "A post-install verification artifact proves all software tool groups are ready on a supported host image or clearly records privilege/hardware blockers.",
+    "No pentest tool is executed against a live target as part of installation or enablement."
+  ],
+  "likely_touched_files": [
+    "scripts/install_security_tools.sh",
+    "scripts/verify_host.sh",
+    "infra/compose/Dockerfile",
+    "api/app/services/settings.py",
+    "api/app/routers/settings.py",
+    "ui/assets/modules/settings.js",
+    "api/tests/test_settings.py",
+    "ui/tests/test_operator_console_smoke_e2e.py",
+    "docs/host_service_install.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "Scope enforcement",
+    "Approval gates",
+    "Pack registry, validation, deployment, or runtime binding flows",
+    "Kill switch behavior",
+    "Runner target execution logic"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_settings.py -q",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q",
+      "bash scripts/verify_host.sh or documented privilege-safe equivalent on a prepared host",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Readiness reports software tool groups ready on the prepared host or records exact install blockers.",
+      "Settings exposes actionable install/repair/enable controls instead of vague degraded text.",
+      "Hardware-only blockers remain honest and separate from software installation gaps."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Auto-running scans after installation",
+    "Enabling intrusive execution without operator authorization",
+    "Installing WiFi hardware or drivers that require manual host passthrough",
+    "Production SSO/TLS/SIEM credential provisioning"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

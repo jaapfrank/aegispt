@@ -1,0 +1,105 @@
+{
+  "id": "backlog-400-probe-path-stack-augmentation",
+  "task_file": "codex/tasks/backlog-400-probe-path-stack-augmentation.json",
+  "task_type": "evidence_model",
+  "title": "Probe path-catalogs are stack-aware: target_intel observations augment info_disclosure / file_upload / param_pollution / cookie_tamper PROBE_PATHS at runtime",
+  "goal": "The 5 #328-migrated probes (info_disclosure_probe / stored_xss_probe / file_upload_probe / param_pollution_probe / cookie_tamper_probe) each carry a hardcoded path catalog. #328 stripped Gruyere-specific `.gtl` paths 'for generality', but the generic catalog covers 0% of Gruyere's surface on live testing (verified 2026-05-18: `/dump.gtl` returns HTTP 200 with `_cookie: {'is_admin': False, 'is_author': False, 'uid': None}` content \u2014 a textbook info-disclosure leak \u2014 but our catalog doesn't probe that path). This task makes the catalogs stack-aware: target_intel observations carry stack_hints; the probes consult those hints to augment their paths at runtime. No Gruyere-specific seed in the runner source \u2014 the augmentation lives in a registry keyed on stack_hint values.",
+  "scope": "New module `workers/runners/_path_augmentation.py` exposing `paths_for_stack(stack_hints: list[str], category: str) -> list[tuple[str, str]]`. Category covers debug-dump / file-upload-target / register-action / mass-assignment-target / cookie-name. Stack registry maps known hints (`python_gruyere` \u2192 `.gtl` debug paths; `java_jsp` \u2192 `/admin/console.jsp`; `aspnet` \u2192 `/elmah.axd`, `/trace.axd`; `php` \u2192 `/info.php`, `/phpmyadmin/`; `node_express` \u2192 `/.well-known/express-status`). Each of the 5 probes calls `paths_for_stack(stack_hints, category)` and merges with its hardcoded base catalog. stack_hints come from EvidenceObservation rows with `entity_type=stack_hint`, written by target_intel.",
+  "status": "queued",
+  "generated_by": "live-gruyere-diagnosis-20260518",
+  "generation_reason": "Live Gruyere run 9f951a0f: info_disclosure_probe completed with 0 findings despite `/dump.gtl` being open and leaking session state. Per #328 DONE_LOG entry: 'stripped /dump.gtl and /debug.gtl Gruyere-specific paths from PROBE_PATHS. Generic catalog covers the same surface on any stack.' \u2014 empirically falsified by this run. The generic catalog of 51 paths covers 0 Gruyere paths because Gruyere's debug surface uses `.gtl` exclusively. Generalization without per-stack augmentation = throwing away working heuristics. Mock-parity tests in #328 used mocks that matched the generic catalog and so confirmed nothing about real Gruyere.",
+  "source_context": {
+    "queue_index": 338,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_live_reliability_fix",
+    "key_files": [
+      "workers/runners/info_disclosure_probe/runner.py",
+      "workers/runners/stored_xss_probe/runner.py",
+      "workers/runners/file_upload_probe/runner.py",
+      "workers/runners/param_pollution_probe/runner.py",
+      "workers/runners/cookie_tamper_probe/runner.py",
+      "workers/runners/target_intel/runner.py",
+      "api/app/services/auth_discoverer.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "New _path_augmentation module + 5 small probe-side consumers. Do NOT change the existing hardcoded base catalogs (they keep working for the stacks they cover). Do NOT add app-instance-specific paths (e.g. Gruyere's per-user instance ID); only stack-family-level paths (e.g. `.gtl` for the python_gruyere family).",
+    "no_prescriptive_recipes": "Per `feedback_no_prescriptive_recipes`: a path like `/dump.gtl` is a discovery hint, not an exploit recipe. We're saying 'look here too', not 'send this specific payload to this path'. The probes still apply their existing detection heuristics on whatever the path returns.",
+    "stack_hint_origin": "stack_hints MUST come from target_intel-emitted EvidenceObservation rows (entity_type='stack_hint' or attributes_json['technology_stack']). Do NOT seed stack_hints from the probe runner itself or from hardcoded URL pattern matching \u2014 the AI/recon stage owns stack detection."
+  },
+  "success_criteria": [
+    "Live test against Gruyere: info_disclosure_probe queries /dump.gtl AND emits a HIGH-severity finding ('Information Disclosure \u2014 debug-dump \u2014 session state exposed').",
+    "Live test against an ASP.NET target: info_disclosure_probe queries /elmah.axd / /trace.axd in addition to the base catalog.",
+    "stack_hint registry has \u22655 documented entries (python_gruyere, java_jsp, aspnet, php, node_express) with a published rationale (URL of the stack's documentation that confirms the path).",
+    "paths_for_stack returns [] when stack_hints is empty (no false-positive injection).",
+    "Unit tests cover: each stack hint produces its expected path additions; unknown hints produce empty; multi-hint inputs union correctly.",
+    "Existing 15 #328 probe parity tests still pass (the hardcoded base catalog is unchanged)."
+  ],
+  "likely_touched_files": [
+    "workers/runners/_path_augmentation.py (new)",
+    "workers/runners/info_disclosure_probe/runner.py",
+    "workers/runners/stored_xss_probe/runner.py",
+    "workers/runners/file_upload_probe/runner.py",
+    "workers/runners/param_pollution_probe/runner.py",
+    "workers/runners/cookie_tamper_probe/runner.py",
+    "workers/tests/test_path_augmentation.py (new)",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "target_intel runner (we only consume its observations)",
+    "build_recipe (#326)",
+    "acquire_session (#328a \u2014 that gets fixed in backlog-399)",
+    "Anti-pattern: NO seeding of `/saveprofile?action=new` style payload-bearing patterns. Only path strings."
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_info_disclosure_probe.py workers/tests/test_stored_xss_probe.py workers/tests/test_file_upload_probe.py workers/tests/test_param_pollution_probe.py workers/tests/test_cookie_tamper_probe.py workers/tests/test_path_augmentation.py",
+      "python3 -m compileall -q workers",
+      ".venv/bin/ruff check workers/runners/_path_augmentation.py workers/runners/info_disclosure_probe/ workers/runners/stored_xss_probe/ workers/runners/file_upload_probe/ workers/runners/param_pollution_probe/ workers/runners/cookie_tamper_probe/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "info_disclosure_probe finds Gruyere's /dump.gtl debug page on live test.",
+      "Stack hint registry covers 5+ documented stacks.",
+      "No regression on the 15 #328 mock parity tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-398 + backlog-399 should be merged first \u2014 fixing the planner gate + the auth-discoverer expansion together produce the running session needed to test these probes on live Gruyere."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the live Gruyere finding count: target \u22653 of the 17 known Gruyere classes.",
+      "Update CURRENT_STATE.md.",
+      "Update AGENT_SYSTEM_MAP.md \u00a73 to note path-augmentation lifts the 'mock-parity-only' caveat from #328.",
+      "Promote backlog-336 (#336 Non-HTTP Primitives SMB+LDAP) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "AI-driven stack detection beyond what target_intel already produces.",
+    "Per-runner registry of which categories each probe consumes (start with the obvious mapping).",
+    "Path augmentation for the OTHER 70 runners \u2014 start with the 5 #328 probes that have the most-visible gap."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -57,6 +57,7 @@ Deze flow installeert de host-tools, bouwt de virtuele omgeving, zet Playwright 
 Voor details en een volledige copy-paste flow:
 
 - zie `docs/host_service_install.md`
+- gebruik daar ook het `Kali/local-host signoff packet` als afsluitende controle na install of update
 
 ## Eerste controle na het openen van de VM
 
@@ -66,6 +67,21 @@ systemctl status aegispt.service --no-pager
 curl http://127.0.0.1:8000/health/live
 curl http://127.0.0.1:8000/app/
 ```
+
+Voor de reproduceerbare signoff-lane hoort daar nu ook de statische app-shellcontrole en een veilige lokale smoke-run bij:
+
+```bash
+cd /opt/aegispt/repo
+curl --fail --silent http://127.0.0.1:8000/app/ > /tmp/aegispt-app.html
+grep -E 'Operator Console|assets/styles.css' /tmp/aegispt-app.html
+grep -E 'type="module"|assets/app.js' /tmp/aegispt-app.html
+source .venv/bin/activate
+python scripts/run_acceptance_matrix.py \
+  --base-url http://127.0.0.1:8000 \
+  --scenario-id local-app-smoke
+```
+
+De acceptance-run schrijft het bewijs onder `codex/results/` en bevat directe HTML/PDF report links. Noteer het result-bestand als de signoff-output voor de VM of lokale host waarop je test.
 
 Voor een bredere host-baselinecontrole:
 
@@ -191,6 +207,7 @@ Voor een volledige voorbeeldflow:
 - Als `aegispt.service` ontbreekt maar poort `8000` wel bezet is, draai je waarschijnlijk nog een losse oude `uvicorn`-host; gebruik dan eerst `bash scripts/restart_local_inline_host.sh` of ga direct terug naar `sudo bash scripts/install_host_service.sh`.
 - Secrets worden lokaal in `infra/compose/.env` gegenereerd; beheer gevoelige waarden later desgewenst vanuit `/srv/aegispt/env`.
 - Voor de directe host-flow wordt standaard geen nieuwe `LOCAL_SECRET_ENCRYPTION_KEY` afgedwongen; zet die expliciet vóór `bash scripts/generate_host_env.sh` op een verse host als je meteen een eigen sleutel wilt gebruiken.
+- Directe wizard-secrets gebruiken standaard `SECRET_MATERIALIZATION_MODE=encrypted_local`; zet `AEGISPT_SECRET_MATERIALIZATION_MODE=deployment_key` plus `AEGISPT_DEPLOYMENT_SECRET_ENCRYPTION_KEY` vóór `bash scripts/generate_host_env.sh` als je host-specifieke deployment-key-backed materialisatie wilt afdwingen.
 - De codebase mikt op Python 3.12+; de huidige Kali host draait Python 3.13.
 - `bash scripts/verify_host.sh` controleert nu expliciet `python3`, `pip` en `venv`-ondersteuning zodat een kapotte Python hosttoolchain eerder opvalt.
 - `bash scripts/install_security_tools.sh` gebruikt waar nodig pinned officiële release-archieven voor `nuclei`, `httpx-toolkit`, `feroxbuster` en ZAP, plus Java 17 voor ZAP runtime.

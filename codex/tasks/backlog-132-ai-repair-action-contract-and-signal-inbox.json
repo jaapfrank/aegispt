@@ -1,0 +1,129 @@
+{
+  "id": "backlog-132-ai-repair-action-contract-and-signal-inbox",
+  "task_file": "codex/tasks/backlog-132-ai-repair-action-contract-and-signal-inbox.json",
+  "task_type": "corrective_backlog_slice",
+  "title": "AI Repair Action Contract and AI Signal Inbox",
+  "goal": "Make AI materially useful after failed, blocked, or skipped runner outcomes by turning review-only repair drafts into clear, safe operator actions and by exposing all AI signals in a discoverable inbox/history surface.",
+  "status": "queued",
+  "generated_by": "operator-priority-decision-2026-04-29",
+  "generation_reason": "The operator tried to fix a failed run with AI, but reviewing the repair proposal did not continue the run or change any outcome. The current UI implies an AI fix while backlog-116 intentionally only records review intent. This gap makes AI feel useless and blocks trust in the product.",
+  "source_context": {
+    "queue_index": 130,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/backlog-116-ai-isolated-repair-lane-20260429.md",
+      "codex/tasks/backlog-122-live-ai-signal.json",
+      "codex/tasks/backlog-131-autofix-chatgpt.json",
+      "api/app/services/ai_repair_lane.py",
+      "api/app/services/ai_agent.py",
+      "api/app/services/assessment_chain.py",
+      "ui/assets/modules/mission-control.js"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_value_and_operator_recovery",
+    "source_documents": [
+      "api/app/services/ai_repair_lane.py",
+      "api/app/services/ai_agent.py",
+      "api/app/services/assessment_chain.py",
+      "api/app/routers/runs.py",
+      "api/app/schemas/runs.py",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/modules/cinema.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Fix the AI repair/operator recovery contract only. Do not implement unrelated report consolidation, AutoFix code patch generation, autonomous mode, or broad UI redesign.",
+    "runtime_mutation": false,
+    "safety_boundary": "AI may recommend and prepare allowed recovery actions, but must never bypass scope, approval, pack registry, validation, deployment, runtime binding, or Prompt 1/Prompt 2 constraints."
+  },
+  "scope": "Implement a clear AI repair action contract for failed, blocked, and skipped runner outcomes. The operator must be able to see what AI concluded, why the run stopped or did not continue, and which safe recovery actions are available. Replace misleading copy such as 'AI fix' when no fix is applied. Add an AI Signal Inbox or equivalent discoverable route/panel so all reasoning records and proposals for the selected run can be reviewed, filtered, and acted on. Supported actions must be explicit and bounded: retry the same failed runner when retry-safe, continue remaining planned checks when chain state allows it, accept a documented coverage gap, or create a build-lane fix task/proposal for code/pack/tool issues. Each action must record audit/provenance and must truthfully state when it cannot continue the live run.",
+  "success_criteria": [
+    "AI repair proposal cards no longer imply that approving them applies a fix or continues a run unless a concrete allowed recovery action is selected.",
+    "Mission Control exposes a visible AI Signal Inbox/history surface for the selected run with reasoning records, proposals, statuses, source task, and review/action state.",
+    "Failed, blocked, and skipped tasks show available recovery actions with clear labels: Retry runner, Continue remaining checks, Accept coverage gap, Create build-lane fix task, or Not recoverable.",
+    "Continue remaining checks is only available when the assessment chain has remaining eligible planned work and the action can be performed without bypassing approvals or scope.",
+    "Retry runner is only available when the runner is retry-safe and prerequisites are present; otherwise the UI explains the missing prerequisite.",
+    "Accept coverage gap records a durable audit/provenance event and keeps the gap visible in reports/history instead of hiding it.",
+    "Create build-lane fix task writes a repo/task or proposal artifact for later Codex work without mutating active runtime.",
+    "The AI Signal panel and Inbox show provider mode clearly: deterministic repair, ChatGPT-backed analysis when available, or provider disabled.",
+    "Safe browser validation proves the operator can create a repair proposal, review it, select an available safe action, and see the resulting state change or explicit non-recoverable explanation.",
+    "Tests cover the action contract and ensure AI approval alone does not silently dispatch work."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_repair_lane.py",
+    "api/app/services/ai_agent.py",
+    "api/app/services/assessment_chain.py",
+    "api/app/routers/runs.py",
+    "api/app/schemas/runs.py",
+    "api/tests/test_ai_repair_lane.py",
+    "api/tests/test_assessment_chain.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/cinema.js",
+    "ui/tests/test_operator_console_smoke_e2e.py",
+    "codex/results/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "Finding schema fields unless an existing field already supports the required state",
+    "pack registry bypasses",
+    "approval bypasses",
+    "deployment or runtime binding bypasses",
+    "uncontrolled plugin/tool installation",
+    "live target actions outside safe/local/explicitly authorized validation"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_repair_lane.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py",
+      "source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AI repair approval alone remains non-dispatching and is described honestly.",
+      "At least one safe recovery action is visible and validated for a synthetic failed/skipped task.",
+      "AI Signal Inbox/history is reachable without knowing a hidden route.",
+      "All recovery actions record durable provenance and cannot bypass scope/approval gates."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Operator priority override is documented in CURRENT_STATE.md and DONE_LOG.md because backlog-118 was active before this corrective AI-value task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with AI repair action contract evidence.",
+      "Update CURRENT_STATE.md with new AI repair truth and remaining safety boundaries.",
+      "Write live/browser evidence to codex/results/.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "General autonomous AI mode",
+    "ChatGPT code patch generation for findings",
+    "Report consolidation",
+    "New pentest tools",
+    "Automatic exploitation or privilege escalation",
+    "Applying code changes to customer repositories"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "urgent_corrective_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_operator_priority_override"
+}

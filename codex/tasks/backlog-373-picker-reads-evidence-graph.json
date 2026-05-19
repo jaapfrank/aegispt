@@ -1,0 +1,96 @@
+{
+  "id": "backlog-373-picker-reads-evidence-graph",
+  "task_file": "codex/tasks/backlog-373-picker-reads-evidence-graph.json",
+  "task_type": "ai_loop",
+  "title": "AI Picker Consumes Normalized Evidence Graph for Decision Context",
+  "goal": "Replace the picker's flat findings + tested_keys + task_outcomes context with a compact projection of the normalized evidence graph so the AI sees first-class entities and relationships when choosing the next action, enabling cross-runner pivoting and cross-target chains.",
+  "scope": "Modify api/app/services/assessment_loop.py _claude_select_next_action user_content construction to project the normalized graph into a token-efficient representation. Add a graph-summarizer service that emits the projection. Keep existing fallback for runs without graph data.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Without graph-aware context, the AI cannot reason about chains across target types (web finding -> internal hostname -> port scan -> AD pivot). Today the picker only sees flat 1-line strings per finding. The graph already exists; bridging picker consumption is the cheapest unlock for cross-target reasoning.",
+  "source_context": {
+    "queue_index": 323,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_1_evidence_graph",
+    "key_files": [
+      "api/app/services/assessment_loop.py",
+      "api/app/services/assessment_graph.py",
+      "api/app/services/evidence_ingest.py",
+      "docs/evidence_graph_adoption_plan.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Picker context projection only. Do NOT change the system prompt structure, exec_plan grammar, or memory tool behavior.",
+    "token_budget": "Projection must stay under 4 KB on typical runs to preserve prompt caching benefit. Larger graphs should be summarized, not dumped verbatim."
+  },
+  "success_criteria": [
+    "New graph projection function exists, callable from the picker, emits compact text suitable for an LLM prompt.",
+    "_claude_select_next_action prefers the graph projection over flat lists when both are available.",
+    "Token cost per picker hop remains within 10% of pre-change baseline (measured via the existing usage log line).",
+    "Tests prove the projection handles empty graphs (early phase) and >50-entity graphs (late phase) without overflow.",
+    "Existing picker behavior under runs without graph data is unchanged (regression test)."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "api/app/services/assessment_graph.py",
+    "api/tests/test_assessment_loop_graph_projection.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "api/app/services/memory_backend.py",
+    "api/app/services/http_fetch_backend.py",
+    "_AI_PICKER_SYSTEM_PROMPT lines 1-200 (system prompt body)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_assessment_loop_graph_projection.py api/tests/test_assessment_loop.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/assessment_loop.py api/app/services/assessment_graph.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Picker advance log shows graph-context lines when graph entities exist.",
+      "Token usage per hop stays bounded by graph size (no unbounded growth).",
+      "No regression in test_assessment_loop suite."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-372 ingestion helpers must be merged."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-374 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Pattern cache (task #327).",
+    "Picker structured outputs schema (task #330).",
+    "Cross-target provenance (task #334).",
+    "Changes to the runner-side ingestion helper API."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

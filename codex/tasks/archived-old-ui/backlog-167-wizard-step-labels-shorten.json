@@ -1,0 +1,90 @@
+{
+  "id": "backlog-167-wizard-step-labels-shorten",
+  "task_file": "codex/tasks/backlog-167-wizard-step-labels-shorten.json",
+  "task_type": "corrective_product_slice",
+  "title": "Shorten wizard step indicator labels to prevent wrapping and improve scannability",
+  "goal": "The wizard stepper shows 7 steps with labels: 'Assessment/Scope Type', 'Credentials Test / Access', 'Test Profile', 'Modules', 'Safety / Limits', 'Review / Confirm'. Several of these wrap on standard viewports. Replace with short single-word or two-word labels: 'Type', 'Scope', 'Access', 'Profile', 'Modules', 'Safety', 'Confirm'. The step number and visual dot already provide position context; the label only needs to identify the step. Update in ui/assets/modules/constants.js where WIZARD_STEPS is defined.",
+  "scope": "System review 2026-05-01: Wizard step indicator labels are verbose multi-word strings with slashes ('Credentials Test / Access', 'Safety / Limits', 'Review / Confirm', 'Assessment/Scope Type') that wrap on viewports narrower than 1280px and are hard to scan at a glance.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: Wizard stepper labels wrap and are hard to scan. Short labels improve usability.",
+  "source_context": {
+    "queue_index": 167,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_ux_polish",
+    "source_documents": [
+      "ui/assets/modules/constants.js",
+      "ui/assets/modules/wizard.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only change the display label strings in WIZARD_STEPS. Do not change step logic, order, or validation.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "All 7 wizard step labels fit on a single line on a 1280px viewport without wrapping.",
+    "Labels are short (1-2 words max), clear, and enterprise-appropriate.",
+    "Wizard functionality and step order unchanged.",
+    "No regression in wizard E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/constants.js",
+    "ui/assets/modules/wizard.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Step validation logic",
+    "Step order",
+    "Backend API",
+    "Wizard data model"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "No wizard step label exceeds 12 characters.",
+      "Stepper renders without wrapping on 1280px viewport.",
+      "Wizard flow works end to end without regression."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Redesigning stepper visual component",
+    "Adding new steps",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,90 @@
+{
+  "id": "backlog-309-lab-benchmark-orchestrator",
+  "task_file": "codex/tasks/backlog-309-lab-benchmark-orchestrator.json",
+  "task_type": "benchmark_validation",
+  "title": "Lab Benchmark Orchestrator",
+  "goal": "Create a governed benchmark orchestrator for local or explicitly authorized lab targets such as Gruyere, WebGoat, DVWA, and DVGA. It must compare expected vulnerabilities, evidence IDs, task outputs, runner decisions, coverage truth, and reports so AegisPT can prove progress without relying on unsafe public targets.",
+  "scope": "Safe lab validation, benchmark evidence, and release confidence.",
+  "status": "queued",
+  "generated_by": "operator-product-strategy",
+  "generation_reason": "A best-in-class pentesting platform needs reproducible proof that AI decisions and runners find known issues in legal labs.",
+  "source_context": {
+    "queue_index": 261,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-307",
+    "broader_theme": "benchmark_driven_product_quality",
+    "source_documents": [
+      "scripts/validation/benchmark_coverage_expected.json"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only local Docker/lab fixtures or explicitly authorized lab targets may be used.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Benchmark definitions list target, expected issues, safe allowed proof type, required evidence, and unsupported gaps.",
+    "A benchmark run produces machine-readable and human-readable expected-vs-actual evidence under codex/results or configured benchmark output.",
+    "Failures create gap records rather than hidden green claims."
+  ],
+  "likely_touched_files": [
+    "scripts/run_lab_benchmark_orchestrator.py",
+    "scripts/validation/benchmark_coverage_expected.json",
+    "api/tests/test_benchmark_orchestrator.py",
+    "docs/benchmark_labs.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "api/app/services/approval.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_benchmark_orchestrator.py",
+      "python3 scripts/run_lab_benchmark_orchestrator.py --dry-run",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Dry-run benchmark validation passes without live target actions.",
+      "Lab-only/live-required checks are clearly marked when not executed.",
+      "Expected-vs-actual output includes evidence IDs and unsupported gaps."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Public internet validation by default",
+    "Launching Docker containers without explicit local operator setup",
+    "Adding new exploit capability"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

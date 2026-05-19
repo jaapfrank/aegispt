@@ -88,6 +88,7 @@ ASVS is the primary answer to: "Which secure application control expectation doe
 | Semgrep-based code validation | PTES, NIST SP 800-115, optional ASVS | Code findings may not always have a direct WSTG reference; WSTG remains web/API-first. |
 | Finding normalization | WSTG, PTES, NIST SP 800-115, optional ASVS | Findings now persist methodology metadata alongside evidence links. |
 | Report generation | NIST SP 800-115, PTES, WSTG | Reports include scope, ROE summary, methodology, coverage, confirmed findings, evidence, remediation, and verification status. |
+| SOC 2 report package | SOC 2 Trust Services Criteria Security, layered on existing AegisPT methodology metadata | The SOC 2 package is a report-time compliance view only. It maps existing evidence-backed findings to an explicit SOC 2 table without changing Prompt 1 methodology definitions or finding schema fields. |
 | Remediation and retest workflow | PTES, NIST SP 800-115 | Existing finding status model remains the verification-state carrier. |
 
 ## 4. Lifecycle Mapping
@@ -126,14 +127,14 @@ OWASP WSTG is the primary technical coverage model for web and API testing.
 | Weak Cryptography Testing | TLS and crypto-related checks from testssl.sh, Nuclei, ZAP, or manual validation. |
 | Business Logic Testing | Primarily controlled manual or internal validation support; evidence model already supports it. |
 | Client-side Testing | Security header findings, clickjacking, DOM/client-side issues, Playwright-assisted coverage when used. |
-| API Testing | Partial today through existing HTTP, ZAP, and validation tooling; planned for deeper dedicated API workflows. |
+| API Testing | Dedicated bounded `active-api-assessment` workflow for authorized OpenAPI, Postman, and GraphQL inputs, plus existing HTTP/ZAP validation where relevant. |
 
 Version handling:
 
 - AegisPT stores both `wstg_id` and `wstg_version`.
 - The current default stable reference is `v4.2`.
 - If the platform later adopts a newer WSTG release, existing findings remain unambiguous because the version is persisted with the reference.
-- API-specific coverage may continue to use broader WSTG categories until dedicated, version-specific API mappings are added.
+- API-specific coverage now has a bounded API-first lane aligned to OWASP API Security Top 10 concepts, while persisted WSTG references remain stable and broader where a finding does not have a precise version-specific API identifier.
 
 ## 6. Reporting and Evidence Mapping
 
@@ -215,7 +216,37 @@ Prompt 2 extends the finding package additively with provenance fields for adapt
 
 These fields do not replace Prompt 1 methodology metadata. They provide the evidence chain for customer-specific pack generation and runtime binding.
 
-## 8. Non-Goals
+## 8. SOC 2 Report-Time Mapping
+
+The SOC 2 report package is an additive compliance-packaging layer. It does not replace PTES, OWASP WSTG, NIST SP 800-115, optional ASVS references, or the existing finding schema.
+
+| SOC 2 Control | Report Mapping Inputs | AegisPT Mapping Boundary |
+| --- | --- | --- |
+| CC6.1 Logical Access Controls | `control_family`, `methodology_tags`, `wstg_id`, and `asvs_reference` values related to authentication, authorization, identity, session, and access control. | Used when existing finding metadata already supports an access-control interpretation. |
+| CC6.6 Logical Access Security Measures | Existing configuration, client-side, input-validation, cryptography, TLS, and hardening metadata. | Used for security measures that protect against unauthorized or unintended system activity. |
+| CC7.1 Security Event Detection and Monitoring | Existing discovery, monitoring, logging, inventory, reconnaissance, error-handling, and observation metadata. | Used for findings that support detection, monitoring, or visible security-event review. |
+| CC8.1 Change Management | Existing secure-code-review, static-analysis, SDLC, supply-chain, and change-management metadata. | Used for findings whose evidence is grounded in code or controlled-change review. |
+
+Unmatched findings are retained in a Manual SOC 2 Review Queue. A zero-finding SOC 2 report path states that no evidence-backed findings were available to map; it does not assert control effectiveness.
+
+## 9. ISO 27001 and PCI DSS Report-Time Mapping
+
+The ISO 27001 and PCI DSS report packages are additive report-time compliance views. They reuse existing evidence-backed findings, methodology metadata, and report exports; they do not redefine PTES, OWASP WSTG, NIST SP 800-115, optional ASVS references, or finding schema fields.
+
+| Framework Package | Report Mapping Inputs | AegisPT Mapping Boundary |
+| --- | --- | --- |
+| ISO/IEC 27001:2022 Annex A A.5.15 Access control | Existing authentication, authorization, identity, session, and access-control metadata. | Used only when stored finding metadata supports access-control review. |
+| ISO/IEC 27001:2022 Annex A A.8.8 Management of technical vulnerabilities | Existing configuration, input-validation, client-side, cryptography, TLS, and hardening metadata. | Used for recorded technical weakness evidence; it does not assert vulnerability-management program completeness. |
+| ISO/IEC 27001:2022 Annex A A.8.15 Logging | Existing logging, monitoring, detection, observation, inventory, and error-handling metadata. | Used where run evidence supports log/monitoring review context. |
+| ISO/IEC 27001:2022 Annex A A.8.32 Change management | Existing secure-code-review, static-analysis, SDLC, supply-chain, and deployment-change metadata. | Used only when finding evidence is grounded in code or controlled-change review. |
+| PCI DSS v4.0 Req. 6.2/6.3 Vulnerability and secure software management | Existing configuration, input-validation, client-side, cryptography, TLS, hardening, and vulnerability-management metadata. | Used for recorded technical weakness evidence; it is not a QSA validation of the PCI DSS program. |
+| PCI DSS v4.0 Req. 8.2/8.3 User identification and authentication | Existing authentication, authorization, identity, session, and access-control metadata. | Used only when stored finding metadata supports identity/authentication review. |
+| PCI DSS v4.0 Req. 10.2/10.4 Audit logs and log review | Existing logging, monitoring, detection, observation, inventory, and error-handling metadata. | Used where run evidence supports audit-log review context. |
+| PCI DSS v4.0 Req. 11.3 External and internal penetration testing | Existing controlled-validation, exploitability, internal-validation, and retest metadata. | Used for recorded AegisPT validation evidence only; it does not claim a complete PCI DSS penetration-test program. |
+
+Unmatched findings are retained in manual framework review queues. Controls or requirements without mapped findings are shown explicitly as untested/no-finding areas, and their absence of findings must not be treated as control effectiveness, ISO certification, PCI validation, or audit attestation.
+
+## 10. Non-Goals
 
 This methodology layer does not change:
 

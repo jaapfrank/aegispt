@@ -1,0 +1,120 @@
+{
+  "id": "backlog-242-authorized-dvga-graphql-live-lab-validation",
+  "task_file": "codex/tasks/backlog-242-authorized-dvga-graphql-live-lab-validation.json",
+  "task_type": "validation_hardening",
+  "title": "Authorized DVGA GraphQL live-lab validation: prove graphql-probe against a real vulnerable GraphQL target",
+  "goal": "Launch a local Damn Vulnerable GraphQL Application (DVGA) lab target and prove the completed graphql-probe runner against a real intentionally vulnerable GraphQL service, not only deterministic fixtures. Use the official DVGA documentation and repository as the benchmark source, then run only bounded, scope-enforced GraphQL validation against localhost/127.0.0.1.",
+  "scope": "Follow-up to completed backlog-227. The operator challenged fixture-only validation for a pentesting product, so this task adds a governed live-lab acceptance slice. Online target research selected DVGA as the primary target because its official repository describes it as an intentionally vulnerable GraphQL implementation for learning and practicing GraphQL security, and documents Docker/local execution. PortSwigger Web Security Academy GraphQL labs are recognized as useful secondary manual references, but DVGA is the primary reproducible target because it can run locally and be reset between validations.",
+  "status": "queued",
+  "generated_by": "operator-requested-graphql-live-lab-proof-2026-05-05",
+  "generation_reason": "The operator correctly noted that a pentesting suite should prove GraphQL behavior against a real authorized vulnerable target, not only fixtures. This queued task captures that follow-up without interrupting the current active SSTI task.",
+  "source_context": {
+    "queue_index": 203,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-227-graphql-security-runner.json",
+      "codex/results/backlog-227-graphql-probe-runner-20260505.md",
+      "https://github.com/dolevf/Damn-Vulnerable-GraphQL-Application",
+      "https://dvga.tools.escape.tech/",
+      "https://portswigger.net/web-security/graphql"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "authorized_target_root": "http://127.0.0.1:5013/",
+    "authorized_alternate_root": "http://localhost:5013/",
+    "broader_theme": "real_lab_validation_and_runner_certification",
+    "source_documents": [
+      "workers/runners/graphql_probe/runner.py",
+      "workers/orchestration/tasks.py",
+      "workers/orchestration/findings.py",
+      "api/app/services/runs.py",
+      "codex/tasks/backlog-227-graphql-security-runner.json",
+      "codex/results/backlog-227-graphql-probe-runner-20260505.md",
+      "https://github.com/dolevf/Damn-Vulnerable-GraphQL-Application",
+      "https://dvga.tools.escape.tech/",
+      "https://portswigger.net/web-security/graphql"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Validate only backlog-227 GraphQL coverage against a local DVGA lab: endpoint discovery, GraphiQL/IDE exposure, introspection, field suggestions, bounded depth-limit signal, batching capability signal, and argument-injection error signal. Do not add unrelated GraphQL exploitation families in this task.",
+    "runtime_mutation": false,
+    "uncontrolled_plugin_installation": false,
+    "live_target_actions": "Allowed only against a locally launched DVGA container on localhost/127.0.0.1 and only for bounded GraphQL validation. Public DVGA or PortSwigger URLs may be used as read-only documentation unless the operator explicitly authorizes a specific ephemeral lab URL.",
+    "authorized_root_only": "All active validation requests must stay under http://127.0.0.1:5013/ or http://localhost:5013/. Do not scan dvga.tools.escape.tech or PortSwigger lab hosts unless separately and explicitly authorized in the active task.",
+    "destructive_actions": "Do not execute OS command, arbitrary file write, denial-of-service, resource exhaustion, subscription flooding, credential attack, account takeover, or persistence scenarios. Query-depth and batching probes must remain bounded to the existing graphql-probe safety limits.",
+    "approval_and_roe": "Use the existing active approval/run safety model where the product path supports it. Direct runner validation is allowed only as local lab proof and must still use approved-scope configuration."
+  },
+  "success_criteria": [
+    "DVGA is launched locally using the documented Docker or equivalent local command, or a blocker records why local launch was impossible.",
+    "The evidence cites the official DVGA repository/documentation that establishes the target is intentionally vulnerable and intended for GraphQL security practice.",
+    "graphql-probe runs against only http://127.0.0.1:5013/ or http://localhost:5013/ with approved scope and produces structured artifacts.",
+    "Evidence records expected-vs-actual detection for GraphQL endpoint discovery, GraphiQL/IDE exposure, introspection, field suggestions, bounded depth-limit signal, batching capability signal, and argument-injection error signal.",
+    "Findings are normalized through the existing findings extraction path, or any miss is recorded as product truth with a bounded follow-up.",
+    "No existing runner/API tests regress."
+  ],
+  "likely_touched_files": [
+    "workers/tests/test_graphql_probe_runner.py",
+    "workers/runners/graphql_probe/runner.py",
+    "api/tests/test_pentest_depth_registration.py",
+    "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260505.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "Approval gate bypasses",
+    "Scope/ROE enforcement",
+    "Kill switch behavior",
+    "Unrelated GraphQL exploitation families",
+    "Public DVGA or PortSwigger targets without explicit active-task authorization"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest workers/tests/test_graphql_probe_runner.py api/tests/test_pentest_depth_registration.py -q",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The local DVGA lab root is the only active target root used for validation.",
+      "The evidence includes official DVGA source references, exact local target URL, command/results summary, produced artifact paths, and expected-vs-actual GraphQL coverage.",
+      "Any detection gap is recorded honestly and converted into a bounded next action rather than hidden behind green fixture tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Write evidence under codex/results/.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Running against public GraphQL targets without explicit active-task authorization",
+    "DoS/resource exhaustion proof beyond bounded safety probes",
+    "OS command execution, arbitrary file write, or credential attack DVGA scenarios",
+    "Changing active task order silently",
+    "Replacing the existing graphql-probe implementation with a different scanner"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,98 @@
+{
+  "id": "backlog-219-ai-attack-chain-reasoning-web-context",
+  "task_file": "codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json",
+  "task_type": "product_slice",
+  "title": "AI attack chain reasoning: teach the AI agent to chain web vulnerabilities across tools and recognize compound attack paths",
+  "goal": "Current AI analysis (ai_agent.py) runs per-task but lacks cross-task vulnerability chaining for web applications. Google Gruyere demonstrates compound attacks: (1) XSS via file upload + stored XSS can be chained to steal admin cookies \u2192 session hijacking \u2192 account takeover. (2) Path traversal + code execution can lead to RCE. The AI should reason about these chains and propose the next logical step. Implement: (1) After each web scan task, the AI analyses not just the current task output but ALL findings so far for the engagement. It looks for compound paths: 'Found file upload endpoint + stored XSS \u2192 propose testing: does uploaded HTML file execute on admin visit? (CSRF+XSS chain)'. (2) Add web-specific reasoning templates to the deterministic provider: 'If finding.type == XSS_STORED and endpoint.type == admin_panel_visited \u2192 confidence 0.9, propose: verify admin cookie theft via CSRF+XSS combination'. (3) For Gruyere-style apps: 'Found unrestricted file upload \u2192 propose: try uploading HTML with XSS payload, try path traversal in filename'. (4) Add a 'compound attack chain' finding type that summarises multi-step attack paths. This requires extending ai_agent.py with a cross-task context window that reads all findings, not just the current task's output.",
+  "scope": "Gap analysis 2026-05-03: AI agent runs per-task (tasks.py:2835). Gruyere shows that the most interesting vulnerabilities involve chaining: file upload \u2192 XSS, path traversal \u2192 code execution, client-state manipulation \u2192 privilege escalation. The AI currently cannot reason across tasks or identify these compound paths.",
+  "status": "queued",
+  "generated_by": "benchmark-gap-analysis-2026-05-03",
+  "generation_reason": "Gruyere compound attack paths (file upload+XSS, path traversal+RCE) require cross-task AI reasoning \u2014 current AI analyses one task at a time without compound chain awareness.",
+  "source_context": {
+    "queue_index": 198,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-43-vulnerability-chain-detection-foundation.json",
+      "codex/tasks/backlog-48-ai-augmented-attack-path-lateral-analysis-foundation.json",
+      "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-205 must be completed first (proposals need to be visible before compound chains are proposed).",
+    "broader_theme": "ai_compound_attack_reasoning",
+    "source_documents": [
+      "api/app/services/ai_agent.py",
+      "workers/orchestration/tasks.py",
+      "api/app/routers/findings.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add cross-task context window and web-specific chain templates to the deterministic provider. Do not change autonomous dispatch logic or intrusive tool triggering.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "When XSS_STORED finding + file upload endpoint both exist for an engagement, AI proposes a 'chain' test: 'Test if HTML file upload triggers stored XSS in admin panel'.",
+    "When path traversal + writable file system detected, AI proposes code execution chain.",
+    "Compound attack chain finding type created and stored.",
+    "Proposals appear in Mission Control AI Proposals inbox.",
+    "Chain reasoning uses only in-scope findings from the current engagement.",
+    "No regression in AI agent tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_agent.py",
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Autonomous dispatch logic",
+    "Intrusive approval gates",
+    "Finding schema for non-chain findings"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AI proposes compound chain when XSS + file upload co-exist.",
+      "Compound chain finding type in schema.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-205 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Autonomous exploit chaining",
+    "Full attack graph",
+    "External CVE-based chains"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

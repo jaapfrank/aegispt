@@ -1,7 +1,16 @@
 {
   "catalog_only": true,
-  "matrix_id": "safe_target_catalog_v1",
+  "matrix_id": "safe_target_catalog_v2",
   "purpose": "Safe target inventory for AegisPT product validation. Only local, explicitly authorized, or deliberately vulnerable training targets are allowed.",
+  "catalog_schema": {
+    "runnability": [
+      "runnable",
+      "fixture_backed",
+      "documentation_only",
+      "disabled_template"
+    ],
+    "safety_rule": "Executable targets must be local, explicitly authorized, or deliberately vulnerable. Hosted/documentation-only references stay disabled and non-dispatching."
+  },
   "targets": [
     {
       "id": "local-aegispt-smoke",
@@ -17,6 +26,7 @@
         "urls": []
       },
       "runtime_fixture": "local_http_probe",
+      "runnability": "fixture_backed",
       "runtime_fixture_path": "/health/live",
       "recommended_profile": "Light",
       "recommended_run_profile": "passive-web-baseline",
@@ -30,6 +40,16 @@
         "adaptive_generation": false,
         "max_validation_depth": "light"
       },
+      "benchmark_metadata": {
+        "benchmark_family": "local-smoke",
+        "vulnerable_families": [],
+        "prerequisites": [
+          "repo virtual environment",
+          "inline or worker dispatch path"
+        ],
+        "fixture_notes": "Harness-spawned loopback HTTP probe; no customer or public target is touched.",
+        "coverage_expectation": "Run creation, task evidence, inventory, report, and history plumbing only."
+      },
       "notes": "The acceptance harness spawns a temporary loopback HTTP probe for this scenario so local smoke validation does not target the control plane itself."
     },
     {
@@ -42,6 +62,7 @@
       "owner": "Training Lab",
       "authorization_ref": "LAB-JUICE-SHOP",
       "assessment_type": "Website / Web App",
+      "runnability": "runnable",
       "scope": {
         "urls": [
           "http://127.0.0.1:3000/#/"
@@ -56,6 +77,21 @@
         "nuclei_checks",
         "ssl_tls_analysis"
       ],
+      "benchmark_metadata": {
+        "benchmark_family": "OWASP Juice Shop",
+        "vulnerable_families": [
+          "injection",
+          "broken access control",
+          "xss",
+          "sensitive data exposure",
+          "security misconfiguration"
+        ],
+        "prerequisites": [
+          "local Juice Shop container reachable on 127.0.0.1:3000"
+        ],
+        "fixture_notes": "Catalog assumes an operator-started local intentionally vulnerable lab.",
+        "coverage_expectation": "Passive web/nuclei baseline and report-surface validation."
+      },
       "notes": "Deliberately vulnerable SPA suitable for safe web validation and report generation."
     },
     {
@@ -68,6 +104,7 @@
       "owner": "Training Lab",
       "authorization_ref": "LAB-WEBGOAT",
       "assessment_type": "Authenticated App",
+      "runnability": "fixture_backed",
       "scope": {
         "urls": [
           "http://127.0.0.1:8080/WebGoat"
@@ -86,6 +123,23 @@
         "content_discovery",
         "business_logic_testing"
       ],
+      "benchmark_metadata": {
+        "benchmark_family": "OWASP WebGoat",
+        "vulnerable_families": [
+          "access control",
+          "authentication",
+          "injection",
+          "ssrf",
+          "csrf",
+          "business logic"
+        ],
+        "prerequisites": [
+          "Docker runtime",
+          "local ZAP daemon for active-safe scenario"
+        ],
+        "fixture_notes": "Harness-owned Docker fixture rewrites the target to isolated loopback ports.",
+        "coverage_expectation": "Authenticated active-safe validation and approval-gated run flow."
+      },
       "notes": "Training target for authenticated workflows and approval-gated active-safe validation. The acceptance harness rewrites this to an isolated loopback WebGoat fixture so the lab does not collide with the local ZAP daemon port."
     },
     {
@@ -98,6 +152,7 @@
       "owner": "Training Lab",
       "authorization_ref": "LAB-CRAPI",
       "assessment_type": "API",
+      "runnability": "runnable",
       "scope": {
         "urls": [
           "http://127.0.0.1:8888"
@@ -107,7 +162,7 @@
         ]
       },
       "recommended_profile": "Adaptive Customer-Specific Mode",
-      "recommended_run_profile": "active-web-safe",
+      "recommended_run_profile": "active-api-assessment",
       "recommended_modules": [
         "discovery",
         "auth_flows",
@@ -115,7 +170,327 @@
         "business_logic_testing",
         "adaptive_ai_generated_tests"
       ],
+      "benchmark_metadata": {
+        "benchmark_family": "OWASP crAPI",
+        "vulnerable_families": [
+          "OWASP API broken object level authorization",
+          "OWASP API broken function level authorization",
+          "excessive data exposure",
+          "mass assignment",
+          "injection"
+        ],
+        "prerequisites": [
+          "local crAPI stack reachable on 127.0.0.1:8888",
+          "local ZAP daemon for active-safe scenario"
+        ],
+        "fixture_notes": "Catalog assumes an operator-started local intentionally vulnerable API lab.",
+        "coverage_expectation": "API-first and active-safe web/API acceptance proof with explicit completed-with-errors nuance when upstream lab resets a subtarget."
+      },
       "notes": "API-heavy vulnerable lab that can exercise approval-gated active-safe and adaptive UI flows."
+    },
+    {
+      "id": "owasp-benchmark-reference",
+      "label": "OWASP Benchmark Reference",
+      "classification": "training_lab",
+      "enabled": false,
+      "authorized": false,
+      "surface_kind": "web_app",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-OWASP-BENCHMARK",
+      "assessment_type": "Website / Web App",
+      "runnability": "disabled_template",
+      "scope": {
+        "urls": []
+      },
+      "recommended_profile": "Standard",
+      "recommended_run_profile": "passive-web-nuclei-audit",
+      "recommended_modules": [
+        "web_crawling",
+        "content_discovery",
+        "nuclei_checks",
+        "benchmark_fixture_review"
+      ],
+      "benchmark_metadata": {
+        "benchmark_family": "OWASP Benchmark",
+        "vulnerable_families": [
+          "command injection",
+          "crypto weakness",
+          "insecure cookie",
+          "ldap injection",
+          "path traversal",
+          "sql injection",
+          "trust boundary violation",
+          "weak randomness",
+          "xss",
+          "xxe"
+        ],
+        "prerequisites": [
+          "local OWASP Benchmark application fixture",
+          "explicit loopback URL after fixture startup"
+        ],
+        "fixture_notes": "Reference entry only until a repo-owned local startup recipe is added; do not dispatch by default.",
+        "coverage_expectation": "Future expected-vs-actual scoring target for backlog-108 and backlog-99 style matrices."
+      },
+      "notes": "Documentation/reference template for OWASP Benchmark coverage. It is disabled until the local fixture path is recorded and authorized."
+    },
+    {
+      "id": "owasp-wrongsecrets-local-template",
+      "label": "OWASP WrongSecrets Local Template",
+      "classification": "training_lab",
+      "enabled": false,
+      "authorized": false,
+      "surface_kind": "secrets_lab",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-WRONGSECRETS",
+      "assessment_type": "CI/CD and Secrets",
+      "runnability": "disabled_template",
+      "scope": {
+        "urls": [],
+        "pipeline_config_paths": [],
+        "repositories": []
+      },
+      "recommended_profile": "Secrets Hygiene",
+      "recommended_run_profile": "passive-cicd-security-assessment",
+      "recommended_modules": [
+        "secrets_hygiene_review",
+        "cicd_security_review",
+        "benchmark_fixture_review"
+      ],
+      "benchmark_metadata": {
+        "benchmark_family": "OWASP WrongSecrets",
+        "vulnerable_families": [
+          "hardcoded secrets",
+          "secret leakage",
+          "weak secret storage",
+          "cloud credential exposure",
+          "pipeline secret hygiene"
+        ],
+        "prerequisites": [
+          "local WrongSecrets lab or exported fixture files",
+          "approved pipeline/repository metadata when CI/CD review is used"
+        ],
+        "fixture_notes": "Template is non-runnable until local fixture endpoints or exported challenge files are recorded in scope.",
+        "coverage_expectation": "Secrets-hygiene evidence without raw secret disclosure."
+      },
+      "notes": "Safe secrets benchmark placeholder for future local WrongSecrets validation. Keep disabled until the fixture is present and scoped."
+    },
+    {
+      "id": "promptme-reference",
+      "label": "PromptMe LLM Security Reference",
+      "classification": "training_lab",
+      "enabled": false,
+      "authorized": false,
+      "surface_kind": "llm_app",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-PROMPTME",
+      "assessment_type": "LLM / AI App",
+      "runnability": "documentation_only",
+      "scope": {
+        "llm_endpoints": []
+      },
+      "recommended_profile": "LLM Passive Probe",
+      "recommended_run_profile": "active-llm-application-probe",
+      "recommended_modules": [
+        "llm_application_probing",
+        "benchmark_fixture_review"
+      ],
+      "benchmark_metadata": {
+        "benchmark_family": "PromptMe",
+        "vulnerable_families": [
+          "prompt injection",
+          "sensitive information disclosure",
+          "unsafe tool use",
+          "jailbreak resilience",
+          "policy bypass"
+        ],
+        "prerequisites": [
+          "approved local PromptMe-style fixture or explicitly authorized LLM endpoint"
+        ],
+        "fixture_notes": "Documentation-only reference in this slice; no LLM endpoint is enabled by default.",
+        "coverage_expectation": "Future LLM benchmark truth for backlog-108 and LLM application testing."
+      },
+      "notes": "Documentation-only LLM benchmark reference. It must not dispatch until an approved local fixture or authorized endpoint exists."
+    },
+    {
+      "id": "goad-ad-lab-template",
+      "label": "GOAD-Style AD Internal Lab Template",
+      "classification": "training_lab",
+      "enabled": false,
+      "authorized": false,
+      "surface_kind": "internal_ad_lab",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-GOAD-AD",
+      "assessment_type": "Active Directory",
+      "runnability": "disabled_template",
+      "scope": {
+        "cidrs": [],
+        "hosts": [],
+        "directory_domains": []
+      },
+      "recommended_profile": "Internal Validation",
+      "recommended_run_profile": "passive-network-discovery",
+      "recommended_modules": [
+        "discovery",
+        "internal_validation_modules",
+        "ad_lab_validation",
+        "benchmark_fixture_review"
+      ],
+      "benchmark_metadata": {
+        "benchmark_family": "GOAD-style AD lab",
+        "vulnerable_families": [
+          "AD misconfiguration",
+          "Kerberoastable accounts",
+          "AS-REP roastable accounts",
+          "weak SMB posture",
+          "lateral movement prerequisites",
+          "privilege escalation paths"
+        ],
+        "prerequisites": [
+          "local isolated AD lab",
+          "explicit CIDR/host/domain scope",
+          "operator authorization for any intrusive phases"
+        ],
+        "fixture_notes": "Template only. It intentionally carries no runnable addresses until the local lab is built and approved.",
+        "coverage_expectation": "Internal lab truth for LAN/AD chains without touching customer or public infrastructure."
+      },
+      "notes": "Disabled internal AD lab template for future GOAD-style validation. Never broaden this to a live network without explicit scope."
+    },
+    {
+      "id": "google-gruyere-local",
+      "label": "Google Gruyere Local",
+      "classification": "training_lab",
+      "enabled": true,
+      "authorized": true,
+      "surface_kind": "web_app",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-GRUYERE-LOCAL",
+      "assessment_type": "Website / Web App",
+      "runnability": "fixture_backed",
+      "scope": {
+        "urls": [
+          "http://127.0.0.1:8008/"
+        ]
+      },
+      "runtime_fixture": "docker_gruyere",
+      "runtime_fixture_image": "karthequian/gruyere:latest",
+      "runtime_fixture_container_port": 8008,
+      "runtime_fixture_startup_timeout_seconds": 90,
+      "recommended_profile": "Standard",
+      "recommended_run_profile": "active-web-zap-active",
+      "recommended_modules": [
+        "web_crawling",
+        "content_discovery",
+        "nuclei_checks",
+        "zap_active_checks",
+        "benchmark_fixture_review"
+      ],
+      "benchmark_metadata": {
+        "benchmark_family": "Google Gruyere",
+        "vulnerable_families": [
+          "xss",
+          "csrf",
+          "xssi",
+          "path traversal",
+          "client-state manipulation",
+          "remote code execution",
+          "sql injection",
+          "denial of service",
+          "configuration disclosure",
+          "ajax phishing",
+          "buffer overflow"
+        ],
+        "prerequisites": [
+          "Docker runtime",
+          "local ZAP daemon for active ZAP validation"
+        ],
+        "fixture_notes": "Harness-owned Docker fixture rewrites the target to an isolated loopback port.",
+        "coverage_expectation": "Expected-vs-actual Gruyere coverage using only existing passive and active AegisPT tools."
+      },
+      "notes": "Local intentionally vulnerable Gruyere fixture for benchmark coverage analysis. Do not use the public hosted Gruyere service for automated validation."
+    },
+    {
+      "id": "gruyere-reference",
+      "label": "Google Gruyere Reference",
+      "classification": "training_lab",
+      "enabled": false,
+      "authorized": false,
+      "surface_kind": "web_app",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-GRUYERE",
+      "assessment_type": "Website / Web App",
+      "runnability": "documentation_only",
+      "scope": {
+        "urls": []
+      },
+      "recommended_profile": "Standard",
+      "recommended_run_profile": "passive-web-nuclei-audit",
+      "recommended_modules": [
+        "web_crawling",
+        "content_discovery",
+        "benchmark_fixture_review"
+      ],
+      "benchmark_metadata": {
+        "benchmark_family": "Google Gruyere",
+        "vulnerable_families": [
+          "xss",
+          "xsrF",
+          "path traversal",
+          "information disclosure",
+          "stored data abuse"
+        ],
+        "prerequisites": [
+          "local copy or explicitly authorized hosted Gruyere instance"
+        ],
+        "fixture_notes": "Documentation-only reference until a local or explicitly authorized fixture is recorded.",
+        "coverage_expectation": "Reference coverage for simple web vulnerability families and training-lab parity."
+      },
+      "notes": "Reference-only Gruyere entry; do not target public hosted instances from the acceptance harness."
+    },
+    {
+      "id": "portswigger-academy-reference",
+      "label": "PortSwigger Web Security Academy Reference",
+      "classification": "training_lab",
+      "enabled": false,
+      "authorized": false,
+      "surface_kind": "web_app",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-PORTSWIGGER-ACADEMY",
+      "assessment_type": "Website / Web App",
+      "runnability": "documentation_only",
+      "scope": {
+        "urls": []
+      },
+      "recommended_profile": "Standard",
+      "recommended_run_profile": "passive-web-nuclei-audit",
+      "recommended_modules": [
+        "web_crawling",
+        "content_discovery",
+        "business_logic_testing",
+        "benchmark_fixture_review"
+      ],
+      "benchmark_metadata": {
+        "benchmark_family": "PortSwigger Web Security Academy",
+        "vulnerable_families": [
+          "access control",
+          "authentication",
+          "business logic",
+          "csrf",
+          "deserialization",
+          "file upload",
+          "oauth",
+          "race conditions",
+          "request smuggling",
+          "ssrf",
+          "xss",
+          "xxe"
+        ],
+        "prerequisites": [
+          "operator-selected academy lab with explicit authorization for that session"
+        ],
+        "fixture_notes": "Hosted academy reference only; not automatically runnable by AegisPT.",
+        "coverage_expectation": "Human-guided benchmark mapping for web vulnerability families, not arbitrary public scanning."
+      },
+      "notes": "Documentation-only hosted-lab reference. Keep disabled because the academy creates per-user lab instances outside this repo."
     },
     {
       "id": "metasploitable3-template",
@@ -127,6 +502,7 @@
       "owner": "Training Lab",
       "authorization_ref": "LAB-METASPLOITABLE3",
       "assessment_type": "Internal Range / LAN",
+      "runnability": "disabled_template",
       "scope": {
         "hosts": [
           "192.168.56.10"
@@ -137,6 +513,22 @@
       "recommended_modules": [
         "discovery"
       ],
+      "benchmark_metadata": {
+        "benchmark_family": "Metasploitable 3",
+        "vulnerable_families": [
+          "exposed services",
+          "weak credentials",
+          "known vulnerable services",
+          "internal infrastructure posture"
+        ],
+        "prerequisites": [
+          "local isolated VM lab",
+          "explicit host scope",
+          "approval gates for active/intrusive phases"
+        ],
+        "fixture_notes": "Disabled template until the VM exists locally and addressing is reviewed.",
+        "coverage_expectation": "Future LAN/infrastructure benchmark proof."
+      },
       "notes": "Enable only after the local Metasploitable 3 lab exists and the addressing is updated."
     },
     {
@@ -149,6 +541,7 @@
       "owner": "Fill In Customer",
       "authorization_ref": "FILL-IN-ROE",
       "assessment_type": "Mixed Assessment",
+      "runnability": "disabled_template",
       "scope": {
         "domains": [],
         "urls": [],
@@ -168,6 +561,17 @@
         "business_logic_testing",
         "adaptive_ai_generated_tests"
       ],
+      "benchmark_metadata": {
+        "benchmark_family": "authorized-customer-template",
+        "vulnerable_families": [],
+        "prerequisites": [
+          "signed ROE",
+          "filled customer-owned scope",
+          "reviewed safety mode"
+        ],
+        "fixture_notes": "Template only; never runnable until copied and completed with customer authorization.",
+        "coverage_expectation": "Customer-specific proof, not generic benchmark evidence."
+      },
       "notes": "Copy this entry, fill in only customer-owned authorized scope, set enabled=true, and record authorization before use."
     }
   ],
@@ -268,6 +672,40 @@
       "dispatch": true
     },
     {
+      "id": "gruyere-benchmark-coverage",
+      "name": "Gruyere Benchmark Coverage",
+      "enabled": true,
+      "priority": 35,
+      "target_id": "google-gruyere-local",
+      "assessment_type": "Website / Web App",
+      "profile": "Standard",
+      "run_profile": "active-web-zap-active",
+      "modules": [
+        "web_crawling",
+        "content_discovery",
+        "nuclei_checks",
+        "zap_active_checks",
+        "benchmark_fixture_review"
+      ],
+      "safety": {
+        "active_checks": "guarded",
+        "adaptive_generation": false,
+        "max_validation_depth": "standard",
+        "time_budget_minutes": 60
+      },
+      "approval_actors": [
+        "codex-acceptance-approver-1"
+      ],
+      "expected_outputs": [
+        "task_evidence",
+        "reports",
+        "findings_surface"
+      ],
+      "minimum_reports": 4,
+      "minimum_findings": 0,
+      "dispatch": true
+    },
+    {
       "id": "crapi-authenticated-safe",
       "name": "crAPI Authenticated Safe Validation",
       "enabled": true,
@@ -300,6 +738,123 @@
       "minimum_reports": 4,
       "minimum_findings": 0,
       "dispatch": true
+    },
+    {
+      "id": "owasp-benchmark-reference-stub",
+      "name": "OWASP Benchmark Reference Stub",
+      "enabled": false,
+      "priority": 50,
+      "target_id": "owasp-benchmark-reference",
+      "assessment_type": "Website / Web App",
+      "profile": "Standard",
+      "run_profile": "passive-web-nuclei-audit",
+      "modules": [
+        "web_crawling",
+        "content_discovery",
+        "nuclei_checks",
+        "benchmark_fixture_review"
+      ],
+      "safety": {
+        "active_checks": "passive-only",
+        "adaptive_generation": false,
+        "max_validation_depth": "standard",
+        "time_budget_minutes": 60
+      },
+      "expected_outputs": [
+        "fixture_metadata",
+        "expected_finding_catalog"
+      ],
+      "minimum_reports": 0,
+      "minimum_findings": 0,
+      "dispatch": false,
+      "notes": "Disabled until a local OWASP Benchmark fixture URL exists. This scenario is metadata truth only in backlog-107."
+    },
+    {
+      "id": "wrongsecrets-reference-stub",
+      "name": "WrongSecrets Reference Stub",
+      "enabled": false,
+      "priority": 60,
+      "target_id": "owasp-wrongsecrets-local-template",
+      "assessment_type": "CI/CD and Secrets",
+      "profile": "Secrets Hygiene",
+      "run_profile": "passive-cicd-security-assessment",
+      "modules": [
+        "secrets_hygiene_review",
+        "cicd_security_review",
+        "benchmark_fixture_review"
+      ],
+      "safety": {
+        "active_checks": "passive-only",
+        "adaptive_generation": false,
+        "max_validation_depth": "standard",
+        "time_budget_minutes": 45
+      },
+      "expected_outputs": [
+        "fixture_metadata",
+        "expected_secret_families"
+      ],
+      "minimum_reports": 0,
+      "minimum_findings": 0,
+      "dispatch": false,
+      "notes": "Disabled until local WrongSecrets fixture files or endpoints are recorded in scope."
+    },
+    {
+      "id": "promptme-reference-stub",
+      "name": "PromptMe LLM Reference Stub",
+      "enabled": false,
+      "priority": 70,
+      "target_id": "promptme-reference",
+      "assessment_type": "LLM / AI App",
+      "profile": "LLM Passive Probe",
+      "run_profile": "active-llm-application-probe",
+      "modules": [
+        "llm_application_probing",
+        "benchmark_fixture_review"
+      ],
+      "safety": {
+        "active_checks": "guarded",
+        "adaptive_generation": false,
+        "max_validation_depth": "standard",
+        "time_budget_minutes": 30
+      },
+      "expected_outputs": [
+        "fixture_metadata",
+        "llm_eval_prompt_catalog"
+      ],
+      "minimum_reports": 0,
+      "minimum_findings": 0,
+      "dispatch": false,
+      "notes": "Documentation-only LLM benchmark reference; no endpoint is enabled by default."
+    },
+    {
+      "id": "goad-ad-lab-reference-stub",
+      "name": "GOAD-Style AD Lab Reference Stub",
+      "enabled": false,
+      "priority": 80,
+      "target_id": "goad-ad-lab-template",
+      "assessment_type": "Active Directory",
+      "profile": "Internal Validation",
+      "run_profile": "passive-network-discovery",
+      "modules": [
+        "discovery",
+        "internal_validation_modules",
+        "ad_lab_validation",
+        "benchmark_fixture_review"
+      ],
+      "safety": {
+        "active_checks": "passive-only",
+        "adaptive_generation": false,
+        "max_validation_depth": "light",
+        "time_budget_minutes": 90
+      },
+      "expected_outputs": [
+        "fixture_metadata",
+        "ad_lab_prerequisites"
+      ],
+      "minimum_reports": 0,
+      "minimum_findings": 0,
+      "dispatch": false,
+      "notes": "Disabled until a local isolated AD lab has explicit CIDR, hosts, domain, and authorization."
     }
   ]
 }

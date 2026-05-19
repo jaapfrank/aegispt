@@ -1,0 +1,106 @@
+{
+  "id": "backlog-255-ai-adaptive-assessment-planner",
+  "task_file": "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json",
+  "task_type": "product_slice",
+  "title": "Evidence-driven Adaptive Assessment Planner: scores runners using signal evidence and runner metadata, produces run/skip/wait/approval plan with reasoning \u2014 no more serial 20-tool batteries",
+  "goal": "Replace the current fixed Phase 2 tool battery (run all 20 runners always) with an evidence-driven planner that reads the SignalProfile from backlog-256 and the RunnerCapabilityMetadata from backlog-258, then produces a scored assessment plan: for each available runner, one of: RUN (evidence supports it, confidence >= 0.7), SKIP (evidence contradicts it, reason shown), WAIT (insufficient evidence yet, needs more recon), NEEDS_APPROVAL (intrusive tier, requires explicit gate). The planner does NOT autonomously execute tools \u2014 it produces a recommended plan that the operator reviews and approves. Implementation: (1) Create api/app/services/assessment_planner.py that takes SignalProfile + RunnerCapabilityMetadata and produces AssessmentPlan: { runners: [ { runner: 'xss-extended', decision: 'RUN', confidence: 0.90, reasons: ['file_upload_endpoint found at /upload', 'login_form found at /wp-login.php'], estimated_minutes: 12 }, { runner: 'jwt-probe', decision: 'SKIP', confidence: 0.05, reasons: ['jwt_in_response: false', 'no Authorization Bearer header seen'] }, { runner: 'sqlmap', decision: 'WAIT', confidence: 0.35, reasons: ['PHP+MySQL detected but no injectable_parameter or sql_error_pattern signal found \u2014 needs spider evidence first'] }, { runner: 'deserialization-probe', decision: 'SKIP', confidence: 0.08, reasons: ['java_indicators: false', 'no JSESSIONID cookie'] } ] }. (2) Show the AssessmentPlan in Mission Control BEFORE Phase 2 launches: three columns \u2014 RUN (green, checked by default), WAIT (amber, unchecked), SKIP (grey, unchecked with reason). Operator can move items between columns. (3) Clicking 'Launch Assessment' creates Phase 2 tasks only for RUN items. AI explains each decision in one sentence. Note: the planner SELECTS from existing approved runners \u2014 it does not create new tools or bypass approval gates. Intrusive runners always require the explicit approval gate regardless of plan.",
+  "scope": "ChatGPT review 2026-05-06 confirmed this architecture. Current approach runs 20 tools serially. sqlmap should only trigger on concrete parameter/form/error evidence, not on PHP+MySQL alone. The planner needs runner metadata to know prerequisites and triggers. This is the evidence-driven approach that makes AegisPT behave like an expert pentester.",
+  "status": "queued",
+  "generated_by": "architectural-review-2026-05-06",
+  "generation_reason": "Evidence-driven tool selection: stop running all 20 tools always. Planner reads signals, scores runners by evidence match, shows operator 7 selected / 11 skipped / 5 waiting plan.",
+  "source_context": {
+    "queue_index": 216,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json",
+      "codex/tasks/backlog-258-runner-capability-metadata.json",
+      "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-256 (SignalProfile) and backlog-258 (RunnerCapabilityMetadata) must be completed first \u2014 the planner reads both.",
+    "broader_theme": "evidence_driven_adaptive_planner",
+    "source_documents": [
+      "api/app/services/assessment_planner.py",
+      "api/app/services/assessment_chain.py",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Planner SELECTS from existing runners only. Does not create tools, bypass gates, or auto-dispatch. Intrusive runners always require approval regardless of plan score.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "AssessmentPlan produced after recon phase with RUN/SKIP/WAIT/NEEDS_APPROVAL decision per runner.",
+    "Each decision includes reasoning in plain language (one sentence).",
+    "sqlmap decision = WAIT when no injectable_parameter or sql_error_pattern signal (PHP+MySQL alone insufficient).",
+    "jwt-probe decision = SKIP when jwt_in_response: false.",
+    "Mission Control shows three-column plan UI: RUN (green) / WAIT (amber) / SKIP (grey).",
+    "Operator can move runners between columns before launching.",
+    "Only RUN column items are dispatched when operator approves.",
+    "Intrusive runners always show NEEDS_APPROVAL regardless of evidence score.",
+    "Audit log records which runners were planned/skipped and why.",
+    "No regression in existing chain or assessment tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_planner.py",
+    "api/app/services/assessment_chain.py",
+    "api/app/routers/runs.py",
+    "ui/assets/modules/mission-control.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Runner implementations",
+    "Intrusive approval gates",
+    "run_profiles.py profile definitions"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AssessmentPlan renders in Mission Control after recon.",
+      "sqlmap WAIT when no parameter evidence.",
+      "jwt-probe SKIP when no JWT signals.",
+      "Three-column UI renders correctly.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-256 and backlog-258 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "New runner creation",
+    "Bypassing approval gates",
+    "Autonomous dispatch without operator approval"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

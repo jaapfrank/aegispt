@@ -1,0 +1,95 @@
+{
+  "id": "backlog-122-live-ai-signal",
+  "task_file": "codex/tasks/backlog-122-live-ai-signal.json",
+  "task_type": "backlog_slice",
+  "title": "Live AI Signal in Mission Control \u2014 Real ChatGPT Streaming",
+  "goal": "When ChatGPT OAuth is connected, stream real AI analysis into the Mission Control AI Signal panel after each task completes, instead of showing deterministic template text.",
+  "scope": "Add a streaming AI analysis endpoint and wire it to the Mission Control AI Signal panel. After each task reaches status=completed, the backend calls ChatGPT with: task tool name, task target, top 3 findings from the task, current inventory summary, and asks for a 3-sentence security analysis (what was found, what it means, what to do next). Stream the response token-by-token via GET /api/v1/runs/{run_id}/ai-signal/stream (SSE endpoint). In Mission Control, after a task completes the AI Signal panel shows a typing cursor and streams the text. When complete, store the analysis as an AgentReasoning record. When ChatGPT is not configured, show current deterministic mission guidance as before. Add a provider status indicator in the AI Signal panel header showing ChatGPT icon + Connected or Deterministic mode label.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "AI Signal panel shows static deterministic text. ChatGPT is connected but never actually called for real-time analysis. This is the primary reason the system does not feel alive.",
+  "queue_index": 122,
+  "source_context": {
+    "queue_index": 121,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_value",
+    "source_documents": [
+      "api/app/services/ai_enrichment.py",
+      "api/app/services/chatgpt_oauth.py",
+      "api/app/routers/runs.py",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "AI Signal streaming only. Do not auto-execute any tool suggestions from AI. Analysis is advisory only.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "GET /api/v1/runs/{id}/ai-signal/stream returns SSE stream.",
+    "When ChatGPT configured, stream shows real ChatGPT response after task completion.",
+    "When ChatGPT not configured, shows deterministic text (no regression).",
+    "Streaming text appears in AI Signal panel with typing indicator.",
+    "Analysis stored as AgentReasoning record.",
+    "Provider status badge visible in AI Signal header.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_enrichment.py",
+    "api/app/services/chatgpt_oauth.py",
+    "api/app/routers/runs.py",
+    "ui/assets/modules/mission-control.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Finding schema severity fields",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "AI-initiated tool execution",
+    "Autonomous mode changes",
+    "Multi-agent coordination"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AI Signal streams real ChatGPT response when provider configured. Deterministic fallback unchanged."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

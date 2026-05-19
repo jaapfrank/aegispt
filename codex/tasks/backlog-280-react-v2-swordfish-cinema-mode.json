@@ -1,0 +1,86 @@
+{
+  "id": "backlog-280-react-v2-swordfish-cinema-mode",
+  "task_file": "codex/tasks/backlog-280-react-v2-swordfish-cinema-mode.json",
+  "task_type": "product_slice",
+  "title": "React v2 Swordfish Cinema Mode (3D): Three.js network traversal and CLI stdout projection",
+  "goal": "Transform Cinema Mode into a visually stunning 3D 'Swordfish-style' experience. (1) Integrate React-Three-Fiber (Three.js) to render the target network as 3D nodes (folders/servers/IPs) in a dark, tech-themed void. (2) The 3D camera dynamically 'flies' to the node currently being scanned. (3) Project the live CLI output (stdout) of the active tool directly into the 3D space next to the target node, making the abstract work visible and visceral. (4) Nodes pulse and change color based on findings.",
+  "scope": "Cinema Mode visualization component only.",
+  "status": "queued",
+  "generated_by": "react-v2-living-system-planning-2026-05-08",
+  "generation_reason": "User explicitly requested a 'Swordfish' 3D folder/server traversal mode where they can see the CLI output happening live on the target.",
+  "source_context": {
+    "queue_index": 239,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "LIVING_SYSTEM_EXPERIENCE.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-279",
+    "broader_theme": "react_v2_living_system",
+    "source_documents": [
+      "ui-v2/package.json",
+      "ui-v2/src/components/screens/CinemaMode.tsx"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Ensure 3D rendering is performant and degrades gracefully. Use fake placeholder nodes if inventory is empty, but project real stdout when available.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Three.js/React-Three-Fiber dependencies added and built successfully.",
+    "Cinema Mode renders a 3D scene with nodes and connecting lines.",
+    "Camera smoothly moves between nodes.",
+    "CLI text is readable in 3D space."
+  ],
+  "likely_touched_files": [
+    "ui-v2/package.json",
+    "ui-v2/src/components/screens/CinemaMode.tsx",
+    "ui-v2/src/components/screens/MissionControl.tsx"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/"
+  ],
+  "validation": {
+    "required_checks": [
+      "cd ui-v2 && npm install",
+      "cd ui-v2 && npm run build",
+      "python3 scripts/validate_backlog_tasks.py"
+    ],
+    "acceptance_criteria": [
+      "3D scene renders without WebGL errors and displays actual run stdout."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "VR/AR support",
+    "Custom 3D model loading (use primitives like spheres/cubes)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": false
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

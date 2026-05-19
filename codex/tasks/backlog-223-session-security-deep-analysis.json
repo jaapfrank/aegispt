@@ -1,0 +1,91 @@
+{
+  "id": "backlog-223-session-security-deep-analysis",
+  "task_file": "codex/tasks/backlog-223-session-security-deep-analysis.json",
+  "task_type": "product_slice",
+  "title": "Session security deep analysis: session fixation, token entropy, cookie flags, and session invalidation after logout",
+  "goal": "WebGoat has hijacksession and spoofcookie modules. ZAP passive scan catches some cookie flags but misses session-layer attacks. Implement a session-security runner: (1) Session Fixation: check if the application issues a new session token after login. If the pre-login session ID remains valid post-authentication \u2192 session fixation vulnerability. (2) Cookie Security Flags: for every Set-Cookie header, verify: Secure flag present, HttpOnly flag present, SameSite=Strict or Lax, not exposed over HTTP. Missing any of these \u2192 Medium finding per missing flag. (3) Session Token Entropy: collect 10 consecutive session tokens and test for: sequential/predictable patterns, length < 128 bits, character set too small. Low entropy \u2192 High finding. (4) Session Invalidation: after logout, replay the captured session token. If server still accepts it \u2192 session not properly invalidated. Finding: 'Session Not Invalidated on Logout \u2014 allows session replay attacks'. (5) Concurrent Session Limits: login from two sessions simultaneously; check if both work (some apps should limit concurrent sessions). (6) Session Token in URL: check if session IDs appear in URL parameters (visible in referrer headers and access logs). All active tier. Findings include severity Medium-High.",
+  "scope": "WebGoat hijacksession + spoofcookie modules. Current coverage \u26a0\ufe0f (partial \u2014 ZAP catches some cookie flags passively). Full session security requires active probing not possible with passive scan alone.",
+  "status": "queued",
+  "generated_by": "coverage-gap-analysis-2026-05-03",
+  "generation_reason": "Session fixation, token entropy, and post-logout replay are not currently tested \u2014 WebGoat has dedicated modules, Burp Suite tests these via session handling rules.",
+  "source_context": {
+    "queue_index": 178,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "session_security_completeness",
+    "source_documents": [
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Session analysis using configured credentials only. Do not attempt to hijack sessions of other users.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Session fixation detected when pre-login token persists post-login.",
+    "Missing cookie security flags produce findings (Secure/HttpOnly/SameSite).",
+    "Post-logout session replay detected.",
+    "Session token entropy check produces finding for predictable tokens.",
+    "Detects on local WebGoat instance.",
+    "Requires configured credentials (authenticated scan).",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing ZAP passive scanner",
+    "Credential storage"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "session-security in supported tools.",
+      "Detects session fixation on WebGoat.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Session-based CSRF chains",
+    "MFA bypass via session"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,2207 @@
+{
+  "base_url": "http://127.0.0.1:8000",
+  "duration_seconds": 17.65,
+  "failure_notes": [],
+  "generated_at": "2026-05-02T13:24:10.003192+00:00",
+  "health": {
+    "body": {
+      "app": "AegisPT",
+      "checked_at": "2026-05-02T13:23:52.367432+00:00",
+      "detail": "service is running",
+      "diagnostics": [
+        "runtime_state=healthy",
+        "public_base_url=http://127.0.0.1:8000",
+        "local states: healthy, degraded, shutting_down, unreachable"
+      ],
+      "environment": "development",
+      "runtime_state": "healthy",
+      "status": "ok"
+    },
+    "elapsed_ms": 14.79,
+    "ok": true,
+    "path": "/health/live",
+    "status": 200,
+    "url": "http://127.0.0.1:8000/health/live"
+  },
+  "pages": [
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Start Your First Assessment",
+          "primary": true,
+          "selector": "[data-testid=\"dashboard-start-first-assessment\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Dashboard",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "dashboard",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/dashboard-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "1 Assessment",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-stage-1\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "2 Target & Depth",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-stage-2\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "3 Preview",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-stage-3\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "4 Authorise",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-stage-4\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83c\udf10 Popular External Web Websites, web apps, and public application surfaces reachable from the internet. passive active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-external-web\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83d\udda7 New External IPs External IP ranges, exposed services, SSH/RDP/VPN endpoints, and non-web internet-facing hosts. passive active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-external-infrastructure\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83c\udfe0 Popular Internal LAN Internal network ranges, subnets, office segments, and on-premise servers. passive active credential",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-internal-lan\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83d\udee1\ufe0f AD Active Directory Domain controllers, AD identities, trust edges, and directory attack paths. passive active credential exploit",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-active-directory\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83c\udfaf Complete Full Internal Broader internal validation across LAN, identity, and deeper follow-up workflows. P1 P2 P3 P4",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-full-internal\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83c\udfe0\ud83d\udd12 IoT Smart Home / IoT LAN Smart home hubs, IP cameras, consumer IoT, gateways, SNMP devices, segmentation, and IPv6 on an internal LAN. P1 P2 P3 P6",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-smart-home-lan\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83d\udcf6 Passive WiFi / Wireless Authorized wireless sites, SSIDs, BSSIDs, adapter context, and passive AP posture review. passive",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-wifi-wireless\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \u2601\ufe0f Cloud (AWS/Azure) Cloud infrastructure, IAM exposure, and tenant-facing control plane review. passive active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-cloud\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 { } API Security REST, GraphQL, gRPC, and other endpoint-centric application surfaces. passive active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-api-security\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83e\udd16 New LLM / AI App Prompt injection, model misuse, agent behavior, and AI-assisted app workflows. active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-llm-ai-app\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "+ \u2699\ufe0f Custom Build your own combination and refine the exact run model in Advanced Configuration. fine-tune",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-custom\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \u00b7 Choose",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "2 \u00b7 Target",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "3 \u00b7 Preview",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "4 \u00b7 Launch",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Advanced Configuration",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-advanced-toggle\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "What do you want to test?",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "wizard",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/wizard-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": true,
+          "label": "No queued or running tasks can be cancelled for the selected run.",
+          "primary": false,
+          "selector": "[data-testid=\"mission-kill-run\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "View Findings \u2192",
+          "primary": true,
+          "selector": "[data-testid=\"mission-view-findings\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "View Agents \u2197",
+          "primary": false,
+          "selector": "[data-testid=\"mission-view-agents\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Cinema Mode",
+          "primary": false,
+          "selector": "[data-testid=\"cinema-mode-open\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start Mission Intake",
+          "primary": false,
+          "selector": "[data-testid=\"mission-activity-empty-action\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Connect ChatGPT in Settings",
+          "primary": true,
+          "selector": "[data-testid=\"ai-signal-open-settings\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Mission Control",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "mission-control",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/mission-control-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Mission Control",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "View Findings \u2192",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "New Mission",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Dashboard",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Live Agents",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "agents",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/agents-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Hotspots",
+          "primary": false,
+          "selector": "[data-testid=\"surface-view-hotspots\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Pack Impact Zones",
+          "primary": false,
+          "selector": "[data-testid=\"surface-view-packZones\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": true,
+          "selector": "[data-testid=\"surface-map-empty-action\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Surface / Attack Map",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "surface-map",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/surface-map-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Go to Mission Control",
+          "primary": true,
+          "selector": "[data-testid=\"problems-empty-mission-control\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Problems Center",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "problems-center",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/problems-center-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Search",
+          "primary": false,
+          "selector": "input",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Product",
+          "primary": false,
+          "selector": "input",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "All critical high medium low",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "All draft active deprecated",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Custom ID",
+          "primary": false,
+          "selector": "[name=\"custom_id\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Title",
+          "primary": false,
+          "selector": "[name=\"title\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Description",
+          "primary": false,
+          "selector": "[name=\"description\"]",
+          "tag": "textarea",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "critical high medium low",
+          "primary": false,
+          "selector": "[name=\"severity\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "draft active deprecated",
+          "primary": false,
+          "selector": "[name=\"status\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "CVSS",
+          "primary": false,
+          "selector": "[name=\"cvss_score\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "CWE IDs",
+          "primary": false,
+          "selector": "[name=\"cwe_ids\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Affected Products",
+          "primary": false,
+          "selector": "[name=\"affected_products\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Linked Nuclei Template Ref",
+          "primary": false,
+          "selector": "[name=\"linked_nuclei_template_ref\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Save Definition",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Export JSON",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Plain text NVD JSON CSAF AegisPT JSON",
+          "primary": false,
+          "selector": "[name=\"format\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "draft active deprecated",
+          "primary": false,
+          "selector": "[name=\"default_status\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Payload",
+          "primary": false,
+          "selector": "[name=\"payload\"]",
+          "tag": "textarea",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "on",
+          "primary": false,
+          "selector": "[name=\"use_ai\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Import Definitions",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Custom CVE Library",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "custom-vulnerabilities",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/custom-vulnerabilities-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Filters 0 visible \u00b7 grouped by severity EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "List View",
+          "primary": false,
+          "selector": "[data-testid=\"findings-view-list\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Molecule View",
+          "primary": false,
+          "selector": "[data-testid=\"findings-view-molecule\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Findings",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "findings-theater",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/findings-theater-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Reports Preview, export, and compare deliverables.",
+          "primary": false,
+          "selector": "[data-testid=\"report-center-tab-reports\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Dossier Run context, scope, lineage, and access posture.",
+          "primary": false,
+          "selector": "[data-testid=\"report-center-tab-dossier\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Reports",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "report-center",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/report-center-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": true,
+          "label": "No completed runs",
+          "primary": false,
+          "selector": "[data-testid=\"history-current-run\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Complete a second run to compare posture changes.",
+          "primary": false,
+          "selector": "#history-baseline-run",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Find Run",
+          "primary": false,
+          "selector": "[data-testid=\"history-search\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Go to Mission Control",
+          "primary": true,
+          "selector": "[data-testid=\"history-empty-mission-control\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Comparison & Next Steps",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "history",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/history-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "vendor-advisory",
+          "primary": false,
+          "selector": "[name=\"source\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Advisory ID",
+          "primary": false,
+          "selector": "[name=\"advisory_id\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Title",
+          "primary": false,
+          "selector": "[name=\"title\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Summary",
+          "primary": false,
+          "selector": "[name=\"summary\"]",
+          "tag": "textarea",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Affected Product",
+          "primary": false,
+          "selector": "[name=\"product\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Product Match Hint",
+          "primary": false,
+          "selector": "[name=\"hint\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "auth",
+          "primary": false,
+          "selector": "[name=\"attack_surface_type\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "high",
+          "primary": false,
+          "selector": "[name=\"severity\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "playwright,zap",
+          "primary": false,
+          "selector": "[name=\"patterns\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Pack Name",
+          "primary": false,
+          "selector": "[name=\"pack_name\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Generate Adaptive Pack",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Validate Pack",
+          "primary": false,
+          "selector": "[data-testid=\"validate-pack\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Approve Pack",
+          "primary": false,
+          "selector": "[data-testid=\"approve-pack\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Deploy Pack",
+          "primary": false,
+          "selector": "[data-testid=\"deploy-pack\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Pack Forge",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "pack-forge",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/pack-forge-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Evidence Replay",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "evidence-replay",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/evidence-replay-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Open Dossier Tab",
+          "primary": true,
+          "selector": "[data-testid=\"explorer-open-dossier-tab\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Open History",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Explorer",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "explorer",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/explorer-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Runtime Readiness blocked \u00b7 9/12 tool groups ready EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Refresh readiness",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Export readiness JSON",
+          "primary": true,
+          "selector": "[data-testid=\"settings-readiness-export\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Users & API Keys 0 active \u00b7 0 total EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Refresh keys",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "API key user or integration name",
+          "primary": false,
+          "selector": "input",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "API key role",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Create Key",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "ChatGPT OAuth Engagement required \u00b7 gpt-5.4 EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Connect ChatGPT",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Refresh status",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Threat Intel Cache 0 approved \u00b7 0 suggested \u00b7 local-cache only EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Refresh",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Sync Now",
+          "primary": false,
+          "selector": "[data-testid=\"threat-intel-sync-now\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Threat intel product watchlist keyword",
+          "primary": false,
+          "selector": "input",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Add",
+          "primary": true,
+          "selector": "[data-testid=\"threat-intel-watchlist-add\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Suggest from Inventory",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Scheduled Scans No enabled schedules yet EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Scheduled scan engagement",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Scheduled scan passive profile",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Settings",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "settings",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/settings-desktop.png",
+      "viewport": "desktop",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Start Your First Assessment",
+          "primary": true,
+          "selector": "[data-testid=\"dashboard-start-first-assessment\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Dashboard",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "dashboard",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/dashboard-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "1 Assessment",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-stage-1\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "2 Target & Depth",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-stage-2\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "3 Preview",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-stage-3\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "4 Authorise",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-stage-4\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83c\udf10 Popular External Web Websites, web apps, and public application surfaces reachable from the internet. passive active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-external-web\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83d\udda7 New External IPs External IP ranges, exposed services, SSH/RDP/VPN endpoints, and non-web internet-facing hosts. passive active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-external-infrastructure\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83c\udfe0 Popular Internal LAN Internal network ranges, subnets, office segments, and on-premise servers. passive active credential",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-internal-lan\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83d\udee1\ufe0f AD Active Directory Domain controllers, AD identities, trust edges, and directory attack paths. passive active credential exploit",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-active-directory\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83c\udfaf Complete Full Internal Broader internal validation across LAN, identity, and deeper follow-up workflows. P1 P2 P3 P4",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-full-internal\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83c\udfe0\ud83d\udd12 IoT Smart Home / IoT LAN Smart home hubs, IP cameras, consumer IoT, gateways, SNMP devices, segmentation, and IPv6 on an internal LAN. P1 P2 P3 P6",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-smart-home-lan\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83d\udcf6 Passive WiFi / Wireless Authorized wireless sites, SSIDs, BSSIDs, adapter context, and passive AP posture review. passive",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-wifi-wireless\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \u2601\ufe0f Cloud (AWS/Azure) Cloud infrastructure, IAM exposure, and tenant-facing control plane review. passive active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-cloud\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 { } API Security REST, GraphQL, gRPC, and other endpoint-centric application surfaces. passive active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-api-security\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \ud83e\udd16 New LLM / AI App Prompt injection, model misuse, agent behavior, and AI-assisted app workflows. active",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-llm-ai-app\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "+ \u2699\ufe0f Custom Build your own combination and refine the exact run model in Advanced Configuration. fine-tune",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-assessment-tile-custom\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "1 \u00b7 Choose",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "2 \u00b7 Target",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "3 \u00b7 Preview",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "4 \u00b7 Launch",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Advanced Configuration",
+          "primary": false,
+          "selector": "[data-testid=\"wizard-advanced-toggle\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "What do you want to test?",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "wizard",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/wizard-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": true,
+          "label": "No queued or running tasks can be cancelled for the selected run.",
+          "primary": false,
+          "selector": "[data-testid=\"mission-kill-run\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "View Findings \u2192",
+          "primary": true,
+          "selector": "[data-testid=\"mission-view-findings\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "View Agents \u2197",
+          "primary": false,
+          "selector": "[data-testid=\"mission-view-agents\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Cinema Mode",
+          "primary": false,
+          "selector": "[data-testid=\"cinema-mode-open\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start Mission Intake",
+          "primary": false,
+          "selector": "[data-testid=\"mission-activity-empty-action\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Connect ChatGPT in Settings",
+          "primary": true,
+          "selector": "[data-testid=\"ai-signal-open-settings\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Mission Control",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "mission-control",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/mission-control-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Mission Control",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "View Findings \u2192",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "New Mission",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Dashboard",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Live Agents",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "agents",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/agents-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Hotspots",
+          "primary": false,
+          "selector": "[data-testid=\"surface-view-hotspots\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Pack Impact Zones",
+          "primary": false,
+          "selector": "[data-testid=\"surface-view-packZones\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": true,
+          "selector": "[data-testid=\"surface-map-empty-action\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Surface / Attack Map",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "surface-map",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/surface-map-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Go to Mission Control",
+          "primary": true,
+          "selector": "[data-testid=\"problems-empty-mission-control\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Problems Center",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "problems-center",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/problems-center-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Search",
+          "primary": false,
+          "selector": "input",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Product",
+          "primary": false,
+          "selector": "input",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "All critical high medium low",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "All draft active deprecated",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Custom ID",
+          "primary": false,
+          "selector": "[name=\"custom_id\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Title",
+          "primary": false,
+          "selector": "[name=\"title\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Description",
+          "primary": false,
+          "selector": "[name=\"description\"]",
+          "tag": "textarea",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "critical high medium low",
+          "primary": false,
+          "selector": "[name=\"severity\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "draft active deprecated",
+          "primary": false,
+          "selector": "[name=\"status\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "CVSS",
+          "primary": false,
+          "selector": "[name=\"cvss_score\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "CWE IDs",
+          "primary": false,
+          "selector": "[name=\"cwe_ids\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Affected Products",
+          "primary": false,
+          "selector": "[name=\"affected_products\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Linked Nuclei Template Ref",
+          "primary": false,
+          "selector": "[name=\"linked_nuclei_template_ref\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Save Definition",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Export JSON",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Plain text NVD JSON CSAF AegisPT JSON",
+          "primary": false,
+          "selector": "[name=\"format\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "draft active deprecated",
+          "primary": false,
+          "selector": "[name=\"default_status\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Payload",
+          "primary": false,
+          "selector": "[name=\"payload\"]",
+          "tag": "textarea",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "on",
+          "primary": false,
+          "selector": "[name=\"use_ai\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Import Definitions",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Custom CVE Library",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "custom-vulnerabilities",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/custom-vulnerabilities-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Filters 0 visible \u00b7 grouped by severity EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "List View",
+          "primary": false,
+          "selector": "[data-testid=\"findings-view-list\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Molecule View",
+          "primary": false,
+          "selector": "[data-testid=\"findings-view-molecule\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Start a mission",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Findings",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "findings-theater",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/findings-theater-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Reports Preview, export, and compare deliverables.",
+          "primary": false,
+          "selector": "[data-testid=\"report-center-tab-reports\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Dossier Run context, scope, lineage, and access posture.",
+          "primary": false,
+          "selector": "[data-testid=\"report-center-tab-dossier\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Reports",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "report-center",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/report-center-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": true,
+          "label": "No completed runs",
+          "primary": false,
+          "selector": "[data-testid=\"history-current-run\"]",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Complete a second run to compare posture changes.",
+          "primary": false,
+          "selector": "#history-baseline-run",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Find Run",
+          "primary": false,
+          "selector": "[data-testid=\"history-search\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Go to Mission Control",
+          "primary": true,
+          "selector": "[data-testid=\"history-empty-mission-control\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Comparison & Next Steps",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "history",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/history-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "vendor-advisory",
+          "primary": false,
+          "selector": "[name=\"source\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Advisory ID",
+          "primary": false,
+          "selector": "[name=\"advisory_id\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Title",
+          "primary": false,
+          "selector": "[name=\"title\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Summary",
+          "primary": false,
+          "selector": "[name=\"summary\"]",
+          "tag": "textarea",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Affected Product",
+          "primary": false,
+          "selector": "[name=\"product\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Product Match Hint",
+          "primary": false,
+          "selector": "[name=\"hint\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "auth",
+          "primary": false,
+          "selector": "[name=\"attack_surface_type\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "high",
+          "primary": false,
+          "selector": "[name=\"severity\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "playwright,zap",
+          "primary": false,
+          "selector": "[name=\"patterns\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Pack Name",
+          "primary": false,
+          "selector": "[name=\"pack_name\"]",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Generate Adaptive Pack",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Validate Pack",
+          "primary": false,
+          "selector": "[data-testid=\"validate-pack\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Approve Pack",
+          "primary": false,
+          "selector": "[data-testid=\"approve-pack\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Deploy Pack",
+          "primary": false,
+          "selector": "[data-testid=\"deploy-pack\"]",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Pack Forge",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "pack-forge",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/pack-forge-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Evidence Replay",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "evidence-replay",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/evidence-replay-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Open Dossier Tab",
+          "primary": true,
+          "selector": "[data-testid=\"explorer-open-dossier-tab\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Open History",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Explorer",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "explorer",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/explorer-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    },
+    {
+      "accessibility_ok": true,
+      "controls": [
+        {
+          "disabled": false,
+          "label": "Runtime Readiness blocked \u00b7 9/12 tool groups ready EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Refresh readiness",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Export readiness JSON",
+          "primary": true,
+          "selector": "[data-testid=\"settings-readiness-export\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Users & API Keys 0 active \u00b7 0 total EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Refresh keys",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "API key user or integration name",
+          "primary": false,
+          "selector": "input",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "API key role",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Create Key",
+          "primary": true,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "ChatGPT OAuth Engagement required \u00b7 gpt-5.4 EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Connect ChatGPT",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Refresh status",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Threat Intel Cache 0 approved \u00b7 0 suggested \u00b7 local-cache only EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Refresh",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Sync Now",
+          "primary": false,
+          "selector": "[data-testid=\"threat-intel-sync-now\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Threat intel product watchlist keyword",
+          "primary": false,
+          "selector": "input",
+          "tag": "input",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Add",
+          "primary": true,
+          "selector": "[data-testid=\"threat-intel-watchlist-add\"]",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Suggest from Inventory",
+          "primary": false,
+          "selector": "button",
+          "tag": "button",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Scheduled Scans No enabled schedules yet EXPAND",
+          "primary": false,
+          "selector": "summary",
+          "tag": "summary",
+          "visible": true
+        },
+        {
+          "disabled": true,
+          "label": "Scheduled scan engagement",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        },
+        {
+          "disabled": false,
+          "label": "Scheduled scan passive profile",
+          "primary": false,
+          "selector": "select",
+          "tag": "select",
+          "visible": true
+        }
+      ],
+      "data_truth_ok": true,
+      "empty_state_ok": true,
+      "error_state_ok": true,
+      "heading": "Settings",
+      "issues": [],
+      "next_action_ok": true,
+      "purpose_ok": true,
+      "score": 10.0,
+      "screen": "settings",
+      "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-181-ia-screenshots/settings-narrow.png",
+      "viewport": "narrow",
+      "workflow_ok": true
+    }
+  ],
+  "summary": {
+    "average_score": 10.0,
+    "issue_count": 0,
+    "minimum_score": 10.0,
+    "page_checks": 28,
+    "partial": false,
+    "screen_count": 14,
+    "viewport_count": 2
+  }
+}

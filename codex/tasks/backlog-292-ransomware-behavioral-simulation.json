@@ -1,0 +1,77 @@
+{
+  "id": "backlog-292-ransomware-behavioral-simulation",
+  "task_file": "codex/tasks/backlog-292-ransomware-behavioral-simulation.json",
+  "task_type": "security_capability",
+  "title": "Ransomware & Malware Behavioral Simulation Runner",
+  "goal": "Deploy safe, non-destructive behavioral test payloads to internal networks to test EDR/AV response. Simulate ransomware encryption patterns (on dummy files), registry modifications, and C2 beaconing to confirm whether defensive telemetry triggers as expected.",
+  "scope": "New pentesting runner and integration.",
+  "status": "queued",
+  "generated_by": "pentest-program-expansion",
+  "generation_reason": "To fill critical missing capabilities in the pentest program, transitioning it from a pure network/web scanner to a full-spectrum security validation platform.",
+  "source_context": {
+    "queue_index": 244,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "",
+    "broader_theme": "pentest_program_expansion",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Implement only the defined capability. Ensure the runner respects the ROE (Rules of Engagement) gate and requires explicit approval if it is active/intrusive.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Runner successfully integrates and executes its specific function.",
+    "Results are parsed and mapped into AegisPT findings format.",
+    "Intrusive actions are gated behind approvals."
+  ],
+  "likely_touched_files": [
+    "api/app/runners/",
+    "api/app/models/",
+    "codex/packs/"
+  ],
+  "must_not_touch": [
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/"
+    ],
+    "acceptance_criteria": [
+      "The new security capability functions safely within local lab environments and outputs standard findings."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Building a custom C2 framework or Phishing tool from scratch (must integrate existing tools)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

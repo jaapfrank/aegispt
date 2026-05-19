@@ -1,0 +1,100 @@
+{
+  "id": "backlog-197-backend-cors-rate-limit-db-enforcement",
+  "task_file": "codex/tasks/backlog-197-backend-cors-rate-limit-db-enforcement.json",
+  "task_type": "security_hardening_slice",
+  "title": "Backend security hardening: add CORS configuration, basic rate limiting, and enforce DB encryption key at startup",
+  "goal": "Three backend security gaps found in audit: (1) CORS: FastAPI is running without explicit CORSMiddleware configuration, meaning it uses permissive defaults. Add CORSMiddleware in api/app/main.py with allow_origins from a new AEGISPT_ALLOWED_ORIGINS env var (default: ['http://localhost:8000', 'http://127.0.0.1:8000']). (2) Rate limiting: The 165 API endpoints have no rate limiting. Add slowapi or a simple in-memory rate limiter for the most sensitive endpoints: POST /api/v1/auth/keys (max 5/min), POST /api/v1/engagements/{id}/runs (max 10/min), POST /api/v1/auth/chatgpt/* (max 3/min). These prevent resource exhaustion without affecting normal operator workflows. (3) DB encryption enforcement: api/app/main.py currently logs a warning when AEGISPT_DB_KEY is not set but does NOT block startup. In production environments (AEGISPT_ENV=production or when AUTO_CREATE_TABLES is not 'true'), raise a RuntimeError at startup if AEGISPT_DB_KEY is absent. Keep the current permissive behaviour only in development/test mode.",
+  "scope": "Backend code audit 2026-05-03: api/app/main.py has no CORSMiddleware, no rate limiting, and AEGISPT_DB_KEY is only a warning not an enforced requirement. Backend test suite passes (165 endpoints, all tests green) but these three hardening items are absent. Backend test output shows 'AEGISPT_DB_KEY or --key is required.' warning on every test run.",
+  "status": "queued",
+  "generated_by": "backend-audit-2026-05-03",
+  "generation_reason": "Backend audit 2026-05-03: CORS permissive, no rate limit on sensitive endpoints, DB encryption key not enforced at startup.",
+  "source_context": {
+    "queue_index": 166,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-128-database-encryption.json",
+      "codex/tasks/backlog-186-enterprise-deployment-hardening.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "backend_security_hardening",
+    "source_documents": [
+      "api/app/main.py",
+      "api/app/routers/auth.py",
+      "api/app/routers/runs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add only CORS middleware, the three rate-limited endpoint guards, and the DB key startup check. Do not change authentication logic, endpoint signatures, or database schema.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "CORSMiddleware is present in main.py with configurable allowed origins.",
+    "POST /api/v1/auth/keys is rate-limited to 5 requests/minute per IP.",
+    "POST /api/v1/engagements/{id}/runs is rate-limited to 10 requests/minute per IP.",
+    "POST /api/v1/auth/chatgpt/* is rate-limited to 3 requests/minute per IP.",
+    "When AEGISPT_ENV=production and AEGISPT_DB_KEY is absent, startup raises RuntimeError.",
+    "All existing API tests pass without modification.",
+    "Development/test mode behaviour unchanged."
+  ],
+  "likely_touched_files": [
+    "api/app/main.py",
+    "api/app/routers/auth.py",
+    "api/app/routers/runs.py",
+    ".env.example",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Authentication logic",
+    "Endpoint signatures or response models",
+    "Database schema",
+    "Frontend code"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "CORSMiddleware present in main.py.",
+      "Rate limit decorators on three specified endpoints.",
+      "DB key startup check present with production guard.",
+      "All existing api/tests/ pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full WAF or DDoS protection",
+    "Authentication system rewrite",
+    "Database encryption implementation (separate backlog-128)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

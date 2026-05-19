@@ -1,0 +1,80 @@
+{
+  "id": "backlog-287-react-v2-playwright-e2e-testing",
+  "task_file": "codex/tasks/backlog-287-react-v2-playwright-e2e-testing.json",
+  "task_type": "product_slice",
+  "title": "React v2 Playwright E2E UI Testing: Guaranteeing reliability",
+  "goal": "Set up a comprehensive Playwright end-to-end testing suite specifically for the new React v2 UI. Write tests covering the critical paths: Mission Intake flow, Dashboard data rendering, Findings Theater filtering, and Mission Control interactions. This ensures the UI is robust and regressions are caught automatically before we can confidently say 'it works'.",
+  "scope": "React v2 global UI components and testing.",
+  "status": "queued",
+  "generated_by": "react-v2-perfection-planning",
+  "generation_reason": "To ensure the UI is fully polished, user-friendly, enterprise-ready, and robustly tested.",
+  "source_context": {
+    "queue_index": 233,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "UI_REDESIGN_SPEC.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-281",
+    "broader_theme": "react_v2_perfection",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Implement only the feature described. Keep styling consistent with the Neon theme.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Feature is fully implemented and interactive.",
+    "Styling perfectly matches the Neon Enterprise theme."
+  ],
+  "likely_touched_files": [
+    "ui-v2/package.json",
+    "ui-v2/src/App.tsx",
+    "ui-v2/src/index.css"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build"
+    ],
+    "acceptance_criteria": [
+      "Feature works seamlessly without errors in the browser."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md.",
+      "Update DONE_LOG.md."
+    ]
+  },
+  "out_of_scope": [
+    "Backend API changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": false
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

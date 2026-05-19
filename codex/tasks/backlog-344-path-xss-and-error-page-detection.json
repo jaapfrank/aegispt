@@ -1,0 +1,98 @@
+{
+  "id": "backlog-344-path-xss-and-error-page-detection",
+  "task_file": "codex/tasks/backlog-344-path-xss-and-error-page-detection.json",
+  "task_type": "scanner_runner",
+  "title": "XSS Detection: Path-Component Injection and Error Page Reflection",
+  "goal": "The current xss_extended runner only tests XSS in query parameters and known form inputs. It does NOT inject payloads into URL path segments. Gruyere's first (and most obvious) vulnerability is reflected XSS in the error page: requesting /[instance-id]/INVALID_PATH reflects the path component unescaped in the error HTML. This is never detected because no runner tries path-based XSS. Add path-component XSS testing to xss_extended: for each discovered base URL like https://example.com/app/, append XSS payloads as path segments (https://example.com/app/<script>alert(1)</script>) and check if the payload appears unescaped in the response HTML. Also add error-page reflection detection: try 5 common invalid paths (/notexist, /404test, /error, /undefined, /<payload>) and check if any URL-component is reflected in the response body without HTML encoding.",
+  "scope": "workers/runners/xss_extended/runner.py",
+  "status": "queued",
+  "generated_by": "gap-analysis-no-path-xss",
+  "generation_reason": "Gruyere's most obvious vulnerability (reflected XSS in error page via path segment injection) is completely undetected because xss_extended only tests query parameters. No runner tries /base/<script>alert(1)</script>.",
+  "source_context": {
+    "queue_index": 296,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "NONE",
+    "key_files": [
+      "workers/runners/xss_extended/runner.py"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "scope_enforcement": "Only test paths within approved scope. Check web_target_value_is_allowed_with_path() for each constructed URL.",
+    "payload_safety": "Use non-destructive XSS payloads (alert canary pattern only, no cookie-stealing payloads in the test request itself).",
+    "existing_tests": "pytest api/tests/ must pass. Add new tests for path-based XSS detection.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "path_xss_payloads": [
+      "<script>alert('xss')</script>",
+      "<img src=x onerror=alert(1)>",
+      "\"><script>alert(1)</script>",
+      "javascript:alert(1)"
+    ],
+    "test_approach": "For each base_target, construct: base_target + '/' + url_encoded_payload. Send GET request. Check if raw payload or decoded form appears in response.text without HTML entity encoding.",
+    "detection_logic": "If payload_text in response.text OR unescaped_html_entities(payload_text) in response.text \u2192 finding. Check: <, >, ', \" are NOT encoded in the response.",
+    "error_page_approach": "Also try 3 random invalid paths (/aegispt-404-test, /undefined-path-xss-probe, /error-test) and check if any URL component appears reflected. If so, test with XSS payload.",
+    "finding_type": "reflected_xss_path_component",
+    "finding_severity": "high"
+  },
+  "validation": {
+    "required_checks": [
+      "pytest api/tests/",
+      "python3 scripts/validate_backlog_tasks.py"
+    ],
+    "acceptance_criteria": [
+      "execute_xss_extended_scan() against Gruyere URL detects the path-based reflected XSS and returns a finding with type='reflected_xss_path_component'.",
+      "The finding includes the exact URL that triggered the reflection and the payload used.",
+      "Scope enforcement: a URL constructed by appending payload to base_target is checked against allowlist before being requested."
+    ]
+  },
+  "success_criteria": [
+    "execute_xss_extended_scan() against Gruyere URL detects the path-based reflected XSS and returns a finding with type='reflected_xss_path_component'.",
+    "The finding includes the exact URL that triggered the reflection and the payload used.",
+    "Scope enforcement: a URL constructed by appending payload to base_target is checked against allowlist before being requested."
+  ],
+  "likely_touched_files": [
+    "workers/runners/xss_extended/runner.py"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

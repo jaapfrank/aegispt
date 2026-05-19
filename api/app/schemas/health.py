@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -6,3 +6,6 @@ class HealthResponse(BaseModel):
     app: str
     environment: str
     detail: str
+    runtime_state: str = "healthy"
+    checked_at: str | None = None
+    diagnostics: list[str] = Field(default_factory=list)

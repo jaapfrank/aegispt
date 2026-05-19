@@ -1,0 +1,110 @@
+{
+  "id": "backlog-363-confirmed-finding-variant-hunter",
+  "task_file": "codex/tasks/backlog-363-confirmed-finding-variant-hunter.json",
+  "task_type": "ai_evidence_testing",
+  "title": "Confirmed-Finding Variant Hunter",
+  "goal": "After a finding is confirmed, automatically propose or queue safe variant checks across similar routes, parameters, objects, and contexts to discover related vulnerabilities.",
+  "scope": "Variant candidate generation, safe follow-up proposal creation, runner selection, evidence traceability, and tests for confirmed-finding-driven variant analysis.",
+  "status": "queued",
+  "generated_by": "operator-ai-first-evidence-first-gap-analysis",
+  "generation_reason": "Evidence-first AI pentesting should exploit learning from confirmed findings: one XSS, IDOR, path traversal, auth, or upload weakness should trigger bounded search for sibling variants instead of ending at a single tool hit.",
+  "source_context": {
+    "queue_index": 313,
+    "queue_file": "TASK_QUEUE.md",
+    "review_findings": [
+      "Pivot Engine already queues follow-up scans from confirmed findings.",
+      "More discoveries require variant analysis around confirmed weakness patterns.",
+      "Variant hunting must remain approval-aware and evidence-backed."
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-337 pivot engine and current runner metadata",
+    "broader_theme": "ai_first_evidence_first_vulnerability_discovery",
+    "key_files": [
+      "api/app/services/assessment_loop.py",
+      "api/app/services/next_evidence_action.py",
+      "api/app/services/ai_action_selector.py",
+      "api/app/services/finding_chains.py",
+      "workers/orchestration/findings.py",
+      "api/tests/test_pivot_engine.py",
+      "api/tests/test_ai_chain_detection.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Implement bounded variant discovery from confirmed findings. Do not auto-approve active/intrusive/destructive follow-ups.",
+    "approval_aware": "Passive variant checks may follow existing dispatch rules; active or intrusive variants must remain review-gated proposals unless an existing approved policy explicitly allows them."
+  },
+  "success_criteria": [
+    "Confirmed findings produce variant candidates based on shared parameter names, route templates, object ID patterns, upload fields, reflected contexts, auth state, or technology signals.",
+    "Variant candidates include evidence refs to the source finding and the sibling surface that justifies the test.",
+    "The system deduplicates variants and avoids retesting already-covered surfaces.",
+    "Active/intrusive variant tests remain proposal-gated with clear rationale.",
+    "Tests prove a confirmed XSS/IDOR/path traversal style finding generates bounded sibling variant checks."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "api/app/services/next_evidence_action.py",
+    "api/app/services/ai_action_selector.py",
+    "api/app/services/finding_chains.py",
+    "api/tests/test_pivot_engine.py",
+    "api/tests/test_ai_chain_detection.py",
+    "api/tests/test_next_evidence_action.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/",
+    "Prompt 1 and Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_pivot_engine.py api/tests/test_ai_chain_detection.py api/tests/test_next_evidence_action.py",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check api/app/services/assessment_loop.py api/app/services/next_evidence_action.py api/app/services/ai_action_selector.py api/app/services/finding_chains.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Confirmed finding fixtures produce safe, deduplicated variant candidates with evidence refs.",
+      "Active/intrusive variants are not auto-approved.",
+      "Already tested sibling surfaces are skipped with rationale.",
+      "No live target testing or safety-boundary bypass occurs."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Auto-approving active, intrusive, exploit, or destructive actions.",
+    "Expanding target scope beyond ROE.",
+    "Changing finding schema fields.",
+    "Creating a second runtime binding or capability-pack lane."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,92 @@
+{
+  "id": "backlog-169-pack-forge-codex-lane-operator-visibility",
+  "task_file": "codex/tasks/backlog-169-pack-forge-codex-lane-operator-visibility.json",
+  "task_type": "corrective_product_slice",
+  "title": "Hide Pack Forge 'Build Lane / Task Planner' Codex section from default operator-facing navigation",
+  "goal": "The Pack Forge screen (screen-pack-forge) contains two panels side by side: 'Adaptive Planning' with pack management (operator-facing), and 'Build Lane / Task Planner' with a Codex task form and codex-related buttons (developer-facing internal tooling). The Codex panels (codex-task-form, prepare-codex-task-btn, codex-suggestions, codex-pack-preview, codex-context, codex-task-result) are developer build-lane infrastructure that should not be visible to operators by default. Gate these panels behind an advanced/developer mode toggle in Settings (e.g., enable_build_lane: false by default) or remove them from the Pack Forge screen and expose only via an internal-only route. The Adaptive Planning and Pack Summary panels should remain fully visible. Operators should be able to validate, approve, and deploy packs without seeing Codex internals.",
+  "scope": "System review 2026-05-01: Pack Forge screen exposes the Codex build lane task planner (dom elements: codex-task-form, prepare-codex-task-btn, codex-suggestions, codex-pack-preview, codex-context, codex-task-result) as a visible panel in the main navigation. This is developer infrastructure for the AI build lane, not an operator-facing feature. Exposing it confuses operators and may expose governance details that should stay internal.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: Codex build lane panels visible in Pack Forge for all operators \u2014 should be hidden by default.",
+  "source_context": {
+    "queue_index": 155,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "operator_vs_developer_ui_separation",
+    "source_documents": [
+      "ui/index.html",
+      "ui/assets/modules/packs.js",
+      "ui/assets/app.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only hide Codex panels. Do not remove Adaptive Planning or pack lifecycle UI. Do not break Codex functionality \u2014 just hide it.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "By default (no developer mode setting active), Codex build lane panels are not visible in Pack Forge.",
+    "Pack validate, approve, and deploy flows still work for operators.",
+    "Codex panels remain accessible when developer/build-lane mode is enabled in Settings.",
+    "No regression in pack lifecycle tests."
+  ],
+  "likely_touched_files": [
+    "ui/index.html",
+    "ui/assets/modules/packs.js",
+    "ui/assets/app.js",
+    "api/app/routers/settings.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Pack validation, approval, or deployment logic",
+    "Codex task generation backend",
+    "Approval or scope gates"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Default Pack Forge view shows only Adaptive Planning, Pack Summary, and Registry panels.",
+      "Codex sections hidden unless build_lane_mode enabled.",
+      "Pack lifecycle tests pass without regression."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Removing Codex functionality",
+    "Broad Pack Forge redesign",
+    "Backend Codex task changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

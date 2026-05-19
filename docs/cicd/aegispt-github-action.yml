@@ -1,0 +1,60 @@
+name: AegisPT CI Trigger
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  trigger-aegispt:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      AEGISPT_TRIGGER_URL: ${{ secrets.AEGISPT_TRIGGER_URL }}
+      AEGISPT_ENGAGEMENT_ID: ${{ secrets.AEGISPT_ENGAGEMENT_ID }}
+      AEGISPT_CICD_WEBHOOK_SECRET: ${{ secrets.AEGISPT_CICD_WEBHOOK_SECRET }}
+      AEGISPT_TARGET_URL_OVERRIDE: ${{ vars.AEGISPT_TARGET_URL_OVERRIDE }}
+    steps:
+      - name: Prepare AegisPT payload and signature
+        shell: python
+        run: |
+          import hashlib
+          import hmac
+          import json
+          import os
+
+          target_override = (os.getenv("AEGISPT_TARGET_URL_OVERRIDE") or "").strip() or None
+          payload = {
+              "engagement_id": os.environ["AEGISPT_ENGAGEMENT_ID"],
+              "trigger_source": "github",
+              "ref": os.environ["GITHUB_REF"],
+              "commit_sha": os.environ["GITHUB_SHA"],
+              "repository_url": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}",
+              "target_url_override": target_override,
+              "metadata_json": {
+                  "workflow": os.environ["GITHUB_WORKFLOW"],
+                  "repository": os.environ["GITHUB_REPOSITORY"],
+                  "run_id": os.environ["GITHUB_RUN_ID"],
+                  "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              },
+          }
+          body = json.dumps(payload, separators=(",", ":"))
+          signature = "sha256=" + hmac.new(
+              os.environ["AEGISPT_CICD_WEBHOOK_SECRET"].encode("utf-8"),
+              body.encode("utf-8"),
+              hashlib.sha256,
+          ).hexdigest()
+          with open("aegispt-trigger.json", "w", encoding="utf-8") as handle:
+              handle.write(body)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              handle.write(f"AEGISPT_SIGNATURE={signature}\n")
+
+      - name: Trigger AegisPT
+        run: |
+          curl --fail --show-error --silent \
+            -X POST "$AEGISPT_TRIGGER_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: $AEGISPT_SIGNATURE" \
+            --data-binary @aegispt-trigger.json

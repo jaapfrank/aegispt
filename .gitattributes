@@ -1,0 +1,70 @@
+# AegisPT line-ending policy
+#
+# Default: all text files use LF on checkout AND in the repo. Git
+# normalizes CRLF -> LF on commit and writes LF on checkout, regardless
+# of platform. This prevents the Windows-side Edit tool (paths like
+# \\wsl.localhost\...) from injecting CRLF that pollutes diffs.
+#
+# History: filed 2026-05-18 after AGENT_SYSTEM_MAP.md picked up CRLF
+# during the #345 commit; 266 phantom line-changes drowned the actual
+# content edit. Without this file, git relies on core.autocrlf which
+# defaults to false on Linux (commit-as-is) and true on Windows
+# (CRLF on checkout) — a recipe for cross-platform drift on a repo
+# that lives on a WSL filesystem but is edited from Windows tools.
+
+* text=auto eol=lf
+
+# Binary types — explicit so git never tries to normalize them.
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.svg      text eol=lf
+*.pdf      binary
+*.zip      binary
+*.gz       binary
+*.tar      binary
+*.tgz      binary
+*.bin      binary
+*.exe      binary
+*.dll      binary
+*.so       binary
+*.dylib    binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.eot      binary
+*.db       binary
+*.sqlite   binary
+*.sqlite3  binary
+
+# Shell scripts: enforce LF (some CI runners reject CRLF in shebang lines).
+*.sh       text eol=lf
+*.bash     text eol=lf
+
+# Python: enforce LF (PEP 8 implicit + ruff/pytest are stricter on Windows).
+*.py       text eol=lf
+
+# Web / docs / config: LF.
+*.md       text eol=lf
+*.txt      text eol=lf
+*.json     text eol=lf
+*.yaml     text eol=lf
+*.yml      text eol=lf
+*.toml     text eol=lf
+*.ini      text eol=lf
+*.cfg      text eol=lf
+*.js       text eol=lf
+*.ts       text eol=lf
+*.tsx      text eol=lf
+*.jsx      text eol=lf
+*.css      text eol=lf
+*.scss     text eol=lf
+*.html     text eol=lf
+
+# Windows-tooled files keep CRLF (rare but explicit so we don't surprise PS users).
+*.ps1      text eol=crlf
+*.psm1     text eol=crlf
+*.bat      text eol=crlf
+*.cmd      text eol=crlf

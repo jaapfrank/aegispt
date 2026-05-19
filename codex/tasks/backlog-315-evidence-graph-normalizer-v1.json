@@ -1,0 +1,91 @@
+{
+  "id": "backlog-315-evidence-graph-normalizer-v1",
+  "task_file": "codex/tasks/backlog-315-evidence-graph-normalizer-v1.json",
+  "task_type": "evidence_graph",
+  "title": "Evidence Graph Normalizer V1",
+  "goal": "Make one uniform graph layer for assets, identities, findings, tasks, credential references, SaaS connectors, APIs, permissions, and evidence references.",
+  "scope": "Defensive evidence normalization across existing run, task, finding, context, vault, and attack-path data.",
+  "status": "queued",
+  "generated_by": "operator-product-strategy",
+  "generation_reason": "AegisPT needs one normalized evidence graph model before higher-level hypothesis confidence, next-evidence planning, SaaS trust-chain modeling, and evidence gap reporting can be reliable.",
+  "source_context": {
+    "queue_index": 267,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-305, backlog-314",
+    "broader_theme": "evidence_driven_ai_assessment",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Implement a defensive evidence-normalization layer. Do not execute tools, perform exploitation, expand scope, or access live targets.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Converts existing run, task, finding, context, vault, and attack-path data into normalized nodes and edges.",
+    "Every edge has provenance.",
+    "API returns graph with confidence and evidence references.",
+    "Tests prove no runtime dispatch or proposal approval occurs."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_graph.py",
+    "api/app/routers/runs.py",
+    "api/tests/test_assessment_graph.py",
+    "docs/evidence_graph_normalizer.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "workers/orchestration/tasks.py",
+    "ui-v2/src/components/Intake.tsx"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_assessment_graph.py api/tests/test_attack_paths.py api/tests/test_run_credential_vault.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Normalized graph response includes assets, identities, findings, tasks, credential refs, APIs, permissions, SaaS connectors, and evidence refs where source data exists.",
+      "Every edge includes provenance and confidence metadata.",
+      "No runtime tasks are dispatched and no proposals are approved by graph normalization."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Executing tools",
+    "Exploit generation or exploitation",
+    "Scope expansion",
+    "Live target access",
+    "Credential materialization"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

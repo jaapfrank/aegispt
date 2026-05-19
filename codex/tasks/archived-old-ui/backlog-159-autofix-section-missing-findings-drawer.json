@@ -1,0 +1,96 @@
+{
+  "id": "backlog-159-autofix-section-missing-findings-drawer",
+  "task_file": "codex/tasks/backlog-159-autofix-section-missing-findings-drawer.json",
+  "task_type": "corrective_product_slice",
+  "title": "Fix AutoFix Suggested Fix section absent from findings drawer when ai.autofix_enabled=false",
+  "goal": "Add an AutoFix section to the findings drawer that: (a) when ai.autofix_enabled=false shows a compact 'AutoFix is disabled - enable in Settings > AI Provider' with a direct Settings link; (b) when ai.autofix_enabled=true and ai_fix_suggestion exists renders the suggestion with the advisory review/testing disclaimer from backlog-131; (c) when ai.autofix_enabled=true but no suggestion shows 'No suggestion available - re-run with AutoFix enabled'. Never auto-apply code. Use existing FindingRemediation.ai_fix_suggestion field - no new API endpoints needed.",
+  "scope": "Walkthrough 2026-04-30: The finding drawer has no AutoFix section at all. backlog-131 was completed and the ai_fix_suggestion field exists on FindingRemediation, but the drawer only shows the manual Remediation section. The default setting ai.autofix_enabled=false means no suggestions are generated. The drawer should at minimum surface that AutoFix is a feature and is currently off.",
+  "status": "queued",
+  "generated_by": "ui-walkthrough-2026-04-30",
+  "generation_reason": "Walkthrough 2026-04-30: The finding drawer has no AutoFix section at all. backlog-131 was completed and the ai_fix_suggestion field exists on FindingRemediation, but the drawer only shows the manual R",
+  "source_context": {
+    "queue_index": 159,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/ui-walkthrough-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_bug_fixes_walkthrough_2026-04-30",
+    "source_documents": [
+      "ui/assets/modules/findings.js",
+      "ui/assets/app.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Fix only the specific bug described. Do not use this task for broad redesign.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "AutoFix section is visible in the finding drawer at all times.",
+    "When disabled: shows 'AutoFix disabled - enable in Settings' with a link.",
+    "When enabled with ai_fix_suggestion: shows the suggestion with advisory disclaimer.",
+    "When enabled but no suggestion: shows 'No suggestion yet' message.",
+    "No new API endpoints needed - uses existing FindingRemediation.ai_fix_suggestion."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/findings.js",
+    "ui/assets/app.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "approval or scope gate bypass",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AutoFix section is visible in the finding drawer at all times.",
+      "When disabled: shows 'AutoFix disabled - enable in Settings' with a link.",
+      "When enabled with ai_fix_suggestion: shows the suggestion with advisory disclaimer.",
+      "When enabled but no suggestion: shows 'No suggestion yet' message.",
+      "No new API endpoints needed - uses existing FindingRemediation.ai_fix_suggestion."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad product redesign",
+    "Installing new tools",
+    "Running live customer or intrusive targets",
+    "Changing unrelated schemas or prompts"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -8,10 +8,17 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 
+class FakeZapServerUrl(str):
+    def __new__(cls, value: str, state: dict[str, list[str]]) -> "FakeZapServerUrl":
+        obj = str.__new__(cls, value)
+        obj.state = state
+        return obj
+
+
 @pytest.fixture
 def fake_zap_server(monkeypatch: pytest.MonkeyPatch) -> str:
     expected_api_key = "test-zap-key"
-    state = {"sessions": [], "scan_requests": [], "active_scan_requests": []}
+    state = {"sessions": [], "scan_requests": [], "active_scan_requests": [], "enabled_scanners": []}
 
     class ZapHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
@@ -43,6 +50,10 @@ def fake_zap_server(monkeypatch: pytest.MonkeyPatch) -> str:
             if parsed.path == "/JSON/ascan/action/scan/":
                 state["active_scan_requests"].append(params.get("url", [""])[0])
                 self._send_json({"scan": "2"})
+                return
+            if parsed.path == "/JSON/ascan/action/enableScanners/":
+                state["enabled_scanners"].append(params.get("ids", [""])[0])
+                self._send_json({"Result": "OK"})
                 return
             if parsed.path == "/JSON/ascan/view/status/":
                 self._send_json({"status": "100"})
@@ -92,7 +103,7 @@ def fake_zap_server(monkeypatch: pytest.MonkeyPatch) -> str:
     monkeypatch.setenv("ZAP_API_KEY", expected_api_key)
 
     try:
-        yield base_url
+        yield FakeZapServerUrl(base_url, state)
     finally:
         server.shutdown()
         server.server_close()
@@ -150,6 +161,7 @@ def test_inline_dispatch_executes_zap_task(
     dispatch_payload = dispatch_response.json()
     assert dispatch_payload["dispatch_mode"] == "inline"
     assert dispatch_payload["run"]["status"] == "completed"
+    assert dispatch_payload["run"]["started_at"] is not None
     assert dispatch_payload["run"]["tasks"][0]["tool"] == "zap"
     assert dispatch_payload["run"]["tasks"][0]["status"] == "completed"
     assert dispatch_payload["run"]["findings"]["finding_count"] == 1
@@ -339,3 +351,4 @@ def test_inline_dispatch_executes_active_zap_profile(
     execution_payload = task_response.json()["executions"][0]
 
     assert '"scan_mode": "spider-active-passive"' in (execution_payload["stdout_text"] or "")
+    assert fake_zap_server.state["enabled_scanners"] == ["90023"]

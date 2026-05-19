@@ -1,0 +1,104 @@
+{
+  "id": "backlog-244-ssh-hydra-brute-force-runner",
+  "task_file": "codex/tasks/backlog-244-ssh-hydra-brute-force-runner.json",
+  "task_type": "product_slice",
+  "title": "SSH/service brute force runner via Hydra: cover AutoPenBench AC0 weak-password task",
+  "goal": "AutoPenBench AC0 task requires brute forcing SSH with a weak password list \u2014 AegisPT has no Hydra/SSH brute force runner. The existing credential-attacks runner only does Kerberos/AD attacks. Implement an ssh-brute runner using Hydra: (1) Takes configured target host(s) and port. (2) Uses a tiered wordlist: first try the top-50 most common passwords (admin, password, 123456, root, toor, etc.), then the engagement-configured password list if provided. (3) For each discovered service from nmap (SSH/21/23/3389/FTP/SMB), attempt authentication. (4) Rate-limited: max 5 attempts per second, stops after 3 consecutive lockouts detected. (5) Reports any successful credential pair as a Critical finding: 'Weak Credential: SSH root:password on 10.0.0.1:22'. (6) Integrates into assessment chain Phase 2 (active-enrichment) for LAN assessments. (7) Also supports FTP, Telnet, RDP basic brute force with same wordlist. Install Hydra via install_security_tools.sh. Active tier \u2014 requires approval. Covers AutoPenBench AC0 exactly. WIZARD WIRING (mandatory): (1) Add to api/app/services/run_profiles.py: name=active-lan-ssh-brute, run_class=ACTIVE, tools=[ssh-brute], required_approvals=1, approval_step_id: active-lan-ssh-brute. (2) Add profile active-lan-ssh-brute to FULL-INTERNAL-LAN Phase 2 and FULL-LAN-IOT Phase 4 in api/app/services/assessment_chain.py. (3) Add to wizard.js resolveExecutionProfile: when Internal LAN or AD or Full Internal tile + active or full, include active-lan-ssh-brute in planned profiles. (4) Add to scripts/acceptance_harness.py PROFILE_TOOL_MAP: active-lan-ssh-brute: [ssh-brute].",
+  "scope": "AutoPenBench AC0 (Sudo weak passwords) 20% autonomous / 80% assisted success. AegisPT has no SSH brute force. Code audit confirmed: credential-attacks uses kerbrute only (AD), no Hydra, no SSH brute force. Hydra not in install_security_tools.sh.",
+  "status": "queued",
+  "generated_by": "autopenBench-inVitro-gap-2026-05-05",
+  "generation_reason": "AutoPenBench AC0 (weak SSH password) cannot be detected \u2014 no Hydra/SSH brute force runner. Critical gap for in-vitro coverage.",
+  "source_context": {
+    "queue_index": 204,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json",
+      "codex/tasks/backlog-250-new-runners-wizard-profile-wiring.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "autopenBench_AC_coverage",
+    "source_documents": [
+      "workers/orchestration/tasks.py",
+      "workers/runners/credential_attacks/",
+      "scripts/install_security_tools.sh"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Brute force only within approved engagement CIDR. Max 5 attempts/sec. Stop on lockout. Top-50 wordlist only unless operator provides custom list.",
+    "safety": "Account lockout detection mandatory. Stop immediately on 3 lockouts. Never use rockyou.txt or large wordlists without explicit operator configuration.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "ssh-brute runner installed with Hydra.",
+    "Detects weak SSH password on AutoPenBench AC0 container.",
+    "Rate limited to 5 attempts/sec.",
+    "Stops on lockout detection.",
+    "Active tier requiring approval.",
+    "Covers SSH, FTP, Telnet, RDP.",
+    "No regression in existing tests.",
+    "RunProfile active-lan-ssh-brute added to run_profiles.py.",
+    "Runner reachable via wizard when: Internal LAN or AD or Full Internal tile + active or full."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "workers/runners/ssh_brute/runner.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "api/app/services/run_profiles.py",
+    "api/app/services/assessment_chain.py",
+    "ui/assets/modules/wizard.js",
+    "scripts/acceptance_harness.py"
+  ],
+  "must_not_touch": [
+    "Existing credential-attacks (AD/Kerberos)",
+    "Core dispatch logic"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "ssh-brute in supported tools.",
+      "Detects weak credential on test container.",
+      "Lockout protection works.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Mass credential stuffing",
+    "Large wordlist attacks",
+    "Cloud service brute force"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

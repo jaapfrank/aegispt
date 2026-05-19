@@ -1,0 +1,47 @@
+{
+  "base_url": "http://127.0.0.1:8000/app/",
+  "generated_at": "2026-05-07T02:08:34.174066+00:00",
+  "result": "passed",
+  "runner_tool_certification": {
+    "blocked_tool_count": 1,
+    "hardware_blockers": [
+      {
+        "blocker": "No deterministic hardware lab or monitor-mode adapter proof is recorded in this task.",
+        "id": "wifi-survey"
+      }
+    ],
+    "hardware_limited_tool_count": 1,
+    "operator_next_step": "WiFi assessment requires a monitor-mode capable USB WiFi adapter (for example Alfa AWUS036ACH) in an explicitly authorized wireless lab. All other runners are certified and ready.",
+    "status": "ready_with_hardware_limitation",
+    "summary": "Runner/tool certification is software-ready with a hardware-only limitation."
+  },
+  "ui_assertions": [
+    "runner_tool_certification card visible",
+    "hardware limited chip visible",
+    "blocked text absent from certification card",
+    "monitor-mode adapter guidance visible",
+    "Alfa AWUS036ACH guidance visible"
+  ],
+  "wireless_readiness": {
+    "metadata": {
+      "channel_support": "unknown",
+      "detected_adapters": [],
+      "handshake_capture_allowed": false,
+      "hardware_blocked": true,
+      "hardware_required": true,
+      "monitor_mode_capability": "unknown",
+      "required_binaries": [
+        "iw",
+        "airodump-ng",
+        "aircrack-ng"
+      ],
+      "rf_disruptive_actions_allowed": false,
+      "safe_parallelism_limit": 1,
+      "software_missing_binaries": [],
+      "tool_group_installed": true
+    },
+    "operator_next_step": "Attach an authorized monitor-mode capable USB WiFi adapter, for example Alfa AWUS036ACH; software installation is already satisfied.",
+    "status": "blocked",
+    "summary": "WiFi analysis software is ready, but no wireless adapter is detected on this host."
+  }
+}

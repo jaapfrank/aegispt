@@ -1,0 +1,134 @@
+{
+  "id": "backlog-164-wifi-wireless-assessment-surface",
+  "task_file": "codex/tasks/backlog-164-wifi-wireless-assessment-surface.json",
+  "task_type": "backlog_slice",
+  "title": "WiFi / Wireless Assessment Surface Foundation",
+  "goal": "Add WiFi as a first-class AegisPT assessment surface with passive-first wireless discovery, explicit site/SSID/BSSID authorization, adapter readiness checks, AP security posture review, rogue/unknown AP detection against an allowlist, and clearly gated intrusive wireless options.",
+  "scope": "Design and implement the first safe WiFi assessment lane. Add a wizard tile for WiFi / Wireless Assessment, Settings readiness for wireless adapters and monitor-mode capability, a passive WLAN survey runner, inventory/evidence import for SSID/BSSID/channel/security/vendor/signal metadata, findings for weak or unexpected wireless posture, Mission Control/Live Agents visibility for wireless tasks, and report sections for WiFi posture. Intrusive wireless actions such as deauthentication, handshake capture, WPS PIN testing, evil-twin simulation, or jamming-style behavior must stay unavailable unless a later explicitly approved intrusive task adds the required gates.",
+  "status": "queued",
+  "generated_by": "operator-request-2026-04-30",
+  "generation_reason": "The operator identified WiFi analysis as a missing pentest-suite capability. The repo search found no existing first-class WiFi assessment lane beyond incidental wireless-AP device labels in IoT default credentials.",
+  "queue_index": 164,
+  "source_context": {
+    "queue_index": 154,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md",
+      "docs/host_service_install.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wireless_assessment_surface",
+    "source_documents": [
+      "api/app/services/run_profiles.py",
+      "api/app/services/runs.py",
+      "api/app/services/inventory.py",
+      "workers/orchestration/tasks.py",
+      "workers/orchestration/findings.py",
+      "ui/assets/modules/wizard.js",
+      "ui/assets/modules/settings.js",
+      "ui/assets/modules/mission-control.js",
+      "api/app/services/reports.py",
+      "scripts/verify_host.sh",
+      "scripts/install_security_tools.sh"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "WiFi foundation only. Keep the first slice passive-first and evidence-first. Do not add deauthentication, jamming, evil-twin simulation, WPS PIN brute force, credential harvesting, or live RF disruption without a separate future intrusive task and explicit authorization gates.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Wizard exposes a WiFi / Wireless Assessment tile that requires site/location, approved SSIDs, approved BSSIDs where known, exclusions, and wireless adapter/interface context before launch.",
+    "Settings exposes wireless readiness: detected adapters, monitor-mode capability, required binaries, channel support, safe parallelism limits, and clear blocked/degraded states.",
+    "Passive WLAN survey runner records SSID, BSSID, channel, band, encryption/auth mode, PMF/WPA2/WPA3/WEP/open/WPS hints, vendor/OUI where available, signal strength, and observation timestamp without disrupting the network.",
+    "Inventory stores wireless access points and networks using existing provenance/evidence patterns without changing protected finding schema fields.",
+    "Findings are evidence-backed and conservative: open networks, WEP/TKIP, WPS enabled, missing PMF where relevant, rogue/unknown AP against allowlist, duplicate/evil-twin-like SSID/BSSID anomalies, and weak guest-network posture where observable.",
+    "Mission Control and Live Agents show what wireless task is doing, which adapter/channel/SSID is in focus, and what evidence has been captured.",
+    "Reports include a WiFi Security Summary section only when WiFi evidence exists, with explicit coverage, limitations, and legal boundary notes.",
+    "No intrusive wireless behavior is available or implied in the foundation slice unless a future task adds explicit gates and validation."
+  ],
+  "likely_touched_files": [
+    "api/app/services/run_profiles.py",
+    "api/app/services/runs.py",
+    "api/app/services/inventory.py",
+    "api/app/services/reports.py",
+    "workers/orchestration/tasks.py",
+    "workers/orchestration/findings.py",
+    "workers/runners/wifi_survey/",
+    "workers/tests/test_wifi_survey_runner.py",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/settings.js",
+    "ui/assets/modules/mission-control.js",
+    "api/tests/",
+    "ui/tests/",
+    "scripts/verify_host.sh",
+    "scripts/install_security_tools.sh",
+    "docs/host_service_install.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "validation pipeline bypass",
+    "approval gate bypass",
+    "deployment or runtime binding bypass",
+    "runtime self-modification",
+    "uncontrolled plugin installation"
+  ],
+  "out_of_scope": [
+    "Deauthentication or jamming",
+    "Evil-twin or rogue AP creation",
+    "Handshake capture or password cracking without a separate intrusive authorization task",
+    "WPS PIN brute force",
+    "Bluetooth/BLE/RFID assessment",
+    "Automatically enabling monitor mode on a live adapter during an active assessment without operator confirmation",
+    "Claiming WiFi support without adapter/lab validation evidence"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check",
+      "Focused runner unit tests with fixture iw/airodump-style outputs and no RF hardware dependency",
+      "API tests proving WiFi profile creation, scope/ROE validation, and inventory import",
+      "Browser tests for the WiFi wizard tile, Settings readiness states, Mission Control task visibility, and WiFi report section",
+      "Safe host-readiness validation showing supported, degraded, and missing-adapter states without launching RF-disruptive actions"
+    ],
+    "acceptance_criteria": [
+      "A WiFi assessment can be prepared and launched only after explicit wireless ROE is acknowledged.",
+      "A fixture-backed passive survey produces inventory, findings, Mission Control visibility, and report output.",
+      "Intrusive wireless actions remain blocked/unavailable in this foundation slice.",
+      "A readiness artifact under codex/results/ documents adapter/tool state and remaining lab-validation gaps."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Earlier queued stabilization and product-truth tasks have completed or the operator explicitly promotes this wireless capability earlier.",
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

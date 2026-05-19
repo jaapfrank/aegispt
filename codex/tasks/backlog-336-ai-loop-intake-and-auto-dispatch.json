@@ -1,0 +1,101 @@
+{
+  "id": "backlog-336-ai-loop-intake-and-auto-dispatch",
+  "task_file": "codex/tasks/backlog-336-ai-loop-intake-and-auto-dispatch.json",
+  "task_type": "ai_reasoning_capability",
+  "title": "AI Adaptive Pentest: Intake Creates ai_loop Runs + Auto-Dispatch Passive Tasks",
+  "goal": "The Intake wizard must offer a third run mode alongside Manual Wizard and AI Guided chat: 'AI Adaptive Pentest'. This mode creates a run with run_mode=ai_loop in configuration_json, no fixed phase chain. After the run is created, the assessment loop must dispatch passive tasks automatically without requiring operator intervention. Currently advance_assessment_loop() queues passive tasks with dispatch_mode='queued_not_dispatched' \u2014 this must be changed to actually dispatch them through the existing task dispatch path so the loop progresses on its own. Active/intrusive candidates continue to require operator approval (proposal flow).",
+  "scope": "ui-v2/src/components/Intake.tsx, api/app/services/assessment_loop.py, workers/orchestration/tasks.py",
+  "status": "queued",
+  "generated_by": "gap-analysis-ai-loop-not-triggered",
+  "generation_reason": "The assessment_loop infrastructure exists but is never reached because Intake only creates standard runs or FULL-EXTERNAL-WEB chains. Passive queued tasks are never dispatched so the loop stalls immediately.",
+  "source_context": {
+    "queue_index": 288,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "REQUIRES: backlog-301",
+    "broader_theme": "ai_chained_exploitation",
+    "key_files": [
+      "ui-v2/src/components/Intake.tsx",
+      "api/app/services/assessment_loop.py",
+      "workers/orchestration/tasks.py",
+      "api/app/services/task_dispatch.py"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_bypass": "Do not bypass approval gates for active or intrusive candidates. Only passive tier tasks may be auto-dispatched.",
+    "no_scope_violation": "All dispatched tasks must respect the run's approved scope and ROE.",
+    "kill_switch": "The kill switch must remain authoritative \u2014 check execution_kill_switch_enabled before dispatching.",
+    "existing_tests_must_pass": "pytest api/tests/ must pass without modification to existing tests.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "intake_change": "Add a third tab/mode in Intake.tsx: 'AI Adaptive' that builds a run request with configuration_json.run_mode='ai_loop' and configuration_json.assessment_loop.enabled=true. No assessment_mode chain. dispatch_after_create=true.",
+    "dispatch_fix": "In assessment_loop.py _queue_passive_loop_task(), after creating and flushing the task, call dispatch_task_execution(task.id, settings) if settings are available. Alternatively, in _maybe_advance_assessment_loop_after_task() in tasks.py, after advance_assessment_loop() returns a queued passive task, dispatch it using existing dispatch_task_batch().",
+    "preferred_dispatch_location": "tasks.py is cleaner: after _maybe_advance_assessment_loop_after_task() returns, check if result contains queued_task_id and dispatch it via dispatch_task_batch([queued_task_id], settings)."
+  },
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/",
+      "cd ui-v2 && npm run build"
+    ],
+    "acceptance_criteria": [
+      "Intake shows AI Adaptive mode option.",
+      "Selecting AI Adaptive and launching creates a run with configuration_json.run_mode='ai_loop'.",
+      "After the first task completes, advance_assessment_loop() is called and the next passive candidate task is dispatched automatically without operator input.",
+      "Active/intrusive candidates remain as pending proposals requiring approval."
+    ]
+  },
+  "success_criteria": [
+    "Intake shows AI Adaptive mode option.",
+    "Selecting AI Adaptive and launching creates a run with configuration_json.run_mode='ai_loop'.",
+    "After the first task completes, advance_assessment_loop() is called and the next passive candidate task is dispatched automatically without operator input.",
+    "Active/intrusive candidates remain as pending proposals requiring approval."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/Intake.tsx",
+    "api/app/services/assessment_loop.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/task_dispatch.py"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

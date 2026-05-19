@@ -1,0 +1,116 @@
+{
+  "id": "backlog-53-ambient-animation-foundation",
+  "task_file": "codex/tasks/backlog-53-ambient-animation-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Ambient Animation and Micro-Interaction Foundation",
+  "goal": "Add the baseline animation layer that makes running tasks visibly active, finding counters visceral, severity bars alive, and every interaction physically responsive \u2014 without adding SVG components or the AI signal panel.",
+  "scope": "Implement the following CSS and JS animation primitives defined in LIVING_SYSTEM_EXPERIENCE.md: (1) shimmer-slide keyframe on task cards with data-status=running, (2) severity bar fill with cubic-bezier spring transition and counter flip on increment, (3) badge-pop keyframe for finding count badges appearing on task completion, (4) count-bump keyframe on the live finding counter when count increases, (5) critical-pulse keyframe when a critical-severity finding arrives, (6) button :active scale micro-interaction, (7) finding-card hover translateX and border-color transition, (8) empty-breathe keyframe on empty state icons, (9) prefers-reduced-motion override block. All animations derive state only from existing run/task/finding data already in the UI state. No new API endpoints, no backend changes, no SVG scan map, no AI signal panel in this slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "LIVING_SYSTEM_EXPERIENCE.md section 15 identifies ambient animations as the highest ROI items (6-7 hours, fundamental feeling change). These are prerequisite to the scan map and AI signal panel slices and have no backend dependencies.",
+  "source_context": {
+    "queue_index": 53,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "docs/living_system_experience_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "living_system_experience",
+    "source_documents": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "ui/assets/styles.css",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/modules/findings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "CSS and JS animation primitives only. Do not add SVG scan map, AI signal panel typing, sound design Web Audio API, Anthropic provider wiring, new API endpoints, backend changes, or finding schema changes in this slice.",
+    "runtime_mutation": false,
+    "operator_control_required": false
+  },
+  "success_criteria": [
+    "Task cards with status=running display the shimmer-slide animation.",
+    "Severity bar fills transition with a spring curve when finding counts change.",
+    "Finding count badges appear with badge-pop animation on task completion.",
+    "The live finding counter flashes with count-bump when a new finding arrives.",
+    "A critical-severity finding triggers the critical-pulse animation on the relevant severity bar.",
+    "Buttons compress on :active press.",
+    "Finding cards translate right on hover with severity border-color.",
+    "Empty state icons breathe with empty-breathe animation.",
+    "prefers-reduced-motion disables all animations.",
+    "All existing Playwright data-testid selectors continue to pass.",
+    "No API contracts, backend code, or finding schema fields are changed."
+  ],
+  "likely_touched_files": [
+    "ui/assets/styles.css",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/findings.js",
+    "ui/assets/app.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "finding schema fields",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Running task cards display a visible shimmer animation.",
+      "Severity bars transition smoothly when finding counts change.",
+      "Full Playwright suite is green.",
+      "prefers-reduced-motion disables all animations.",
+      "No backend or schema changes were introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "UI structural foundation (backlog-52) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Animation keyframe names and state derivation are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with animation primitives added and Playwright validation evidence.",
+      "Update CURRENT_STATE.md with ambient animation layer as active baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "SVG scan map component",
+    "AI signal panel typing effect",
+    "Sound design Web Audio API",
+    "Anthropic provider wiring",
+    "Backend changes",
+    "New API endpoints",
+    "Mission launch ceremony (covered in backlog-54)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

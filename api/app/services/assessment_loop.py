@@ -1,0 +1,3819 @@
+from __future__ import annotations
+
+import json
+import logging
+import os
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Claude-driven candidate selection: prompt + helper functions live next to the
+# heuristic candidate functions so the AI brain sits in the same module that
+# the rest of the loop calls.
+_AI_PICKER_SYSTEM_PROMPT = """You are the brain of an automated penetration test.
+
+=== EVIDENCE-FIRST PRINCIPLE (READ THIS FIRST, IT OVERRIDES EVERYTHING ELSE) ===
+
+AegisPT is an evidence-first system. Your job is to PROVE vulnerabilities, not
+to predict, hypothesize, or speculate about them. Hunches and chains-of-reasoning
+are valuable INPUT to your decisions, but they are NEVER valid output.
+
+What this means concretely:
+- "I see reflected XSS → therefore session hijacking is possible" is a HUNCH.
+  Until you have actually stolen a session and used it, you have NOT proven it.
+- "Path-based XSS + accessible /admin = admin compromise" is a HUNCH.
+  Until you've issued an authenticated request to /admin and observed admin
+  functionality in the response, you have NOT proven admin compromise.
+- "/dump.gtl probably leaks passwords" is a HUNCH. Until you've fetched it and
+  observed cleartext credentials in the body, you have NOT proven info disclosure.
+- "newaccount + is_admin=True probably escalates" is a HUNCH. Until you've
+  submitted the request and verified admin context in a follow-up response,
+  you have NOT proven privilege escalation.
+
+When you have a hunch about a chain:
+1. Write an exec_plan that EXECUTES the chain end-to-end.
+2. Include verification step(s) that observe the *expected impact*, not just
+   the setup step (e.g. don't stop after POSTing is_admin=True; also GET
+   /manage and assert the body contains admin-only content).
+3. Use on_success.create_finding to record the proven result with severity
+   reflecting what was ACTUALLY shown in the response, not your hypothesis.
+
+STOP CRITERION (strictly enforced):
+You may only emit action="stop" with stop_reason="admin_compromise_proven"
+when there exists a finding in the list above of severity "critical" whose
+title explicitly describes the proven impact (e.g. "Admin Compromise via X",
+"Account Takeover via Y") AND whose evidence_ref points to a runner-captured
+artifact (not your own reasoning). Hypothesized chains are NOT proof.
+
+You may emit action="stop" with stop_reason="exhausted" only when every
+plausible exploit angle has been attempted via exec_plan or a runner — not
+when you've merely thought about angles you haven't tried.
+
+If you are tempted to stop based on a chain you BELIEVE but have not run,
+the correct action is exec_plan (write the chain and run it), NOT stop.
+
+=== PHASE MODEL ===
+
+The test progresses through PHASES. A phase is NOT a fixed type from a list.
+A new phase begins whenever the evidence collected so far unlocks something
+that was not reachable before. Examples of what triggers a level-up:
+  - A new vulnerable parameter is confirmed → unlocks targeted exploitation
+  - A session cookie is stolen → unlocks authenticated testing
+  - Admin/elevated identity is reached → unlocks privileged endpoints
+  - A new internal service is mapped → unlocks fresh attack surface
+  - A patch-level fingerprint reveals a specific CVE → unlocks targeted exploit
+
+A real assessment may take 5 phases or 50 phases. There is no cap. Each phase
+has ONE clear goal that is concretely achievable with the current evidence.
+You name the phase yourself with a short label that describes its goal.
+
+Within a phase you may run multiple tools, but each tool normally runs only
+once per phase. Re-use the same tool inside the SAME phase only when a finding
+appearing during THIS phase needs the same tool on a different vulnerable target,
+and you cite that finding in your reasoning.
+
+You LEVEL UP to a new phase only when the current phase produced evidence that
+materially unlocks a higher-impact action — not just because the previous tool
+finished. If the current phase is producing no progress, level up to a new
+phase with a different angle.
+
+After each tool runs you produce ONE of four decisions:
+
+A) PICK another tool to continue the CURRENT phase
+B) EXEC_PLAN — write a custom multi-step HTTP exploitation plan
+   Use this when no generic runner fits — multi-step chains, CSRF with
+   captured token, IDOR with stolen identity, or any sequence that
+   needs to chain a captured value from one request into the next.
+C) LEVEL UP — current phase is complete, start the next phase
+D) STOP the whole assessment — chain proven or exhausted
+
+=== HTTP_FETCH TOOL — read the target yourself before deciding ===
+
+You have an `http_fetch` tool that GETs any URL within the approved scope. Use
+it BEFORE picking runners so you understand the actual application — not just
+its endpoint list.
+
+Scope: only URLs under the approved instance path are allowed. The codelab
+documentation pages of teaching apps (e.g. /partN, /tutorial) fall OUTSIDE
+scope and will be rejected — you must discover vulnerabilities from the live
+app's responses, not from its lab handout.
+
+Call shape:
+  http_fetch({"url": "https://target-host/instance-path/some-page"})
+
+When to fetch:
+- First call of a new phase: GET the scope root or a relevant endpoint, READ
+  the HTML to identify: tech stack, forms, JS frameworks, unusual endpoints
+  (custom template extensions, debug paths). Then pick tools that match the
+  actual surface — NOT generic scanners.
+- After a runner finds a hidden endpoint: fetch it to see what it actually
+  does before pointing more tools at it.
+- Before writing an exec_plan: fetch the target URL to verify the form fields
+  and parameter names you plan to attack actually exist as you assume.
+
+What to learn from a fetch:
+- `Server:` header → tech stack hint
+- `Content-Type:` → API vs HTML
+- Page text → app's purpose, framework hints, error patterns
+- Form `action=` + input `name=` → your exec_plan must use these exact names
+- Anchor links → real navigable structure beyond wordlist-recon findings
+- Suspicious comments, debug flags, version strings
+
+What to SKIP after reading:
+- If the body reveals no SQL DB is involved, do NOT pick sqlmap.
+- If templates are custom (non-Jinja/Django/ERB), do NOT pick generic ssti-probe.
+- If responses don't include XML, do NOT pick xxe-probe.
+
+Budget: keep total fetches per decision modest. Response body is truncated
+to 4 KB — don't waste fetches on already-tested endpoints.
+
+=== MEMORY TOOL — your persistent scratch pad across runs ===
+
+You have a `memory` tool that stores files under `/memories/`. This is YOUR
+scratch pad: it persists between assessment runs and across phases. Nothing
+is pre-loaded — you start with an empty store unless you've written to it.
+
+USE IT BEFORE EVERY DECISION:
+  memory view path="/memories"
+
+If you find notes relevant to the current target or app type, view them.
+Common organization patterns you can choose to adopt (or invent your own):
+  /memories/targets/<hostname>.md   — what you learned about this target
+  /memories/lessons/<topic>.md      — generic lessons (e.g. "when stuck after
+                                       header scans, pivot to authenticated
+                                       endpoints, not more recon")
+  /memories/run-progress.md         — running scratch notes for this run
+
+USE IT AFTER PROGRESS:
+When a tool produces an interesting signal (a captured session, a discovered
+admin endpoint, a successful exploit), record the LESSON — not the data:
+  memory create path="/memories/lessons/post-session-pivot.md"
+  file_text="When generic IDOR found no rows, pivoting to direct profile-edit
+  endpoints produced admin escalation. Look for /profile, /saveprofile,
+  /preferences with role/admin/permission keys."
+
+Rules:
+- Do NOT store exploit recipes you have not yourself verified.
+- Do NOT pre-fabricate knowledge about target apps — only write what evidence
+  in THIS run proves.
+- Keep entries short. One lesson per file.
+- If a memory turns out to be wrong, str_replace or delete it.
+
+Empty memory is fine. Memory is OPTIONAL — if you have no observation worth
+preserving, skip it.
+
+Rules:
+- Pick exactly ONE tool from available_tools.
+- Decide based on actual evidence, not a fixed checklist.
+- Within the same phase: do NOT re-pick a tool already used this phase,
+  unless justified by a fresh in-phase finding.
+- LEVEL UP when the current phase reached its goal OR cannot progress further.
+- STOP when admin compromise is proven OR no untested attack surface remains.
+
+Return ONLY valid JSON, one of these three shapes:
+
+A) Continue current phase with another tool pick:
+{
+  "action": "pick",
+  "tool": "tool-name-from-available_tools",
+  "target": "full URL or host",
+  "tier": "passive|active|intrusive",
+  "reasoning": "one sentence why THIS is the right next step in the current phase",
+  "expected_evidence": ["short", "list"],
+  "confidence": 0.85
+}
+
+B) Level up to a new phase, picking the first tool of that new phase:
+{
+  "action": "level_up",
+  "previous_phase_summary": "one sentence summarizing what the just-completed phase proved",
+  "new_phase_label": "short label e.g. 'authenticated-escalation'",
+  "tool": "tool-name-to-start-the-new-phase",
+  "target": "full URL or host",
+  "tier": "passive|active|intrusive",
+  "reasoning": "one sentence why this new phase is unlocked and which evidence triggers it",
+  "expected_evidence": ["short", "list"],
+  "confidence": 0.85
+}
+
+C) Stop the assessment entirely:
+{
+  "action": "stop",
+  "stop_reason": "admin_compromise_proven | exhausted | scope_complete",
+  "summary": "one sentence summarizing what the whole test proved",
+  "confidence": 1.0
+}
+
+D) Run a custom HTTP exploitation plan via the exec-plan runner:
+{
+  "action": "exec_plan",
+  "plan_name": "short-slug-describing-the-attack",
+  "tier": "active|intrusive",
+  "reasoning": "why this custom plan reaches the goal that no generic runner can",
+  "confidence": 0.85,
+  "plan": {
+    "name": "same as plan_name",
+    "steps": [
+      {
+        "name": "probe",
+        "method": "GET",
+        "url": "${target}/some-endpoint-you-discovered",
+        "expect": {"status": 200},
+        "capture": {
+          "token": {"from": "body_regex", "pattern": "csrf_token=([a-f0-9]+)"}
+        }
+      },
+      {
+        "name": "exploit",
+        "method": "POST",
+        "url": "${target}/another-endpoint",
+        "data": {"csrf": "${probe.token}", "payload": "<your crafted payload>"},
+        "expect": {"status": [200, 302]},
+        "on_success": {
+          "create_finding": {
+            "severity": "high",
+            "title": "<descriptive title of what you proved>",
+            "summary": "<one sentence describing the impact>"
+          }
+        }
+      }
+    ]
+  }
+}
+
+The example above is INTENTIONALLY GENERIC. Do NOT copy these endpoints or
+payloads — they are placeholders. The real steps must come from YOUR analysis
+of THIS specific target's responses, findings, and discovered endpoints.
+
+EXEC_PLAN GRAMMAR:
+- `${target}` is the primary scope URL (auto-substituted, no trailing slash).
+- `${rand}` and `${rand16}` produce random tokens for unique usernames.
+- `${step_name.field}` references a value captured in an earlier step.
+- Capture sources: `cookie` (key=name), `header` (key=name), `redirect_path`,
+  `body_regex` (regex=pattern, returns group 1), `request_field` (field=name),
+  `status`.
+- Use `cookies_from: "step_name"` to inherit cookies set by an earlier step.
+- `expect` clauses validate: `status` (int or list), `body_contains` (str/list),
+  `body_not_contains` (str/list), `body_regex` (pattern).
+- `on_success.create_finding` emits a structured finding when the step's
+  expectations pass — use only for steps that PROVE the exploit succeeded,
+  not for intermediate setup steps.
+- All URLs must be within approved scope; out-of-scope steps are skipped.
+- Max 50 steps per plan. Overall timeout 90s. Allowed methods: GET, POST, PUT, PATCH, DELETE.
+
+WHEN TO USE EXEC_PLAN vs PICK:
+- PICK a generic runner (xss-proof, idor-bac, sqlmap) for well-known patterns.
+  Tool=`exec-plan` is NOT a generic runner — it requires the structured plan body.
+- USE EXEC_PLAN when you need an app-specific sequence: e.g. Gruyere's
+  is_admin parameter trick, multi-step CSRF, register-then-exploit chains,
+  or anything where a captured value from one request determines the next.
+
+CRITICAL: Never use `action: "pick"` with `tool: "exec-plan"`. The exec-plan
+runner requires the structured plan body which only comes through `action:
+"exec_plan"`. If you want a custom HTTP sequence, ALWAYS use action=exec_plan
+and include the full plan grammar shown above.
+
+TIER SEMANTICS (this controls whether your action auto-queues or waits for approval):
+- "passive"  = read-only HTTP, no state change on the target. Always auto-queued.
+- "active"   = writes that don't damage service: set cookies, submit forms, post
+               snippets, update profile fields, exploit XSS/IDOR/privilege-escalation,
+               proof-of-concept exploitation chains. AUTO-QUEUED in ai_loop runs.
+               USE THIS FOR THE VAST MAJORITY OF YOUR EXEC_PLAN CHAINS.
+- "intrusive" = actually destructive: DoS, server crash, data deletion, RCE that
+               kills services, account deletion, mass record overwrite. Requires
+               explicit operator approval unless the run was started with
+               intrusive-allowed enabled. AVOID this tier for standard XSS/cookie/
+               admin-escalation chains — those are "active".
+
+Rule of thumb: if your plan PROVES a vulnerability without breaking the target,
+it's "active". If your plan would visibly impact service availability or
+permanently destroy data, it's "intrusive".
+
+COMBINING LEVEL_UP WITH A CUSTOM PLAN is allowed: set action="level_up",
+tool="exec-plan", include a "plan" body with non-empty "steps", and provide
+"new_phase_label" + "previous_phase_summary". Both happen in one shot: the
+phase advances AND the exec-plan runs in the new phase. Use this for moves
+like "now I have a session token, level up to authenticated-admin-escalation
+and run this 4-step chain that injects is_admin=True into the snippet form".
+
+STRUCTURED OUTPUT NOTE (#330): your final decision is constrained by a JSON
+schema enforced server-side. For exec_plan and for level_up actions that
+include a plan, the `plan` field MUST be a JSON-encoded STRING of the plan
+body — not a nested object. Example: `"plan": "{\"name\":\"slug\",\"steps\":[...]}"`.
+The client decodes this back to an object before execution. All other
+fields are plain JSON values (strings, numbers, arrays, enums).
+
+CHAIN REASONING ON RECENT_CAPTURES (#334 + #343):
+The graph projection includes a RECENT_CAPTURES section listing the most-recent
+captured_value entities from prior tasks in this run — each with origin step,
+kind (token / cookie / hostname / credential_ref / url / other), and a
+redacted preview (full value lives in the run credential vault, not in this
+prompt). When a candidate step needs a parameter whose kind matches a capture
+(e.g. an Authorization header or session cookie for the next request, a host
+parameter for a pivot target), prefer referencing that capture via the existing
+`${step_name.field}` interpolation grammar instead of re-acquiring it. This
+chains the proof across tasks AND saves a round-trip. The capture is a HINT,
+not a hard requirement — if no kind matches, proceed without it. Do NOT paste
+a redacted preview into a step body; interpolation resolves to the full value
+at execution time. If RECENT_CAPTURES is empty or absent, ignore this note.
+"""
+
+
+# ---------------------------------------------------------------------------
+# #330 — Picker structured-output JSON schema
+# ---------------------------------------------------------------------------
+#
+# The picker emits one of four action shapes (pick / level_up / stop /
+# exec_plan). Anthropic strict mode requires every property in `required`
+# and `additionalProperties: false` on every object, so we cannot mark
+# optional fields. Instead we list five `anyOf` variants:
+#
+#   - pick
+#   - level_up                  (no plan body)
+#   - level_up + exec-plan      (with `plan_name` + stringified `plan`)
+#   - stop
+#   - exec_plan                 (with `plan_name` + stringified `plan`)
+#
+# `plan` is intentionally a STRING field. The exec-plan inner objects
+# (steps[].params, steps[].data, steps[].capture, steps[].expect.body_*)
+# have freeform keys/types that are incompatible with strict mode's
+# additionalProperties=false closure. The system-prompt directive tells
+# Claude to JSON-encode the plan; client-side we `json.loads` it once
+# before passing to the exec_plan runner. See the "STRUCTURED OUTPUT
+# NOTE" appended above for the operator-facing directive.
+
+_PICKER_TIER_ENUM = ["passive", "active", "intrusive"]
+_PICKER_ACTIVE_INTRUSIVE = ["active", "intrusive"]
+_PICKER_STOP_REASONS = ["admin_compromise_proven", "exhausted", "scope_complete"]
+
+
+def _picker_variant_pick() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "action", "tool", "target", "tier",
+            "reasoning", "expected_evidence", "confidence",
+        ],
+        "properties": {
+            "action": {"type": "string", "const": "pick"},
+            "tool": {"type": "string"},
+            "target": {"type": "string"},
+            "tier": {"type": "string", "enum": _PICKER_TIER_ENUM},
+            "reasoning": {"type": "string"},
+            "expected_evidence": {"type": "array", "items": {"type": "string"}},
+            "confidence": {"type": "number"},
+        },
+    }
+
+
+def _picker_variant_level_up(*, with_plan: bool) -> dict[str, Any]:
+    base_required = [
+        "action", "previous_phase_summary", "new_phase_label",
+        "tool", "target", "tier",
+        "reasoning", "expected_evidence", "confidence",
+    ]
+    base_properties: dict[str, Any] = {
+        "action": {"type": "string", "const": "level_up"},
+        "previous_phase_summary": {"type": "string"},
+        "new_phase_label": {"type": "string"},
+        "tool": {"type": "string"},
+        "target": {"type": "string"},
+        "tier": {"type": "string", "enum": _PICKER_TIER_ENUM},
+        "reasoning": {"type": "string"},
+        "expected_evidence": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "number"},
+    }
+    if with_plan:
+        base_required.extend(["plan_name", "plan"])
+        base_properties["tool"] = {"type": "string", "const": "exec-plan"}
+        base_properties["tier"] = {"type": "string", "enum": _PICKER_ACTIVE_INTRUSIVE}
+        base_properties["plan_name"] = {"type": "string"}
+        base_properties["plan"] = {
+            "type": "string",
+            "description": (
+                "JSON-encoded plan body. The string must json.loads() to an "
+                "object with `name` and `steps` keys."
+            ),
+        }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": base_required,
+        "properties": base_properties,
+    }
+
+
+def _picker_variant_stop() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["action", "stop_reason", "summary", "confidence"],
+        "properties": {
+            "action": {"type": "string", "const": "stop"},
+            "stop_reason": {"type": "string", "enum": _PICKER_STOP_REASONS},
+            "summary": {"type": "string"},
+            "confidence": {"type": "number"},
+        },
+    }
+
+
+def _picker_variant_exec_plan() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["action", "plan_name", "tier", "reasoning", "confidence", "plan"],
+        "properties": {
+            "action": {"type": "string", "const": "exec_plan"},
+            "plan_name": {"type": "string"},
+            "tier": {"type": "string", "enum": _PICKER_ACTIVE_INTRUSIVE},
+            "reasoning": {"type": "string"},
+            "confidence": {"type": "number"},
+            "plan": {
+                "type": "string",
+                "description": (
+                    "JSON-encoded plan body. The string must json.loads() to "
+                    "an object with `name` and `steps` keys."
+                ),
+            },
+        },
+    }
+
+
+def _picker_output_schema() -> dict[str, Any]:
+    """Discriminated schema for the 4 picker action shapes (#330)."""
+    return {
+        "anyOf": [
+            _picker_variant_pick(),
+            _picker_variant_level_up(with_plan=False),
+            _picker_variant_level_up(with_plan=True),
+            _picker_variant_stop(),
+            _picker_variant_exec_plan(),
+        ],
+    }
+
+
+# Pre-built schema dict reused on every picker call (no dynamic content
+# so the messages.create call stays cache-friendly).
+_PICKER_OUTPUT_SCHEMA: dict[str, Any] = _picker_output_schema()
+
+
+def _decode_picker_plan(decision: dict[str, Any]) -> dict[str, Any]:
+    """If the decision is an exec_plan (or level_up + plan) variant, the
+    `plan` field arrives as a JSON-encoded string (per the schema). Decode
+    it in place so downstream consumers see the same dict shape they used
+    to before #330. No-op for actions without a `plan` field.
+
+    Returns the (possibly mutated) decision dict for chaining.
+    """
+    if not isinstance(decision, dict):
+        return decision
+    plan = decision.get("plan")
+    if not isinstance(plan, str) or not plan:
+        return decision
+    try:
+        decoded = json.loads(plan)
+    except json.JSONDecodeError as exc:
+        logger.warning(
+            "AI loop: picker plan field was not valid JSON despite schema "
+            "constraint — raw=%r (%s)",
+            plan[:240], exc,
+        )
+        return decision
+    if isinstance(decoded, dict):
+        decision["plan"] = decoded
+    return decision
+
+
+def _summarize_findings_for_ai(run: Run, max_items: int = 25) -> list[dict[str, Any]]:
+    """Compact representation of findings so the Claude prompt stays small."""
+    summary: list[dict[str, Any]] = []
+    for f in list(run.findings or [])[:max_items]:
+        summary.append(
+            {
+                "severity": str(f.severity or "info"),
+                "title": str(f.title or "")[:120],
+                "target": str(f.target_id or "")[:120],
+                "tool": str(getattr(f, "finding_origin", "") or "")[:60],
+            }
+        )
+    return summary
+
+
+def _tested_tools_summary(tested_keys: set[str]) -> list[str]:
+    """Extract tool names from tested_keys (which are 'tool|target' pairs)."""
+    return sorted({k.split("|", 1)[0] for k in tested_keys if k})
+
+
+def _collect_discovered_targets(run: Run, limit: int = 15) -> list[str]:
+    """Collect deeper paths/endpoints discovered by completed tools so Claude can
+    target a SPECIFIC vulnerable URL instead of always the root."""
+    seen: set[str] = set()
+    paths: list[str] = []
+    for finding in list(run.findings or []):
+        t = str(finding.target_id or "").strip()
+        if t and t not in seen:
+            seen.add(t)
+            paths.append(t)
+            if len(paths) >= limit:
+                return paths
+    return paths
+
+
+def _collect_recent_failures(run: Run, limit: int = 8) -> list[dict[str, Any]]:
+    """Pull the most recent failed/errored task results so Claude can see
+    WHY his picks didn't work and adjust. Without this, Claude keeps trying
+    the same broken approach (e.g. exec-plan with no plan body) blindly."""
+    failures: list[dict[str, Any]] = []
+    for task in sorted(
+        list(run.tasks or []),
+        key=lambda t: str(getattr(t, "updated_at", "") or ""),
+        reverse=True,
+    ):
+        status = str(task.status or "").lower()
+        if status not in {"failed", "errored", "cancelled"}:
+            continue
+        # Pull the latest execution's stderr/exit code if available
+        stderr = ""
+        exit_code = None
+        for exe in list(task.executions or []):
+            stderr = str(exe.stderr_text or "")[:400]
+            exit_code = exe.exit_code
+            break  # first one is enough
+        failures.append({
+            "tool": str(task.tool or ""),
+            "target": str(task.target_id or "")[:120],
+            "status": status,
+            "exit_code": exit_code,
+            "error": stderr or "(no error text)",
+        })
+        if len(failures) >= limit:
+            break
+    return failures
+
+
+def _collect_task_outcomes(run: Run, limit: int = 12) -> list[dict[str, Any]]:
+    """For each recent completed task, show what the tool *actually* produced.
+
+    Empty findings on a completed task is not the same as the tool failing —
+    Claude needs to see the stdout excerpt so he can tell "nothing found"
+    apart from "tool tested wrong angle". Without this he keeps picking
+    generic scanners that produce noise instead of pivoting to exec-plan
+    with a crafted hypothesis aimed at a specific discovered endpoint.
+    """
+    outcomes: list[dict[str, Any]] = []
+    for task in sorted(
+        list(run.tasks or []),
+        key=lambda t: str(getattr(t, "updated_at", "") or ""),
+        reverse=True,
+    ):
+        status = str(task.status or "").lower()
+        if status not in {"completed", "failed", "cancelled"}:
+            continue
+        if str(task.tool or "").strip() == "bootstrap":
+            continue
+        stdout_excerpt = ""
+        exit_code: int | None = None
+        for exe in list(task.executions or []):
+            stdout_excerpt = str(exe.stdout_text or "")[:280]
+            exit_code = exe.exit_code
+            break
+        outcomes.append({
+            "tool": str(task.tool or ""),
+            "target": str(task.target_id or "")[:120],
+            "status": status,
+            "exit_code": exit_code,
+            "stdout_excerpt": stdout_excerpt or "(no stdout)",
+        })
+        if len(outcomes) >= limit:
+            break
+    return outcomes
+
+
+def _record_loop_rejection(loop_state: dict[str, Any], reason: str, detail: str) -> None:
+    """Append a rejection reason to the loop state so Claude sees it next iter.
+
+    The list is capped at 10 entries (FIFO) — older rejections drop off.
+    """
+    rejections = list(loop_state.get("recent_rejections") or [])
+    rejections.append({
+        "reason": reason[:80],
+        "detail": detail[:300],
+        "at": _now(),
+    })
+    if len(rejections) > 10:
+        rejections = rejections[-10:]
+    loop_state["recent_rejections"] = rejections
+
+
+def _extract_target_intel_test_plan(run: Run) -> list[dict[str, Any]]:
+    """Read the target-intel tool's stdout from the most recent execution and
+    pull out the AI-generated test_plan items. These are HIGH-VALUE hints
+    because target-intel calls Claude separately to analyze the actual site
+    content and CVE landscape — it knows what attack vectors are most likely
+    to pay off for THIS target."""
+    for task in list(run.tasks or []):
+        if str(task.tool or "") != "target-intel" or str(task.status or "") != "completed":
+            continue
+        executions = list(task.executions or [])
+        if not executions:
+            continue
+        latest = sorted(executions, key=lambda e: str(e.created_at or ""))[-1]
+        stdout = str(latest.stdout_text or "")
+        if not stdout:
+            continue
+        try:
+            payload = json.loads(stdout)
+        except Exception:
+            continue
+        analysis = payload.get("analysis") or {}
+        plan = analysis.get("test_plan") or []
+        if isinstance(plan, list):
+            return [p for p in plan if isinstance(p, dict)][:6]
+    return []
+
+
+# ---------------------------------------------------------------------------
+# #331 — Bounded soft retry around the picker
+# ---------------------------------------------------------------------------
+#
+# `_claude_select_next_action` can return `None` for transient reasons:
+# a network blip on http_fetch, a momentary credit pause, an empty text
+# block, an SDK-level exception caught upstream. Before #331 the loop
+# treated `None` as terminal: status was set to stopped with reason
+# `no_registered_runner_candidate` after one bad output.
+#
+# `_call_picker_with_retries` wraps the picker call with a bounded retry
+# budget (1 initial attempt + 2 retries = 3 total). It updates
+# `loop_state` in place so the operator can see retry history:
+#
+#   retries_this_advance:   int, number of retries this advance (0 if
+#                           the first attempt succeeded)
+#   picker_retry_exhausted: bool, set True when the full budget is spent
+#                           AND every attempt returned None. The caller
+#                           uses this to set a distinct stop_reason
+#                           (`picker_retry_exhausted`) so genuine
+#                           "no fallback candidate" vs "Claude died on
+#                           every retry" cases are diagnosable.
+#
+# #330 (structured outputs) already removed the JSON-parse-fail class of
+# Nones; #331 hardens the loop against the remaining transient cases.
+
+PICKER_MAX_RETRIES = 2
+
+
+def _call_picker_with_retries(
+    *,
+    run: Run,
+    tested_keys: set[str],
+    available_tools: list[str],
+    targets: list[dict[str, Any]],
+    scope: Scope | None,
+    session: Session | None,
+    loop_state: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Call :func:`_claude_select_next_action` with bounded soft retry.
+
+    Records retry telemetry on ``loop_state`` so operators can spot a
+    flapping picker even when the eventual outcome is success. The
+    function is otherwise a drop-in replacement — same signature shape,
+    same return value (decision dict or None)."""
+    loop_state["retries_this_advance"] = 0
+    loop_state["picker_retry_exhausted"] = False
+    total_attempts = PICKER_MAX_RETRIES + 1
+    for attempt_index in range(total_attempts):
+        if attempt_index > 0:
+            loop_state["retries_this_advance"] = attempt_index
+            logger.info(
+                "AI loop: picker retry attempt %d/%d",
+                attempt_index, PICKER_MAX_RETRIES,
+            )
+        decision = _claude_select_next_action(
+            run=run,
+            tested_keys=tested_keys,
+            available_tools=available_tools,
+            targets=targets,
+            scope=scope,
+            session=session,
+        )
+        if decision is not None:
+            if attempt_index > 0:
+                logger.info(
+                    "AI loop: picker recovered after %d retry(ies)",
+                    attempt_index,
+                )
+            return decision
+        logger.info(
+            "AI loop: picker returned None (attempt %d of %d)",
+            attempt_index + 1, total_attempts,
+        )
+    loop_state["picker_retry_exhausted"] = True
+    logger.warning(
+        "AI loop: picker exhausted retries (%d attempts) — proceeding to "
+        "fallback heuristics; if no candidate emerges, loop will set "
+        "stop_reason=picker_retry_exhausted",
+        total_attempts,
+    )
+    return None
+
+
+def _claude_select_next_action(
+    *,
+    run: Run,
+    tested_keys: set[str],
+    available_tools: list[str],
+    targets: list[dict[str, Any]],
+    scope: Scope | None = None,
+    session: Any = None,
+) -> dict[str, Any] | None:
+    """Ask Claude Haiku to pick the next action given current evidence.
+
+    Returns the parsed JSON dict from Claude, or None if Claude is unreachable
+    or returns an unparseable response. Caller falls back to heuristic cascade.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return None
+    if not tested_keys:
+        # First iteration: let target-intel heuristic handle the seed step
+        return None
+    try:
+        import anthropic
+    except ImportError:
+        return None
+
+    findings = _summarize_findings_for_ai(run)
+    _ = _tested_tools_summary(tested_keys)  # invoked for side effects/logging; result unused
+    primary_target = ""
+    if targets:
+        primary_target = str(targets[0].get("value") or "")
+    discovered_paths = _collect_discovered_targets(run)
+    # Recent failures from runner crashes / non-zero exits — Claude can see
+    # what went wrong and adjust (e.g. correct an exec-plan format error).
+    recent_failures = _collect_recent_failures(run, limit=6)
+    task_outcomes = _collect_task_outcomes(run, limit=10)
+    # Rejections from the loop's own validators (duplicate pair, malformed
+    # plan, out-of-scope target). Stored in loop_state by the action handlers.
+    loop_state_for_rejections = _as_dict(
+        _as_dict(run.configuration_json or {}).get(LOOP_CONFIG_KEY)
+    )
+    recent_rejections = list(loop_state_for_rejections.get("recent_rejections") or [])[-6:]
+    # Pull the AI-generated test_plan that target-intel produced. This is a
+    # ranked list of recommended tools (smart-web-probe, xss-extended, ...) based
+    # on actual analysis of the site content. Claude often picks generic tools
+    # without this hint, missing the high-value attack vectors target-intel
+    # already identified.
+    target_intel_plan = _extract_target_intel_test_plan(run)
+    # Detect what's been COMPROMISED so far so Claude can plan post-compromise
+    # actions. Without this, Claude often stops at "session cookie stolen" and
+    # never actually uses the stolen access to escalate.
+    compromise_unlocks: list[str] = []
+    findings_text = " ".join(
+        (str(f.get("title") or "") + " " + str(f.get("severity") or "")).lower()
+        for f in findings
+    )
+    if "session cookie theft" in findings_text or "cookie theft" in findings_text:
+        compromise_unlocks.append(
+            "🔓 SESSION COOKIE STOLEN: a valid session cookie is captured. "
+            "Stop testing authentication bypass — you ALREADY HAVE auth. "
+            "Your next actions MUST exploit this access: "
+            "(a) idor-bac on user-id endpoints to read OTHER users' data, "
+            "(b) idor-bac/auth-flow on /admin to escalate, "
+            "(c) profile manipulation to inject is_admin=True or similar privilege flags, "
+            "(d) data exfiltration on protected endpoints. "
+            "The cookie is auto-injected into any tool you pick — just choose the right tool."
+        )
+    if "stored xss" in findings_text or "file upload" in findings_text and "xss" in findings_text:
+        compromise_unlocks.append(
+            "🔓 STORED XSS CONFIRMED: a payload persists in app content. "
+            "Next: prove cross-user impact via xss-proof against the storage endpoint, "
+            "or test if an admin-visited page renders the payload (privilege escalation)."
+        )
+    if "rce" in findings_text or "remote code execution" in findings_text:
+        compromise_unlocks.append(
+            "🔓 RCE ACHIEVED: prove impact via filesystem read, process enumeration, or persistence."
+        )
+    if "idor" in findings_text and "horizontal" in findings_text:
+        compromise_unlocks.append(
+            "🔓 IDOR CONFIRMED: you can read other users' data. "
+            "Next: vertical privilege escalation (admin user id), or data exfiltration at scale."
+        )
+
+    # Build (tool, target) combinations already attempted so Claude doesn't
+    # re-pick the same exact thing.
+    tested_pairs = sorted(tested_keys)[:40]
+
+    # Pull current phase state from loop_state. New schema introduced for the
+    # phase-based mental model where each pick within a phase shares context.
+    loop_state = _as_dict(_as_dict(run.configuration_json or {}).get(LOOP_CONFIG_KEY))
+    current_phase = _as_dict(loop_state.get("current_phase"))
+    phase_index = int(loop_state.get("phase_count") or 0)
+    phase_label = str(current_phase.get("label") or "(initial recon)")
+    phase_goal = str(current_phase.get("goal") or "Map the attack surface and identify entry points.")
+    phase_picks = list(current_phase.get("tool_picks") or [])  # [{tool, target, reasoning, finding_motivation}]
+    phase_findings_start = int(current_phase.get("findings_count_at_start") or 0)
+    findings_this_phase = max(0, len(findings) - phase_findings_start)
+
+    # Build a compact recommended-tools list from target-intel's plan that
+    # haven't been tested yet. Surface this prominently so Claude actually uses it.
+    plan_recommendations: list[str] = []
+    if target_intel_plan:
+        for item in target_intel_plan:
+            tool = str(item.get("tool") or "").strip()
+            reason = str(item.get("reason") or "")[:160]
+            if not tool:
+                continue
+            priority = item.get("priority")
+            already = any(tool == k.split("|", 1)[0] for k in tested_keys)
+            tag = " (already used)" if already else " (NOT YET USED)"
+            plan_recommendations.append(
+                f"  [P{priority}] {tool}{tag} — {reason}"
+            )
+
+    # Per-run intrusion authorization — tells Claude which tier ceiling he
+    # can plan within. When set, the operator has authorized destructive
+    # actions (DoS, RCE, write-anywhere) for this run.
+    intrusive_allowed = bool(getattr(run, "autonomous_intrusive_allowed", False))
+    intrusive_block = ""
+    if intrusive_allowed:
+        intrusive_block = (
+            "=== INTRUSIVE TIER AUTHORIZED FOR THIS RUN ===\n"
+            "The operator has explicitly enabled `autonomous_intrusive_allowed`. You may\n"
+            "now plan and execute INTRUSIVE actions without waiting for approval. This\n"
+            "unlocks the full impact-depth range:\n"
+            "- File-write via path traversal (drop files in writable dirs)\n"
+            "- Server restart / quitserver exploitation paths\n"
+            "- RCE chains: upload Python file via traversal -> trigger interpreter reload\n"
+            "- Mass data exfiltration / dump endpoints (e.g. /dump.gtl-style debug pages)\n"
+            "- Cookie-forging chains that impersonate other users (including admin)\n"
+            "\n"
+            "DON'T STOP AT 'admin via is_admin/is_author' — that is just one impact level.\n"
+            "Push deeper: prove RCE if a chain exists, prove mass data exposure if a debug\n"
+            "endpoint exists, prove arbitrary-file-read on /etc/passwd or app config.\n"
+            "Use tier=\"intrusive\" on exec_plans that match these depths.\n\n"
+        )
+    else:
+        intrusive_block = (
+            "=== INTRUSIVE TIER NOT AUTHORIZED ===\n"
+            "This run is limited to passive/active tier. Avoid plans that crash the server,\n"
+            "delete data, or require RCE. Aim for impact-level <= 7 (read-only file disclosure,\n"
+            "admin compromise, info leak via debug endpoints).\n\n"
+        )
+
+    # Build feedback sections only when there's something to show
+    failures_block = ""
+    if recent_failures:
+        failures_block = (
+            "=== RECENT TOOL FAILURES (read these — fix your approach) ===\n"
+            + json.dumps(recent_failures, indent=2)[:2000]
+            + "\n\n"
+        )
+    rejections_block = ""
+    if recent_rejections:
+        rejections_block = (
+            "=== YOUR RECENT PICKS THAT THE SYSTEM REJECTED (do NOT repeat these mistakes) ===\n"
+            + json.dumps(recent_rejections, indent=2)[:1500]
+            + "\n\n"
+        )
+    outcomes_block = ""
+    if task_outcomes:
+        outcomes_block = (
+            "=== RECENT TOOL OUTCOMES (what tools ACTUALLY produced) ===\n"
+            "Tools that completed with 0 findings did NOT necessarily prove there's nothing\n"
+            "there — they may have used the wrong angle. Look at the stdout excerpt; if a\n"
+            "tool tested generic patterns on an endpoint you suspect needs an app-specific\n"
+            "payload (e.g. crafted snippet body, profile field with role flag, multi-step\n"
+            "register-then-update flow), don't pick the same generic tool again — write an\n"
+            "exec_plan that targets the specific endpoint with the hypothesis you formed.\n"
+            + json.dumps(task_outcomes, indent=2)[:2500]
+            + "\n\n"
+        )
+
+    # Normalized evidence graph projection (backlog-373). Compact text view of
+    # first-class entities the picker should reason over. Falls back to empty
+    # string when graph is sparse / unavailable, so picker behavior on runs
+    # without graph data is unchanged.
+    graph_block = ""
+    if session is not None:
+        try:
+            from api.app.services.assessment_graph import (
+                build_normalized_evidence_graph,
+                project_graph_for_picker,
+            )
+
+            _graph_for_picker = build_normalized_evidence_graph(session, run=run)
+            graph_projection = project_graph_for_picker(_graph_for_picker)
+            if graph_projection:
+                graph_block = graph_projection + "\n"
+        except Exception as _graph_exc:
+            logger.debug("AI loop: graph projection skipped: %s", _graph_exc)
+            graph_block = ""
+
+    user_content = (
+        f"Primary target (always in scope): {primary_target}\n\n"
+        + intrusive_block
+        + failures_block
+        + rejections_block
+        + outcomes_block
+        + graph_block
+        + "=== TARGET-INTEL RECOMMENDED TEST PLAN (from AI analysis of the actual site) ===\n"
+        + (("\n".join(plan_recommendations) + "\n\n") if plan_recommendations else "(no test plan available)\n\n")
+        + "These are the highest-value tools FOR THIS SPECIFIC TARGET based on its\n"
+        "technology stack and likely vulnerability classes. Prefer 'NOT YET USED' items\n"
+        "over generic enumeration. Hidden-endpoint findings (404 paths from wordlists)\n"
+        "are NOT vulnerabilities — they're just discoveries; do not chase them with auth/sqli/etc.\n\n"
+        f"=== CURRENT PHASE ===\n"
+        f"Phase #{phase_index + 1}: {phase_label}\n"
+        f"Phase goal: {phase_goal}\n"
+        f"Tools picked THIS phase so far ({len(phase_picks)}):\n"
+        f"{json.dumps(phase_picks, indent=2)[:2000]}\n"
+        f"Findings discovered THIS phase: {findings_this_phase}\n\n"
+        f"=== CONTEXT ===\n"
+        f"Deeper paths discovered (in scope, useful as TARGETED follow-up endpoints):\n"
+        f"{json.dumps(discovered_paths, indent=2)}\n\n"
+        f"All (tool, target) pairs tested across all phases — do NOT repeat exact pair:\n"
+        f"{json.dumps(tested_pairs, indent=2)[:1500]}\n\n"
+        f"Available tools: {', '.join(available_tools)}\n\n"
+        f"All findings so far ({len(findings)} total):\n"
+        f"{json.dumps(findings, indent=2)[:5000]}\n\n"
+        "=== DECISION ===\n"
+        "Choose ONE action: `pick` / `level_up` / `stop`.\n"
+        "\n"
+        "HARD RULES (the system enforces these in code; violations are rejected):\n"
+        "- NEVER pick a (tool, target) pair that is in the already-tested list above.\n"
+        "  If the only remaining option would be a duplicate, choose `level_up` or `stop`.\n"
+        "- Recon tools (httpx, target-intel, content-discovery, smart-web-probe, nuclei,\n"
+        "  nikto, burp) are ONE-SHOT per run. Once one has run on the root, do NOT pick\n"
+        "  it again on the same root. They do not produce new findings on repeat.\n"
+        "  Re-running them on sub-paths is wasted budget.\n"
+        "\n"
+        "Choose `pick` if the current phase still has UNTRIED tools or untested\n"
+        "specific endpoints that match the phase goal.\n"
+        "\n"
+        "Choose `level_up` when:\n"
+        "- The current phase succeeded (a new high-impact finding emerged); OR\n"
+        "- The current phase stalled (2+ picks produced no new findings); OR\n"
+        "- All in-phase angles are exhausted.\n"
+        "Name the new phase by the higher-impact action that the latest evidence unlocks.\n"
+        "\n"
+        "Choose `stop` only when:\n"
+        "- Admin compromise / full account takeover is proven; OR\n"
+        "- Every plausible (tool, target) combination has been tested.\n"
+        "\n"
+        "TARGETING:\n"
+        "- Exploit tools (xss-proof, idor-bac, auth-flow, sqlmap, ssti-probe, csrf-check):\n"
+        "  target the SPECIFIC vulnerable URL from the findings list — never invent URLs.\n"
+        "- Broad scanners (already covered above as ONE-SHOT) use the primary target ONCE."
+    )
+
+    try:
+        from api.app.services import http_fetch_backend, memory_backend
+        client = anthropic.Anthropic(api_key=api_key)
+        tools: list[dict[str, Any]] = [
+            {"type": "memory_20250818", "name": "memory"},
+            # Custom client-side http_fetch — locked to the run's scope
+            # allowlist (host AND path), so /partN documentation pages of
+            # teaching apps fall outside scope. The intent is for Claude to
+            # READ the live application content, not its lab handout.
+            {
+                "name": "http_fetch",
+                "description": (
+                    "Fetch a URL within the approved scope (GET only). "
+                    "Returns status line, whitelisted response headers, and the body "
+                    "(truncated to 4 KB). Use this BEFORE picking runners — read the "
+                    "actual HTML/headers to identify the tech stack, form action URLs, "
+                    "JSON shapes and template extensions. If the page text reveals it's "
+                    "not a SQL-backed app, skip sqlmap; if templates aren't Jinja-like, "
+                    "skip ssti-probe; etc. URL must fall under the approved scope path."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "Full URL including scheme. Must fall within the run's scope allowlist.",
+                        }
+                    },
+                    "required": ["url"],
+                },
+            },
+        ]
+        # Pull scope allowlist for http_fetch's path-level validation.
+        scope_allowlist: dict[str, Any] = {}
+        try:
+            if scope is not None:
+                scope_allowlist = _as_dict(scope.allowlist_json)
+        except Exception:
+            scope_allowlist = {}
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": user_content}
+        ]
+        raw: str = ""
+        # Helper to surface Claude's thinking-state to the UI. Writes a
+        # status field on loop_state and commits, so the UI's run-poll
+        # picks it up between hops. Uses session passed in by the caller.
+        def _set_thinking_state(status: str, hop: int, detail: str = "") -> None:
+            if session is None:
+                return
+            try:
+                cfg = _as_dict(run.configuration_json or {})
+                ls = _as_dict(cfg.get(LOOP_CONFIG_KEY))
+                ls["claude_thinking"] = {
+                    "status": status,  # "thinking" | "tool_use" | "done"
+                    "hop": hop,
+                    "detail": detail[:200],
+                    "since": _now(),
+                }
+                cfg[LOOP_CONFIG_KEY] = ls
+                run.configuration_json = cfg
+                session.flush()
+                session.commit()
+            except Exception:
+                pass
+
+        # Tool-use loop: Claude may call memory/web_fetch 0-N times before
+        # producing the final JSON decision. Cap at 12 hops since web_fetch
+        # results are larger and Claude may use multiple per decision.
+        for _hop in range(12):
+            _set_thinking_state("thinking", _hop, "Calling Claude for next action")
+            msg = client.messages.create(
+                model="claude-opus-4-7",
+                max_tokens=1024,
+                system=[{
+                    "type": "text",
+                    "text": _AI_PICKER_SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral"},
+                }],
+                tools=tools,
+                messages=messages,
+                output_config={
+                    "format": {
+                        "type": "json_schema",
+                        "schema": _PICKER_OUTPUT_SCHEMA,
+                    },
+                },
+                timeout=90.0,
+            )
+            stop = getattr(msg, "stop_reason", None)
+            content_blocks = list(msg.content or [])
+            _usage = getattr(msg, "usage", None)
+            if _usage is not None:
+                logger.info(
+                    "AI loop: hop=%d usage input=%d cache_read=%d cache_creation=%d output=%d",
+                    _hop,
+                    getattr(_usage, "input_tokens", 0),
+                    getattr(_usage, "cache_read_input_tokens", 0) or 0,
+                    getattr(_usage, "cache_creation_input_tokens", 0) or 0,
+                    getattr(_usage, "output_tokens", 0),
+                )
+            # Client-side tools (memory) emit `tool_use` blocks that WE handle.
+            # Server-side tools (web_fetch) emit `server_tool_use` and their
+            # results land in the SAME response — we just pass them back as
+            # part of the assistant message on the next hop.
+            tool_uses = [b for b in content_blocks if getattr(b, "type", None) == "tool_use"]
+            text_blocks = [b for b in content_blocks if getattr(b, "type", None) == "text"]
+            # Log any web_fetch the server performed so we can audit Claude's reading.
+            for b in content_blocks:
+                if getattr(b, "type", None) == "server_tool_use":
+                    fetched_url = ""
+                    si = getattr(b, "input", None) or {}
+                    if isinstance(si, dict):
+                        fetched_url = str(si.get("url") or "")[:120]
+                    logger.info(
+                        "AI loop: web_fetch %s url=%s",
+                        getattr(b, "name", "?"), fetched_url,
+                    )
+            if stop == "pause_turn":
+                # Server still has more server-tool work to do. Mirror assistant
+                # content back and continue without injecting tool_results.
+                messages.append({
+                    "role": "assistant",
+                    "content": [b.model_dump() if hasattr(b, "model_dump") else b for b in content_blocks],
+                })
+                continue
+            if not tool_uses:
+                raw = (text_blocks[0].text if text_blocks else "").strip()
+                _set_thinking_state("done", _hop, "Decision produced")
+                break
+            _set_thinking_state(
+                "tool_use", _hop,
+                f"Claude using {len(tool_uses)} tool call(s): "
+                + ",".join(str(getattr(t, "name", "?"))[:24] for t in tool_uses[:3]),
+            )
+            messages.append({
+                "role": "assistant",
+                "content": [b.model_dump() if hasattr(b, "model_dump") else b for b in content_blocks],
+            })
+            tool_results: list[dict[str, Any]] = []
+            for tu in tool_uses:
+                tool_name = str(getattr(tu, "name", "") or "")
+                tool_input = getattr(tu, "input", None) or {}
+                if not isinstance(tool_input, dict):
+                    tool_input = {}
+                if tool_name == "http_fetch":
+                    fetch_url = str(tool_input.get("url") or "")
+                    try:
+                        result_str = http_fetch_backend.execute(
+                            fetch_url, scope_allowlist=scope_allowlist,
+                        )
+                    except Exception as fetch_exc:
+                        result_str = f"Error: http_fetch exception: {fetch_exc}"
+                    logger.info(
+                        "AI loop: http_fetch url=%s result_len=%d",
+                        fetch_url[:120], len(result_str),
+                    )
+                else:
+                    cmd = str(tool_input.get("command") or "")
+                    kwargs = {k: v for k, v in tool_input.items() if k != "command"}
+                    try:
+                        result_str = memory_backend.execute(cmd, **kwargs)
+                    except Exception as mem_exc:
+                        result_str = f"Error: memory backend exception: {mem_exc}"
+                    logger.info(
+                        "AI loop: memory tool call cmd=%s path=%s result_len=%d",
+                        cmd, str(kwargs.get("path") or "-"), len(result_str),
+                    )
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": tu.id,
+                    "content": result_str,
+                })
+            messages.append({"role": "user", "content": tool_results})
+            if stop != "tool_use":
+                # Defensive: model signaled end-of-turn but emitted tool calls.
+                # Already appended results — loop and let Claude produce text.
+                continue
+        _set_thinking_state("done", 12, "Tool loop exhausted")
+        if not raw:
+            logger.warning("AI loop: Claude returned no text after tool loop")
+            return None
+        # Strip markdown fences Claude sometimes adds
+        text = raw.strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:].strip()
+        # Find JSON object boundaries
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            logger.warning("AI loop: Claude output has no JSON object — raw=%r", text[:200])
+            return None
+        candidate_text = text[start : end + 1]
+        try:
+            decision = json.loads(candidate_text)
+            return _decode_picker_plan(decision)
+        except json.JSONDecodeError as je:
+            # With #330 structured outputs the schema should make this path
+            # unreachable. Keep _tolerant_json_fix as a defensive fallback
+            # but log a warning so any regression is visible. If we see
+            # this warning, it means structured outputs is not enforcing
+            # the schema (SDK fallback, server-side beta unavailable, etc.).
+            logger.warning(
+                "AI loop: picker JSON parse failed despite structured-output "
+                "schema (deprecated fallback engaged); err=%s raw=%r",
+                je, candidate_text[:240],
+            )
+            fixed = _tolerant_json_fix(candidate_text)
+            try:
+                decision = json.loads(fixed)
+                return _decode_picker_plan(decision)
+            except json.JSONDecodeError:
+                logger.warning(
+                    "AI loop: Claude JSON parse failed even after tolerant "
+                    "fix — raw=%r", candidate_text[:240],
+                )
+                return None
+    except Exception as exc:
+        logger.warning("AI loop: Claude next-action call failed: %s", exc)
+        try:
+            if session is not None:
+                cfg = _as_dict(run.configuration_json or {})
+                ls = _as_dict(cfg.get(LOOP_CONFIG_KEY))
+                ls["claude_thinking"] = {"status": "error", "detail": str(exc)[:200], "since": _now()}
+                cfg[LOOP_CONFIG_KEY] = ls
+                run.configuration_json = cfg
+                session.flush()
+                session.commit()
+        except Exception:
+            pass
+        return None
+
+
+def _claude_candidate_to_loop_candidate(
+    decision: dict[str, Any],
+    *,
+    targets: list[dict[str, Any]],
+    available_tools: set[str],
+    scope: Scope | None = None,
+    tested_keys: set[str] | None = None,
+    rejection_sink: list[dict[str, Any]] | None = None,
+) -> LoopCandidate | None:
+    """Convert Claude's JSON decision into a LoopCandidate, with safety checks.
+
+    Claude picks the TOOL and may also propose a deeper target. Validations:
+    - target is in scope (deeper paths allowed, hallucinations rejected)
+    - tool exists in available_tools
+    - (tool, target) pair is not already in tested_keys (HARD block on duplicates;
+      Claude is told this rule but it sometimes ignores soft prompt constraints)
+    """
+    if not isinstance(decision, dict):
+        return None
+    if decision.get("stop"):
+        return None
+    tool = str(decision.get("tool") or "").strip()
+    if not tool or tool not in available_tools:
+        logger.info("AI loop: Claude picked unavailable tool %r — falling back", tool)
+        if rejection_sink is not None:
+            rejection_sink.append({
+                "reason": "unavailable_tool",
+                "detail": f"You picked tool={tool!r} which is not in the available tools list. "
+                          "Choose a tool that exists.",
+                "at": _now(),
+            })
+        return None
+    # exec-plan needs a structured plan body; it must come via action="exec_plan",
+    # not action="pick". Reject pick-of-exec-plan so the runner never sees a
+    # task with no plan.
+    if tool == "exec-plan":
+        logger.warning(
+            "AI loop: REJECTED Claude pick of exec-plan via action=pick — exec-plan requires action=exec_plan with a plan body"
+        )
+        if rejection_sink is not None:
+            rejection_sink.append({
+                "reason": "exec_plan_needs_action_field",
+                "detail": "You picked tool='exec-plan' with action='pick' but did not provide a plan body. "
+                          "exec-plan ONLY works when you use action='exec_plan' AND include the full 'plan' "
+                          "object with steps. See the exec_plan grammar in the system prompt.",
+                "at": _now(),
+            })
+        return None
+
+    fallback_target = ""
+    target_kind = "url"
+    if targets:
+        fallback_target = str(targets[0].get("value") or "")
+        target_kind = str(targets[0].get("kind") or "url")
+    if not fallback_target:
+        return None
+
+    claude_target = str(decision.get("target") or "").strip()
+    # Try to use Claude's target if it's in scope (allows deeper paths like
+    # /snippets.gtl?uid=victim that are within the approved web root).
+    target = fallback_target
+    target_source = "approved_scope_root"
+    if claude_target and claude_target != fallback_target:
+        in_scope = _scope_target_allowed(scope, claude_target) if scope is not None else False
+        if in_scope:
+            target = claude_target
+            target_source = "claude_deeper_path"
+            logger.info("AI loop: using Claude's deeper target %r", claude_target[:120])
+        else:
+            logger.info(
+                "AI loop: rejecting Claude target %r (out of scope), using root %r",
+                claude_target[:80], fallback_target[:80],
+            )
+
+    # HARD enforcement: refuse any (tool, target) pair that is already in the
+    # tested set. This was a soft rule in the prompt, which Claude ignored ~50%
+    # of the time, leading to httpx 5x on the same URL. No more.
+    # Exception: exec-plan can run multiple times on the same target with
+    # different custom plans — its uniqueness is in the plan body, not (tool, target).
+    if tested_keys is not None and tool != "exec-plan":
+        pair_key = _task_key(tool, target)
+        if pair_key in tested_keys:
+            logger.warning(
+                "AI loop: REJECTED duplicate (tool, target) pair %s — Claude already used this combination",
+                pair_key,
+            )
+            if rejection_sink is not None:
+                rejection_sink.append({
+                    "reason": "duplicate_tool_target_pair",
+                    "detail": f"You picked tool={tool!r} target={target[:80]!r} but this pair was already tested. "
+                              "Either pick a different tool, target a different URL, level_up, or stop.",
+                    "at": _now(),
+                })
+            return None
+
+    tier = str(decision.get("tier") or "passive").strip().lower()
+    if tier not in {"passive", "active", "intrusive"}:
+        tier = "active"
+    reasoning = str(decision.get("reasoning") or "Claude selected this next action based on current evidence.")
+    confidence = decision.get("confidence")
+    try:
+        confidence_f = float(confidence) if confidence is not None else 0.8
+    except (TypeError, ValueError):
+        confidence_f = 0.8
+    expected_evidence = decision.get("expected_evidence") or []
+    if not isinstance(expected_evidence, list):
+        expected_evidence = []
+    return LoopCandidate(
+        tool=tool,
+        target=target,
+        params={
+            "source": "ai_loop_claude",
+            "ai_reasoning": reasoning[:500],
+            "target_kind": target_kind,
+            "target_source": target_source,
+        },
+        tier=tier,
+        reasoning=reasoning,
+        confidence=max(0.0, min(1.0, confidence_f)),
+        follow_up_hints=[],
+        expected_evidence=[str(e)[:60] for e in expected_evidence][:5],
+        required_approvals=0,
+        decision_source="ai_loop_claude_picker",
+    )
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from api.app.models import AgentProposal, RationaleLedgerEntry, Run, Scope, Task
+from api.app.policy.engine import normalize_profile_limits
+from api.app.services.ai_action_selector import select_next_best_action_for_run
+from api.app.services.ai_enrichment import store_agent_proposal_record, store_agent_reasoning_record
+from api.app.services.ai_planner import (
+    RECURSIVE_CONTEXT_KIND,
+    ensure_context_document,
+    ensure_recursive_surface_context,
+    latest_context_document,
+    record_rationale,
+)
+from api.app.services.assessment_planner import build_assessment_plan_for_run
+from api.app.services.audit import write_audit_event
+from api.app.services.run_credential_vault import (
+    clear_run_credential_vault_if_terminal,
+    inject_run_credential_vault_into_task,
+)
+from api.app.services.runs import (
+    derive_targets_for_run,
+    pending_approvals,
+    planned_targets_for_tool,
+    target_value_is_allowed,
+)
+from api.app.services.task_dispatch import supported_execution_tools
+
+LOOP_VERSION = "2026-05-07.1"
+LOOP_CONFIG_KEY = "ai_assessment_loop"
+GOAL_REASONING_KIND = "assessment_loop_goal_oriented_reasoning"
+LOOP_MAX_ITERATIONS = 35
+LOOP_STUCK_THRESHOLD = 3
+LOOP_ACTIVE_TASK_STATUSES = {"queued", "pending", "running", "dispatching", "in_progress", "started"}
+LOOP_TERMINAL_STATUSES = {"completed", "failed", "cancelled", "skipped"}
+LOOP_PROPOSAL_KIND = "assessment_loop_next_action"
+LOOP_SEED_TOOLS_BY_TARGET_KIND = {
+    # target-intel runs FIRST for web targets in ai_loop mode.
+    # It analyzes the site with Claude before any scanning tool runs,
+    # detects the technology stack, identifies applicable CVEs, and
+    # creates a targeted scan plan. httpx is the fallback for non-ai_loop runs.
+    "url": "target-intel",
+    "host": "nmap",
+    "cidr": "nmap",
+    "domain": "easm-discover",
+    "target": "target-intel",
+}
+LOOP_LOW_IMPACT_AUTO_TOOLS = {"httpx", "target-intel"}
+
+# Depth levels — each level represents a strategic decision point
+# Level 1: Discovery (surface mapping, no findings yet)
+# Level 2: Probing (attack surface identified, testing for weaknesses)
+# Level 3: Confirmation (vulnerability confirmed, exploiting)
+# Level 4: Post-exploitation (session/credential material obtained)
+DEPTH_LEVEL_LABELS = {
+    1: "Verkenning",
+    2: "Kwetsbaarheidstests",
+    3: "Bevestiging & Exploitatie",
+    4: "Escalatie",
+}
+
+# Signals that mark a transition to a new depth level
+_DEPTH_3_SIGNALS = {"xss_confirmed", "ssrf_confirmed", "path_traversal_confirmed",
+                    "sql_error_pattern", "csrf_vulnerable", "cookie_weakness"}
+_DEPTH_4_SIGNALS = {"authenticated_session", "session_obtained", "credential_obtained"}
+_DEPTH_2_SIGNALS = {"injectable_parameter", "login_form_found", "hidden_endpoint_found",
+                    "form_with_post_action", "registration_form_present"}
+
+
+def _compute_depth_level(findings: list[Any], signals: set[str]) -> int:
+    """Determine strategic depth based on what has been confirmed."""
+    finding_titles = [str(f.title if hasattr(f, "title") else (f.get("title") or "")).lower()
+                      for f in (findings or [])]
+
+    # Level 4: post-exploitation (session/credential material obtained)
+    if signals & _DEPTH_4_SIGNALS:
+        return 4
+    if any(kw in t for t in finding_titles for kw in ("session token", "credential", "authenticated", "privilege")):
+        return 4
+
+    # Level 3: vulnerability confirmed (XSS, CSRF, etc.)
+    if signals & _DEPTH_3_SIGNALS:
+        return 3
+    if any(kw in t for t in finding_titles for kw in ("xss", "csrf", "injection", "traversal", "ssrf", "forgery")):
+        return 3
+
+    # Level 2: attack surface identified (forms, parameters, login found)
+    if signals & _DEPTH_2_SIGNALS:
+        return 2
+    if any(kw in t for t in finding_titles for kw in ("hidden endpoint", "missing", "cookie", "header")):
+        return 2
+
+    # Level 1: only initial web target known
+    return 1
+
+
+@dataclass(frozen=True)
+class LoopCandidate:
+    tool: str
+    target: str
+    params: dict[str, Any]
+    tier: str
+    reasoning: str
+    confidence: float
+    follow_up_hints: list[str]
+    expected_evidence: list[str]
+    required_approvals: int
+    decision_source: str
+    selector_decision: str | None = None
+    selector_rank: int | None = None
+    selector_provenance: dict[str, Any] | None = None
+
+
+def _as_dict(value: object) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _as_list(value: object) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
+def _tolerant_json_fix(text: str) -> str:
+    """Best-effort fixes for common Claude JSON mistakes.
+
+    - Strip trailing commas before `}` or `]`.
+    - Escape stray raw newlines/tabs inside string literals.
+    Conservative: if it can't parse, the caller logs and returns None.
+    """
+    import re as _re
+    # Remove trailing commas before close braces/brackets
+    out = _re.sub(r",(\s*[}\]])", r"\1", text)
+    # Convert raw newlines/tabs that appear *inside* JSON strings to \\n / \\t.
+    # Heuristic: walk the string, track if we are inside a quoted value.
+    result: list[str] = []
+    in_string = False
+    escape = False
+    for ch in out:
+        if escape:
+            result.append(ch)
+            escape = False
+            continue
+        if ch == "\\":
+            result.append(ch)
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            result.append(ch)
+            continue
+        if in_string and ch == "\n":
+            result.append("\\n")
+        elif in_string and ch == "\t":
+            result.append("\\t")
+        elif in_string and ch == "\r":
+            result.append("\\r")
+        else:
+            result.append(ch)
+    return "".join(result)
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _loop_state(configuration: dict[str, Any]) -> dict[str, Any]:
+    state = _as_dict(configuration.get(LOOP_CONFIG_KEY))
+    iterations = [dict(item) for item in _as_list(state.get("iterations")) if isinstance(item, dict)]
+    goal_reasoning = _as_dict(state.get("goal_oriented_reasoning"))
+    depth_level = int(state.get("depth_level") or 1)
+    # Phase-model state (introduced for AI-driven attack phases).
+    current_phase = _as_dict(state.get("current_phase"))
+    phases_archive = [dict(p) for p in _as_list(state.get("phases")) if isinstance(p, dict)]
+    return {
+        "enabled": bool(state.get("enabled", True)),
+        "run_mode": "ai_loop",
+        "version": str(state.get("version") or LOOP_VERSION),
+        "max_iterations": int(state.get("max_iterations") or LOOP_MAX_ITERATIONS),
+        "stuck_threshold": int(state.get("stuck_threshold") or LOOP_STUCK_THRESHOLD),
+        "iteration_count": int(state.get("iteration_count") or len(iterations)),
+        "step_count": int(state.get("step_count") or len(iterations)),
+        "depth_level": depth_level,
+        "depth_label": DEPTH_LEVEL_LABELS.get(depth_level, "Verkenning"),
+        "no_new_signal_iterations": int(state.get("no_new_signal_iterations") or 0),
+        "status": str(state.get("status") or "ready"),
+        "stop_reason": state.get("stop_reason"),
+        "latest_evidence_fingerprint": str(state.get("latest_evidence_fingerprint") or ""),
+        "latest_next_action": _as_dict(state.get("latest_next_action")) or None,
+        "goal_oriented_reasoning": goal_reasoning,
+        "iterations": iterations,
+        # Phase model fields — persist across saves so Claude sees the running phase state.
+        "phase_count": int(state.get("phase_count") or 0),
+        "current_phase": current_phase,
+        "phases": phases_archive,
+        "ai_stop_summary": str(state.get("ai_stop_summary") or ""),
+        "manual_chain_alternative_preserved": True,
+        "fixed_phase_chains_replaced_globally": False,
+    }
+
+
+def _store_loop_state(configuration: dict[str, Any], state: dict[str, Any]) -> None:
+    # Preserve narrative.panels from whatever was already persisted: panels
+    # are written atomically via SQL by the narrator (separate code path),
+    # and we must not overwrite that with the stale view this advance call
+    # had at its start. Keep whichever has MORE panels.
+    existing_narrative = _as_dict(_as_dict(configuration.get(LOOP_CONFIG_KEY)).get("narrative"))
+    state_narrative = _as_dict(state.get("narrative"))
+    merged_narrative = dict(existing_narrative)
+    state_panels = list(state_narrative.get("panels") or [])
+    existing_panels = list(existing_narrative.get("panels") or [])
+    if len(state_panels) > len(existing_panels):
+        merged_narrative["panels"] = state_panels
+        merged_narrative["latest_at"] = state_narrative.get("latest_at") or merged_narrative.get("latest_at")
+    elif existing_panels:
+        merged_narrative["panels"] = existing_panels
+
+    configuration[LOOP_CONFIG_KEY] = {
+        "enabled": True,
+        "run_mode": "ai_loop",
+        "version": LOOP_VERSION,
+        "max_iterations": int(state.get("max_iterations") or LOOP_MAX_ITERATIONS),
+        "stuck_threshold": int(state.get("stuck_threshold") or LOOP_STUCK_THRESHOLD),
+        "iteration_count": int(state.get("iteration_count") or 0),
+        "no_new_signal_iterations": int(state.get("no_new_signal_iterations") or 0),
+        "status": str(state.get("status") or "ready"),
+        "stop_reason": state.get("stop_reason"),
+        "latest_evidence_fingerprint": str(state.get("latest_evidence_fingerprint") or ""),
+        "latest_next_action": state.get("latest_next_action"),
+        "goal_oriented_reasoning": _as_dict(state.get("goal_oriented_reasoning")),
+        "iterations": list(state.get("iterations") or []),
+        # Phase-model fields persist here so the next advance() call sees them.
+        "phase_count": int(state.get("phase_count") or 0),
+        "current_phase": _as_dict(state.get("current_phase")),
+        "phases": list(state.get("phases") or []),
+        "ai_stop_summary": str(state.get("ai_stop_summary") or ""),
+        # Feedback loop state — Claude sees these in next iteration prompt
+        "recent_rejections": list(state.get("recent_rejections") or []),
+        # UI live state — surfaces "Claude is thinking" indicator
+        "claude_thinking": _as_dict(state.get("claude_thinking")),
+        # Comic-strip narrator output — preserved from any concurrent append
+        "narrative": merged_narrative,
+        "manual_chain_alternative_preserved": True,
+        "fixed_phase_chains_replaced_globally": False,
+    }
+
+
+def _run_uses_ai_loop(run: Run) -> bool:
+    configuration = _as_dict(run.configuration_json)
+    loop_config = _as_dict(configuration.get(LOOP_CONFIG_KEY))
+    return configuration.get("run_mode") == "ai_loop" or loop_config.get("run_mode") == "ai_loop"
+
+
+def _targets_for_loop(scope: Scope, run: Run) -> list[dict[str, str]]:
+    targets = derive_targets_for_run(scope, run)
+    return [target for target in targets if str(target.get("value") or "").strip()]
+
+
+def _target_type(targets: list[dict[str, str]]) -> str:
+    kinds = {str(target.get("kind") or "") for target in targets}
+    if "cidr" in kinds:
+        return "cidr"
+    if "url" in kinds:
+        return "url"
+    if "host" in kinds:
+        return "ip_or_host"
+    if "domain" in kinds:
+        return "domain"
+    return "unknown"
+
+
+def _task_key(tool: str, target: str) -> str:
+    return f"{str(tool).strip()}::{str(target).strip()}"
+
+
+def _tested_action_keys(run: Run) -> set[str]:
+    keys: set[str] = set()
+    for task in list(run.tasks or []):
+        if str(task.tool or "").strip() == "bootstrap":
+            continue
+        keys.add(_task_key(task.tool, task.target_id))
+    for proposal in list(run.agent_proposals or []):
+        metadata = _as_dict(proposal.metadata_json)
+        if metadata.get("proposal_kind") == LOOP_PROPOSAL_KIND:
+            keys.add(_task_key(proposal.proposed_tool, proposal.proposed_target))
+    configuration = _as_dict(run.configuration_json)
+    state = _loop_state(configuration)
+    for iteration in state.get("iterations", []):
+        action = _as_dict(iteration.get("next_action"))
+        tool = str(action.get("tool") or "").strip()
+        target = str(action.get("target") or "").strip()
+        if tool and target:
+            keys.add(_task_key(tool, target))
+    return keys
+
+
+def _active_loop_tasks(run: Run) -> list[dict[str, str]]:
+    active: list[dict[str, str]] = []
+    for task in list(run.tasks or []):
+        status = str(task.status or "").strip().lower()
+        params = _as_dict(task.params_json)
+        if status in LOOP_ACTIVE_TASK_STATUSES and (
+            isinstance(params.get("assessment_loop"), dict)
+            or isinstance(params.get("ai_proposal"), dict)
+        ):
+            active.append({"task_id": str(task.id), "tool": task.tool, "target": task.target_id, "status": status})
+    return active
+
+
+def _evidence_fingerprint(run: Run) -> str:
+    task_bits = [
+        f"task:{task.id}:{task.tool}:{task.target_id}:{task.status}"
+        for task in sorted(list(run.tasks or []), key=lambda item: str(item.id))
+        if str(task.status or "").lower() in LOOP_TERMINAL_STATUSES
+    ]
+    finding_bits = [
+        f"finding:{finding.id}:{finding.title}:{finding.target_id}:{finding.evidence_ref}"
+        for finding in sorted(list(run.findings or []), key=lambda item: str(item.id))
+    ]
+    snapshot = run.source_inventory_snapshot
+    snapshot_bits: list[str] = []
+    if snapshot is not None:
+        inventory = _as_dict(snapshot.normalized_inventory_json)
+        profile = _as_dict(inventory.get("signal_profile"))
+        signal_keys = [
+            str(item.get("key") or "")
+            for item in _as_list(profile.get("signals"))
+            if isinstance(item, dict)
+        ]
+        snapshot_bits.append(f"snapshot:{snapshot.id}:{','.join(sorted(signal_keys))}")
+    return "|".join([*task_bits, *finding_bits, *snapshot_bits]) or "no-evidence"
+
+
+def _current_state_payload(
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    evidence_fingerprint: str,
+) -> dict[str, Any]:
+    inventory_snapshot = run.source_inventory_snapshot
+    inventory = (
+        _as_dict(inventory_snapshot.normalized_inventory_json)
+        if inventory_snapshot is not None
+        else {}
+    )
+    signal_profile = _as_dict(inventory.get("signal_profile"))
+    return {
+        "target_type": _target_type(targets),
+        "targets": targets,
+        "inventory_snapshot_id": str(inventory_snapshot.id) if inventory_snapshot is not None else None,
+        "signal_count": len(_as_list(signal_profile.get("signals"))),
+        "finding_count": len(list(run.findings or [])),
+        "task_count": len(list(run.tasks or [])),
+        "tested_paths": [
+            {"tool": task.tool, "target": task.target_id, "status": task.status}
+            for task in list(run.tasks or [])
+        ],
+        "open_threads": [
+            {
+                "proposal_id": str(proposal.id),
+                "tool": proposal.proposed_tool,
+                "target": proposal.proposed_target,
+                "status": proposal.status,
+            }
+            for proposal in list(run.agent_proposals or [])
+            if proposal.status == "pending_review"
+        ],
+        "evidence_fingerprint": evidence_fingerprint,
+        "scope_enforced": True,
+        "roe_required": bool(scope.roe_ref if hasattr(scope, "roe_ref") else True),
+    }
+
+
+def _capability_item(plan: dict[str, Any], tool: str) -> dict[str, Any]:
+    for item in plan.get("runners", []):
+        if isinstance(item, dict) and str(item.get("runner") or "") == tool:
+            return item
+    return {}
+
+
+def _tier_from_capability(item: dict[str, Any], tool: str) -> str:
+    risk_tier = str(item.get("risk_tier") or "active").strip().lower()
+    required_approvals = int(item.get("required_approvals") or 0)
+    if risk_tier == "intrusive" or required_approvals >= 2:
+        return "intrusive"
+    if required_approvals >= 1:
+        return "active"
+    if tool in LOOP_LOW_IMPACT_AUTO_TOOLS:
+        return "passive"
+    return "active"
+
+
+def _scope_target_allowed(scope: Scope, target: str) -> bool:
+    if target_value_is_allowed(scope.denylist_json, target):
+        return False
+    return target_value_is_allowed(scope.allowlist_json, target)
+
+
+def _objective_type(objective: str) -> str:
+    text = objective.lower()
+    if "gruyere" in text or (
+        "xss" in text
+        and any(token in text for token in ("admin", "cookie", "session", "command injection", "controlled proof"))
+    ):
+        return "gruyere_multi_step_objective"
+    if any(token in text for token in ("domain admin", "active directory", "kerberos", "ldap", "bloodhound")):
+        return "identity_admin_objective"
+    if any(token in text for token in ("billing", "database", "db", "sql", "customer data", "records")):
+        return "data_access_objective"
+    if any(token in text for token in ("/etc/shadow", "shadow", "file read", "secret file", "config file")):
+        return "sensitive_file_objective"
+    if any(token in text for token in ("session", "token", "cookie", "admin panel", "authenticated")):
+        return "session_exposure_objective"
+    return "custom_objective"
+
+
+def _goal_tool_sequence(objective_type: str, target_type: str) -> list[str]:
+    if objective_type == "gruyere_multi_step_objective":
+        return ["httpx", "xss-extended", "session-security", "client-state", "ssti-probe"]
+    if objective_type == "identity_admin_objective":
+        return ["nmap", "ldap-enum", "bloodhound-collect", "netexec", "credential-attacks"]
+    if objective_type == "data_access_objective":
+        first = "nmap" if target_type in {"cidr", "ip_or_host"} else "httpx"
+        return [first, "content-discovery", "api-assessment", "sqlmap", "auth-flow", "session-security", "idor-bac"]
+    if objective_type == "sensitive_file_objective":
+        first = "nmap" if target_type in {"cidr", "ip_or_host"} else "httpx"
+        return [first, "content-discovery", "ssrf-probe", "xxe-probe", "ssti-probe"]
+    if objective_type == "session_exposure_objective":
+        return ["httpx", "auth-flow", "session-security", "jwt-probe", "idor-bac", "client-state"]
+    return ["httpx", "content-discovery", "api-assessment", "auth-flow", "session-security"]
+
+
+def _target_candidates_for_tool(tool: str, targets: list[dict[str, str]]) -> list[dict[str, str]]:
+    candidates = planned_targets_for_tool(tool, targets, derive_url_hosts_for_nmap=True)
+    return [
+        {"kind": str(item.get("kind") or "target"), "value": str(item.get("value") or "").strip()}
+        for item in candidates
+        if str(item.get("value") or "").strip()
+    ]
+
+
+def _goal_stage(tool: str, tier: str) -> str:
+    if tool in LOOP_LOW_IMPACT_AUTO_TOOLS:
+        return "observe_surface"
+    if tool == "xss-extended":
+        return "validate_initial_browser_execution"
+    if tool == "ssti-probe":
+        return "approval_gated_controlled_proof"
+    if tool in {"auth-flow", "session-security", "jwt-probe", "idor-bac", "client-state"}:
+        return "validate_session_exposure_risk"
+    if tier == "intrusive":
+        return "approval_gated_controlled_proof"
+    return "controlled_proof_candidate"
+
+
+def _goal_reason(tool: str, objective: str, objective_type: str) -> str:
+    if tool in {"httpx", "nmap", "easm-discover"}:
+        return (
+            f"Establish approved surface evidence for the operator objective '{objective}' before any "
+            "deeper controlled proof step is proposed."
+        )
+    if objective_type == "gruyere_multi_step_objective" and tool == "xss-extended":
+        return (
+            "Validate the Gruyere browser-execution entry point with the registered XSS runner before "
+            "using any reviewed session or admin-surface evidence for follow-up."
+        )
+    if objective_type == "gruyere_multi_step_objective" and tool == "session-security":
+        return (
+            "Review session exposure risk from the confirmed Gruyere XSS path and keep any cookie or "
+            "token material behind redacted evidence and secret-binding controls."
+        )
+    if objective_type == "gruyere_multi_step_objective" and tool == "client-state":
+        return (
+            "Use reviewed session evidence only through the registered client-state runner to test the "
+            "authenticated Gruyere admin surface without bypassing scope or approval gates."
+        )
+    if objective_type == "gruyere_multi_step_objective" and tool == "ssti-probe":
+        return (
+            "Produce a bounded Gruyere controlled proof with math-expression canary evidence only; "
+            "command payloads, file writes, callbacks, and persistence remain prohibited."
+        )
+    if tool == "sqlmap":
+        return (
+            "Use sqlmap only after injectable-parameter or SQL-error evidence exists; any data-layer "
+            "check remains a controlled proof with canary evidence."
+        )
+    if tool in {"auth-flow", "session-security", "jwt-probe"}:
+        return (
+            "Map authentication and session behavior for session exposure risk without handling raw "
+            "credential material outside approved secret references."
+        )
+    if tool in {"ldap-enum", "bloodhound-collect"}:
+        return (
+            "Collect read-only identity evidence to test whether the objective has an approved path "
+            "through directory relationships."
+        )
+    if tool in {"netexec", "credential-attacks", "metasploit", "impacket-lateral"}:
+        return (
+            "Hold this as an approval-gated controlled proof candidate; execution requires the existing "
+            "ROE tier and operator approval flow."
+        )
+    if objective_type == "sensitive_file_objective":
+        return "Look for bounded file exposure indicators and prefer canary evidence over sensitive content."
+    return "Select this registered runner only if current evidence supports the objective path."
+
+
+def _goal_evidence_links(
+    *,
+    run: Run,
+    scope: Scope,
+    context_document,
+) -> list[dict[str, Any]]:
+    links: list[dict[str, Any]] = [
+        {"type": "approved_scope", "id": str(scope.id)},
+        {"type": "target_context_document", "id": str(context_document.id)},
+    ]
+    for ref in _as_list(context_document.evidence_refs_json):
+        if isinstance(ref, dict):
+            links.append({"type": "context_evidence", **ref})
+    for task in list(run.tasks or []):
+        if str(task.status or "").lower() in LOOP_TERMINAL_STATUSES:
+            links.append({"type": "runner_output", "id": str(task.id), "tool": task.tool, "status": task.status})
+    for finding in list(run.findings or []):
+        links.append(
+            {
+                "type": "finding",
+                "id": str(finding.id),
+                "title": finding.title,
+                "target": finding.target_id,
+                "evidence_ref": finding.evidence_ref,
+            }
+        )
+    return links
+
+
+def _run_signal_keys(run: Run) -> set[str]:
+    snapshot = run.source_inventory_snapshot
+    if snapshot is None:
+        return set()
+    inventory = _as_dict(snapshot.normalized_inventory_json)
+    profile = _as_dict(inventory.get("signal_profile"))
+    return {
+        str(item.get("key") or "").strip()
+        for item in _as_list(profile.get("signals"))
+        if isinstance(item, dict) and str(item.get("key") or "").strip()
+    }
+
+
+def _goal_step_ready(run: Run, step: dict[str, Any]) -> bool:
+    tool = str(step.get("tool") or "")
+    signal_keys = _run_signal_keys(run)
+    finding_titles = " ".join(str(finding.title or "").lower() for finding in list(run.findings or []))
+    if tool == "sqlmap":
+        return bool({"injectable_parameter", "sql_error_pattern"} & signal_keys) or "sql injection" in finding_titles
+    return True
+
+
+def _build_goal_oriented_reasoning(
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    plan: dict[str, Any],
+    context_document,
+    objective: str,
+    actor: str,
+    operator_note: str | None,
+) -> dict[str, Any]:
+    objective_type = _objective_type(objective)
+    target_type = _target_type(targets)
+    supported_tools = supported_execution_tools()
+    evidence_links = _goal_evidence_links(run=run, scope=scope, context_document=context_document)
+    path: list[dict[str, Any]] = []
+    for tool in _goal_tool_sequence(objective_type, target_type):
+        if tool not in supported_tools:
+            continue
+        candidates = [
+            item
+            for item in _target_candidates_for_tool(tool, targets)
+            if _scope_target_allowed(scope, str(item.get("value") or ""))
+        ]
+        if not candidates:
+            continue
+        plan_item = _capability_item(plan, tool)
+        tier = _tier_from_capability(plan_item, tool)
+        required_approvals = int(plan_item.get("required_approvals") or (1 if tier in {"active", "intrusive"} else 0))
+        order = len(path) + 1
+        path.append(
+            {
+                "id": f"goal-step-{order}-{tool}",
+                "order": order,
+                "objective_type": objective_type,
+                "stage": _goal_stage(tool, tier),
+                "tool": tool,
+                "tier": tier,
+                "target_candidates": candidates,
+                "reason": _goal_reason(tool, objective, objective_type),
+                "expected_evidence": list(plan_item.get("expected_evidence") or []),
+                "follow_up_hints": list(plan_item.get("follow_up_tools") or []),
+                "required_approvals": required_approvals,
+                "requires_operator_approval": tier in {"active", "intrusive"} or required_approvals > 0,
+                "registered_runner_required": True,
+                "scope_enforced": True,
+                "roe_enforced": True,
+                "kill_switch_still_authoritative": True,
+                "controlled_proof_required": tier in {"active", "intrusive"} or tool not in LOOP_LOW_IMPACT_AUTO_TOOLS,
+                "canary_evidence_preferred": tool in {"sqlmap", "ssrf-probe", "xxe-probe", "ssti-probe"},
+                "session_exposure_risk_review": tool
+                in {"auth-flow", "session-security", "jwt-probe", "idor-bac", "client-state"},
+                "dispatches_work": False,
+                "evidence_links": evidence_links,
+            }
+        )
+    return {
+        "status": "recorded",
+        "objective": objective,
+        "objective_type": objective_type,
+        "operator_note": operator_note,
+        "recorded_by": actor,
+        "recorded_at": _now(),
+        "run_mode": "ai_loop",
+        "hypothesis_path": path,
+        "evidence_links": evidence_links,
+        "bounded_goal_hypothesis": True,
+        "dispatches_work_directly": False,
+        "registered_runner_required": True,
+        "scope_enforced": True,
+        "roe_enforced": True,
+        "approval_gates_bypassed": False,
+        "kill_switch_still_authoritative": True,
+        "manual_chain_alternative_preserved": True,
+        "fixed_phase_chains_replaced_globally": False,
+        "context_document_id": str(context_document.id),
+    }
+
+
+def _goal_oriented_candidate(
+    *,
+    run: Run,
+    scope: Scope,
+    goal_reasoning: dict[str, Any],
+    plan: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    if not goal_reasoning or goal_reasoning.get("run_mode") != "ai_loop":
+        return None
+    if goal_reasoning.get("status") != "recorded":
+        return None
+    for step in _as_list(goal_reasoning.get("hypothesis_path")):
+        if not isinstance(step, dict) or not _goal_step_ready(run, step):
+            continue
+        tool = str(step.get("tool") or "").strip()
+        if not tool or tool not in supported_execution_tools():
+            continue
+        for target in _as_list(step.get("target_candidates")):
+            if not isinstance(target, dict):
+                continue
+            target_value = str(target.get("value") or "").strip()
+            if not target_value:
+                continue
+            if _task_key(tool, target_value) in tested_keys:
+                continue
+            if not _scope_target_allowed(scope, target_value):
+                continue
+            plan_item = _capability_item(plan, tool)
+            tier = _tier_from_capability(plan_item, tool)
+            required_approvals = int(step.get("required_approvals") or plan_item.get("required_approvals") or 0)
+            return LoopCandidate(
+                tool=tool,
+                target=target_value,
+                params={
+                    "target_kind": target.get("kind"),
+                    "source": "goal_oriented_reasoning",
+                    "goal_oriented_reasoning": {
+                        "objective": goal_reasoning.get("objective"),
+                        "objective_type": goal_reasoning.get("objective_type"),
+                        "hypothesis_step_id": step.get("id"),
+                        "hypothesis_order": step.get("order"),
+                        "stage": step.get("stage"),
+                        "evidence_links": list(step.get("evidence_links") or []),
+                        "controlled_proof_required": bool(step.get("controlled_proof_required")),
+                        "canary_evidence_preferred": bool(step.get("canary_evidence_preferred")),
+                        "session_exposure_risk_review": bool(step.get("session_exposure_risk_review")),
+                    },
+                },
+                tier=tier,
+                reasoning=str(step.get("reason") or "Select the next registered runner for the objective path."),
+                confidence=0.84,
+                follow_up_hints=list(step.get("follow_up_hints") or plan_item.get("follow_up_tools") or []),
+                expected_evidence=list(step.get("expected_evidence") or plan_item.get("expected_evidence") or []),
+                required_approvals=required_approvals,
+                decision_source="goal_oriented_reasoning",
+            )
+    return None
+
+
+def _ai_proposal_candidate(
+    *,
+    run: Run,
+    scope: Scope,
+    plan: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    """Read pending AgentProposal records created by post-task AI analysis.
+
+    This is the PRIMARY candidate source for ai_loop runs. After every tool
+    completes, ChatGPT OAuth analyzes the output and creates AgentProposal
+    records with proposed_tool, proposed_target, and reasoning_text. This
+    function picks the highest-priority pending proposal and turns it into a
+    LoopCandidate — making AI reasoning the driver of the assessment loop.
+
+    Falls back to signal-based selection only when no proposals exist.
+    """
+    proposals = [
+        p for p in list(run.agent_proposals or [])
+        if p.status == "pending_review"
+        and str(p.metadata_json.get("proposal_kind") if isinstance(p.metadata_json, dict) else "") != LOOP_PROPOSAL_KIND
+        and str(p.proposed_tool or "").strip() in supported_execution_tools()
+    ]
+    if not proposals:
+        return None
+
+    # Sort by priority (lower number = higher priority), then by confidence
+    proposals.sort(key=lambda p: (
+        int((p.metadata_json or {}).get("priority", 50)) if isinstance(p.metadata_json, dict) else 50,
+        -float(p.confidence_score or 0.5),
+    ))
+
+    for proposal in proposals:
+        tool = str(proposal.proposed_tool or "").strip()
+        target = str(proposal.proposed_target or "").strip()
+        if not tool or not target:
+            continue
+        if _task_key(tool, target) in tested_keys:
+            continue
+        if not _scope_target_allowed(scope, target):
+            continue
+
+        metadata = proposal.metadata_json if isinstance(proposal.metadata_json, dict) else {}
+        plan_item = _capability_item(plan, tool)
+        tier = str(metadata.get("risk_tier") or _tier_from_capability(plan_item, tool))
+        required_approvals = int(metadata.get("required_approvals") or plan_item.get("required_approvals") or 0)
+        confidence = float(proposal.confidence_score or 0.75)
+
+        return LoopCandidate(
+            tool=tool,
+            target=target,
+            params={
+                "target_kind": metadata.get("target_kind", "url"),
+                "source": "ai_proposal",
+                "ai_proposal": {
+                    "proposal_id": str(proposal.id),
+                    "reasoning": str(proposal.reasoning_text or ""),
+                    "risk_tier": tier,
+                    "priority": metadata.get("priority", 50),
+                    "confidence": confidence,
+                },
+                **(proposal.proposed_params_json or {}),
+            },
+            tier=tier,
+            reasoning=str(proposal.reasoning_text or f"AI proposed {tool} based on post-task analysis."),
+            confidence=confidence,
+            follow_up_hints=list(metadata.get("follow_up_tools") or plan_item.get("follow_up_tools") or []),
+            expected_evidence=list(plan_item.get("expected_evidence") or []),
+            required_approvals=required_approvals,
+            decision_source="ai_proposal",
+        )
+
+    return None
+
+
+def _auth_signal_candidate(
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    plan: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    signal_keys = _run_signal_keys(run)
+    if not ({"login_form_found", "auth_flow_present", "session_cookie_present"} & signal_keys):
+        return None
+    tool = "auth-flow"
+    if tool not in supported_execution_tools():
+        return None
+    plan_item = _capability_item(plan, tool)
+    for target in _target_candidates_for_tool(tool, targets):
+        target_value = str(target.get("value") or "").strip()
+        if not target_value:
+            continue
+        if _task_key(tool, target_value) in tested_keys:
+            continue
+        if not _scope_target_allowed(scope, target_value):
+            continue
+        tier = _tier_from_capability(plan_item, tool)
+        return LoopCandidate(
+            tool=tool,
+            target=target_value,
+            params={
+                "target_kind": target.get("kind"),
+                "source": "auth_signal_priority",
+                "matched_triggers": sorted({"login_form_found", "auth_flow_present", "session_cookie_present"} & signal_keys),
+            },
+            tier=tier,
+            reasoning=(
+                "Authentication and session signals are present, so the next bounded validation is to "
+                "review the auth flow before branching into broader surface probes."
+            ),
+            confidence=0.86,
+            follow_up_hints=list(plan_item.get("follow_up_tools") or []),
+            expected_evidence=list(plan_item.get("expected_evidence") or []),
+            required_approvals=int(plan_item.get("required_approvals") or (1 if tier in {"active", "intrusive"} else 0)),
+            decision_source="auth_signal_priority",
+        )
+    return None
+
+
+def _seed_candidate(
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    plan: dict[str, Any],
+    tested_keys: set[str],
+    recommended_tools: set[str] | None = None,
+) -> LoopCandidate | None:
+    if tested_keys:
+        return None
+    for target in targets:
+        kind = str(target.get("kind") or "").strip()
+        value = str(target.get("value") or "").strip()
+        tool = LOOP_SEED_TOOLS_BY_TARGET_KIND.get(kind)
+        if not tool or not value:
+            continue
+        if recommended_tools and tool not in recommended_tools:
+            continue
+        planned_targets = planned_targets_for_tool(
+            tool,
+            targets,
+            derive_url_hosts_for_nmap=True,
+        )
+        chosen_target = next((item for item in planned_targets if item.get("value")), target)
+        target_value = str(chosen_target.get("value") or value).strip()
+        if not _scope_target_allowed(scope, target_value):
+            continue
+        if _task_key(tool, target_value) in tested_keys:
+            continue
+        plan_item = _capability_item(plan, tool)
+        tier = _tier_from_capability(plan_item, tool)
+        return LoopCandidate(
+            tool=tool,
+            target=target_value,
+            params={
+                "loop_seed": True,
+                "target_kind": chosen_target.get("kind") or kind,
+                "source": "assessment_loop_seed",
+            },
+            tier=tier,
+            reasoning=(
+                f"Start the AI loop with {tool} against the approved {chosen_target.get('kind') or kind} "
+                "to collect the first evidence-backed inventory signals."
+            ),
+            confidence=0.78,
+            follow_up_hints=list(plan_item.get("follow_up_tools") or []),
+            expected_evidence=list(plan_item.get("expected_evidence") or []),
+            required_approvals=int(plan_item.get("required_approvals") or 0),
+            decision_source="seed_target_type",
+        )
+    return None
+
+
+def _plan_candidate(
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    plan: dict[str, Any],
+    tested_keys: set[str],
+    recommended_tools: set[str] | None = None,
+) -> LoopCandidate | None:
+    for item in plan.get("runners", []):
+        if not isinstance(item, dict):
+            continue
+        decision = str(item.get("decision") or "").upper()
+        if decision not in {"RUN", "NEEDS_APPROVAL"}:
+            continue
+        tool = str(item.get("runner") or item.get("tool") or "").strip()
+        if not tool or tool not in supported_execution_tools():
+            continue
+        if recommended_tools and tool not in recommended_tools:
+            continue
+        planned_targets = planned_targets_for_tool(
+            tool,
+            targets,
+            derive_url_hosts_for_nmap=True,
+        )
+        for target in planned_targets:
+            target_value = str(target.get("value") or "").strip()
+            if not target_value:
+                continue
+            if _task_key(tool, target_value) in tested_keys:
+                continue
+            if not _scope_target_allowed(scope, target_value):
+                continue
+            tier = _tier_from_capability(item, tool)
+            return LoopCandidate(
+                tool=tool,
+                target=target_value,
+                params={
+                    "target_kind": target.get("kind"),
+                    "matched_triggers": list(item.get("matched_triggers") or []),
+                    "matched_weak_triggers": list(item.get("matched_weak_triggers") or []),
+                    "source": "assessment_loop_plan",
+                },
+                tier=tier,
+                reasoning=str(item.get("summary") or f"{tool} is the highest value next action."),
+                confidence=float(item.get("confidence") or 0.0),
+                follow_up_hints=list(item.get("follow_up_tools") or []),
+                expected_evidence=list(item.get("expected_evidence") or []),
+                required_approvals=int(item.get("required_approvals") or 0),
+                decision_source="assessment_plan",
+            )
+    return None
+
+
+def _context_targets(context_document) -> list[dict[str, str]]:
+    targets: list[dict[str, str]] = []
+    if context_document.context_kind != RECURSIVE_CONTEXT_KIND:
+        for target in _as_list(context_document.source_targets_json):
+            if not isinstance(target, dict):
+                continue
+            value = str(target.get("value") or "").strip()
+            kind = str(target.get("kind") or "target").strip() or "target"
+            if value:
+                targets.append({"kind": kind, "value": value})
+        if targets:
+            return targets
+    for endpoint in _as_list(context_document.endpoints_discovered_json):
+        endpoint_text = str(endpoint or "").strip()
+        if endpoint_text:
+            targets.append({"kind": "url" if "://" in endpoint_text else "target", "value": endpoint_text})
+    if targets:
+        return targets
+    for target in _as_list(context_document.source_targets_json):
+        if not isinstance(target, dict):
+            continue
+        value = str(target.get("value") or "").strip()
+        kind = str(target.get("kind") or "target").strip() or "target"
+        if value:
+            targets.append({"kind": kind, "value": value})
+    return targets
+
+
+def _context_micro_plan_candidate(
+    *,
+    scope: Scope,
+    context_document,
+    plan: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    if context_document.context_kind != RECURSIVE_CONTEXT_KIND:
+        return None
+    plan_targets = _context_targets(context_document)
+    for step in _as_list(context_document.micro_plan_json):
+        if not isinstance(step, dict):
+            continue
+        tool = str(step.get("tool") or "").strip()
+        if not tool or tool not in supported_execution_tools():
+            continue
+        step_targets = [
+            {"kind": "url" if "://" in str(target or "") else "target", "value": str(target or "").strip()}
+            for target in _as_list(step.get("target_candidates"))
+            if str(target or "").strip()
+        ] or plan_targets
+        for target in step_targets:
+            target_value = str(target.get("value") or "").strip()
+            if not target_value:
+                continue
+            if _task_key(tool, target_value) in tested_keys:
+                continue
+            if not _scope_target_allowed(scope, target_value):
+                continue
+            plan_item = _capability_item(plan, tool)
+            tier = _tier_from_capability(plan_item, tool)
+            return LoopCandidate(
+                tool=tool,
+                target=target_value,
+                params={
+                    "target_kind": target.get("kind"),
+                    "source": "recursive_surface_micro_plan",
+                    "context_document_id": str(context_document.id),
+                    "context_layer": context_document.layer_name,
+                    "micro_plan_step": int(step.get("order") or 0),
+                },
+                tier=tier,
+                reasoning=str(
+                    step.get("reason")
+                    or f"Run {tool} against the newly discovered {context_document.layer_name} surface."
+                ),
+                confidence=float(plan_item.get("confidence") or 0.82),
+                follow_up_hints=list(plan_item.get("follow_up_tools") or []),
+                expected_evidence=list(plan_item.get("expected_evidence") or []),
+                required_approvals=int(plan_item.get("required_approvals") or 0),
+                decision_source="recursive_surface_micro_plan",
+            )
+    return None
+
+
+def _selector_candidate(selector_report: dict[str, Any], plan: dict[str, Any]) -> LoopCandidate | None:
+    for action in _as_list(selector_report.get("actions")):
+        if not isinstance(action, dict):
+            continue
+        decision = str(action.get("decision") or "").strip().upper()
+        if decision not in {"RUN", "APPROVAL"}:
+            continue
+        tool = str(action.get("runner") or "").strip()
+        target = str(action.get("target") or "").strip()
+        if not tool or tool not in supported_execution_tools() or not target:
+            continue
+        plan_item = _capability_item(plan, tool)
+        tier = str(action.get("risk_tier") or _tier_from_capability(plan_item, tool)).strip().lower()
+        return LoopCandidate(
+            tool=tool,
+            target=target,
+            params={
+                "target_kind": action.get("target_kind"),
+                "source": "next_best_action_selector",
+                "next_best_action_selector": {
+                    "selector_version": selector_report.get("selector_version"),
+                    "graph_version": selector_report.get("graph_version"),
+                    "rank": action.get("rank"),
+                    "decision": decision,
+                    "runner_node_id": action.get("runner_node_id"),
+                    "source_ids": list(action.get("source_ids") or []),
+                    "prerequisite_state": _as_dict(action.get("prerequisite_state")),
+                    "expected_proof_value": action.get("expected_proof_value"),
+                    "matched_triggers": list(action.get("matched_triggers") or []),
+                    "blocker_reasons": list(action.get("blocker_reasons") or []),
+                },
+            },
+            tier=tier,
+            reasoning=str(action.get("rationale") or f"{tool} is the next best action from stored evidence."),
+            confidence=float(action.get("confidence") or 0.0),
+            follow_up_hints=list(plan_item.get("follow_up_tools") or []),
+            expected_evidence=list(action.get("expected_evidence") or plan_item.get("expected_evidence") or []),
+            required_approvals=int(action.get("required_approvals") or plan_item.get("required_approvals") or 0),
+            decision_source="next_best_action_selector",
+            selector_decision=decision,
+            selector_rank=int(action.get("rank") or 0) or None,
+            selector_provenance=_as_dict(action.get("provenance")),
+        )
+    return None
+
+
+def _selector_has_finding_sources(selector_report: dict[str, Any]) -> bool:
+    for action in _as_list(selector_report.get("actions")):
+        if not isinstance(action, dict):
+            continue
+        if any(str(source_id).startswith("finding:") for source_id in _as_list(action.get("source_ids"))):
+            return True
+    return False
+
+
+def _selector_has_triggered_actions(selector_report: dict[str, Any]) -> bool:
+    """True when the selector has at least one RUN/APPROVAL action with matched trigger signals.
+
+    This lets the selector's signal-based ranking override the static assessment plan
+    even when no findings exist yet (e.g. after httpx populates web_target_present).
+    """
+    for action in _as_list(selector_report.get("actions")):
+        if not isinstance(action, dict):
+            continue
+        if str(action.get("decision") or "") not in {"RUN", "APPROVAL"}:
+            continue
+        if _as_list(action.get("matched_triggers")):
+            return True
+    return False
+
+
+def _next_action_payload(candidate: LoopCandidate) -> dict[str, Any]:
+    payload = {
+        "tool": candidate.tool,
+        "target": candidate.target,
+        "params": dict(candidate.params),
+        "tier": candidate.tier,
+        "reasoning": candidate.reasoning,
+        "confidence": round(float(candidate.confidence), 3),
+        "follow_up_hints": list(candidate.follow_up_hints),
+        "expected_evidence": list(candidate.expected_evidence),
+        "required_approvals": int(candidate.required_approvals),
+        "decision_source": candidate.decision_source,
+    }
+    if candidate.selector_decision:
+        payload["selector_decision"] = candidate.selector_decision
+        payload["selector_rank"] = candidate.selector_rank
+        payload["selector_provenance"] = dict(candidate.selector_provenance or {})
+    return payload
+
+
+_WEB_DISCOVERY_TOOLS = {"httpx", "web-depth", "easm-discover"}
+_WEB_PROBE_TOOLS = {"xss-extended", "session-security", "headers-security", "content-discovery", "logging-probe"}
+
+
+def _extract_discovered_links(session: Session, run: Run, *, scope_allowlist: dict[str, Any] | None) -> list[str]:
+    """Pull HTTP links discovered by prior web-discovery tasks and filter to approved scope.
+
+    Searches the current run first, then recent completed runs in the same engagement so
+    xss-extended and other probe tools can use httpx output even from a separate baseline run.
+    """
+    from api.app.services.runs import web_target_value_is_allowed_with_path
+
+    # Collect run IDs to search: current run + up to 5 recent completed runs in same engagement.
+    run_ids: list = [run.id]
+    if run.engagement_id is not None:
+        sibling_ids = session.scalars(
+            select(Run.id)
+            .where(Run.engagement_id == run.engagement_id)
+            .where(Run.id != run.id)
+            .where(Run.status.in_(["completed", "completed_with_errors"]))
+            .where(Run.deleted_at.is_(None))
+            .order_by(Run.created_at.desc())
+            .limit(5)
+        ).all()
+        run_ids.extend(sibling_ids)
+
+    completed_tasks = session.scalars(
+        select(Task)
+        .where(Task.run_id.in_(run_ids))
+        .where(Task.tool.in_(_WEB_DISCOVERY_TOOLS))
+        .where(Task.status.in_(["completed", "completed_with_errors"]))
+    ).all()
+
+    links: list[str] = []
+    seen: set[str] = set()
+    for task in completed_tasks:
+        executions = list(task.executions or [])
+        raw = str(executions[-1].stdout_text or "") if executions else ""
+        if not raw:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        results = parsed.get("results") if isinstance(parsed, dict) else None
+        if not isinstance(results, list):
+            results = [parsed] if isinstance(parsed, dict) else []
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            for link in result.get("links") or []:
+                candidate = str(link or "").strip()
+                if not candidate or candidate in seen:
+                    continue
+                if scope_allowlist and not web_target_value_is_allowed_with_path(scope_allowlist, candidate):
+                    continue
+                seen.add(candidate)
+                links.append(candidate)
+    return links
+
+
+def _queue_passive_loop_task(
+    *,
+    session: Session,
+    run: Run,
+    candidate: LoopCandidate,
+    actor: str,
+    iteration_number: int,
+    context_document_id: str,
+    rationale_ledger_entry_id: str,
+) -> Task:
+    if candidate.tool not in supported_execution_tools():
+        raise ValueError(f"assessment loop selected unsupported runner: {candidate.tool}")
+    # Last-line defense against concurrent advance_assessment_loop callers from
+    # different worker threads: query DB directly for any existing task with
+    # the same (run, tool, target). If found, return that task instead of
+    # creating a duplicate. tested_keys is cached per-call so it cannot guard
+    # against tasks created by OTHER concurrent advance calls.
+    # Exception: exec-plan can legitimately run multiple times on the same
+    # target with DIFFERENT custom plans, so we don't dedupe it here.
+    if candidate.tool != "exec-plan":
+        existing_dupe = session.scalar(
+            select(Task).where(
+                Task.run_id == run.id,
+                Task.tool == candidate.tool,
+                Task.target_id == candidate.target,
+            ).limit(1)
+        )
+        if existing_dupe is not None:
+            logger.warning(
+                "AI loop: queue suppressed duplicate (%s, %s) — task %s already exists for run %s",
+                candidate.tool, candidate.target[:60], str(existing_dupe.id)[:8], str(run.id)[:8],
+            )
+            return existing_dupe
+    normalized_limits = normalize_profile_limits(
+        candidate.tier,
+        {
+            **(_as_dict(run.profile.limits_json) if run.profile is not None else {}),
+            "tools": [candidate.tool],
+        },
+    )
+    # Enrich web-probe tools with links discovered by prior httpx/web-depth tasks.
+    enriched_params: dict[str, Any] = dict(candidate.params)
+    if candidate.tool in _WEB_PROBE_TOOLS and "candidate_paths" not in enriched_params:
+        scope_allowlist = None
+        if run.engagement_id is not None:
+            scope = session.scalar(
+                select(Scope)
+                .where(Scope.engagement_id == run.engagement_id)
+                .order_by(Scope.created_at.desc(), Scope.id.desc())
+            )
+            if scope is not None:
+                scope_allowlist = _as_dict(scope.allowlist_json)
+        discovered = _extract_discovered_links(session, run, scope_allowlist=scope_allowlist)
+        if discovered:
+            enriched_params["candidate_paths"] = discovered
+    task = Task(
+        run=run,
+        tool=candidate.tool,
+        target_id=candidate.target,
+        status="queued",
+        params_json={
+            **enriched_params,
+            "target_kind": enriched_params.get("target_kind"),
+            "profile_name": run.profile.name if run.profile is not None else "ai-loop",
+            "run_class": candidate.tier,
+            "limits": normalized_limits,
+            "assessment_loop": {
+                "enabled": True,
+                "run_mode": "ai_loop",
+                "iteration": iteration_number,
+                "tool": candidate.tool,
+                "target": candidate.target,
+                "tier": candidate.tier,
+                "reasoning": candidate.reasoning,
+                "confidence": round(float(candidate.confidence), 3),
+                "approval_effect": "passive_auto_queued",
+                "dispatch_mode": "queued_for_auto_dispatch",
+                "registered_runner_required": True,
+                "context_document_id": context_document_id,
+                "rationale_ledger_entry_id": rationale_ledger_entry_id,
+                "scope_enforced": True,
+                "kill_switch_still_authoritative": True,
+            },
+        },
+    )
+    session.add(task)
+    session.flush()
+    inject_run_credential_vault_into_task(
+        session,
+        run=run,
+        task=task,
+        actor=actor,
+    )
+    if str(run.status or "").lower() not in {"cancelled", "cancelling", "rejected"}:
+        run.status = "queued"
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="assessment_loop.passive_task_queued",
+        object_type="task",
+        object_id=str(task.id),
+        metadata={
+            "run_id": str(run.id),
+            "iteration": iteration_number,
+            "tool": candidate.tool,
+            "target": candidate.target,
+            "tier": candidate.tier,
+            "dispatch_mode": "queued_for_auto_dispatch",
+            "operator_controlled_flow_only": True,
+        },
+    )
+    return task
+
+
+def _store_next_action_proposal(
+    *,
+    session: Session,
+    run: Run,
+    reasoning,
+    candidate: LoopCandidate,
+    actor: str,
+    iteration_number: int,
+    context_document_id: str,
+    rationale_ledger_entry_id: str,
+) -> AgentProposal:
+    proposal = store_agent_proposal_record(
+        session=session,
+        reasoning=reasoning,
+        proposed_tool=candidate.tool,
+        proposed_target=candidate.target,
+        proposed_params={
+            **candidate.params,
+            "assessment_loop": {
+                "enabled": True,
+                "run_mode": "ai_loop",
+                "iteration": iteration_number,
+                "tier": candidate.tier,
+                "required_approvals": candidate.required_approvals,
+                "approval_required": candidate.tier in {"active", "intrusive"},
+                "dispatches_work": False,
+                "registered_runner_required": True,
+                "context_document_id": context_document_id,
+                "rationale_ledger_entry_id": rationale_ledger_entry_id,
+                "scope_enforced": True,
+                "roe_enforced": True,
+                "kill_switch_still_authoritative": True,
+            },
+            "review_required": True,
+        },
+        reasoning_text=candidate.reasoning,
+        risk_tier=candidate.tier,
+        priority=10 if candidate.tier == "active" else 5,
+        confidence_score=float(candidate.confidence),
+        status="pending_review",
+        metadata={
+            "proposal_kind": LOOP_PROPOSAL_KIND,
+            "run_mode": "ai_loop",
+            "iteration": iteration_number,
+            "created_by": actor,
+            "requires_operator_review": True,
+            "dispatches_work": False,
+            "operator_controlled_flow_only": True,
+            "active_runtime_mutated": False,
+            "context_document_id": context_document_id,
+            "rationale_ledger_entry_id": rationale_ledger_entry_id,
+            "approval_boundary": (
+                "per_action_explicit_approval"
+                if candidate.tier == "intrusive"
+                else "active_wave_approval"
+            ),
+        },
+    )
+    return proposal
+
+
+def build_assessment_loop_state(session: Session, *, run: Run, scope: Scope) -> dict[str, Any]:
+    configuration = _as_dict(run.configuration_json)
+    loop_state = _loop_state(configuration)
+    targets = _targets_for_loop(scope, run)
+    evidence_fingerprint = _evidence_fingerprint(run)
+    current_state = _current_state_payload(
+        run=run,
+        scope=scope,
+        targets=targets,
+        evidence_fingerprint=evidence_fingerprint,
+    )
+    plan = build_assessment_plan_for_run(session, run)
+    context_document = latest_context_document(session, run_id=run.id)
+    context_summary = None
+    if context_document is not None:
+        context_summary = {
+            "context_document_id": str(context_document.id),
+            "layer_name": context_document.layer_name,
+            "context_kind": context_document.context_kind,
+            "status": context_document.status,
+            "recommended_tools": list(context_document.recommended_tools_json or []),
+            "micro_plan_step_count": len(list(context_document.micro_plan_json or [])),
+            "evidence_ref_count": len(list(context_document.evidence_refs_json or [])),
+        }
+    active_tasks = _active_loop_tasks(run)
+    effective_status = loop_state["status"]
+    if active_tasks and effective_status == "waiting_for_execution":
+        effective_status = "running"
+
+    return {
+        "available": True,
+        "run_id": str(run.id),
+        "run_mode": "ai_loop",
+        "loop_version": LOOP_VERSION,
+        "status": effective_status,
+        "stop_reason": loop_state.get("stop_reason"),
+        "iteration_count": loop_state["iteration_count"],
+        "max_iterations": loop_state["max_iterations"],
+        "stuck_threshold": loop_state["stuck_threshold"],
+        "no_new_signal_iterations": loop_state["no_new_signal_iterations"],
+        "current_state": current_state,
+        "target_context": context_summary,
+        "latest_next_action": loop_state.get("latest_next_action"),
+        "active_tasks": active_tasks,
+        "assessment_plan_summary": plan.get("summary", {}),
+        "goal_oriented_reasoning": _as_dict(loop_state.get("goal_oriented_reasoning")),
+        "rationale_ledger": _rationale_ledger_payloads(session, run=run),
+        "iterations": list(loop_state.get("iterations") or []),
+        "dispatches_work_directly": False,
+        "manual_chain_alternative_preserved": True,
+        "fixed_phase_chains_replaced_globally": False,
+    }
+
+
+def _rationale_ledger_payloads(session: Session, *, run: Run) -> list[dict[str, Any]]:
+    entries = session.scalars(
+        select(RationaleLedgerEntry)
+        .where(RationaleLedgerEntry.run_id == run.id)
+        .order_by(RationaleLedgerEntry.created_at.asc(), RationaleLedgerEntry.id.asc())
+    ).all()
+    payloads: list[dict[str, Any]] = []
+    for entry in entries:
+        payloads.append(
+            {
+                "id": str(entry.id),
+                "context_document_id": str(entry.context_document_id) if entry.context_document_id else None,
+                "task_id": str(entry.task_id) if entry.task_id else None,
+                "agent_proposal_id": str(entry.agent_proposal_id) if entry.agent_proposal_id else None,
+                "action_type": entry.action_type,
+                "tool_name": entry.tool_name,
+                "target": entry.target,
+                "rationale_text": entry.rationale_text,
+                "decision_source": _as_dict(entry.decision_source_json),
+                "parameters": _as_dict(entry.parameters_json),
+                "status": entry.status,
+                "provenance": _as_dict(entry.provenance_json),
+                "created_at": entry.created_at.isoformat(),
+            }
+        )
+    return payloads
+
+
+def record_assessment_loop_goal(
+    session: Session,
+    *,
+    run: Run,
+    scope: Scope,
+    actor: str,
+    objective: str,
+    operator_note: str | None = None,
+) -> dict[str, Any]:
+    if not _run_uses_ai_loop(run):
+        raise ValueError("goal-oriented reasoning is available only for runs configured with run_mode=ai_loop")
+    normalized_objective = " ".join(str(objective or "").split())
+    if not normalized_objective:
+        raise ValueError("goal-oriented reasoning requires a non-empty operator objective")
+    targets = _targets_for_loop(scope, run)
+    if not targets:
+        raise ValueError("goal-oriented reasoning requires at least one approved target in scope")
+    configuration = _as_dict(run.configuration_json)
+    loop_state = _loop_state(configuration)
+    plan = build_assessment_plan_for_run(session, run)
+    context_document = ensure_context_document(
+        session,
+        run=run,
+        scope=scope,
+        targets=targets,
+        plan=plan,
+    )
+    goal_reasoning = _build_goal_oriented_reasoning(
+        run=run,
+        scope=scope,
+        targets=targets,
+        plan=plan,
+        context_document=context_document,
+        objective=normalized_objective,
+        actor=actor,
+        operator_note=operator_note,
+    )
+    reasoning = store_agent_reasoning_record(
+        session=session,
+        run=run,
+        reasoning_type=GOAL_REASONING_KIND,
+        status="recorded",
+        context_snapshot={
+            "run_id": str(run.id),
+            "run_mode": "ai_loop",
+            "objective": normalized_objective,
+            "target_context_document_id": str(context_document.id),
+            "assessment_plan_summary": plan.get("summary", {}),
+            "scope_enforced": True,
+            "roe_enforced": True,
+            "fixed_phase_chains_replaced_globally": False,
+        },
+        observations=[
+            {
+                "summary": "Operator objective recorded for bounded goal-oriented reasoning.",
+                "target_type": _target_type(targets),
+                "target_count": len(targets),
+            }
+        ],
+        hypotheses=list(goal_reasoning.get("hypothesis_path") or []),
+        proposals=[],
+        summary_text=f"Recorded objective: {normalized_objective}",
+        thought_text=(
+            "Reason backward from the operator objective using only evidence-linked, registered-runner "
+            "steps inside scope, ROE, approval, and kill-switch controls."
+        ),
+        action_text="Store the bounded hypothesis path; no work is dispatched by objective registration.",
+        provider="deterministic-assessment-loop",
+        model=None,
+        llm_tokens_used=0,
+        confidence_score=0.84 if goal_reasoning.get("hypothesis_path") else 0.4,
+        metadata={
+            "reasoning_kind": GOAL_REASONING_KIND,
+            "run_mode": "ai_loop",
+            "dispatches_work": False,
+            "direct_dispatch": False,
+            "registered_runner_required": True,
+            "scope_enforced": True,
+            "roe_enforced": True,
+            "approval_gates_bypassed": False,
+            "kill_switch_still_authoritative": True,
+            "manual_chain_alternative_preserved": True,
+        },
+    )
+    goal_reasoning["reasoning_id"] = str(reasoning.id)
+    loop_state["goal_oriented_reasoning"] = goal_reasoning
+    loop_state["status"] = loop_state.get("status") or "ready"
+    _store_loop_state(configuration, loop_state)
+    run.configuration_json = configuration
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="assessment_loop.goal_recorded",
+        object_type="run",
+        object_id=str(run.id),
+        metadata={
+            "reasoning_id": str(reasoning.id),
+            "objective_type": goal_reasoning.get("objective_type"),
+            "hypothesis_step_count": len(list(goal_reasoning.get("hypothesis_path") or [])),
+            "dispatches_work": False,
+            "registered_runner_required": True,
+            "scope_enforced": True,
+            "roe_enforced": True,
+            "approval_gates_bypassed": False,
+        },
+    )
+    return build_assessment_loop_state(session, run=run, scope=scope)
+
+
+def _rotate_run_progress_safely() -> dict[str, int] | None:
+    """Invoke ``memory_backend.rotate_run_progress()`` and swallow any
+    exception. Returns the rotation result dict (or None) for callers
+    that want to log/inspect. Wire-up for #332 rotation, filed as #342.
+
+    Rotation is housekeeping: a failure here MUST NOT crash the advance.
+    The wired call site sits just before ``advance_assessment_loop``'s
+    final return so it fires once per advance that reaches the picker
+    dispatch path.
+    """
+    try:
+        from api.app.services import memory_backend as _memory_backend
+        result = _memory_backend.rotate_run_progress()
+    except Exception as exc:
+        logger.warning("rotate_run_progress: skipped (%s)", exc)
+        return None
+    if result is not None:
+        logger.info(
+            "AI loop: run-progress rotated before=%d after=%d dropped=%d",
+            result["before"],
+            result["after"],
+            result["dropped"],
+        )
+    return result
+
+
+def advance_assessment_loop(
+    session: Session,
+    *,
+    run: Run,
+    scope: Scope,
+    actor: str,
+    operator_note: str | None = None,
+) -> dict[str, Any]:
+    if not _run_uses_ai_loop(run):
+        raise ValueError("assessment loop can advance only for runs configured with run_mode=ai_loop")
+    if run.profile is not None and pending_approvals(run, run.profile) > 0:
+        raise ValueError("assessment loop cannot advance while the selected run still has pending approvals")
+    # Refresh run.tasks from DB before reading. The same advance call is
+    # invoked right after _maybe_queue_next_step_hints adds new tasks in this
+    # session; the cached run.tasks relationship does NOT include those tasks
+    # unless we expire+reload. Without this, _active_loop_tasks returns empty
+    # → Claude is asked → picks a tool that is already queued = duplicate.
+    try:
+        session.expire(run, ["tasks", "findings"])
+    except Exception:
+        pass
+    active_tasks = _active_loop_tasks(run)
+    configuration = _as_dict(run.configuration_json)
+    loop_state = _loop_state(configuration)
+    targets = _targets_for_loop(scope, run)
+    if not targets:
+        raise ValueError("assessment loop requires at least one approved target in scope")
+
+    evidence_fingerprint = _evidence_fingerprint(run)
+    previous_fingerprint = str(loop_state.get("latest_evidence_fingerprint") or "")
+    no_new_signal_iterations = int(loop_state.get("no_new_signal_iterations") or 0)
+    if previous_fingerprint and previous_fingerprint == evidence_fingerprint:
+        no_new_signal_iterations += 1
+    else:
+        no_new_signal_iterations = 0
+    loop_state["no_new_signal_iterations"] = no_new_signal_iterations
+    loop_state["latest_evidence_fingerprint"] = evidence_fingerprint
+
+    if active_tasks:
+        loop_state["status"] = "waiting_for_execution"
+        loop_state["stop_reason"] = None
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        return build_assessment_loop_state(session, run=run, scope=scope)
+
+    max_iterations = int(loop_state.get("max_iterations") or LOOP_MAX_ITERATIONS)
+    stuck_threshold = int(loop_state.get("stuck_threshold") or LOOP_STUCK_THRESHOLD)
+    if int(loop_state.get("iteration_count") or 0) >= max_iterations:
+        loop_state["status"] = "stopped"
+        loop_state["stop_reason"] = "max_iterations_reached"
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor=actor,
+            reason="assessment_loop_max_iterations_reached",
+        )
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_loop.stopped",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={"reason": "max_iterations_reached", "max_iterations": max_iterations},
+        )
+        return build_assessment_loop_state(session, run=run, scope=scope)
+    if no_new_signal_iterations >= stuck_threshold:
+        loop_state["status"] = "stopped"
+        loop_state["stop_reason"] = "stuck_no_new_signals"
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor=actor,
+            reason="assessment_loop_stuck_no_new_signals",
+        )
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_loop.stopped",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={"reason": "stuck_no_new_signals", "threshold": stuck_threshold},
+        )
+        return build_assessment_loop_state(session, run=run, scope=scope)
+
+    plan = build_assessment_plan_for_run(session, run)
+    parent_context_document = ensure_context_document(
+        session,
+        run=run,
+        scope=scope,
+        targets=targets,
+        plan=plan,
+    )
+    context_document = (
+        ensure_recursive_surface_context(
+            session,
+            run=run,
+            scope=scope,
+            parent_context=parent_context_document,
+            plan=plan,
+        )
+        or parent_context_document
+    )
+    recommended_tools = {
+        str(tool).strip()
+        for tool in list(context_document.recommended_tools_json or [])
+        if str(tool).strip()
+    }
+    tested_keys = _tested_action_keys(run)
+    # FIRST: target-intel must run before any other tool in ai_loop web assessments.
+    # It analyzes the target with Claude to detect technology, CVEs, and build a
+    # targeted test plan — replacing blind tool execution with intelligence-driven testing.
+    _target_intel_candidate: LoopCandidate | None = None
+    if targets and "target-intel" in supported_execution_tools():
+        for target in targets:
+            target_value = str(target.get("value") or "").strip()
+            if target_value and _task_key("target-intel", target_value) not in tested_keys:
+                if _scope_target_allowed(scope, target_value):
+                    _target_intel_candidate = LoopCandidate(
+                        tool="target-intel",
+                        target=target_value,
+                        params={"target_kind": str(target.get("kind") or "url"), "source": "target-intel-first"},
+                        tier="passive",
+                        reasoning="Target intelligence: AI analyzes the target FIRST to detect technology stack, applicable CVEs, and create a targeted test plan.",
+                        confidence=0.95,
+                        follow_up_hints=["xss-extended", "nuclei", "smart-web-probe", "ai-pentest-agent"],
+                        expected_evidence=["technology_fingerprint", "targeted_scan_plan"],
+                        required_approvals=0,
+                        decision_source="target_intel_first",
+                    )
+                    break
+
+    # LAN intel: after nmap runs for host/cidr targets, lan-intel analyzes services.
+    # Mirrors target-intel's role for web — intelligence before blind attack tools.
+    _lan_intel_candidate: LoopCandidate | None = None
+    if "lan-intel" in supported_execution_tools():
+        lan_targets = [t for t in targets if str(t.get("kind") or "") in ("host", "cidr", "domain", "target")]
+        for target in lan_targets:
+            target_value = str(target.get("value") or "").strip()
+            lan_key = _task_key("lan-intel", target_value)
+            nmap_key = _task_key("nmap", target_value)
+            # Only queue lan-intel if nmap has run AND lan-intel hasn't yet
+            nmap_done = nmap_key in tested_keys
+            lan_done = lan_key in tested_keys
+            if nmap_done and not lan_done and target_value and _scope_target_allowed(scope, target_value):
+                # Get nmap stdout to pass to lan-intel
+                nmap_stdout = ""
+                for task in list(run.tasks or []):
+                    if str(task.tool or "") == "nmap" and str(task.status or "") == "completed":
+                        for exe in list(task.tool_executions or []):
+                            if exe.stdout_text:
+                                nmap_stdout = exe.stdout_text[:8000]
+                                break
+                        if nmap_stdout:
+                            break
+                _lan_intel_candidate = LoopCandidate(
+                    tool="lan-intel",
+                    target=target_value,
+                    params={
+                        "target_kind": str(target.get("kind") or "host"),
+                        "source": "lan-intel-post-nmap",
+                        "nmap_stdout": nmap_stdout,
+                    },
+                    tier="passive",
+                    reasoning="LAN intelligence: AI analyzes nmap service scan to detect AD, CVEs, and create targeted attack plan.",
+                    confidence=0.92,
+                    follow_up_hints=["nuclei", "bloodhound-collect", "ldap-enum", "ssh-brute", "credential-attacks"],
+                    expected_evidence=["service_fingerprint", "targeted_lan_plan"],
+                    required_approvals=0,
+                    decision_source="lan_intel_post_nmap",
+                )
+                break
+
+    selector_targets = _context_targets(context_document) or targets
+    selector_report = select_next_best_action_for_run(
+        session,
+        run=run,
+        scope=scope,
+        approved_targets=selector_targets,
+        tested_action_keys=tested_keys,
+    )
+    goal_candidate = _goal_oriented_candidate(
+        run=run,
+        scope=scope,
+        goal_reasoning=_as_dict(loop_state.get("goal_oriented_reasoning")),
+        plan=plan,
+        tested_keys=tested_keys,
+    )
+    auth_candidate = _auth_signal_candidate(
+        run=run,
+        scope=scope,
+        targets=_context_targets(context_document) or targets,
+        plan=plan,
+        tested_keys=tested_keys,
+    )
+    recursive_candidate = _context_micro_plan_candidate(
+        scope=scope,
+        context_document=context_document,
+        plan=plan,
+        tested_keys=tested_keys,
+    )
+    # Use selector only after at least one tool has run (tested_keys non-empty).
+    # On the very first call, seed_candidate picks the discovery tool (httpx/nmap)
+    # so active probes (xss-extended etc.) never run before initial fingerprinting.
+    selector_candidate = (
+        _selector_candidate(selector_report, plan)
+        if tested_keys and (
+            _selector_has_finding_sources(selector_report)
+            or _selector_has_triggered_actions(selector_report)
+        )
+        else None
+    )
+    # target-intel runs as the FIRST tool in every ai_loop web assessment,
+    # before xss-extended, sqlmap, or any other probe. It must come before
+    # selector_candidate so the AI analysis happens before blind scanning.
+    seed = _seed_candidate(
+        run=run,
+        scope=scope,
+        targets=_context_targets(context_document) or targets,
+        plan=plan,
+        tested_keys=tested_keys,
+        recommended_tools=recommended_tools,
+    )
+    seed_is_intel = seed is not None and seed.tool == "target-intel"
+
+    # Claude-driven next-action selection: after at least one tool has run,
+    # ask Claude to pick what to do next based on actual findings.
+    # Now operates in the PHASE model: pick / level_up / exec_plan / stop.
+    claude_candidate: LoopCandidate | None = None
+    claude_stop_decision: dict[str, Any] | None = None
+    claude_levelup_decision: dict[str, Any] | None = None
+    current_phase = _as_dict(loop_state.get("current_phase"))
+    phase_index = int(loop_state.get("phase_count") or 0)
+    # Rejection sink: validators append (reason, detail) entries that we
+    # persist into loop_state so the NEXT advance call shows them to Claude,
+    # giving him a feedback loop to self-correct.
+    rejection_sink: list[dict[str, Any]] = []
+
+    logger.info(
+        "AI loop: advance run=%s phase=%s/%d tools_picked_this_phase=%d total_findings=%d",
+        str(run.id)[:8],
+        phase_index + 1,
+        len({k.split("|", 1)[0] for k in tested_keys}),
+        len(list(current_phase.get("tool_picks") or [])),
+        len(list(run.findings or [])),
+    )
+    if tested_keys:
+        available_tools = supported_execution_tools()
+        decision = _call_picker_with_retries(
+            run=run,
+            tested_keys=tested_keys,
+            available_tools=sorted(available_tools),
+            targets=targets,
+            scope=scope,
+            session=session,
+            loop_state=loop_state,
+        )
+        action = str((decision or {}).get("action") or "").lower() if decision else ""
+        if decision is None:
+            logger.info("AI loop: Claude returned None — using heuristics")
+        elif action == "stop" or decision.get("stop"):
+            stop_reason = str(decision.get("stop_reason") or decision.get("summary") or "")
+            logger.info("AI loop: Claude said STOP reason=%s", stop_reason)
+            # Evidence-first enforcement: refuse "admin_compromise_proven" or
+            # similar finality claims unless there is an actual critical-severity
+            # finding with admin/takeover/RCE/compromise keywords in the title.
+            # Claude tends to declare victory based on a hunch ("I see XSS so
+            # admin is reachable"); we don't let that end the run.
+            if "compromise" in stop_reason.lower() or "admin" in stop_reason.lower() or "takeover" in stop_reason.lower():
+                critical_findings = [
+                    f for f in list(run.findings or [])
+                    if str(f.severity or "").lower() == "critical"
+                ]
+                proof_keywords = ("admin", "compromise", "takeover", "privilege", "rce", "remote code", "escalation")
+                has_proof = any(
+                    any(kw in str(f.title or "").lower() for kw in proof_keywords)
+                    for f in critical_findings
+                )
+                if not has_proof:
+                    logger.warning(
+                        "AI loop: REJECTED Claude STOP claim %r — no critical finding with proof keywords; demoting to level_up",
+                        stop_reason,
+                    )
+                    rejection_sink.append({
+                        "reason": "unproven_stop_claim",
+                        "detail": (
+                            f"You said action='stop' with stop_reason={stop_reason!r}, but there is no critical-severity "
+                            "finding whose title proves that impact (e.g. 'Admin Compromise via X', 'Account Takeover via Y'). "
+                            "AegisPT is evidence-first: hunches don't end the run. Run an exec_plan that PROVES the chain "
+                            "end-to-end (with verification steps that observe the expected impact in the response body) "
+                            "before claiming admin compromise."
+                        ),
+                        "at": _now(),
+                    })
+                    # Don't store this as a stop decision — let the loop continue.
+                    # The rejection will surface in Claude's next prompt.
+                else:
+                    claude_stop_decision = decision
+            else:
+                claude_stop_decision = decision
+        elif action == "level_up":
+            logger.info(
+                "AI loop: Claude said LEVEL_UP to phase=%r tool=%s target=%s",
+                decision.get("new_phase_label"),
+                decision.get("tool"),
+                str(decision.get("target") or "")[:60],
+            )
+            claude_levelup_decision = decision
+            # Allow Claude to combine level_up with an exec_plan body in one shot.
+            # Natural intent: "open a new phase AND run this custom HTTP chain there".
+            if str(decision.get("tool") or "").strip() == "exec-plan" and isinstance(decision.get("plan"), dict):
+                plan_body = decision.get("plan") or {}
+                plan_name = str(decision.get("plan_name") or plan_body.get("name") or "claude-exec-plan")
+                if isinstance(plan_body.get("steps"), list) and plan_body["steps"] and "exec-plan" in available_tools:
+                    primary_target = str(targets[0].get("value") or "") if targets else ""
+                    tier = str(decision.get("tier") or "active").lower()
+                    if tier not in {"passive", "active", "intrusive"}:
+                        tier = "active"
+                    reasoning = str(decision.get("reasoning") or f"Level-up custom plan: {plan_name}")
+                    confidence = float(decision.get("confidence") or 0.8) if str(decision.get("confidence") or "").strip() else 0.8
+                    claude_candidate = LoopCandidate(
+                        tool="exec-plan",
+                        target=primary_target,
+                        params={
+                            "source": "ai_loop_claude_exec_plan",
+                            "ai_reasoning": reasoning[:500],
+                            "target_kind": "url",
+                            "target_source": "approved_scope_root",
+                            "plan": plan_body,
+                            "plan_name": plan_name,
+                        },
+                        tier=tier,
+                        reasoning=reasoning,
+                        confidence=max(0.0, min(1.0, confidence)),
+                        follow_up_hints=[],
+                        expected_evidence=["exec_plan_success", "multi_step_exploit_chain"],
+                        required_approvals=0,
+                        decision_source="ai_loop_claude_exec_plan",
+                    )
+                    logger.info(
+                        "AI loop: LEVEL_UP combined with exec_plan plan_name=%r steps=%d",
+                        plan_name, len(plan_body["steps"]),
+                    )
+                else:
+                    rejection_sink.append({
+                        "reason": "level_up_exec_plan_malformed",
+                        "detail": "You used action='level_up' with tool='exec-plan' but the plan body is empty/malformed "
+                                  "or the exec-plan runner isn't registered. Include a non-empty 'plan.steps' list, "
+                                  "or use a registered tool instead of exec-plan.",
+                        "at": _now(),
+                    })
+                    logger.warning("AI loop: LEVEL_UP with tool=exec-plan rejected — malformed plan body")
+                    claude_levelup_decision = None
+            else:
+                claude_candidate = _claude_candidate_to_loop_candidate(
+                    decision, targets=targets, available_tools=available_tools, scope=scope,
+                    tested_keys=tested_keys, rejection_sink=rejection_sink,
+                )
+                if claude_candidate is None:
+                    logger.warning("AI loop: Claude level_up pick rejected (invalid tool/target)")
+                    claude_levelup_decision = None
+        elif action == "exec_plan":
+            # Claude provided a custom multi-step HTTP plan. Wrap it as a
+            # LoopCandidate that points to the exec-plan runner with the
+            # plan body in params. The runner executes the plan safely.
+            plan_body = decision.get("plan")
+            plan_name = str(decision.get("plan_name") or (plan_body or {}).get("name") or "claude-exec-plan")
+            logger.info(
+                "AI loop: Claude said EXEC_PLAN plan_name=%r steps=%d",
+                plan_name,
+                len((plan_body or {}).get("steps") or []) if isinstance(plan_body, dict) else 0,
+            )
+            if not isinstance(plan_body, dict) or not isinstance(plan_body.get("steps"), list) or not plan_body["steps"]:
+                logger.warning("AI loop: exec_plan rejected — empty or malformed plan body")
+                rejection_sink.append({
+                    "reason": "exec_plan_malformed",
+                    "detail": "You used action='exec_plan' but the 'plan' field was missing, "
+                              "not a dict, or had no 'steps' list. Re-read the EXEC_PLAN GRAMMAR section "
+                              "in the system prompt and include the full plan body with a non-empty steps array.",
+                    "at": _now(),
+                })
+            elif "exec-plan" not in available_tools:
+                logger.warning("AI loop: exec_plan rejected — exec-plan runner not registered")
+                rejection_sink.append({
+                    "reason": "exec_plan_runner_missing",
+                    "detail": "The exec-plan runner is not registered in this deployment. "
+                              "Use action='pick' with a registered tool instead.",
+                    "at": _now(),
+                })
+            else:
+                primary_target = ""
+                if targets:
+                    primary_target = str(targets[0].get("value") or "")
+                tier = str(decision.get("tier") or "active").lower()
+                if tier not in {"passive", "active", "intrusive"}:
+                    tier = "active"
+                reasoning = str(decision.get("reasoning") or f"Custom plan: {plan_name}")
+                confidence = float(decision.get("confidence") or 0.8) if str(decision.get("confidence") or "").strip() else 0.8
+                claude_candidate = LoopCandidate(
+                    tool="exec-plan",
+                    target=primary_target,
+                    params={
+                        "source": "ai_loop_claude_exec_plan",
+                        "ai_reasoning": reasoning[:500],
+                        "target_kind": "url",
+                        "target_source": "approved_scope_root",
+                        "plan": plan_body,
+                        "plan_name": plan_name,
+                    },
+                    tier=tier,
+                    reasoning=reasoning,
+                    confidence=max(0.0, min(1.0, confidence)),
+                    follow_up_hints=[],
+                    expected_evidence=["exec_plan_success", "multi_step_exploit_chain"],
+                    required_approvals=0,
+                    decision_source="ai_loop_claude_exec_plan",
+                )
+        else:
+            # action == "pick" or unspecified (legacy) — continue current phase
+            logger.info(
+                "AI loop: Claude PICK tool=%s tier=%s confidence=%s",
+                decision.get("tool"),
+                decision.get("tier"),
+                decision.get("confidence"),
+            )
+            claude_candidate = _claude_candidate_to_loop_candidate(
+                decision, targets=targets, available_tools=available_tools, scope=scope,
+                tested_keys=tested_keys, rejection_sink=rejection_sink,
+            )
+            if claude_candidate is None:
+                logger.warning("AI loop: Claude pick rejected (invalid tool/target)")
+
+    # ---- STOP path ----
+    if claude_stop_decision is not None:
+        loop_state["status"] = "stopped"
+        loop_state["stop_reason"] = str(
+            claude_stop_decision.get("stop_reason") or "ai_concluded_complete"
+        )
+        loop_state["ai_stop_summary"] = str(
+            claude_stop_decision.get("summary")
+            or claude_stop_decision.get("reasoning")
+            or ""
+        )
+        # Archive the active phase if any so the UI sees a clean completion.
+        if current_phase.get("label"):
+            current_phase["status"] = "completed"
+            current_phase["completed_at"] = _now()
+            phases_archive = list(loop_state.get("phases") or [])
+            phases_archive.append(current_phase)
+            loop_state["phases"] = phases_archive
+            loop_state["current_phase"] = {}
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor=actor,
+            reason=f"assessment_loop_ai_stopped_{loop_state['stop_reason']}",
+        )
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_loop.ai_stopped",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={
+                "reason": loop_state["stop_reason"],
+                "ai_summary": loop_state["ai_stop_summary"][:300],
+            },
+        )
+        return build_assessment_loop_state(session, run=run, scope=scope)
+
+    # ---- LEVEL_UP path: archive current phase, start a new one ----
+    if claude_levelup_decision is not None and claude_candidate is not None:
+        # Archive the just-completed phase
+        if current_phase.get("label"):
+            current_phase["status"] = "completed"
+            current_phase["completed_at"] = _now()
+            current_phase["summary"] = str(
+                claude_levelup_decision.get("previous_phase_summary") or ""
+            )
+            phases_archive = list(loop_state.get("phases") or [])
+            phases_archive.append(current_phase)
+            loop_state["phases"] = phases_archive
+        # Open new phase
+        new_label = str(claude_levelup_decision.get("new_phase_label") or "next-phase")
+        phase_index += 1
+        loop_state["phase_count"] = phase_index
+        loop_state["current_phase"] = {
+            "label": new_label,
+            "goal": str(claude_levelup_decision.get("reasoning") or "")[:300],
+            "started_at": _now(),
+            "findings_count_at_start": len(list(run.findings or [])),
+            "tool_picks": [],
+            "status": "active",
+        }
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_loop.phase_level_up",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={
+                "phase_index": phase_index,
+                "new_phase_label": new_label,
+                "previous_summary": str(
+                    claude_levelup_decision.get("previous_phase_summary") or ""
+                )[:300],
+            },
+        )
+        # claude_candidate is set; will be used as the first tool of the new phase.
+
+    candidate = (
+        _target_intel_candidate  # web: AI site analysis before scanning (iter 1)
+        or _lan_intel_candidate   # LAN: AI service analysis after nmap
+        or claude_candidate       # Claude-picked next action based on findings (iter 2+)
+        or (_ai_proposal_candidate(run=run, scope=scope, plan=plan, tested_keys=tested_keys) if tested_keys else None)
+        or (seed if seed_is_intel else None)
+        or goal_candidate
+        or auth_candidate
+        or recursive_candidate
+        or selector_candidate
+        or (seed if not seed_is_intel else None)
+        or _plan_candidate(
+            run=run,
+            scope=scope,
+            targets=_context_targets(context_document) or targets,
+            plan=plan,
+            tested_keys=tested_keys,
+            recommended_tools=recommended_tools,
+        )
+    )
+    if candidate is None:
+        logger.warning(
+            "AI loop: candidate is None — stopping loop. "
+            "target_intel=%s lan_intel=%s claude=%s goal=%s auth=%s recursive=%s selector=%s seed=%s plan_cand=False  (full names of None means each was None)",
+            type(_target_intel_candidate).__name__,
+            type(_lan_intel_candidate).__name__,
+            type(claude_candidate).__name__,
+            type(goal_candidate).__name__ if 'goal_candidate' in locals() else 'N/A',
+            type(auth_candidate).__name__ if 'auth_candidate' in locals() else 'N/A',
+            type(recursive_candidate).__name__ if 'recursive_candidate' in locals() else 'N/A',
+            type(selector_candidate).__name__ if 'selector_candidate' in locals() else 'N/A',
+            type(seed).__name__ if 'seed' in locals() else 'N/A',
+        )
+        loop_state["status"] = "stopped"
+        # #331: distinguish between "no fallback candidate" (genuine
+        # exhaustion of the heuristic chain) and "picker retried but
+        # never produced a usable decision". Both end the run, but the
+        # cause is different — operators get a clear signal which one.
+        if loop_state.get("picker_retry_exhausted"):
+            stop_reason_value = "picker_retry_exhausted"
+            credential_clear_reason = "assessment_loop_picker_retry_exhausted"
+        else:
+            stop_reason_value = "no_registered_runner_candidate"
+            credential_clear_reason = "assessment_loop_no_registered_runner_candidate"
+        loop_state["stop_reason"] = stop_reason_value
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor=actor,
+            reason=credential_clear_reason,
+        )
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_loop.stopped",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={
+                "reason": stop_reason_value,
+                "retries_this_advance": int(loop_state.get("retries_this_advance") or 0),
+            },
+        )
+        return build_assessment_loop_state(session, run=run, scope=scope)
+
+    iteration_number = int(loop_state.get("iteration_count") or 0) + 1
+    current_state = _current_state_payload(
+        run=run,
+        scope=scope,
+        targets=targets,
+        evidence_fingerprint=evidence_fingerprint,
+    )
+    next_action = _next_action_payload(candidate)
+    next_action["context_document_id"] = str(context_document.id)
+    reasoning = store_agent_reasoning_record(
+        session=session,
+        run=run,
+        reasoning_type="assessment_loop_next_action",
+        status="recorded",
+        context_snapshot={
+            "run_id": str(run.id),
+            "run_mode": "ai_loop",
+            "iteration": iteration_number,
+            "assessment_state": current_state,
+            "target_context_document_id": str(context_document.id),
+            "parent_context_document_id": (
+                str(context_document.parent_context_document_id)
+                if context_document.parent_context_document_id
+                else None
+            ),
+            "target_context_summary": context_document.context_summary,
+            "target_context_evidence_refs": list(context_document.evidence_refs_json or []),
+            "target_context_micro_plan": list(context_document.micro_plan_json or []),
+            "assessment_plan_summary": plan.get("summary", {}),
+            "next_best_action_selector": {
+                "selector_version": selector_report.get("selector_version"),
+                "enabled": selector_report.get("enabled"),
+                "top_actions": [
+                    {
+                        "rank": action.get("rank"),
+                        "decision": action.get("decision"),
+                        "runner": action.get("runner"),
+                        "target": action.get("target"),
+                        "confidence": action.get("confidence"),
+                        "expected_proof_value": action.get("expected_proof_value"),
+                        "missing_prerequisites": _as_dict(
+                            action.get("prerequisite_state")
+                        ).get("missing", []),
+                    }
+                    for action in _as_list(selector_report.get("actions"))[:5]
+                    if isinstance(action, dict)
+                ],
+                "dispatches_work_directly": False,
+            },
+            "goal_oriented_reasoning": _as_dict(loop_state.get("goal_oriented_reasoning")),
+            "scope_enforced": True,
+            "fixed_phase_chains_replaced_globally": False,
+        },
+        observations=[
+            {
+                "summary": (
+                    f"Assessment loop observed {current_state['task_count']} task(s), "
+                    f"{current_state['finding_count']} finding(s), and "
+                    f"{current_state['signal_count']} signal(s)."
+                ),
+                "target_type": current_state["target_type"],
+                "no_new_signal_iterations": no_new_signal_iterations,
+            }
+        ],
+        hypotheses=[
+            {
+                "summary": candidate.reasoning,
+                "tool": candidate.tool,
+                "target": candidate.target,
+                "tier": candidate.tier,
+                "confidence": round(float(candidate.confidence), 3),
+                "decision_source": candidate.decision_source,
+                "selector_decision": candidate.selector_decision,
+            }
+        ],
+        proposals=[next_action],
+        summary_text=f"Iteration {iteration_number}: selected {candidate.tool} for {candidate.target}.",
+        thought_text=candidate.reasoning,
+        action_text=(
+            "Queue passive action through the registered runner path."
+            if candidate.tier == "passive"
+            else "Create a reviewable AI proposal; execution waits for existing approval flow."
+        ),
+        provider="deterministic-assessment-loop",
+        model=None,
+        llm_tokens_used=0,
+        confidence_score=float(candidate.confidence),
+        metadata={
+            "proposal_kind": LOOP_PROPOSAL_KIND,
+            "run_mode": "ai_loop",
+            "iteration": iteration_number,
+            "operator_note": operator_note,
+            "dispatches_work": candidate.tier == "passive",
+            "direct_dispatch": False,
+            "registered_runner_required": True,
+            "scope_enforced": True,
+            "roe_enforced": True,
+            "kill_switch_still_authoritative": True,
+            "manual_chain_alternative_preserved": True,
+            "target_context_document_id": str(context_document.id),
+            "next_best_action_selector_used": candidate.decision_source == "next_best_action_selector",
+            "selector_decision": candidate.selector_decision,
+            "selector_rank": candidate.selector_rank,
+        },
+    )
+    rationale_entry = record_rationale(
+        session,
+        run=run,
+        context_document=context_document,
+        tool_name=candidate.tool,
+        target=candidate.target,
+        rationale=candidate.reasoning,
+        parameters={
+            **candidate.params,
+            "tier": candidate.tier,
+            "iteration": iteration_number,
+            "confidence": round(float(candidate.confidence), 3),
+            "required_approvals": candidate.required_approvals,
+        },
+        action_type=LOOP_PROPOSAL_KIND,
+        decision_source={
+            "source": candidate.decision_source,
+            "context_document_id": str(context_document.id),
+            "goal_oriented_reasoning": _as_dict(candidate.params.get("goal_oriented_reasoning")),
+            "next_best_action_selector": _as_dict(candidate.params.get("next_best_action_selector")),
+            "selector_provenance": dict(candidate.selector_provenance or {}),
+            "recommended_tools": list(context_document.recommended_tools_json or []),
+            "registered_runner_required": True,
+            "approval_gates_bypassed": False,
+        },
+        status="recorded_before_dispatch",
+    )
+    next_action["rationale_ledger_entry_id"] = str(rationale_entry.id)
+    queued_task: Task | None = None
+    proposal: AgentProposal | None = None
+    action_status = "pending_review"
+
+    # Initialize the FIRST phase if none exists yet (this is the very first pick).
+    if not loop_state.get("current_phase"):
+        loop_state["phase_count"] = 0
+        loop_state["current_phase"] = {
+            "label": "reconnaissance",
+            "goal": "Map the attack surface and identify entry points.",
+            "started_at": _now(),
+            "findings_count_at_start": 0,
+            "tool_picks": [],
+            "status": "active",
+        }
+    # Record this tool pick in the current phase's tool_picks list.
+    current_phase = _as_dict(loop_state.get("current_phase"))
+    phase_picks = list(current_phase.get("tool_picks") or [])
+    phase_picks.append({
+        "tool": candidate.tool,
+        "target": candidate.target,
+        "reasoning": candidate.reasoning[:200],
+        "decision_source": candidate.decision_source,
+        "picked_at": _now(),
+    })
+    current_phase["tool_picks"] = phase_picks
+    loop_state["current_phase"] = current_phase
+
+    # Persist any rejections accumulated during this advance call so Claude
+    # can see them in the next iteration's prompt and self-correct.
+    if rejection_sink:
+        existing_rejections = list(loop_state.get("recent_rejections") or [])
+        existing_rejections.extend(rejection_sink)
+        # Keep only the most recent 10 — older ones drop off
+        loop_state["recent_rejections"] = existing_rejections[-10:]
+
+    # For ai_loop runs, auto-queue active candidates too (operator already authorized the run).
+    # Intrusive-exploitation tier auto-queues only when the run was created with
+    # autonomous_intrusive_allowed=True (operator opt-in via intake wizard).
+    is_ai_loop = _run_uses_ai_loop(run)
+    auto_queue_active = is_ai_loop and candidate.tier == "active"
+    auto_queue_intrusive = (
+        is_ai_loop
+        and candidate.tier == "intrusive"
+        and bool(getattr(run, "autonomous_intrusive_allowed", False))
+    )
+    will_queue = candidate.tier == "passive" or auto_queue_active or auto_queue_intrusive
+    logger.info(
+        "AI loop: queue-decision tool=%s tier=%s ai_loop=%s intrusive_allowed=%s auto_queue_active=%s auto_queue_intrusive=%s will_queue=%s",
+        candidate.tool, candidate.tier, is_ai_loop,
+        bool(getattr(run, "autonomous_intrusive_allowed", False)),
+        auto_queue_active, auto_queue_intrusive, will_queue,
+    )
+    if will_queue:
+        queued_task = _queue_passive_loop_task(
+            session=session,
+            run=run,
+            candidate=candidate,
+            actor=actor,
+            iteration_number=iteration_number,
+            context_document_id=str(context_document.id),
+            rationale_ledger_entry_id=str(rationale_entry.id),
+        )
+        proposal = store_agent_proposal_record(
+            session=session,
+            reasoning=reasoning,
+            proposed_tool=candidate.tool,
+            proposed_target=candidate.target,
+            proposed_params={
+                **candidate.params,
+                "assessment_loop": {
+                    "enabled": True,
+                    "run_mode": "ai_loop",
+                    "iteration": iteration_number,
+                    "queued_task_id": str(queued_task.id),
+                    "dispatch_mode": "queued_for_auto_dispatch",
+                    "context_document_id": str(context_document.id),
+                    "rationale_ledger_entry_id": str(rationale_entry.id),
+                },
+            },
+            reasoning_text=candidate.reasoning,
+            risk_tier=candidate.tier,
+            priority=20,
+            confidence_score=float(candidate.confidence),
+            status="approved",
+            metadata={
+                "proposal_kind": LOOP_PROPOSAL_KIND,
+                "run_mode": "ai_loop",
+                "iteration": iteration_number,
+                "dispatches_work": True,
+                "queued_task_id": str(queued_task.id),
+                "approval_boundary": "passive_auto_queued",
+                "operator_controlled_flow_only": True,
+                "active_runtime_mutated": False,
+                "context_document_id": str(context_document.id),
+                "rationale_ledger_entry_id": str(rationale_entry.id),
+            },
+        )
+        proposal.approved_by = actor
+        proposal.approved_at = datetime.now(UTC)
+        rationale_entry.task_id = queued_task.id
+        rationale_entry.agent_proposal_id = proposal.id
+        rationale_entry.status = "task_queued"
+        action_status = "queued"
+    else:
+        proposal = _store_next_action_proposal(
+            session=session,
+            run=run,
+            reasoning=reasoning,
+            candidate=candidate,
+            actor=actor,
+            iteration_number=iteration_number,
+            context_document_id=str(context_document.id),
+            rationale_ledger_entry_id=str(rationale_entry.id),
+        )
+        rationale_entry.agent_proposal_id = proposal.id
+        rationale_entry.status = "pending_approval"
+
+    iteration = {
+        "iteration": iteration_number,
+        "status": action_status,
+        "created_at": _now(),
+        "reasoning_id": str(reasoning.id),
+        "proposal_id": str(proposal.id) if proposal is not None else None,
+        "queued_task_id": str(queued_task.id) if queued_task is not None else None,
+        "context_document_id": str(context_document.id),
+        "rationale_ledger_entry_id": str(rationale_entry.id),
+        "next_action": next_action,
+        "evidence_fingerprint": evidence_fingerprint,
+    }
+    loop_state["iteration_count"] = iteration_number
+    loop_state["status"] = "waiting_for_execution" if queued_task is not None else "waiting_for_approval"
+    loop_state["stop_reason"] = None
+    loop_state["latest_next_action"] = next_action
+    loop_state["iterations"] = [*list(loop_state.get("iterations") or []), iteration]
+
+    # Persist whatever advance built so far (decisions, phase state, thinking).
+    _store_loop_state(configuration, loop_state)
+    run.configuration_json = configuration
+
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="assessment_loop.iteration_created",
+        object_type="run",
+        object_id=str(run.id),
+        metadata={
+            "iteration": iteration_number,
+            "tool": candidate.tool,
+            "target": candidate.target,
+            "tier": candidate.tier,
+            "queued_task_id": str(queued_task.id) if queued_task is not None else None,
+            "proposal_id": str(proposal.id) if proposal is not None else None,
+            "context_document_id": str(context_document.id),
+            "rationale_ledger_entry_id": str(rationale_entry.id),
+            "dispatch_mode": "queued_for_auto_dispatch" if queued_task is not None else "review_only",
+        },
+    )
+
+    # === Cross-runner verifier (#335) ===
+    # After this advance is persisted, verify any newly-arrived critical/
+    # high findings that don't yet have a verdict. The verifier uses a
+    # DIFFERENT code path than the originating runner (raw httpx +
+    # scope check; no runner imports) so it acts as an independent
+    # confirmation. Bounded at 10 per advance for cost control. Failures
+    # here MUST NOT crash the advance — verifier is enrichment, not
+    # gating.
+    try:
+        from api.app.services.finding_verifier import verify_pending_critical_findings
+        _verdicts = verify_pending_critical_findings(
+            session, run=run, scope=scope, limit=10,
+        )
+        if _verdicts:
+            logger.info(
+                "AI loop: verifier processed %d critical/high finding(s) verdicts=%s",
+                len(_verdicts),
+                ",".join(v.verdict for v in _verdicts),
+            )
+    except Exception as _verifier_exc:
+        logger.warning("finding_verifier: skipped (%s)", _verifier_exc)
+
+    # === Comic-strip narrator ===
+    # Generate a plain-language panel and append it ATOMICALLY via SQL.
+    # We run this LAST (after the ORM has flushed all its other writes) so
+    # nothing overwrites the narrative.panels array. Failure is silent.
+    try:
+        session.flush()  # ensure prior ORM writes are in DB before SQL append
+        from api.app.services import narrator as _narrator
+        _panel = _narrator.generate_narrative_panel(
+            session=session,
+            run=run,
+            findings=list(run.findings or []),
+            tasks=list(run.tasks or []),
+            last_decision_reasoning=candidate.reasoning,
+        )
+        if _panel:
+            _narrator.append_panel_atomic_sql(session, run.id, _panel)
+            # Refresh the ORM-tracked run so a subsequent flush from the
+            # caller doesn't write a stale configuration_json on top of us.
+            session.refresh(run, ["configuration_json"])
+    except Exception as _narr_exc:
+        logger.warning("narrator: panel generation skipped: %s", _narr_exc)
+
+    # === Memory rotation (#332 wire-up, #342) ===
+    # Trim /memories/run-progress.md when it exceeds ROTATE_THRESHOLD_BYTES
+    # (8 KB) so the next picker hop's memory-tool view stays bounded
+    # alongside the per-view cap from #332. Housekeeping only: failure
+    # here MUST NOT crash the advance.
+    _rotate_run_progress_safely()
+
+    return {
+        **build_assessment_loop_state(session, run=run, scope=scope),
+        "next_action": next_action,
+        "queued_task_id": str(queued_task.id) if queued_task is not None else None,
+        "proposal_id": str(proposal.id) if proposal is not None else None,
+        "reasoning_id": str(reasoning.id),
+        "context_document_id": str(context_document.id),
+        "rationale_ledger_entry_id": str(rationale_entry.id),
+    }

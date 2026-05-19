@@ -81,6 +81,39 @@ Gebruik deze vaste paden zodat code, runtime data en backups gescheiden blijven:
   app/               # optionele host logs
 ```
 
+## Backup en restore discipline
+
+Behandel `/srv/aegispt/backups` als een herstelpunt, niet als een support-dump. Een bruikbare backup bestaat uit database, evidence artifacts, rapporten, redacted config/env metadata en migratiestatus. Plaintext secrets horen niet in logs, manifests of support artifacts; bewaar echte sleutels en OAuth/API secrets in een vault of versleutelde operator-backup.
+
+Minimale lokale drill:
+
+```bash
+cd /opt/aegispt/repo
+source .venv/bin/activate
+python scripts/verify_restore.py --fixture safe-local
+```
+
+Die fixture voert een volledige lokale restore-proef uit:
+
+- Alembic `upgrade head` op een tijdelijke database
+- seeded engagement, run, task, execution, finding, evidence artifact, audit event en secret metadata
+- backup naar een manifest met hashes en redacted env metadata
+- restore naar een aparte directory
+- verificatie van Alembic current/head, artifact hash, finding evidence-ref, audit event, secret metadata, `/health/live`, engagement/run API reads en artifact download
+
+Voor echte hostbackups gebruikt de operator hetzelfde scriptpad:
+
+```bash
+python scripts/backup_aegispt.py \
+  --database-url "$DATABASE_URL" \
+  --artifacts-dir "$ARTIFACTS_INLINE_DIR" \
+  --reports-dir /srv/aegispt/reports \
+  --env-file /srv/aegispt/env/aegispt-host.env \
+  --output-dir /srv/aegispt/backups/aegispt-$(date -u +%Y%m%dT%H%M%SZ)
+```
+
+Compose/PostgreSQL deployments gebruiken `pg_dump -Fc` voor de database en dezelfde discipline voor MinIO/S3 artifact data, rapporten, env/config metadata en Alembic `current`/`heads`. Upgrade rollback mag pas worden geprobeerd nadat code revision, database dump, artifact/report data en env/config uit hetzelfde backupmoment beschikbaar zijn.
+
 ## VM reuse strategie
 
 De VM moet als gelaagde bouwsteen behandeld worden. Niet alles in een checkpoint proppen.
@@ -666,6 +699,24 @@ Om de VM later herbruikbaar te houden, moeten deze scripts in de repository kome
 Belangrijke regel:
 
 - alles wat vaker dan een keer uitgevoerd wordt, moet uiteindelijk in een script terechtkomen
+
+## Enterprise deployment readiness
+
+Een enterprise productie-installatie mag niet worden beoordeeld alsof de lokale development defaults voldoende zijn. De operator moet in Settings en Diagnostics kunnen zien of de host development-grade of production-hardened is.
+
+Minimale productievoorwaarden:
+
+- `APP_ENV=production`
+- `APP_PUBLIC_BASE_URL` gebruikt `https://`
+- TLS wordt beëindigd op een vertrouwde reverse proxy, load balancer of ingress
+- browser/session cookie posture is expliciet als secure geconfigureerd
+- database encryption at rest is actief of extern bevestigd
+- evidence artifact storage is versleuteld of object storage dwingt SSE af
+- outbound egress loopt via een expliciete proxy of de host draait in no-internet/air-gapped mode
+- air-gapped deployments hebben expliciete offline paths voor feeds/templates en tool/image updates
+- trusted enterprise CA bundle paths mogen worden vastgelegd, maar certificaat-private-keys en proxycredentials mogen nooit in UI, logs of support bundles verschijnen
+
+De readiness capability `deployment_hardening` is alleen een zichtbare controlelaag. Hij installeert geen proxy, zet geen TLS aan, downloadt geen tools, wijzigt geen actieve runs en vervangt geen formele infrastructuur-hardening review.
 
 ## Security eisen die vanaf dag 1 ingebouwd moeten worden
 

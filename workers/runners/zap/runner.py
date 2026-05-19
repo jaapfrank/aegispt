@@ -201,6 +201,7 @@ def execute_zap_scan(
     rate_limit: int = 1,
     timeout_seconds: float = 30.0,
     scan_mode: str = "spider-passive",
+    active_scanner_ids: list[str] | None = None,
 ) -> RunnerExecution:
     if not targets:
         raise ValueError("at least one target is required")
@@ -211,6 +212,11 @@ def execute_zap_scan(
     normalized_scan_mode = scan_mode.strip().lower() or "spider-passive"
     if normalized_scan_mode not in {"spider-passive", "spider-active-passive"}:
         raise ValueError(f"unsupported ZAP scan mode: {scan_mode}")
+    normalized_active_scanner_ids = [
+        str(scanner_id).strip()
+        for scanner_id in (active_scanner_ids or [])
+        if str(scanner_id).strip().isdigit()
+    ]
 
     normalized_targets: list[str] = []
     seen_targets: set[str] = set()
@@ -220,13 +226,21 @@ def execute_zap_scan(
             continue
         seen_targets.add(normalized_target)
         normalized_targets.append(normalized_target)
-    effective_timeout_seconds = max(timeout_seconds, 30.0)
+    # ZAP needs time to spider + passive scan + optional active scan.
+    # Minimum 300s for real targets; short timeouts cause premature failure.
+    effective_timeout_seconds = max(timeout_seconds, 300.0)
     results: list[dict[str, object]] = []
     stderr_lines: list[str] = []
     exit_code = 0
 
-    with httpx_client.Client(timeout=10.0, follow_redirects=True) as client:
-        tool_version = get_zap_version(client, base_url=base_url, api_key=api_key)
+    with httpx_client.Client(timeout=30.0, follow_redirects=True) as client:
+        try:
+            tool_version = get_zap_version(client, base_url=base_url, api_key=api_key)
+        except httpx_client.HTTPError as exc:
+            raise RuntimeError(
+                f"ZAP daemon not reachable at {base_url} — start it with "
+                f"scripts/ensure_local_zap_daemon.sh before running a scan. Error: {exc}"
+            ) from exc
 
         for index, target in enumerate(normalized_targets, start=1):
             session_name = f"aegispt-{uuid4().hex[:12]}-{index}"
@@ -275,6 +289,16 @@ def execute_zap_scan(
                 active_scan_id = None
                 active_scan_status = None
                 if normalized_scan_mode == "spider-active-passive":
+                    if normalized_active_scanner_ids:
+                        _request_zap_json(
+                            client,
+                            base_url=base_url,
+                            component="ascan",
+                            category="action",
+                            name="enableScanners",
+                            api_key=api_key,
+                            params={"ids": ",".join(normalized_active_scanner_ids)},
+                        )
                     active_scan_payload = _request_zap_json(
                         client,
                         base_url=base_url,
@@ -333,6 +357,7 @@ def execute_zap_scan(
                         "spider_status": spider_status,
                         "active_scan_id": active_scan_id,
                         "active_scan_status": active_scan_status,
+                        "active_scanner_ids": normalized_active_scanner_ids,
                         "records_to_scan": records_to_scan,
                         "urls": urls,
                         "alerts": alerts,
@@ -340,7 +365,11 @@ def execute_zap_scan(
                         "severity_counts": severity_counts,
                     }
                 )
-            except (httpx_client.HTTPError, RuntimeError, TimeoutError, ValueError) as exc:
+            except TimeoutError as exc:
+                # ZAP timeout is a soft failure — partial results may still be useful.
+                exit_code = 0
+                stderr_lines.append(f"{target}: timed out — {exc}")
+            except (httpx_client.HTTPError, RuntimeError, ValueError) as exc:
                 exit_code = 1
                 stderr_lines.append(f"{target}: {exc}")
                 results.append(
@@ -386,6 +415,7 @@ def execute_zap_scan(
             "tool_version": tool_version,
             "runner_digest": "workers.zap.runner:v1",
             "scan_mode": normalized_scan_mode,
+            "active_scanner_ids": normalized_active_scanner_ids,
             "alert_count": alert_count,
             "url_count": url_count,
         },

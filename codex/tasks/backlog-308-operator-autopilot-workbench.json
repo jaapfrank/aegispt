@@ -1,0 +1,90 @@
+{
+  "id": "backlog-308-operator-autopilot-workbench",
+  "task_file": "codex/tasks/backlog-308-operator-autopilot-workbench.json",
+  "task_type": "ui_ai_operator_workbench",
+  "title": "Operator Autopilot Workbench",
+  "goal": "Add an operator workbench for ai_loop runs that shows the current goal, evidence hypotheses, next-best actions, RUN/SKIP/WAIT/APPROVAL state, approval gates, blockers, coverage truth, and safe override controls in one live surface.",
+  "scope": "React v2 Mission Control and AI-loop operator UX.",
+  "status": "queued",
+  "generated_by": "operator-product-strategy",
+  "generation_reason": "Operators need to see what the AI is doing, why it is doing it, what is blocked, and what needs approval without reading logs or guessing from task lists.",
+  "source_context": {
+    "queue_index": 260,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-307",
+    "broader_theme": "evidence_driven_ai_assessment",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "The workbench is visible only for run_mode === 'ai_loop' and must not replace manual wizard or fixed-chain Mission Control.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Mission Control selects the AI workbench layout only for ai_loop runs.",
+    "The workbench shows evidence-linked hypotheses, next action, blocker, approval, and coverage truth cards from backend data.",
+    "Approve/reject/continue controls use existing approval/proposal endpoints and never dispatch outside registered flows."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/MissionControl.tsx",
+    "ui-v2/src/components/screens/AutopilotWorkbench.tsx",
+    "ui-v2/src/api/client.ts",
+    "api/app/routers/runs.py"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "api/app/services/runner_registry.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "npm run build",
+      "npm run lint",
+      "pytest api/tests/test_assessment_loop.py api/tests/test_runs.py",
+      "Playwright acceptance on 1440, 1024, 768, and 375px",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "ai_loop runs show the autopilot workbench.",
+      "manual and fixed-chain runs keep their existing Mission Control layout.",
+      "UI text uses controlled proof, canary evidence, and session exposure risk language where applicable."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Runtime self-modification",
+    "Global Mission Control replacement",
+    "Unapproved active execution"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

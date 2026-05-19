@@ -1,0 +1,109 @@
+{
+  "id": "backlog-108-ai-benchmark-oracle-and-eval-foundation",
+  "task_file": "codex/tasks/backlog-108-ai-benchmark-oracle-and-eval-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "AI Benchmark Oracle And Eval Foundation",
+  "goal": "Use AI where it provides the most value for AegisPT quality: comparing benchmark-run output against known expected vulnerability families and explaining coverage gaps without changing execution or canonical findings.",
+  "scope": "Implement an optional AI-assisted benchmark-evaluation layer for lab and validation runs only. The layer should consume structured benchmark metadata, expected-finding catalogs, and actual run output, then produce an advisory expected-vs-actual report with: benchmark family coverage, likely misses, likely false positives, possible root-cause explanations, and confidence/grounding metadata. Use reference-guided grading rather than open-ended opinion, keep the output review-only, and store the result separately from canonical findings and release gates. Integrate with existing AI provider boundaries and the future deterministic validation matrix from backlog-99 where possible, but do not replace deterministic scoring with AI judgment.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Operator feedback highlighted that AI should have helped compare the Gruyere run against what the site is actually known to contain. OpenAI evaluation guidance also recommends task-specific, reference-guided evals, which fits benchmark grading far better than using AI as a generic scanner.",
+  "source_context": {
+    "queue_index": 112,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "codex/tasks/backlog-99-known-vulnerability-validation-matrix.json",
+      "codex/results/gruyere-capability-gap-analysis-20260424.md",
+      "codex/results/project-gap-and-ai-roadmap-20260424.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_eval_quality_assurance",
+    "source_documents": [
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "codex/tasks/backlog-99-known-vulnerability-validation-matrix.json",
+      "api/app/services/ai_enrichment.py",
+      "api/app/services/chatgpt_oauth.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Benchmark-evaluation only. No scan dispatch, no finding creation, no scope expansion, no canonical pass/fail release authority, and no customer-target overreach.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Use reference-guided grading and grounding metadata, not open-ended AI verdicts.",
+      "Outputs must remain advisory and separate from canonical findings.",
+      "Provider-disabled and provider-failure states must remain truthful."
+    ]
+  },
+  "success_criteria": [
+    "An optional AI-assisted benchmark gap report can be generated for benchmark runs.",
+    "The report clearly distinguishes found, missed, uncertain, and unexpected signals.",
+    "Grounding metadata ties conclusions back to benchmark metadata and actual run artifacts.",
+    "Provider-disabled and provider-failure paths produce truthful fallback behavior.",
+    "Tests cover reference-guided grading input, sparse artifact cases, disabled provider, and advisory-only boundaries.",
+    "AI output does not create findings, change release gates, or dispatch work."
+  ],
+  "likely_touched_files": [
+    "api/app/services/benchmark_ai_eval.py",
+    "api/app/services/ai_enrichment.py",
+    "api/tests/test_benchmark_ai_eval.py",
+    "docs/ai_pentesting_agent_scope_alignment.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "scan dispatch behavior"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_benchmark_ai_eval.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AI benchmark report is advisory-only and reference-guided.",
+      "Grounding metadata is explicit.",
+      "Provider failure does not affect canonical benchmark results."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Deterministic benchmark metadata exists or the task is narrowed to report-only plumbing."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with AI benchmark-eval implementation and validation evidence.",
+      "Update CURRENT_STATE.md with AI benchmark-oracle boundaries and current status.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Canonical release gating by AI",
+    "AI-created findings",
+    "Autonomous scan execution",
+    "Canonical finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

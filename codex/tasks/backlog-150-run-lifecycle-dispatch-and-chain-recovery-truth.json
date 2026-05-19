@@ -1,0 +1,106 @@
+{
+  "id": "backlog-150-run-lifecycle-dispatch-and-chain-recovery-truth",
+  "task_file": "codex/tasks/backlog-150-run-lifecycle-dispatch-and-chain-recovery-truth.json",
+  "task_type": "backlog_slice",
+  "title": "Run Lifecycle, Dispatch, and Chain Recovery Truth",
+  "goal": "Make queued, running, blocked, failed, skipped, completed, and completed-with-gaps run states unambiguous and recoverable for operators.",
+  "scope": "Fix the runtime/operator contract around Start Validation, Start Queued Checks, phase gates, auto-advance, failed runner continuation, blocked states, empty task panels, Live Agents visibility, and stdout/state streaming. The result must show what is running now, what comes next, why something is blocked or skipped, and the exact safe next action.",
+  "status": "queued",
+  "generated_by": "operator-system-audit-2026-04-30",
+  "generation_reason": "Operator evidence shows Mission Control can show empty Tasks after failures, duplicate Start Validation actions, unclear blocked states, and Live Agents cards that do not make active work observable. Existing liveness and AI-repair tasks did not close the full run-lifecycle contract.",
+  "queue_index": 150,
+  "source_context": {
+    "queue_index": 147,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runtime_operator_truth",
+    "source_documents": [
+      "api/app/services/assessment_chain.py",
+      "api/app/services/task_dispatch.py",
+      "api/app/services/runs.py",
+      "workers/orchestration/tasks.py",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/modules/cinema.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only fix lifecycle truth, dispatch clarity, and safe recovery. Do not bypass approval gates, pack validation, deployment, runtime binding, or intrusive authorization.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Mission Control never shows an empty Tasks panel when the selected run has tasks, failures, skipped checks, or chain state.",
+    "There is one primary dispatch action per state, with consistent naming and clear disabled reasons.",
+    "Failures in non-critical chain steps do not silently stop all remaining safe planned checks when the chain can continue.",
+    "Blocked and skipped states include prerequisite, evidence, and safe next action.",
+    "Live Agents prioritizes running tasks and exposes live stdout or a concrete no-output reason.",
+    "Cinema Mode no longer flickers or resets during polling and reports elapsed time from authoritative timestamps."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_chain.py",
+    "api/app/services/runs.py",
+    "api/app/routers/runs.py",
+    "api/app/routers/tasks.py",
+    "workers/orchestration/tasks.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/cinema.js",
+    "ui/tests/",
+    "api/tests/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "capability pack registry bypass",
+    "approval gate bypass",
+    "runtime self-modification"
+  ],
+  "out_of_scope": [
+    "Installing tools",
+    "Running intrusive live scans",
+    "Changing finding schema fields",
+    "Adding autonomous AI execution"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check",
+      "Focused API tests for queued, running, failed, blocked, skipped, completed-with-gaps, and recovery-safe chain states",
+      "Focused Playwright tests for Mission Control, Live Agents, and Cinema Mode lifecycle display"
+    ],
+    "acceptance_criteria": [
+      "A safe fixture run can move through queued, dispatch, running, failed-gap, continued, and terminal states while the UI keeps tasks, next action, stdout reason, and chain plan visible."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "backlog-149 has completed or been explicitly deferred by the operator.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

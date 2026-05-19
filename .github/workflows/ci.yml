@@ -2,22 +2,36 @@ name: ci
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements/dev.txt
+      - run: python -m playwright install --with-deps chromium
       - run: python -m compileall api workers
       - run: bash -n scripts/bootstrap_kali_host.sh
       - run: bash -n scripts/install_security_tools.sh
       - run: bash -n scripts/init_runtime_dirs.sh
       - run: bash -n scripts/verify_host.sh
       - run: bash -n scripts/verify_stack.sh
-      - run: pytest
+      - run: python3 scripts/validate_backlog_tasks.py
+      - name: Run API, worker, and script tests
+        run: python -m pytest -q -s api/tests workers/tests scripts/tests
+      - name: Run fast UI smoke tests
+        run: python -m pytest -q -s -m ui_fast ui/tests/test_operator_console_smoke_e2e.py ui/tests/test_mockup_port_e2e.py

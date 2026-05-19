@@ -1,0 +1,15 @@
+{
+  "assertions": {
+    "detail_text_contains_intrusive": true,
+    "detail_text_contains_local_dvga": true,
+    "graphql_command_injection_visible": true,
+    "nav_packs_visible": true,
+    "tool_count": 58,
+    "tool_library_visible": true
+  },
+  "base_url": "http://127.0.0.1:8000",
+  "captured_at": "2026-05-07T01:22:13.143509+00:00",
+  "console_errors": [],
+  "screen": "Pack Forge / Tool Library",
+  "screenshot": "codex/results/backlog-251-tool-library-graphql-command-injection-8000.png"
+}

@@ -1,0 +1,101 @@
+{
+  "id": "backlog-367-patch-diff-nday-variant-analyzer",
+  "task_file": "codex/tasks/backlog-367-patch-diff-nday-variant-analyzer.json",
+  "task_type": "defensive_research",
+  "title": "Patch-Diff and N-Day Variant Analyzer",
+  "goal": "Analyze authorized patch diffs, advisories, and dependency changes to infer vulnerability root causes and search for safe variants in owned code.",
+  "scope": "Repository integration, advisory intake, diff analysis, variant hypothesis generation, and tests for non-weaponized N-day analysis.",
+  "status": "queued",
+  "generated_by": "mythos-capability-gap-analysis",
+  "generation_reason": "A major AI security capability is patch-diff reasoning: understanding what a patch fixed, where variants may exist, and what tests would prove exposure without publishing exploit details.",
+  "source_context": {
+    "queue_index": 317,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "defensive_ai_vulnerability_research",
+    "key_files": [
+      "api/app/services/on_demand_cve_intel.py",
+      "api/app/services/repository_integration.py",
+      "api/app/services/ai_research.py",
+      "api/app/services/zero_day_response.py",
+      "api/tests/test_on_demand_cve_intel.py",
+      "api/tests/intelligence/test_zero_day_rapid_response.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Analyze patches and generate defensive hypotheses only. Do not produce weaponized exploit chains.",
+    "authorized_code_only": "Variant search must stay within authorized repositories, imported artifacts, or local fixtures."
+  },
+  "success_criteria": [
+    "The analyzer can ingest a patch diff or advisory reference and summarize likely bug class, affected preconditions, and defensive test ideas.",
+    "Variant hypotheses link to owned files/functions/routes/dependencies with evidence refs.",
+    "The system can create Codex build-lane tasks for tests or patches when exposure appears plausible.",
+    "Outputs avoid exploit weaponization and focus on detection, reproduction in local fixture, and remediation.",
+    "Tests prove unrelated code is marked not applicable or low-confidence instead of overclaiming exposure."
+  ],
+  "likely_touched_files": [
+    "api/app/services/on_demand_cve_intel.py",
+    "api/app/services/repository_integration.py",
+    "api/app/services/ai_research.py",
+    "api/app/services/zero_day_response.py",
+    "api/tests/test_on_demand_cve_intel.py",
+    "api/tests/intelligence/test_zero_day_rapid_response.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/core/",
+    "api/app/models/control.py finding schema fields",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "Prompt 1 and Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_on_demand_cve_intel.py api/tests/intelligence/test_zero_day_rapid_response.py api/tests/test_ai_research.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/on_demand_cve_intel.py api/app/services/repository_integration.py api/app/services/ai_research.py api/app/services/zero_day_response.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Patch-diff analysis creates defensive hypotheses and test ideas without exploit weaponization.",
+      "Variant search is scoped to authorized code and records not-applicable decisions.",
+      "No live target execution or runtime mutation occurs."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Generating public exploit code.",
+    "Scanning third-party systems without authorization.",
+    "Bypassing disclosure or patch processes.",
+    "Changing runner execution behavior."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

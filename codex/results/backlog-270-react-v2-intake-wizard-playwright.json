@@ -1,0 +1,50 @@
+[
+  {
+    "flow": "ai-empty-engagement-create",
+    "width": 1440,
+    "created_engagement_post": true,
+    "intake_interpretation_calls": 4,
+    "scope_post": true,
+    "inventory_post": true,
+    "run_post": true,
+    "mission_control_visible": true,
+    "run_profile_visible": true,
+    "no_overflow": true,
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-270-react-v2-intake-wizard-ai-1440.png"
+  },
+  {
+    "flow": "manual-wizard-create",
+    "width": 1024,
+    "scope_post": true,
+    "inventory_post": true,
+    "run_post": true,
+    "authorization_patch": false,
+    "mission_control_visible": true,
+    "no_overflow": true,
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-270-react-v2-intake-wizard-manual-1024.png"
+  },
+  {
+    "flow": "responsive-manual-grid",
+    "width": 1440,
+    "manual_tile_visible": true,
+    "no_overflow": true,
+    "errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-270-react-v2-intake-wizard-1440.png"
+  },
+  {
+    "flow": "responsive-manual-grid",
+    "width": 768,
+    "manual_tile_visible": true,
+    "no_overflow": true,
+    "errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-270-react-v2-intake-wizard-768.png"
+  },
+  {
+    "flow": "responsive-manual-grid",
+    "width": 375,
+    "manual_tile_visible": true,
+    "no_overflow": true,
+    "errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-270-react-v2-intake-wizard-375.png"
+  }
+]

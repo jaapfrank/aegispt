@@ -1,0 +1,96 @@
+{
+  "id": "backlog-401-stack-hint-extraction-broaden",
+  "task_file": "codex/tasks/backlog-401-stack-hint-extraction-broaden.json",
+  "task_type": "ai_loop",
+  "title": "Stack-hint extraction: broaden matching + add explicit stack_family field from target_intel so #338's augmentation actually fires on live targets",
+  "goal": "Live Gruyere run 2026-05-19 (3e2cfa5b) confirmed that #338's plumbing works (paths_for_stack returns correct values; orchestrator threads stack_hints) but the NORMALIZER does not match what target_intel actually emits. target_intel produced technology_stack=['Python/AppEngine (Google Frontend server)', 'HTML 4.01 Transitional', 'Custom JavaScript (lib.js)', 'Custom backend application'] — NONE of the keywords in `_STACK_KEYWORD_HINTS` (gruyere, tomcat, rails, django, ...) appear. Result: hints=[], no augmentation, /dump.gtl never probed. The 0/17 problem on the info-disclosure category persists. Two fixes are needed: (a) broaden the keyword table to catch the actual strings target_intel emits (AppEngine, App Engine, Python/, Tomcat/), and (b) update target_intel to emit an explicit `stack_family` field on its asset observation (a single registry-key string, not a free-text description) so normalization isn't necessary in the first place.",
+  "scope": "Two-part fix: (1) Extend `_STACK_KEYWORD_HINTS` in `workers/runners/_path_augmentation.py` with App Engine, ASP.NET Core, Spring, etc. patterns; review against typical target_intel output catalogue. (2) Update `workers/runners/target_intel/runner.py` to ALSO emit `attributes_json['stack_family']` as a single registry-key string (`python_gruyere` / `aspnet` / `ruby_rails` / etc.) — derived from Claude's response. `stack_hints_from_observations()` prefers this field when present and falls back to the keyword table only when it's missing.",
+  "status": "queued",
+  "generated_by": "live-validation-20260519",
+  "generation_reason": "Live run 3e2cfa5b against https://google-gruyere.appspot.com/<instance>/ produced 1 critical + 8 high findings (vs 1 high on the May-18 baseline run) — proves #336 + #337 work empirically. But `info_disclosure_probe` never probed `/dump.gtl` because hints=[] from the normalizer. Without this task, #338's augmentation is structurally complete but empirically inert on live Gruyere. Operator pushback 2026-05-19: 'Dus je weet gewoon niet of het daadwerkelijk werkt? Hoe kun je dan zeggen dat het af is?' — they were right; live test exposed the gap.",
+  "source_context": {
+    "queue_index": 339,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_live_reliability_fix",
+    "key_files": [
+      "workers/runners/_path_augmentation.py",
+      "workers/runners/target_intel/runner.py",
+      "workers/tests/test_path_augmentation.py",
+      "workers/tests/test_target_intel_runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Two changes only: broaden normalizer keyword table + add explicit stack_family field to target_intel asset observation. Do NOT add new categories to the path registry. Do NOT change the 5 probe runners. Do NOT touch the orchestrator wiring.",
+    "no_prescriptive_recipes": "Per `feedback_no_prescriptive_recipes`: do NOT add hostname-derived shortcuts (e.g. 'if host contains gruyere → python_gruyere'). The hint must come from target_intel's AI analysis of the actual response, not from hardcoded URL patterns. Test `test_no_gruyere_strings_in_module` must continue to pass.",
+    "ai_owns_classification": "target_intel's Claude prompt is updated to ask for a stack_family classification using a documented vocabulary (the registry keys). The path-augmentation registry only consumes that classification — it doesn't try to do the classification itself."
+  },
+  "success_criteria": [
+    "target_intel's asset observation now carries attributes_json['stack_family'] = a single registry-key string (or null when unknown).",
+    "stack_hints_from_observations() prefers stack_family when present, falls back to keyword table when absent.",
+    "Broadened keyword table catches Python/AppEngine, App Engine, ASP.NET Core, Spring Boot, Express.js, Laravel, Symfony patterns commonly emitted by target_intel.",
+    "Live re-test against Gruyere: hints contains 'python_gruyere' (verifiable in the orchestrator log line 'AI loop: stack_hints=...').",
+    "Live re-test produces a /dump.gtl probe AND an info-disclosure finding flagged HIGH for the Debug Dump content leak.",
+    "No regression on the existing 19 #338 test_path_augmentation tests + the target_intel test suite."
+  ],
+  "likely_touched_files": [
+    "workers/runners/_path_augmentation.py",
+    "workers/runners/target_intel/runner.py",
+    "workers/tests/test_path_augmentation.py",
+    "workers/tests/test_target_intel_runner.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "5 #328-migrated probes (info_disclosure_probe / stored_xss_probe / file_upload_probe / param_pollution_probe / cookie_tamper_probe) — they consume stack_hints unchanged",
+    "workers/orchestration/tasks.py _stack_hints_for_run wiring (it already calls stack_hints_from_observations)",
+    "_AI_PICKER_SYSTEM_PROMPT",
+    "_STACK_PATH_REGISTRY (the path catalog itself is fine; only its key vocabulary may grow as needed)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_path_augmentation.py workers/tests/test_target_intel_runner.py workers/tests/test_info_disclosure_probe.py",
+      "python3 -m compileall -q workers",
+      ".venv/bin/ruff check workers/runners/_path_augmentation.py workers/runners/target_intel/runner.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Live test on Gruyere: stack_family observed in target_intel output, /dump.gtl probed, info-disclosure finding emitted.",
+      "No regression on existing tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with before/after live numbers (target: 3+ Gruyere classes detected vs the 2 currently).",
+      "Update CURRENT_STATE.md.",
+      "Promote the next queued item into NEXT_TASK.md (backlog-386 #340 — SMB/LDAP exec_plan steps was the prior NEXT_TASK before this follow-up was filed)."
+    ]
+  },
+  "out_of_scope": [
+    "Adding new path categories (already covered by #338).",
+    "Hostname-based shortcuts (forbidden by no_prescriptive_recipes).",
+    "Operator-driven stack overrides (separate UX task)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

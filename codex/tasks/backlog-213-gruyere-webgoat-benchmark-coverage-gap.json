@@ -1,0 +1,95 @@
+{
+  "id": "backlog-213-gruyere-webgoat-benchmark-coverage-gap",
+  "task_file": "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json",
+  "task_type": "benchmark_analysis",
+  "title": "Gruyere + WebGoat gap analysis: systematic coverage matrix and missing capability identification",
+  "goal": "Add Google Gruyere and OWASP WebGoat as official benchmark targets in the AegisPT test lab. Run AegisPT against both apps (local instances), record which of the 52 total vulnerabilities are detected vs. missed, and produce a coverage scorecard. This scorecard drives tooling priorities. Gruyere covers: XSS (6 variants), CSRF, XSSI, Path Traversal (2 variants), Client-State Manipulation, CSRF, Remote Code Execution, SQL Injection, DoS (3 variants), Config Disclosure, AJAX Phishing, Buffer Overflow \u2014 20 total. WebGoat covers: Auth Bypass, Bypass Restrictions, Client-Side Filtering, CSRF, Insecure Deserialization, Session Hijacking, HTML Tampering, IDOR, Insecure Login, JWT vulnerabilities, Missing Access Controls, Open Redirect, Password Reset flaws, Path Traversal, Security Misconfiguration, Cookie Spoofing, SQL Injection (classic + advanced + blind), SSRF, Vulnerable Components, XSS (reflected + stored + DOM), XXE, Cryptography, Insufficient Logging \u2014 32 total. Implementation: (1) Add docker-compose entries for local Gruyere and WebGoat instances in the test lab. (2) Create an assessment pack for each target covering all applicable tools at passive + active tier. (3) Run and record: which findings were created, severity, tool that found it. (4) Produce a coverage_report.json: vulnerability_id, expected_detection, actual_detection, tool_used, notes. (5) Any vulnerability with actual_detection=false becomes a gap task.",
+  "scope": "Strategic gap analysis 2026-05-03: compared AegisPT's 33-tool arsenal against Google Gruyere (20 vulnerabilities) and OWASP WebGoat (32 vulnerabilities). Estimated current coverage: Gruyere ~45%, WebGoat ~38%. This is a systematic benchmark run to confirm and document the gap precisely.",
+  "status": "queued",
+  "generated_by": "benchmark-analysis-2026-05-03",
+  "generation_reason": "Systematic comparison against Gruyere and WebGoat confirms significant detection gaps \u2014 benchmark run produces the exact priority list for tooling improvements.",
+  "source_context": {
+    "queue_index": 169,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-99-known-vulnerability-validation-matrix.json",
+      "codex/tasks/backlog-107-benchmark-lab-expansion-foundation.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "benchmark_coverage_validation",
+    "source_documents": [
+      "workers/orchestration/tasks.py",
+      "docker-compose.yml"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only run existing tools against lab targets. Do not implement new detection capabilities in this task \u2014 that is the job of the gap tasks that follow.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Local Gruyere instance runs in docker-compose test lab.",
+    "Local WebGoat instance runs in docker-compose test lab.",
+    "AegisPT runs passive + active scan against both instances.",
+    "coverage_report.json produced with expected vs actual detection per vulnerability.",
+    "Gruyere coverage percentage documented.",
+    "WebGoat coverage percentage documented.",
+    "Gap list produced (vulnerabilities not detected)."
+  ],
+  "likely_touched_files": [
+    "docker-compose.yml",
+    "scripts/bootstrap_kali_host.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Production database",
+    "Existing assessment packs",
+    "Core dispatch logic"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "coverage_report.json exists and documents per-vulnerability detection status.",
+      "Gruyere and WebGoat accessible in test lab.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "New detection capabilities",
+    "Tool implementation",
+    "External target scanning"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

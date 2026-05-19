@@ -1,0 +1,27 @@
+{
+  "base_url": "http://127.0.0.1:8020",
+  "run_id": "4c7bcd1f-9577-45f8-bb99-239fae687c97",
+  "inventory_snapshot_id": "4e79b435-ebc6-4efd-9c6b-f157730e8587",
+  "viewports": [
+    {
+      "width": 1440,
+      "screenshot": "codex/results/backlog-255-assessment-planner-1440-20260507.png",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "screenshot": "codex/results/backlog-255-assessment-planner-1024-20260507.png",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 768,
+      "screenshot": "codex/results/backlog-255-assessment-planner-768-20260507.png",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 375,
+      "screenshot": "codex/results/backlog-255-assessment-planner-375-20260507.png",
+      "horizontal_overflow": false
+    }
+  ]
+}

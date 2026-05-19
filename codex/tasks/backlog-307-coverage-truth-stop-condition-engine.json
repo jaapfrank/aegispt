@@ -1,0 +1,87 @@
+{
+  "id": "backlog-307-coverage-truth-stop-condition-engine",
+  "task_file": "codex/tasks/backlog-307-coverage-truth-stop-condition-engine.json",
+  "task_type": "coverage_truth",
+  "title": "Coverage Truth and Stop-Condition Engine",
+  "goal": "Create a coverage truth engine that tells operators what is proven, what was tested, what is not tested, why additional checks are blocked, and whether the mission has reached a reasonable stop condition for the selected scope, ROE, depth, and evidence requirements.",
+  "scope": "Assessment coverage, stop rules, report truth, and operator clarity.",
+  "status": "queued",
+  "generated_by": "operator-product-strategy",
+  "generation_reason": "The product must avoid false confidence and must know when to continue, wait for prerequisites, ask approval, or stop honestly.",
+  "source_context": {
+    "queue_index": 259,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-306",
+    "broader_theme": "evidence_driven_ai_assessment",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Coverage truth must be derived from stored evidence, runner metadata, and policy state only.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Coverage output separates tested, partially tested, blocked, skipped, not applicable, and not tested surfaces.",
+    "Stop-condition output explains continue, wait, approval-needed, complete-with-gaps, and complete states with evidence and blocker IDs.",
+    "Reports and Mission Control can consume the same coverage truth payload without disagreeing about task counts or gaps."
+  ],
+  "likely_touched_files": [
+    "api/app/services/coverage_truth.py",
+    "api/app/services/reports.py",
+    "api/app/routers/runs.py",
+    "api/tests/test_coverage_truth.py"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "api/app/services/runner_registry.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_coverage_truth.py api/tests/test_reports.py api/tests/test_assessment_chain.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A full-chain fixture reports all chain tasks and honest gaps.",
+      "A blocked prerequisite fixture produces WAIT or complete-with-gaps rather than claiming full coverage.",
+      "Report catalog and API coverage payload agree on counts."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Claiming unsupported coverage",
+    "Executing additional scans",
+    "Changing scope or ROE policy"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,95 @@
+{
+  "id": "backlog-232-ai-reasoning-transparency-summary-thought-action",
+  "task_file": "codex/tasks/backlog-232-ai-reasoning-transparency-summary-thought-action.json",
+  "task_type": "product_slice",
+  "title": "AI reasoning transparency: restructure post-task analysis into Summary\u2192Thought\u2192Action and show each step to operators",
+  "goal": "AutoPenBench (arxiv:2410.03225) proves that separating reasoning into three distinct steps (Summary \u2192 Thought \u2192 Action) reduces LLM hallucinations and prevents action-thought inconsistency. AegisPT's ai_agent.py currently produces a unified Observations/Hypotheses/Proposals output. The reasoning_text is stored in AgentProposal records but never shown to operators in the UI. Two changes needed: (1) Backend: restructure DeterministicPostTaskAnalysisProvider and ChatGPTOAuthPostTaskAnalysisProvider to explicitly produce and store three separate fields in AgentReasoning: summary_text (what happened in the task), thought_text (what does this mean for the engagement), and action_text (what should be done next and why). Map these to the existing observations/hypotheses/proposals structure. Store all three in AgentReasoning.metadata_json or add new columns. (2) Frontend: In Mission Control, when an AI analysis has been run for a task, show a collapsible 'AI Analysis' card below the task in the task list: Summary: [text], Reasoning: [text], Suggested Actions: [proposal list with approve/reject]. This exposes what the AI is 'thinking' and lets operators evaluate reasoning quality before approving proposals. The reasoning_text field already exists on AgentProposal \u2014 surface it.",
+  "scope": "AutoPenBench paper + code audit 2026-05-03: AgentProposal.reasoning_text exists in DB (migrations/20260422_0013_ai_agent_reasoning_ledger.py) but is never rendered in UI. AutoPenBench shows that explicit Summary\u2192Thought\u2192Action separation improves LLM performance. Operators cannot currently evaluate AI reasoning quality.",
+  "status": "queued",
+  "generated_by": "autopenBench-gap-analysis-2026-05-03",
+  "generation_reason": "AutoPenBench proves Summary\u2192Thought\u2192Action separation reduces hallucinations. AegisPT stores reasoning_text but never shows it. Critical for operator trust in AI proposals.",
+  "source_context": {
+    "queue_index": 199,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-205 should be completed first.",
+    "broader_theme": "ai_reasoning_transparency",
+    "source_documents": [
+      "api/app/services/ai_agent.py",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add three reasoning fields and the UI card. Do not change proposal generation logic or approval gates.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "AgentReasoning records store summary_text, thought_text, action_text separately.",
+    "Mission Control task list shows collapsible 'AI Analysis' card per completed task when analysis exists.",
+    "Card shows: Summary (what happened), Reasoning (what it means), Suggested Actions (proposals with approve/reject).",
+    "reasoning_text from AgentProposal is shown per proposal.",
+    "Card hidden when no analysis exists for a task.",
+    "No regression in AI agent or Mission Control E2E tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_agent.py",
+    "api/app/models/control.py",
+    "ui/assets/modules/mission-control.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Proposal approval gates",
+    "Autonomous dispatch logic",
+    "AI provider connections"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AI Analysis card renders in Mission Control.",
+      "Three reasoning fields stored.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "AI agent rewrite",
+    "New reasoning models",
+    "Changing proposal confidence scoring"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

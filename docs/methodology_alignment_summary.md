@@ -65,6 +65,6 @@ The difference is that findings, reports, and workflow language now map to recog
 ## Follow-Up Recommendations
 
 1. Add analyst-editable report metadata for confidence, exploitability, business impact, and remediation ownership.
-2. Introduce dedicated API testing coverage workflows as WSTG API coverage matures in the product.
-3. Add Playwright-backed client-side and business-logic validation flows using the same methodology metadata fields.
+2. Expand the dedicated API-first lane with live-safe benchmark fixtures and richer operator-authored business-flow checks while keeping fuzzing, load testing, and account creation out of scope unless explicitly approved in a future task.
+3. Expand the bounded Playwright-backed validation lane with richer, operator-authored browser journeys while keeping the existing evidence and approval boundaries.
 4. Support precise ASVS requirement identifiers when analysts intentionally attach control references.

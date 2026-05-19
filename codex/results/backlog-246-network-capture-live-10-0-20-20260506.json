@@ -1,0 +1,1059 @@
+{
+  "acceptance_truth": {
+    "arping_live_probe": "blocked_capability_unavailable",
+    "arpspoof_live_proof": "blocked_capability_unavailable",
+    "note": "The runner attempted bounded live tcpdump on the authorized subnet; missing host binaries are recorded as gaps, not green results.",
+    "tcpdump_live_capture": "blocked_capability_unavailable"
+  },
+  "authorization": {
+    "scope": "10.0.20.0/24",
+    "source": "operator message in Codex thread on 2026-05-06"
+  },
+  "collected_at": "2026-05-06T11:28:13.472334+00:00",
+  "host_context": {
+    "address": {
+      "command": [
+        "ip",
+        "-br",
+        "addr",
+        "show",
+        "eth0"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "eth0             UP             10.0.20.46/24 fdaf:5a01:d4af:3987:19ac:b54d:c870:ec7/64 fdaf:5a01:d4af:3987:173:56e3:7417:699c/128 fe80::bb26:24d5:4b02:406d/64 \n"
+    },
+    "binaries": {
+      "arping": null,
+      "arpspoof": null,
+      "ip": "/usr/sbin/ip",
+      "nmap": "/usr/bin/nmap",
+      "tcpdump": null
+    },
+    "interface": "eth0",
+    "ip_neigh": {
+      "command": [
+        "ip",
+        "neigh",
+        "show",
+        "dev",
+        "eth0"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "10.0.20.207 FAILED \n10.0.20.74 lladdr dc:a6:32:ee:4d:dc STALE \n10.0.20.203 FAILED \n10.0.20.201 FAILED \n10.0.20.215 FAILED \n10.0.20.84 lladdr 9c:05:d6:5e:d4:db STALE \n10.0.20.211 FAILED \n10.0.20.80 FAILED \n10.0.20.92 FAILED \n10.0.20.221 FAILED \n10.0.20.219 FAILED \n10.0.20.88 FAILED \n10.0.20.217 FAILED \n10.0.20.102 FAILED \n10.0.20.229 lladdr 14:eb:b6:c1:39:03 STALE \n10.0.20.96 lladdr 3c:39:e7:23:22:7c STALE \n10.0.20.110 FAILED \n10.0.20.239 FAILED \n10.0.20.108 FAILED \n10.0.20.237 FAILED \n10.0.20.106 FAILED \n10.0.20.233 FAILED \n10.0.20.118 FAILED \n10.0.20.247 FAILED \n10.0.20.116 lladdr 54:2a:1b:48:67:0e STALE \n10.0.20.245 FAILED \n10.0.20.243 FAILED \n10.0.20.112 FAILED \n10.0.20.241 FAILED \n10.0.20.126 FAILED \n10.0.20.124 FAILED \n10.0.20.253 FAILED \n10.0.20.251 FAILED \n10.0.20.120 FAILED \n10.0.20.249 FAILED \n10.0.20.6 lladdr f4:e2:c6:7b:24:89 STALE \n10.0.20.135 FAILED \n10.0.20.133 lladdr 28:70:4e:35:60:ad STALE \n10.0.20.151 FAILED \n10.0.20.20 FAILED \n10.0.20.145 lladdr 70:85:c2:60:bb:52 STALE \n10.0.20.28 FAILED \n10.0.20.157 FAILED \n10.0.20.24 lladdr 70:c9:32:37:c8:6f STALE \n10.0.20.38 FAILED \n10.0.20.36 FAILED \n10.0.20.165 FAILED \n10.0.20.34 FAILED \n10.0.20.171 lladdr 00:17:88:29:e0:1c STALE \n10.0.20.40 FAILED \n10.0.20.169 FAILED \n10.0.20.183 FAILED \n10.0.20.48 FAILED \n10.0.20.191 FAILED \n10.0.20.189 lladdr aa:90:a2:67:08:17 STALE \n10.0.20.187 FAILED \n10.0.20.198 FAILED \n10.0.20.194 FAILED \n10.0.20.192 FAILED \n10.0.20.65 lladdr 14:eb:b6:c1:44:65 STALE \n10.0.20.206 FAILED \n10.0.20.204 lladdr e4:38:83:7b:c2:80 STALE \n10.0.20.202 FAILED \n10.0.20.75 FAILED \n10.0.20.200 lladdr 9c:05:d6:d4:68:d2 STALE \n10.0.20.210 FAILED \n10.0.20.218 FAILED \n10.0.20.91 FAILED \n10.0.20.216 FAILED \n10.0.20.230 lladdr f4:e2:c6:d5:f0:88 STALE \n10.0.20.103 lladdr 68:a4:0e:12:d2:cc STALE \n10.0.20.228 FAILED \n10.0.20.238 FAILED \n10.0.20.111 FAILED \n10.0.20.109 lladdr f4:e2:c6:ad:75:c3 STALE \n10.0.20.234 lladdr e4:38:83:7b:b1:46 STALE \n10.0.20.107 FAILED \n10.0.20.105 FAILED \n10.0.20.246 FAILED \n10.0.20.244 FAILED \n10.0.20.117 FAILED \n10.0.20.242 FAILED \n10.0.20.240 FAILED \n10.0.20.113 FAILED \n10.0.20.254 lladdr dc:e5:5b:4a:14:11 STALE \n10.0.20.127 FAILED \n10.0.20.252 FAILED \n10.0.20.250 FAILED \n10.0.20.123 FAILED \n10.0.20.248 lladdr b8:2c:a0:48:76:5f STALE \n10.0.20.121 FAILED \n10.0.20.134 lladdr 44:15:24:af:90:53 STALE \n10.0.20.1 lladdr 9e:05:d6:59:ea:3c REACHABLE \n10.0.20.136 FAILED \n10.0.20.31 FAILED \n10.0.20.156 lladdr f4:e2:c6:7b:24:26 STALE \n10.0.20.29 FAILED \n10.0.20.154 FAILED \n10.0.20.39 FAILED \n10.0.20.37 FAILED \n10.0.20.162 FAILED \n10.0.20.160 lladdr 4c:3b:df:88:99:81 STALE \n10.0.20.33 FAILED \n10.0.20.170 FAILED \n10.0.20.43 lladdr 80:8a:f7:0b:4d:e3 STALE \n10.0.20.168 FAILED \n10.0.20.41 FAILED \n10.0.20.51 FAILED \n10.0.20.49 FAILED \n10.0.20.190 lladdr f4:e2:c6:71:c8:d9 STALE \n10.0.20.188 lladdr 00:05:cd:7b:2a:2e STALE \n10.0.20.61 lladdr f4:e2:c6:71:b5:dd STALE \n10.0.20.186 FAILED \n10.0.20.184 FAILED \n10.0.20.199 FAILED \n10.0.20.197 FAILED \n10.0.20.195 FAILED \n10.0.20.193 FAILED \n"
+    },
+    "route": {
+      "command": [
+        "ip",
+        "route",
+        "show",
+        "10.0.20.0/24"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "10.0.20.0/24 dev eth0 proto kernel scope link metric 286 \n"
+    },
+    "safe_discovery": {
+      "command": [
+        "nmap",
+        "-sn",
+        "-n",
+        "10.0.20.0/24",
+        "--host-timeout",
+        "10s"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "Starting Nmap 7.94SVN ( https://nmap.org ) at 2026-05-06 13:28 CEST\nNmap scan report for 10.0.20.1\nHost is up (0.0065s latency).\nNmap scan report for 10.0.20.6\nHost is up (0.0064s latency).\nNmap scan report for 10.0.20.24\nHost is up (0.013s latency).\nNmap scan report for 10.0.20.43\nHost is up (0.0094s latency).\nNmap scan report for 10.0.20.46\nHost is up (0.000032s latency).\nNmap scan report for 10.0.20.61\nHost is up (0.0064s latency).\nNmap scan report for 10.0.20.65\nHost is up (0.0067s latency).\nNmap scan report for 10.0.20.74\nHost is up (0.0069s latency).\nNmap scan report for 10.0.20.84\nHost is up (0.0089s latency).\nNmap scan report for 10.0.20.96\nHost is up (0.011s latency).\nNmap scan report for 10.0.20.103\nHost is up (0.011s latency).\nNmap scan report for 10.0.20.109\nHost is up (0.0073s latency).\nNmap scan report for 10.0.20.116\nHost is up (0.0097s latency).\nNmap scan report for 10.0.20.133\nHost is up (0.0069s latency).\nNmap scan report for 10.0.20.134\nHost is up (0.012s latency).\nNmap scan report for 10.0.20.156\nHost is up (0.0054s latency).\nNmap scan report for 10.0.20.171\nHost is up (0.0047s latency).\nNmap scan report for 10.0.20.188\nHost is up (0.0078s latency).\nNmap scan report for 10.0.20.189\nHost is up (0.056s latency).\nNmap scan report for 10.0.20.190\nHost is up (0.0064s latency).\nNmap scan report for 10.0.20.200\nHost is up (0.0079s latency).\nNmap scan report for 10.0.20.204\nHost is up (0.0041s latency).\nNmap scan report for 10.0.20.229\nHost is up (0.058s latency).\nNmap scan report for 10.0.20.230\nHost is up (0.0078s latency).\nNmap scan report for 10.0.20.234\nHost is up (0.0022s latency).\nNmap scan report for 10.0.20.248\nHost is up (0.018s latency).\nNmap scan report for 10.0.20.254\nHost is up (0.0090s latency).\nNmap done: 256 IP addresses (27 hosts up) scanned in 2.02 seconds\n"
+    }
+  },
+  "runner_acceptance": {
+    "arp_spoof_proof_execution": {
+      "artifact": {
+        "analysis_findings": [],
+        "arp_consistency": {
+          "anomalies": [],
+          "arp_probe_count": 1,
+          "arp_probe_enabled": false,
+          "dynamic_arp_inspection_status": "not_indicated",
+          "entries": [
+            {
+              "interface": null,
+              "ip": "10.0.20.74",
+              "mac": "dc:a6:32:ee:4d:dc",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.84",
+              "mac": "9c:05:d6:5e:d4:db",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.229",
+              "mac": "14:eb:b6:c1:39:03",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.96",
+              "mac": "3c:39:e7:23:22:7c",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.116",
+              "mac": "54:2a:1b:48:67:0e",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.6",
+              "mac": "f4:e2:c6:7b:24:89",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.133",
+              "mac": "28:70:4e:35:60:ad",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.145",
+              "mac": "70:85:c2:60:bb:52",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.24",
+              "mac": "70:c9:32:37:c8:6f",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.171",
+              "mac": "00:17:88:29:e0:1c",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.189",
+              "mac": "aa:90:a2:67:08:17",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.65",
+              "mac": "14:eb:b6:c1:44:65",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.204",
+              "mac": "e4:38:83:7b:c2:80",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.200",
+              "mac": "9c:05:d6:d4:68:d2",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.230",
+              "mac": "f4:e2:c6:d5:f0:88",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.103",
+              "mac": "68:a4:0e:12:d2:cc",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.109",
+              "mac": "f4:e2:c6:ad:75:c3",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.234",
+              "mac": "e4:38:83:7b:b1:46",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.254",
+              "mac": "dc:e5:5b:4a:14:11",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.248",
+              "mac": "b8:2c:a0:48:76:5f",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.134",
+              "mac": "44:15:24:af:90:53",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.1",
+              "mac": "9e:05:d6:59:ea:3c",
+              "source": "ip-neigh",
+              "state": "reachable"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.156",
+              "mac": "f4:e2:c6:7b:24:26",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.160",
+              "mac": "4c:3b:df:88:99:81",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.43",
+              "mac": "80:8a:f7:0b:4d:e3",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.190",
+              "mac": "f4:e2:c6:71:c8:d9",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.188",
+              "mac": "00:05:cd:7b:2a:2e",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.61",
+              "mac": "f4:e2:c6:71:b5:dd",
+              "source": "ip-neigh",
+              "state": "stale"
+            }
+          ],
+          "expected_gateway_mac": null,
+          "gateway_ip": "10.0.20.1"
+        },
+        "arp_spoof_proof": {
+          "authorized": true,
+          "duration_seconds": 2,
+          "executed": false,
+          "reason": "arpspoof binary is unavailable on this runner host.",
+          "requested": true,
+          "restoration_required": true,
+          "single_target": "10.0.20.6",
+          "status": "blocked_capability_unavailable"
+        },
+        "capture": {
+          "credential_values_stored": false,
+          "duration_seconds": 1,
+          "exit_code": 127,
+          "packet_limit": 10,
+          "raw_payload_stored": false,
+          "status": "failed",
+          "tcpdump_filter": "( net 10.0.20.0/24 )"
+        },
+        "cleartext_protocols": [],
+        "commands": [
+          "tcpdump -i eth0 -nn -s 0 -A -l -c 10 ( net 10.0.20.0/24 )"
+        ],
+        "credential_signals": [],
+        "elapsed_seconds": 0.063,
+        "interface": "eth0",
+        "inventory": {
+          "arp_table": [
+            {
+              "interface": null,
+              "ip": "10.0.20.74",
+              "mac": "dc:a6:32:ee:4d:dc",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.84",
+              "mac": "9c:05:d6:5e:d4:db",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.229",
+              "mac": "14:eb:b6:c1:39:03",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.96",
+              "mac": "3c:39:e7:23:22:7c",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.116",
+              "mac": "54:2a:1b:48:67:0e",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.6",
+              "mac": "f4:e2:c6:7b:24:89",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.133",
+              "mac": "28:70:4e:35:60:ad",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.145",
+              "mac": "70:85:c2:60:bb:52",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.24",
+              "mac": "70:c9:32:37:c8:6f",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.171",
+              "mac": "00:17:88:29:e0:1c",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.189",
+              "mac": "aa:90:a2:67:08:17",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.65",
+              "mac": "14:eb:b6:c1:44:65",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.204",
+              "mac": "e4:38:83:7b:c2:80",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.200",
+              "mac": "9c:05:d6:d4:68:d2",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.230",
+              "mac": "f4:e2:c6:d5:f0:88",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.103",
+              "mac": "68:a4:0e:12:d2:cc",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.109",
+              "mac": "f4:e2:c6:ad:75:c3",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.234",
+              "mac": "e4:38:83:7b:b1:46",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.254",
+              "mac": "dc:e5:5b:4a:14:11",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.248",
+              "mac": "b8:2c:a0:48:76:5f",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.134",
+              "mac": "44:15:24:af:90:53",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.1",
+              "mac": "9e:05:d6:59:ea:3c",
+              "source": "ip-neigh",
+              "state": "reachable"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.156",
+              "mac": "f4:e2:c6:7b:24:26",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.160",
+              "mac": "4c:3b:df:88:99:81",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.43",
+              "mac": "80:8a:f7:0b:4d:e3",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.190",
+              "mac": "f4:e2:c6:71:c8:d9",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.188",
+              "mac": "00:05:cd:7b:2a:2e",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.61",
+              "mac": "f4:e2:c6:71:b5:dd",
+              "source": "ip-neigh",
+              "state": "stale"
+            }
+          ],
+          "confidence": 0.68,
+          "hosts": [
+            "10.0.20.1",
+            "10.0.20.103",
+            "10.0.20.109",
+            "10.0.20.116",
+            "10.0.20.133",
+            "10.0.20.134",
+            "10.0.20.145",
+            "10.0.20.156",
+            "10.0.20.160",
+            "10.0.20.171",
+            "10.0.20.188",
+            "10.0.20.189",
+            "10.0.20.190",
+            "10.0.20.200",
+            "10.0.20.204",
+            "10.0.20.229",
+            "10.0.20.230",
+            "10.0.20.234",
+            "10.0.20.24",
+            "10.0.20.248",
+            "10.0.20.254",
+            "10.0.20.43",
+            "10.0.20.6",
+            "10.0.20.61",
+            "10.0.20.65",
+            "10.0.20.74",
+            "10.0.20.84",
+            "10.0.20.96"
+          ],
+          "services": []
+        },
+        "mode": "arp-spoof-proof",
+        "notes": [
+          "tcpdump capture did not complete successfully; stderr was recorded in runner stderr only."
+        ],
+        "runner": "network-capture",
+        "runner_digest": "workers.network_capture.runner:v1",
+        "scope_networks": [
+          "10.0.20.0/24"
+        ],
+        "targets": [
+          "10.0.20.0/24"
+        ]
+      },
+      "exit_code": 0,
+      "metadata": {
+        "arp_anomaly_count": 0,
+        "capture_status": "failed",
+        "credential_signal_count": 0,
+        "finding_count": 0,
+        "mode": "arp-spoof-proof",
+        "runner_digest": "workers.network_capture.runner:v1",
+        "status": "completed_with_gaps"
+      },
+      "stderr": "[Errno 2] No such file or directory: 'tcpdump'",
+      "stdout": "network-capture arp-spoof-proof: capture=failed, 0 credential/token signals, 0 ARP anomalies, 0 findings"
+    },
+    "passive_execution": {
+      "artifact": {
+        "analysis_findings": [],
+        "arp_consistency": {
+          "anomalies": [],
+          "arp_probe_count": 1,
+          "arp_probe_enabled": false,
+          "dynamic_arp_inspection_status": "not_indicated",
+          "entries": [
+            {
+              "interface": null,
+              "ip": "10.0.20.74",
+              "mac": "dc:a6:32:ee:4d:dc",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.84",
+              "mac": "9c:05:d6:5e:d4:db",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.229",
+              "mac": "14:eb:b6:c1:39:03",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.96",
+              "mac": "3c:39:e7:23:22:7c",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.116",
+              "mac": "54:2a:1b:48:67:0e",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.6",
+              "mac": "f4:e2:c6:7b:24:89",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.133",
+              "mac": "28:70:4e:35:60:ad",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.145",
+              "mac": "70:85:c2:60:bb:52",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.24",
+              "mac": "70:c9:32:37:c8:6f",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.171",
+              "mac": "00:17:88:29:e0:1c",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.189",
+              "mac": "aa:90:a2:67:08:17",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.65",
+              "mac": "14:eb:b6:c1:44:65",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.204",
+              "mac": "e4:38:83:7b:c2:80",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.200",
+              "mac": "9c:05:d6:d4:68:d2",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.230",
+              "mac": "f4:e2:c6:d5:f0:88",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.103",
+              "mac": "68:a4:0e:12:d2:cc",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.109",
+              "mac": "f4:e2:c6:ad:75:c3",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.234",
+              "mac": "e4:38:83:7b:b1:46",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.254",
+              "mac": "dc:e5:5b:4a:14:11",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.248",
+              "mac": "b8:2c:a0:48:76:5f",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.134",
+              "mac": "44:15:24:af:90:53",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.1",
+              "mac": "9e:05:d6:59:ea:3c",
+              "source": "ip-neigh",
+              "state": "reachable"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.156",
+              "mac": "f4:e2:c6:7b:24:26",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.160",
+              "mac": "4c:3b:df:88:99:81",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.43",
+              "mac": "80:8a:f7:0b:4d:e3",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.190",
+              "mac": "f4:e2:c6:71:c8:d9",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.188",
+              "mac": "00:05:cd:7b:2a:2e",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.61",
+              "mac": "f4:e2:c6:71:b5:dd",
+              "source": "ip-neigh",
+              "state": "stale"
+            }
+          ],
+          "expected_gateway_mac": null,
+          "gateway_ip": "10.0.20.1"
+        },
+        "arp_spoof_proof": {
+          "authorized": false,
+          "duration_seconds": 10,
+          "executed": false,
+          "requested": false,
+          "restoration_required": true,
+          "single_target": null,
+          "status": "not_requested"
+        },
+        "capture": {
+          "credential_values_stored": false,
+          "duration_seconds": 1,
+          "exit_code": 127,
+          "packet_limit": 10,
+          "raw_payload_stored": false,
+          "status": "failed",
+          "tcpdump_filter": "( net 10.0.20.0/24 )"
+        },
+        "cleartext_protocols": [],
+        "commands": [
+          "tcpdump -i eth0 -nn -s 0 -A -l -c 10 ( net 10.0.20.0/24 )"
+        ],
+        "credential_signals": [],
+        "elapsed_seconds": 0.034,
+        "interface": "eth0",
+        "inventory": {
+          "arp_table": [
+            {
+              "interface": null,
+              "ip": "10.0.20.74",
+              "mac": "dc:a6:32:ee:4d:dc",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.84",
+              "mac": "9c:05:d6:5e:d4:db",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.229",
+              "mac": "14:eb:b6:c1:39:03",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.96",
+              "mac": "3c:39:e7:23:22:7c",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.116",
+              "mac": "54:2a:1b:48:67:0e",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.6",
+              "mac": "f4:e2:c6:7b:24:89",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.133",
+              "mac": "28:70:4e:35:60:ad",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.145",
+              "mac": "70:85:c2:60:bb:52",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.24",
+              "mac": "70:c9:32:37:c8:6f",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.171",
+              "mac": "00:17:88:29:e0:1c",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.189",
+              "mac": "aa:90:a2:67:08:17",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.65",
+              "mac": "14:eb:b6:c1:44:65",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.204",
+              "mac": "e4:38:83:7b:c2:80",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.200",
+              "mac": "9c:05:d6:d4:68:d2",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.230",
+              "mac": "f4:e2:c6:d5:f0:88",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.103",
+              "mac": "68:a4:0e:12:d2:cc",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.109",
+              "mac": "f4:e2:c6:ad:75:c3",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.234",
+              "mac": "e4:38:83:7b:b1:46",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.254",
+              "mac": "dc:e5:5b:4a:14:11",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.248",
+              "mac": "b8:2c:a0:48:76:5f",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.134",
+              "mac": "44:15:24:af:90:53",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.1",
+              "mac": "9e:05:d6:59:ea:3c",
+              "source": "ip-neigh",
+              "state": "reachable"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.156",
+              "mac": "f4:e2:c6:7b:24:26",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.160",
+              "mac": "4c:3b:df:88:99:81",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.43",
+              "mac": "80:8a:f7:0b:4d:e3",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.190",
+              "mac": "f4:e2:c6:71:c8:d9",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.188",
+              "mac": "00:05:cd:7b:2a:2e",
+              "source": "ip-neigh",
+              "state": "stale"
+            },
+            {
+              "interface": null,
+              "ip": "10.0.20.61",
+              "mac": "f4:e2:c6:71:b5:dd",
+              "source": "ip-neigh",
+              "state": "stale"
+            }
+          ],
+          "confidence": 0.68,
+          "hosts": [
+            "10.0.20.1",
+            "10.0.20.103",
+            "10.0.20.109",
+            "10.0.20.116",
+            "10.0.20.133",
+            "10.0.20.134",
+            "10.0.20.145",
+            "10.0.20.156",
+            "10.0.20.160",
+            "10.0.20.171",
+            "10.0.20.188",
+            "10.0.20.189",
+            "10.0.20.190",
+            "10.0.20.200",
+            "10.0.20.204",
+            "10.0.20.229",
+            "10.0.20.230",
+            "10.0.20.234",
+            "10.0.20.24",
+            "10.0.20.248",
+            "10.0.20.254",
+            "10.0.20.43",
+            "10.0.20.6",
+            "10.0.20.61",
+            "10.0.20.65",
+            "10.0.20.74",
+            "10.0.20.84",
+            "10.0.20.96"
+          ],
+          "services": []
+        },
+        "mode": "passive",
+        "notes": [
+          "tcpdump capture did not complete successfully; stderr was recorded in runner stderr only."
+        ],
+        "runner": "network-capture",
+        "runner_digest": "workers.network_capture.runner:v1",
+        "scope_networks": [
+          "10.0.20.0/24"
+        ],
+        "targets": [
+          "10.0.20.0/24"
+        ]
+      },
+      "exit_code": 0,
+      "metadata": {
+        "arp_anomaly_count": 0,
+        "capture_status": "failed",
+        "credential_signal_count": 0,
+        "finding_count": 0,
+        "mode": "passive",
+        "runner_digest": "workers.network_capture.runner:v1",
+        "status": "completed_with_gaps"
+      },
+      "stderr": "[Errno 2] No such file or directory: 'tcpdump'",
+      "stdout": "network-capture passive: capture=failed, 0 credential/token signals, 0 ARP anomalies, 0 findings"
+    }
+  },
+  "task": "Network traffic capture runner: tcpdump passive capture + ARP poisoning detection"
+}

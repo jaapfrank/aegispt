@@ -1,0 +1,106 @@
+{
+  "id": "backlog-42-ai-proposal-review-insights-ui-foundation",
+  "task_file": "codex/tasks/backlog-42-ai-proposal-review-insights-ui-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "AI Proposal Review and Insights UI Foundation",
+  "goal": "Expose AI reasoning and pending proposals to operators with explicit review controls and audit truth.",
+  "scope": "Add API and Mission Control UI surfaces for AI reasoning records, pending proposals, approve/reject decisions, and an Insights panel that shows reasoning provenance. Approved proposals may only enter existing operator-controlled flows and must not bypass scope, approval, pack validation, deployment, or runtime binding.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AI_PENTESTING_AGENT.md requires operator-visible proposals, reasoning transparency, and approve/reject controls before AI suggestions are useful.",
+  "source_context": {
+    "queue_index": 42,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/ui_mission_control.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_operator_review",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ui_mission_control.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Review UI only. Do not create a shadow task queue, auto-approve intrusive actions, or hide proposal provenance.",
+    "runtime_mutation": false,
+    "operator_control_required": true
+  },
+  "success_criteria": [
+    "Operators can list reasoning records and proposals for a selected run.",
+    "Proposal approval/rejection is auditable and actor-attributed.",
+    "UI copy distinguishes suggestions from executed tasks.",
+    "Approval paths reuse existing run/profile/approval controls instead of bypassing them.",
+    "Tests cover read, approve, reject, disabled, and forbidden-action cases."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/runs.py",
+    "api/app/schemas/runs.py",
+    "api/app/services/ai_agent.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "api/tests/test_ai_agent_reasoning.py",
+    "docs/ui_mission_control.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "runtime worker execution semantics",
+    "uncontrolled MCP action tools"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_agent_reasoning.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AI proposals are visibly review-only until approved.",
+      "Approval or rejection is audit logged.",
+      "No approval path bypasses existing platform gates."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Post-task AI analysis proposal foundation is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Operator review statuses and forbidden action classes are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with proposal review UI changes and validation evidence.",
+      "Update CURRENT_STATE.md with AI proposal review behavior and remaining execution limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Generic AI chat",
+    "Automatic run dispatch",
+    "Bypassing approvals",
+    "Changing finding schema fields",
+    "Unreviewed intrusive actions"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

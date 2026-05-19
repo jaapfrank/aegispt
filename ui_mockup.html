@@ -1,0 +1,990 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AegisPT — UI Mockup v2</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Sidebar — dark */
+  --sb-bg: #0d1220;
+  --sb-text: rgba(180,200,230,0.72);
+  --sb-text-active: #e4eeff;
+  --sb-active-bg: rgba(94,207,255,0.1);
+  --sb-active-border: #5ecfff;
+  --sb-border: rgba(120,177,212,0.12);
+  --sb-label: rgba(140,170,210,0.38);
+
+  /* Content — light */
+  --c-bg: #f5f7fa;
+  --c-surface: #ffffff;
+  --c-surface2: #f0f3f8;
+  --c-border: #e2e8f0;
+  --c-border-strong: #c8d4e8;
+  --c-text: #0f1923;
+  --c-text-soft: #3d5166;
+  --c-text-muted: #7a90a8;
+
+  /* Topbar */
+  --tb-bg: #0d1220;
+  --tb-border: rgba(120,177,212,0.15);
+
+  /* Accents */
+  --cyan: #0ea5e9;
+  --cyan-bg: rgba(14,165,233,0.08);
+  --cyan-border: rgba(14,165,233,0.25);
+  --amber: #f59e0b;
+  --amber-bg: rgba(245,158,11,0.08);
+  --green: #10b981;
+  --green-bg: rgba(16,185,129,0.08);
+  --red: #ef4444;
+  --red-bg: rgba(239,68,68,0.07);
+  --violet: #8b5cf6;
+  --violet-bg: rgba(139,92,246,0.1);
+
+  --r: 8px;
+  --r-sm: 5px;
+  --r-xs: 3px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+html, body { height: 100%; background: var(--c-bg); color: var(--c-text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.5; overflow: hidden; }
+
+/* ─── TOPBAR ─── */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 48px;
+  display: flex; align-items: center;
+  background: var(--tb-bg); border-bottom: 1px solid var(--tb-border);
+  z-index: 200;
+}
+.tb-brand {
+  display: flex; align-items: center; gap: 9px;
+  padding: 0 18px; border-right: 1px solid var(--tb-border);
+  min-width: 200px; height: 100%; flex-shrink: 0;
+}
+.tb-mark {
+  width: 24px; height: 24px; background: var(--cyan); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; color: #060d18; flex-shrink: 0;
+}
+.tb-name { font-size: 14px; font-weight: 600; color: #e4eeff; letter-spacing: 0.01em; }
+.tb-engagement {
+  display: flex; align-items: center; gap: 10px; flex: 1;
+  padding: 0 18px; height: 100%; border-right: 1px solid var(--tb-border);
+  cursor: pointer;
+}
+.tb-eng-label { font-size: 11px; color: rgba(140,170,210,0.5); }
+.tb-eng-name { font-size: 13px; color: rgba(200,220,245,0.85); }
+.tb-eng-chevron { color: rgba(140,170,210,0.4); font-size: 11px; margin-left: 2px; }
+.tb-status {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 16px; height: 100%; border-right: 1px solid var(--tb-border);
+  cursor: pointer;
+}
+.tb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); animation: blink-dot 1.6s ease-in-out infinite; }
+@keyframes blink-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.tb-status-text { font-size: 12px; color: var(--cyan); font-weight: 500; }
+.tb-right { display: flex; align-items: center; padding: 0 12px; gap: 2px; }
+.tb-btn {
+  width: 32px; height: 32px; border-radius: 6px; border: none;
+  background: transparent; color: rgba(160,185,220,0.65); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+  transition: background 0.12s, color 0.12s;
+}
+.tb-btn:hover { background: rgba(255,255,255,0.07); color: rgba(200,220,245,0.9); }
+.tb-actor {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 14px 0 10px; border-left: 1px solid var(--tb-border); height: 100%; cursor: pointer;
+}
+.tb-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--violet); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: white; }
+.tb-actor-name { font-size: 12px; color: rgba(200,220,245,0.8); }
+
+/* ─── LAYOUT ─── */
+.layout { display: grid; grid-template-columns: 200px minmax(0,1fr); height: calc(100vh - 48px); margin-top: 48px; }
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  background: var(--sb-bg); border-right: 1px solid var(--sb-border);
+  display: flex; flex-direction: column; overflow-y: auto;
+  padding: 10px 0;
+}
+.sb-new {
+  margin: 4px 12px 12px; padding: 7px 12px;
+  border: 1px solid rgba(94,207,255,0.25); border-radius: var(--r);
+  background: transparent; color: #5ecfff; font-size: 12px; font-weight: 500;
+  cursor: pointer; display: flex; align-items: center; gap: 6px;
+  transition: background 0.1s; font-family: inherit;
+}
+.sb-new:hover { background: rgba(94,207,255,0.08); }
+.sb-section { padding: 10px 14px 3px; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--sb-label); }
+.sb-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+  font-size: 13px; color: var(--sb-text); cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  border-right: 2px solid transparent;
+}
+.sb-item:hover { background: rgba(255,255,255,0.04); color: rgba(200,220,245,0.9); }
+.sb-item.active { background: var(--sb-active-bg); color: var(--sb-text-active); border-right-color: var(--sb-active-border); }
+.sb-icon { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; opacity: 0.7; }
+.sb-item.active .sb-icon { opacity: 1; }
+.sb-count { margin-left: auto; background: rgba(239,68,68,0.15); color: #f87171; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+.sb-spacer { flex: 1; min-height: 12px; }
+.sb-divider { height: 1px; background: var(--sb-border); margin: 6px 12px; }
+.run-card {
+  margin: 8px 12px; padding: 10px; border-radius: var(--r);
+  background: rgba(14,165,233,0.07); border: 1px solid rgba(14,165,233,0.2);
+}
+.run-card-label { font-size: 10px; color: rgba(140,170,210,0.5); letter-spacing: 0.05em; margin-bottom: 3px; }
+.run-card-name { font-size: 12px; color: #5ecfff; font-weight: 500; margin-bottom: 6px; }
+.run-bar { height: 3px; background: rgba(94,207,255,0.12); border-radius: 2px; }
+.run-fill { height: 100%; width: 58%; background: var(--cyan); border-radius: 2px; animation: fill-pulse 2s ease-in-out infinite; }
+@keyframes fill-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* ─── STAGE ─── */
+.stage { overflow-y: auto; background: var(--c-bg); }
+.screen { display: none; padding: 24px; }
+.screen.active { display: block; }
+
+/* ─── TYPOGRAPHY ─── */
+.page-title { font-size: 22px; font-weight: 700; color: var(--c-text); }
+.page-sub { font-size: 13px; color: var(--c-text-muted); margin-top: 2px; }
+.section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-text-muted); margin-bottom: 10px; }
+
+/* ─── CARDS & PANELS ─── */
+.card {
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: var(--r); box-shadow: var(--shadow);
+}
+.card-hd { padding: 12px 16px; border-bottom: 1px solid var(--c-border); display: flex; align-items: center; justify-content: space-between; }
+.card-hd-title { font-size: 13px; font-weight: 600; color: var(--c-text); }
+.card-hd-meta { font-size: 11px; color: var(--c-text-muted); }
+.card-body { padding: 16px; }
+
+/* ─── BADGES ─── */
+.badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: var(--r-xs); font-size: 11px; font-weight: 600; }
+.badge-red { background: var(--red-bg); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+.badge-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245,158,11,0.2); }
+.badge-green { background: var(--green-bg); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+.badge-cyan { background: var(--cyan-bg); color: var(--cyan); border: 1px solid var(--cyan-border); }
+.badge-violet { background: var(--violet-bg); color: var(--violet); border: 1px solid rgba(139,92,246,0.2); }
+.badge-gray { background: var(--c-surface2); color: var(--c-text-muted); border: 1px solid var(--c-border); }
+
+/* ─── BUTTONS ─── */
+.btn { padding: 6px 14px; border-radius: var(--r-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid; transition: all 0.1s; font-family: inherit; }
+.btn-primary { background: var(--cyan); border-color: var(--cyan); color: white; }
+.btn-primary:hover { background: #0284c7; border-color: #0284c7; }
+.btn-secondary { background: var(--c-surface); border-color: var(--c-border-strong); color: var(--c-text-soft); }
+.btn-secondary:hover { background: var(--c-surface2); border-color: var(--c-border-strong); }
+.btn-danger { background: transparent; border-color: rgba(239,68,68,0.4); color: var(--red); }
+.btn-danger:hover { background: var(--red-bg); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center; }
+
+/* ══════════════════════════════════════════════════════
+   MISSION CONTROL
+══════════════════════════════════════════════════════ */
+.mc-grid { display: grid; grid-template-columns: 1fr 1fr 300px; gap: 16px; }
+
+/* Scan Map */
+.scan-map-wrap { position: relative; }
+.scan-map-inner { height: 340px; background: #0a1020; border-radius: var(--r); overflow: hidden; position: relative; }
+.scan-map-label { position: absolute; top: 10px; left: 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(94,207,255,0.5); font-family: monospace; }
+.scan-map-live { position: absolute; top: 10px; right: 10px; display: flex; align-items: center; gap: 5px; font-size: 10px; color: #5ecfff; }
+.scan-dot { width: 6px; height: 6px; border-radius: 50%; background: #5ecfff; animation: blink-dot 1.4s ease-in-out infinite; }
+
+/* Task list */
+.task-list { display: flex; flex-direction: column; gap: 6px; }
+.task-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border-radius: var(--r-sm); border: 1px solid var(--c-border); background: var(--c-surface);
+  font-size: 12px; transition: border-color 0.15s;
+}
+.task-row.running {
+  border-color: rgba(14,165,233,0.3);
+  background: linear-gradient(90deg, #fff 0%, rgba(14,165,233,0.04) 40%, rgba(14,165,233,0.08) 50%, rgba(14,165,233,0.04) 60%, #fff 100%);
+  background-size: 200% 100%;
+  animation: shimmer-light 1.8s ease-in-out infinite;
+}
+@keyframes shimmer-light { 0%{background-position:-200% center} 100%{background-position:200% center} }
+.task-row.failed { border-color: rgba(239,68,68,0.25); }
+.task-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.task-status.running { background: var(--cyan); animation: blink-dot 1.4s ease-in-out infinite; }
+.task-status.done { background: var(--green); }
+.task-status.queued { background: var(--c-border-strong); }
+.task-status.failed { background: var(--red); }
+.task-tool { font-weight: 600; color: var(--c-text); min-width: 54px; }
+.task-target { flex: 1; color: var(--c-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-result { font-size: 11px; }
+
+/* Sev bars */
+.sev-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.sev-label { font-size: 12px; color: var(--c-text-muted); min-width: 56px; }
+.sev-track { flex: 1; height: 6px; background: var(--c-surface2); border-radius: 3px; overflow: hidden; }
+.sev-bar { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+.sev-bar.c { background: var(--red); }
+.sev-bar.h { background: var(--amber); }
+.sev-bar.m { background: #fbbf24; }
+.sev-bar.l { background: var(--green); }
+.sev-n { font-size: 12px; font-weight: 600; min-width: 20px; text-align: right; }
+.sev-n.c { color: var(--red); }
+.sev-n.h { color: var(--amber); }
+
+/* AI Signal — dark panel on light page */
+.ai-panel {
+  background: #0d1525; border: 1px solid rgba(120,177,212,0.15);
+  border-radius: var(--r); overflow: hidden;
+}
+.ai-panel-hd {
+  padding: 11px 14px; border-bottom: 1px solid rgba(120,177,212,0.1);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ai-panel-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(160,185,220,0.6); }
+.ai-live { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5ecfff; }
+.ai-body { padding: 12px; max-height: 360px; overflow-y: auto; }
+.ai-entry { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
+.ai-entry:last-child { border-bottom: none; }
+.ai-ts { font-size: 10.5px; color: rgba(140,170,210,0.45); margin-right: 6px; font-family: monospace; }
+.ai-text { color: rgba(200,218,245,0.75); }
+.ai-text.alert { color: #fbbf24; }
+.ai-text.chain { color: #5ecfff; }
+.ai-btns { margin-top: 6px; display: flex; gap: 5px; }
+.ai-btn { padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid; font-family: inherit; transition: all 0.1s; }
+.ai-btn.approve { background: rgba(14,165,233,0.1); border-color: rgba(14,165,233,0.3); color: #5ecfff; }
+.ai-btn.approve:hover { background: rgba(14,165,233,0.18); }
+.ai-btn.skip { background: transparent; border-color: rgba(120,177,212,0.2); color: rgba(160,185,220,0.5); }
+.ai-thinking { font-size: 11px; color: rgba(140,170,210,0.45); padding: 6px 0; }
+.ai-dots span { animation: blink-dot 1.2s step-start infinite; }
+.ai-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ai-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ══════════════════════════════════════════════════════
+   AUTONOMOUS AGENTS VIEW
+══════════════════════════════════════════════════════ */
+.agents-status-bar {
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r);
+  margin-bottom: 16px; box-shadow: var(--shadow);
+}
+.agents-running-badge { display: flex; align-items: center; gap: 6px; padding: 4px 12px; background: var(--green-bg); border: 1px solid rgba(16,185,129,0.25); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--green); }
+.agents-stat { font-size: 13px; color: var(--c-text-soft); }
+.agents-stat strong { color: var(--c-text); }
+.agents-stop { margin-left: auto; }
+
+.agents-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.agent-card {
+  background: #080e18; border-radius: var(--r); overflow: hidden;
+  border: 1px solid rgba(120,177,212,0.12); transition: border-color 0.15s;
+}
+.agent-card:hover { border-color: rgba(120,177,212,0.25); }
+.agent-card.found { border-color: rgba(239,68,68,0.3); }
+.agent-card-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(120,177,212,0.08);
+}
+.agent-name { font-size: 12px; font-weight: 600; color: rgba(200,218,245,0.8); font-family: monospace; }
+.agent-terminal {
+  padding: 10px 12px; font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 11px; line-height: 1.6; height: 120px; overflow: hidden;
+}
+.at-dim { color: rgba(120,177,212,0.35); }
+.at-normal { color: rgba(160,185,220,0.65); }
+.at-hit { color: #f87171; background: rgba(239,68,68,0.08); padding: 0 2px; }
+.at-cyan { color: #5ecfff; }
+.at-amber { color: #fbbf24; }
+.agent-footer { padding: 6px 12px; border-top: 1px solid rgba(120,177,212,0.06); display: flex; align-items: center; justify-content: space-between; }
+.agent-target { font-size: 10.5px; color: rgba(140,170,210,0.45); font-family: monospace; }
+.agent-finding { font-size: 11px; font-weight: 600; color: var(--red); }
+
+/* ══════════════════════════════════════════════════════
+   INTAKE
+══════════════════════════════════════════════════════ */
+.intake-wrap { max-width: 680px; }
+.intake-steps { display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; margin-bottom: 24px; }
+.intake-step { padding: 8px 10px; border-radius: var(--r-sm); border: 1px solid var(--c-border); background: var(--c-surface); font-size: 11px; color: var(--c-text-muted); text-align: center; box-shadow: var(--shadow); }
+.intake-step.done { border-color: rgba(16,185,129,0.35); color: var(--green); background: var(--green-bg); }
+.intake-step.active { border-color: rgba(14,165,233,0.4); color: var(--cyan); background: var(--cyan-bg); }
+.intake-conv { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r); box-shadow: var(--shadow-md); overflow: hidden; }
+.intake-conv-system { padding: 16px 20px; background: var(--c-surface2); border-bottom: 1px solid var(--c-border); font-size: 12px; color: var(--c-text-muted); }
+.intake-conv-q { padding: 20px; }
+.intake-q-meta { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--c-text-muted); margin-bottom: 8px; }
+.intake-q-text { font-size: 18px; font-weight: 600; color: var(--c-text); margin-bottom: 16px; }
+.intake-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.intake-chip { padding: 7px 16px; border-radius: 20px; border: 1px solid var(--c-border-strong); background: var(--c-surface); font-size: 13px; color: var(--c-text-soft); cursor: pointer; transition: all 0.12s; }
+.intake-chip:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); }
+.intake-chip.sel { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); font-weight: 500; }
+.intake-input { width: 100%; padding: 10px 14px; background: var(--c-surface2); border: 1px solid var(--c-border-strong); border-radius: var(--r-sm); color: var(--c-text); font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.12s; }
+.intake-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(14,165,233,0.1); }
+.intake-input::placeholder { color: var(--c-text-muted); }
+.intake-actions { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-top: 1px solid var(--c-border); background: var(--c-surface2); }
+.intake-ctx { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 20px; border-top: 1px solid var(--c-border); background: rgba(14,165,233,0.02); }
+.intake-ctx-pill { padding: 3px 10px; border-radius: 4px; font-size: 11px; background: var(--c-surface); border: 1px solid var(--c-border); color: var(--c-text-soft); }
+.intake-ctx-pill span { color: var(--c-text-muted); margin-right: 4px; }
+.intake-ctx-pill.pending { border-style: dashed; color: var(--c-text-muted); }
+
+/* ══════════════════════════════════════════════════════
+   FINDINGS
+══════════════════════════════════════════════════════ */
+.findings-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.findings-toolbar { display: flex; align-items: center; gap: 8px; }
+.filter-toggle { display: flex; align-items: center; gap: 5px; padding: 6px 12px; border: 1px solid var(--c-border-strong); border-radius: var(--r-sm); background: var(--c-surface); font-size: 12px; color: var(--c-text-muted); cursor: pointer; box-shadow: var(--shadow); }
+.filter-toggle:hover { color: var(--c-text); }
+.group-by { display: flex; align-items: center; gap: 5px; padding: 6px 12px; border: 1px solid var(--c-border-strong); border-radius: var(--r-sm); background: var(--c-surface); font-size: 12px; cursor: pointer; box-shadow: var(--shadow); }
+.finding-group { margin-bottom: 20px; }
+.finding-group-hd { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; margin-bottom: 6px; border-bottom: 2px solid; }
+.finding-group-hd.critical { border-color: rgba(239,68,68,0.3); }
+.finding-group-hd.high { border-color: rgba(245,158,11,0.3); }
+.finding-group-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.finding-group-title.critical { color: var(--red); }
+.finding-group-title.high { color: var(--amber); }
+.finding-group-count { font-size: 11px; color: var(--c-text-muted); }
+.finding-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-sm);
+  margin-bottom: 5px; cursor: pointer; transition: all 0.12s; box-shadow: var(--shadow);
+}
+.finding-row:hover { border-color: var(--c-border-strong); box-shadow: var(--shadow-md); transform: translateX(2px); }
+.finding-row.sel { border-color: var(--cyan); background: var(--cyan-bg); }
+.f-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.f-dot.critical { background: var(--red); }
+.f-dot.high { background: var(--amber); }
+.f-title { flex: 1; font-size: 13px; font-weight: 500; color: var(--c-text); }
+.f-target { font-size: 11px; color: var(--c-text-muted); }
+.f-badges { display: flex; gap: 5px; }
+.f-arrow { color: var(--c-text-muted); font-size: 13px; }
+
+/* Finding Drawer */
+.drawer {
+  position: fixed; right: 0; top: 48px; width: 440px; height: calc(100vh - 48px);
+  background: var(--c-surface); border-left: 1px solid var(--c-border-strong);
+  overflow-y: auto; z-index: 150; box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+  transform: translateX(100%); transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+.drawer.open { transform: translateX(0); }
+.drawer-top { padding: 16px 18px; border-bottom: 1px solid var(--c-border); }
+.drawer-top h3 { font-size: 16px; font-weight: 700; color: var(--c-text); margin-bottom: 8px; }
+.drawer-close { float: right; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--c-text-muted); margin-top: -2px; }
+.drawer-close:hover { color: var(--c-text); }
+.drawer-section { padding: 14px 18px; border-bottom: 1px solid var(--c-border); }
+.drawer-section:last-child { border-bottom: none; }
+.ds-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--c-text-muted); margin-bottom: 10px; }
+
+/* Risk Gauge */
+.gauge-row { display: flex; align-items: center; gap: 16px; }
+.gauge-info h4 { font-size: 20px; font-weight: 800; color: var(--red); }
+.gauge-info p { font-size: 12px; color: var(--c-text-muted); }
+.kev-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: var(--r-sm); background: var(--amber-bg); border: 1px solid rgba(245,158,11,0.3); font-size: 11px; font-weight: 600; color: var(--amber); margin-top: 8px; }
+
+/* Method chain */
+.method-chain { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.method-pill { padding: 4px 9px; border-radius: var(--r-sm); font-size: 11px; background: var(--c-surface2); border: 1px solid var(--c-border-strong); color: var(--c-text-soft); }
+.method-arrow { color: var(--c-text-muted); font-size: 11px; }
+
+/* Terminal block */
+.terminal { background: #080e18; border-radius: var(--r-sm); overflow: hidden; border: 1px solid rgba(120,177,212,0.12); }
+.terminal-hd { padding: 8px 12px; border-bottom: 1px solid rgba(120,177,212,0.08); display: flex; align-items: center; gap: 8px; }
+.t-tool { padding: 2px 7px; border-radius: 3px; font-size: 10.5px; font-weight: 700; background: var(--cyan-bg); color: #5ecfff; border: 1px solid var(--cyan-border); }
+.t-meta { font-size: 10.5px; color: rgba(140,170,210,0.45); }
+.terminal-body { padding: 10px 12px; font-family: "JetBrains Mono", "Fira Code", monospace; font-size: 11px; line-height: 1.7; }
+.tl-dim { color: rgba(100,140,180,0.45); }
+.tl-hit { color: #f87171; border-left: 2px solid #ef4444; padding-left: 6px; display: block; background: rgba(239,68,68,0.06); }
+.tl-warn { color: #fbbf24; }
+.tl-normal { color: rgba(160,185,220,0.6); }
+
+/* AutoFix diff block */
+.autofix { background: var(--c-surface2); border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--c-border-strong); }
+.autofix-hd { padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--c-border); }
+.autofix-label { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+.autofix-label span { background: var(--violet-bg); color: var(--violet); padding: 1px 6px; border-radius: 3px; font-size: 10px; }
+.copy-btn { padding: 3px 10px; border-radius: 4px; font-size: 11px; background: var(--c-surface); border: 1px solid var(--c-border-strong); color: var(--c-text-soft); cursor: pointer; transition: all 0.1s; }
+.copy-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.diff-body { padding: 10px 12px; font-family: "JetBrains Mono", monospace; font-size: 11px; line-height: 1.6; }
+.diff-rm { color: #ef4444; background: rgba(239,68,68,0.06); display: block; padding: 0 4px; }
+.diff-add { color: #10b981; background: rgba(16,185,129,0.06); display: block; padding: 0 4px; }
+.diff-ctx { color: var(--c-text-muted); display: block; padding: 0 4px; }
+
+/* ══════════════════════════════════════════════════════
+   REPORTS
+══════════════════════════════════════════════════════ */
+.run-context { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r); margin-bottom: 20px; box-shadow: var(--shadow); flex-wrap: wrap; }
+.report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 14px; }
+.report-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r); padding: 18px; box-shadow: var(--shadow); transition: box-shadow 0.12s, border-color 0.12s; }
+.report-card:hover { box-shadow: var(--shadow-md); border-color: var(--c-border-strong); }
+.rc-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.rc-title { font-size: 14px; font-weight: 700; color: var(--c-text); }
+.rc-desc { font-size: 12px; color: var(--c-text-muted); margin-bottom: 14px; line-height: 1.5; }
+.rc-actions { display: flex; gap: 6px; }
+.dl-btn { padding: 5px 12px; border-radius: var(--r-sm); font-size: 12px; border: 1px solid var(--c-border-strong); background: var(--c-surface2); color: var(--c-text-soft); cursor: pointer; transition: all 0.1s; }
+.dl-btn:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); }
+
+/* ══════════════════════════════════════════════════════
+   SETTINGS
+══════════════════════════════════════════════════════ */
+.settings-wrap { display: grid; grid-template-columns: 180px 1fr; gap: 0; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r); box-shadow: var(--shadow-md); overflow: hidden; }
+.settings-nav { border-right: 1px solid var(--c-border); padding: 8px 0; }
+.sn-item { padding: 9px 16px; font-size: 13px; color: var(--c-text-muted); cursor: pointer; transition: all 0.1s; }
+.sn-item:hover { background: var(--c-surface2); color: var(--c-text); }
+.sn-item.active { background: var(--cyan-bg); color: var(--cyan); font-weight: 500; border-right: 2px solid var(--cyan); }
+.settings-content { padding: 24px; overflow-y: auto; max-height: calc(100vh - 200px); }
+.sg-title { font-size: 15px; font-weight: 700; color: var(--c-text); margin-bottom: 4px; }
+.sg-desc { font-size: 12px; color: var(--c-text-muted); margin-bottom: 16px; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--c-surface2); border: 1px solid var(--c-border); border-radius: var(--r-sm); margin-bottom: 8px; gap: 12px; }
+.sr-label { font-size: 13px; font-weight: 500; color: var(--c-text); }
+.sr-desc { font-size: 11px; color: var(--c-text-muted); margin-top: 1px; }
+.radio-group { display: flex; gap: 5px; }
+.radio-opt { padding: 5px 12px; border: 1px solid var(--c-border-strong); border-radius: var(--r-sm); font-size: 12px; cursor: pointer; color: var(--c-text-muted); background: var(--c-surface); transition: all 0.1s; }
+.radio-opt.sel { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); font-weight: 500; }
+.connect-btn { padding: 6px 16px; border: 1px solid var(--cyan); border-radius: var(--r-sm); background: var(--cyan-bg); color: var(--cyan); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; }
+.connect-btn:hover { background: rgba(14,165,233,0.15); }
+.text-input { width: 100%; padding: 8px 12px; background: var(--c-surface); border: 1px solid var(--c-border-strong); border-radius: var(--r-sm); color: var(--c-text); font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.12s; }
+.text-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(14,165,233,0.08); }
+.tag-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; background: var(--c-surface); border: 1px solid var(--c-border-strong); border-radius: var(--r-sm); min-height: 40px; }
+.tag { padding: 3px 8px; background: var(--c-surface2); border: 1px solid var(--c-border-strong); border-radius: 4px; font-size: 11px; color: var(--c-text-soft); display: flex; align-items: center; gap: 5px; }
+.tag-rm { color: var(--c-text-muted); cursor: pointer; }
+.tag-rm:hover { color: var(--red); }
+.setting-full { flex-direction: column; align-items: stretch; gap: 8px; }
+
+/* ══════════════════════════════════════════════════════
+   DEMO TABS
+══════════════════════════════════════════════════════ */
+.demo-bar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; background: var(--c-surface); border: 1px solid var(--c-border-strong); border-radius: 24px; padding: 4px 6px; z-index: 300; box-shadow: var(--shadow-md); }
+.demo-tab { padding: 5px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; color: var(--c-text-muted); background: none; border: none; font-family: inherit; font-weight: 500; transition: all 0.12s; }
+.demo-tab:hover { color: var(--c-text); background: var(--c-surface2); }
+.demo-tab.active { background: var(--cyan); color: white; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="tb-brand">
+    <div class="tb-mark">A</div>
+    <span class="tb-name">AegisPT</span>
+  </div>
+  <div class="tb-engagement">
+    <span class="tb-eng-label">Engagement</span>
+    <span class="tb-eng-name">api.example.com — External API Assessment</span>
+    <span class="tb-eng-chevron">▾</span>
+  </div>
+  <div class="tb-status">
+    <div class="tb-dot"></div>
+    <span class="tb-status-text">autonomous · 6 agents running</span>
+  </div>
+  <div class="tb-right">
+    <button class="tb-btn">🔔</button>
+    <button class="tb-btn">⚙</button>
+  </div>
+  <div class="tb-actor">
+    <div class="tb-avatar">J</div>
+    <span class="tb-actor-name">jaap</span>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <button class="sb-new">＋ New Mission</button>
+    <div class="sb-section">Operate</div>
+    <div class="sb-item" onclick="show('intake')"><span class="sb-icon">⬡</span>Intake</div>
+    <div class="sb-item active" id="nav-mission" onclick="show('mission')"><span class="sb-icon">◈</span>Mission Control</div>
+    <div class="sb-item" onclick="show('mission')"><span class="sb-icon">◉</span>Attack Map</div>
+    <div class="sb-section">Analyze</div>
+    <div class="sb-item" onclick="show('findings')"><span class="sb-icon">⚠</span>Findings<span class="sb-count">9</span></div>
+    <div class="sb-item" onclick="show('reports')"><span class="sb-icon">☰</span>Reports</div>
+    <div class="sb-item" onclick="show('mission')"><span class="sb-icon">⊡</span>History</div>
+    <div class="sb-section">Build</div>
+    <div class="sb-item" onclick="show('mission')"><span class="sb-icon">⬖</span>Packs</div>
+    <div class="sb-spacer"></div>
+    <div class="sb-divider"></div>
+    <div class="sb-item" onclick="show('settings')"><span class="sb-icon">⚙</span>Settings</div>
+    <div class="run-card">
+      <div class="run-card-label">Active Run</div>
+      <div class="run-card-name">autonomous-web · 6 agents</div>
+      <div class="run-bar"><div class="run-fill"></div></div>
+    </div>
+  </aside>
+
+  <!-- STAGE -->
+  <main class="stage">
+
+    <!-- ══ MISSION CONTROL ══ -->
+    <div class="screen active" id="s-mission" style="padding:24px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <div class="page-title">Mission Control</div>
+          <div class="page-sub">autonomous-web · api.example.com · running 18 min · 6 agents active</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-danger btn-sm" onclick="show('agents')">View Agents ↗</button>
+          <button class="btn btn-secondary btn-sm">Kill Run</button>
+          <button class="btn btn-primary btn-sm">View Findings →</button>
+        </div>
+      </div>
+
+      <div class="mc-grid">
+        <!-- Scan Map -->
+        <div>
+          <div class="section-title">Scan Map</div>
+          <div class="scan-map-inner">
+            <span class="scan-map-label">AegisPT</span>
+            <div class="scan-map-live"><span class="scan-dot"></span>live</div>
+            <svg viewBox="0 0 340 300" width="100%" height="100%">
+              <!-- Tool labels -->
+              <rect x="8" y="28" width="52" height="18" rx="3" fill="rgba(94,207,255,0.08)" stroke="rgba(94,207,255,0.25)" stroke-width="1"/>
+              <text x="34" y="40" text-anchor="middle" fill="#5ecfff" font-size="8.5" font-family="monospace">nmap</text>
+              <rect x="8" y="88" width="52" height="18" rx="3" fill="rgba(94,207,255,0.12)" stroke="rgba(94,207,255,0.45)" stroke-width="1"/>
+              <text x="34" y="100" text-anchor="middle" fill="#5ecfff" font-size="8.5" font-family="monospace">nuclei</text>
+              <rect x="8" y="148" width="52" height="18" rx="3" fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/>
+              <text x="34" y="160" text-anchor="middle" fill="#fbbf24" font-size="8.5" font-family="monospace">httpx</text>
+              <rect x="8" y="208" width="52" height="18" rx="3" fill="rgba(120,177,212,0.05)" stroke="rgba(120,177,212,0.18)" stroke-width="1" opacity="0.5"/>
+              <text x="34" y="220" text-anchor="middle" fill="#96b4d7" font-size="8.5" font-family="monospace">zap</text>
+              <!-- Done thread -->
+              <line x1="60" y1="37" x2="198" y2="48" stroke="rgba(16,185,129,0.5)" stroke-width="1.5"/>
+              <!-- Active thread with animated pulse -->
+              <line x1="60" y1="97" x2="198" y2="118" stroke="rgba(94,207,255,0.25)" stroke-width="1.5" stroke-dasharray="5 4"><animate attributeName="stroke-dashoffset" values="0;-18" dur="0.7s" repeatCount="indefinite"/></line>
+              <circle r="3" fill="#5ecfff" opacity="0.9"><animateMotion dur="1.3s" repeatCount="indefinite" path="M60,97 L198,118"/></circle>
+              <!-- httpx thread -->
+              <line x1="60" y1="157" x2="198" y2="188" stroke="rgba(245,158,11,0.3)" stroke-width="1.5" stroke-dasharray="5 4"><animate attributeName="stroke-dashoffset" values="0;-18" dur="0.9s" repeatCount="indefinite"/></line>
+              <circle r="3" fill="#fbbf24" opacity="0.8"><animateMotion dur="1.6s" repeatCount="indefinite" path="M60,157 L198,188"/></circle>
+              <!-- Queued thread -->
+              <line x1="60" y1="217" x2="198" y2="238" stroke="rgba(120,177,212,0.12)" stroke-width="1" stroke-dasharray="3 5"/>
+              <!-- Nodes -->
+              <circle cx="208" cy="48" r="13" fill="rgba(16,185,129,0.1)" stroke="#10b981" stroke-width="1.5"/>
+              <text x="208" y="52" text-anchor="middle" fill="#10b981" font-size="9">✓</text>
+              <text x="228" y="44" fill="rgba(200,218,245,0.6)" font-size="8.5">10.0.20.0/24</text>
+              <text x="228" y="55" fill="rgba(150,180,215,0.4)" font-size="8">29 hosts</text>
+              <circle cx="208" cy="118" r="13" fill="rgba(94,207,255,0.08)" stroke="#5ecfff" stroke-width="1.5"/>
+              <circle cx="208" cy="118" r="19" fill="none" stroke="rgba(94,207,255,0.18)" stroke-width="1"><animate attributeName="r" values="13;23;13" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="2s" repeatCount="indefinite"/></circle>
+              <text x="208" y="122" text-anchor="middle" fill="#5ecfff" font-size="8">▶</text>
+              <text x="228" y="114" fill="rgba(200,218,245,0.6)" font-size="8.5">api.example.com</text>
+              <text x="228" y="125" fill="#5ecfff" font-size="8">scanning</text>
+              <circle cx="208" cy="188" r="13" fill="rgba(245,158,11,0.08)" stroke="#fbbf24" stroke-width="1.5"/>
+              <text x="208" y="192" text-anchor="middle" fill="#fbbf24" font-size="8">!</text>
+              <rect x="216" y="176" width="18" height="13" rx="2" fill="rgba(239,68,68,0.9)"/>
+              <text x="225" y="185" text-anchor="middle" fill="white" font-size="9" font-weight="bold">+3</text>
+              <text x="228" y="184" fill="rgba(200,218,245,0.6)" font-size="8.5">shop.example.com</text>
+              <text x="228" y="195" fill="#fbbf24" font-size="8">3 findings</text>
+              <circle cx="208" cy="238" r="13" fill="none" stroke="rgba(120,177,212,0.18)" stroke-width="1.5"/>
+              <text x="228" y="234" fill="rgba(150,180,215,0.28)" font-size="8.5">www.example.com</text>
+              <text x="228" y="245" fill="rgba(150,180,215,0.22)" font-size="8">queued</text>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Tasks + Findings -->
+        <div>
+          <div class="section-title">Tasks</div>
+          <div class="task-list" style="margin-bottom:16px">
+            <div class="task-row">
+              <div class="task-status done"></div>
+              <span class="task-tool">nmap</span>
+              <span class="task-target">10.0.20.0/24</span>
+              <span style="font-size:11px;color:var(--green);font-weight:600">✓ 29 hosts</span>
+            </div>
+            <div class="task-row running">
+              <div class="task-status running"></div>
+              <span class="task-tool">nuclei</span>
+              <span class="task-target">api.example.com</span>
+              <span class="badge badge-cyan" style="font-size:10px">running</span>
+            </div>
+            <div class="task-row">
+              <div class="task-status done"></div>
+              <span class="task-tool">httpx</span>
+              <span class="task-target">shop.example.com</span>
+              <span class="badge badge-red">+3 critical</span>
+            </div>
+            <div class="task-row" style="opacity:0.5">
+              <div class="task-status queued"></div>
+              <span class="task-tool">zap</span>
+              <span class="task-target">www.example.com</span>
+              <span style="font-size:11px;color:var(--c-text-muted)">queued</span>
+            </div>
+          </div>
+          <div class="section-title">Findings (9)</div>
+          <div class="card">
+            <div class="card-body" style="padding:12px 14px">
+              <div class="sev-row"><span class="sev-label">Critical</span><div class="sev-track"><div class="sev-bar c" style="width:60%"></div></div><span class="sev-n c">3</span></div>
+              <div class="sev-row"><span class="sev-label">High</span><div class="sev-track"><div class="sev-bar h" style="width:80%"></div></div><span class="sev-n h">4</span></div>
+              <div class="sev-row"><span class="sev-label">Medium</span><div class="sev-track"><div class="sev-bar m" style="width:40%"></div></div><span class="sev-n">2</span></div>
+              <div class="sev-row"><span class="sev-label">Low</span><div class="sev-track"><div class="sev-bar l" style="width:0%"></div></div><span class="sev-n">0</span></div>
+              <div style="margin-top:10px"><button class="btn btn-secondary btn-sm" style="width:100%" onclick="show('findings')">View All Findings →</button></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Signal -->
+        <div>
+          <div class="section-title">AI Signal</div>
+          <div class="ai-panel">
+            <div class="ai-panel-hd"><span class="ai-panel-title">AI Signal</span><div class="ai-live"><span class="scan-dot"></span>live</div></div>
+            <div class="ai-body">
+              <div class="ai-entry"><span class="ai-ts">14:31</span><span class="ai-text">nmap done — 29 hosts, /24 subnet</span></div>
+              <div class="ai-entry" style="margin-top:6px"><span class="ai-ts">14:33</span><span class="ai-text alert">⚡ CVE-2021-41773 on shop.example.com — Apache 2.4.49 (CISA KEV)</span>
+                <div class="ai-btns"><button class="ai-btn approve">Approve nuclei scan</button><button class="ai-btn skip">Skip</button></div>
+              </div>
+              <div class="ai-entry" style="margin-top:6px"><span class="ai-ts">14:34</span><span class="ai-text chain">⬡ Chain: SQLi + Redis :6379 → RCE path</span>
+                <div class="ai-btns"><button class="ai-btn approve">View chain →</button></div>
+              </div>
+              <div class="ai-thinking">Analysing nuclei output <span class="ai-dots"><span>·</span><span>·</span><span>·</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ AGENTS VIEW ══ -->
+    <div class="screen" id="s-agents" style="padding:24px">
+      <div style="margin-bottom:20px">
+        <div class="page-title">Autonomous Agents</div>
+        <div class="page-sub">api.example.com · autonomous-web · 6 of 12 agents running</div>
+      </div>
+      <div class="agents-status-bar">
+        <div class="agents-running-badge"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:blink-dot 1.4s infinite"></span>Running</div>
+        <span class="agents-stat">Runtime: <strong>18 min</strong></span>
+        <span class="agents-stat">Agents dispatched: <strong>12</strong></span>
+        <span class="agents-stat">Findings: <strong style="color:var(--red)">9</strong></span>
+        <span class="agents-stat">Validated: <strong style="color:var(--green)">9</strong> / 9</span>
+        <button class="btn btn-danger btn-sm agents-stop">⬜ Stop All</button>
+      </div>
+      <div class="agents-grid">
+        <!-- Agent 1 -->
+        <div class="agent-card found">
+          <div class="agent-card-hd"><span class="agent-name">Agent #1 · nuclei</span><span class="badge badge-red">3 findings</span></div>
+          <div class="agent-terminal">
+            <span class="at-dim">[INF] Templates: 847 loaded</span><br>
+            <span class="at-dim">[INF] Target: api.example.com</span><br>
+            <span class="at-hit">[sql-injection] /graphql [critical]</span>
+            <span class="at-hit">[xxe-injection] /api/upload [high]</span>
+            <span class="at-dim">[INF] Scan complete 14.3s</span>
+          </div>
+          <div class="agent-footer"><span class="agent-target">api.example.com</span><span class="agent-finding">+3 critical</span></div>
+        </div>
+        <!-- Agent 2 -->
+        <div class="agent-card found">
+          <div class="agent-card-hd"><span class="agent-name">Agent #2 · httpx</span><span class="badge badge-red">1 finding</span></div>
+          <div class="agent-terminal">
+            <span class="at-normal">GET /admin → 200 OK</span><br>
+            <span class="at-amber">X-Frame-Options: missing</span><br>
+            <span class="at-hit">[admin-panel-exposed] :80 [critical]</span>
+            <span class="at-dim">Response: 2847 bytes</span>
+          </div>
+          <div class="agent-footer"><span class="agent-target">shop.example.com</span><span class="agent-finding">+1 critical</span></div>
+        </div>
+        <!-- Agent 3 (running) -->
+        <div class="agent-card">
+          <div class="agent-card-hd"><span class="agent-name">Agent #3 · nuclei</span><span class="badge badge-cyan">running</span></div>
+          <div class="agent-terminal">
+            <span class="at-dim">[INF] Templates: 423 CVE templates</span><br>
+            <span class="at-normal">[CVE-2023-44487] checking...</span><br>
+            <span class="at-normal">[CVE-2021-41773] checking...</span><br>
+            <span class="at-cyan">[INF] Progress: 234/847 ▓▓▓░░░</span>
+          </div>
+          <div class="agent-footer"><span class="agent-target">api.example.com</span><span style="font-size:10.5px;color:var(--cyan)">47s elapsed</span></div>
+        </div>
+        <!-- Agent 4 -->
+        <div class="agent-card found">
+          <div class="agent-card-hd"><span class="agent-name">Agent #5 · zap</span><span class="badge badge-amber">2 findings</span></div>
+          <div class="agent-terminal">
+            <span class="at-dim">POST /login → 302</span><br>
+            <span class="at-normal">Cookie: session=eyJ...</span><br>
+            <span class="at-amber">[missing-httponly] session cookie</span><br>
+            <span class="at-hit">[xss-reflected] /search?q= [high]</span>
+          </div>
+          <div class="agent-footer"><span class="agent-target">www.example.com</span><span class="agent-finding" style="color:var(--amber)">+2 high</span></div>
+        </div>
+        <!-- Agent 5 running -->
+        <div class="agent-card">
+          <div class="agent-card-hd"><span class="agent-name">Agent #8 · httpx</span><span class="badge badge-cyan">running</span></div>
+          <div class="agent-terminal">
+            <span class="at-dim">Probing 29 discovered hosts</span><br>
+            <span class="at-normal">10.0.20.1 → nginx/1.24</span><br>
+            <span class="at-normal">10.0.20.5 → Apache/2.4.49</span><br>
+            <span class="at-amber">10.0.20.5: version vulnerable</span>
+          </div>
+          <div class="agent-footer"><span class="agent-target">10.0.20.0/24</span><span style="font-size:10.5px;color:var(--cyan)">12/29 hosts</span></div>
+        </div>
+        <!-- Agent 6 done -->
+        <div class="agent-card">
+          <div class="agent-card-hd"><span class="agent-name">Agent #11 · nmap</span><span class="badge badge-green">done</span></div>
+          <div class="agent-terminal">
+            <span class="at-dim">Nmap 7.94 scan report</span><br>
+            <span class="at-normal">Host: 10.0.20.0/24 (up)</span><br>
+            <span class="at-normal">29/254 hosts responded</span><br>
+            <span class="at-dim">Ports: 22,80,443,6379 common</span>
+          </div>
+          <div class="agent-footer"><span class="agent-target">10.0.20.0/24</span><span style="font-size:10.5px;color:var(--green)">✓ complete</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ INTAKE ══ -->
+    <div class="screen" id="s-intake" style="padding:24px">
+      <div style="margin-bottom:20px">
+        <div class="page-title">New Mission</div>
+        <div class="page-sub">Describe what you want to test. Advanced controls available at any time.</div>
+      </div>
+      <div class="intake-wrap">
+        <div class="intake-steps">
+          <div class="intake-step done">✓ Goal</div>
+          <div class="intake-step active">Scope</div>
+          <div class="intake-step">Access</div>
+          <div class="intake-step">Safety</div>
+          <div class="intake-step">Confirm</div>
+        </div>
+        <div class="intake-conv">
+          <div class="intake-conv-system">AegisPT · You want to run an external web assessment. Good — what is the target?</div>
+          <div class="intake-conv-q">
+            <div class="intake-q-meta"><span>Scope · Step 2 of 5</span><span style="color:var(--cyan)">Conversational intake</span></div>
+            <div class="intake-q-text">What is the target URL or domain?</div>
+            <div class="intake-chips">
+              <div class="intake-chip">Our main domain</div>
+              <div class="intake-chip sel">A specific URL</div>
+              <div class="intake-chip">An IP address</div>
+              <div class="intake-chip">A CIDR range</div>
+            </div>
+            <input class="intake-input" type="text" placeholder="e.g. https://api.example.com"/>
+          </div>
+          <div class="intake-ctx">
+            <div class="intake-ctx-pill"><span>Goal</span>External web audit</div>
+            <div class="intake-ctx-pill"><span>Type</span>Standard web app</div>
+            <div class="intake-ctx-pill pending"><span>Scope</span>not yet set</div>
+          </div>
+          <div class="intake-actions">
+            <button class="btn btn-secondary btn-sm">← Previous</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm">Advanced</button>
+              <button class="btn btn-primary btn-sm">Apply Answer →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FINDINGS ══ -->
+    <div class="screen" id="s-findings" style="padding:24px">
+      <div class="findings-hd">
+        <div><div class="page-title">Findings</div><div class="page-sub">api.example.com · 9 findings across 3 targets</div></div>
+        <div class="findings-toolbar">
+          <button class="filter-toggle">▼ Filters</button>
+          <div class="group-by">Group by: <strong style="color:var(--c-text);margin-left:4px">Severity ▾</strong></div>
+        </div>
+      </div>
+
+      <div class="finding-group">
+        <div class="finding-group-hd critical">
+          <span style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
+          <span class="finding-group-title critical">Critical</span>
+          <span class="finding-group-count">(3)</span>
+        </div>
+        <div class="finding-row sel" onclick="openDrawer()">
+          <div class="f-dot critical"></div>
+          <div style="flex:1"><div class="f-title">SQL Injection — GraphQL endpoint</div><div class="f-target">api.example.com · /graphql · nuclei · validated</div></div>
+          <div class="f-badges"><span class="badge badge-amber">⚡ KEV</span><span class="badge badge-cyan">⬡ chain</span></div>
+          <span class="f-arrow">›</span>
+        </div>
+        <div class="finding-row" onclick="openDrawer()">
+          <div class="f-dot critical"></div>
+          <div style="flex:1"><div class="f-title">Path Traversal RCE — Apache 2.4.49</div><div class="f-target">shop.example.com · Apache · nuclei · validated</div></div>
+          <div class="f-badges"><span class="badge badge-amber">⚡ KEV</span></div>
+          <span class="f-arrow">›</span>
+        </div>
+        <div class="finding-row" onclick="openDrawer()">
+          <div class="f-dot critical"></div>
+          <div style="flex:1"><div class="f-title">SSRF → Redis chain (RCE potential)</div><div class="f-target">shop.example.com · :6379 · chain analysis</div></div>
+          <div class="f-badges"><span class="badge badge-cyan">⬡ chain</span></div>
+          <span class="f-arrow">›</span>
+        </div>
+      </div>
+      <div class="finding-group">
+        <div class="finding-group-hd high">
+          <span style="width:10px;height:10px;border-radius:50%;background:var(--amber);display:inline-block;flex-shrink:0"></span>
+          <span class="finding-group-title high">High</span>
+          <span class="finding-group-count">(4)</span>
+        </div>
+        <div class="finding-row"><div class="f-dot high"></div><div style="flex:1"><div class="f-title">Stored XSS — Comment endpoint</div><div class="f-target">www.example.com · /comments · zap</div></div><span class="f-arrow">›</span></div>
+        <div class="finding-row"><div class="f-dot high"></div><div style="flex:1"><div class="f-title">JWT Algorithm Confusion</div><div class="f-target">api.example.com · /auth/token · nuclei</div></div><span class="f-arrow">›</span></div>
+      </div>
+    </div>
+
+    <!-- ══ REPORTS ══ -->
+    <div class="screen" id="s-reports" style="padding:24px">
+      <div style="margin-bottom:20px"><div class="page-title">Reports</div></div>
+      <div class="run-context">
+        <span style="font-size:12px;color:var(--c-text-muted)">Run:</span>
+        <span style="font-size:13px;font-weight:500">autonomous-web · api.example.com · 23 Apr 2026</span>
+        <span class="badge badge-green">completed</span>
+        <span class="badge badge-gray">9 findings</span>
+        <span class="badge badge-gray">7 reports ready</span>
+      </div>
+      <div class="report-grid">
+        <div class="report-card"><div class="rc-top"><span class="rc-title">Executive Report</span><span class="badge badge-green">ready</span></div><div class="rc-desc">Leadership-ready summary: risk posture, top findings, recommended priorities.</div><div class="rc-actions"><button class="dl-btn">↓ MD</button><button class="dl-btn">↓ HTML</button><button class="dl-btn">↓ PDF</button></div></div>
+        <div class="report-card"><div class="rc-top"><span class="rc-title">Technical Report</span><span class="badge badge-green">ready</span></div><div class="rc-desc">Full technical narrative with methodology, evidence trail, and all findings.</div><div class="rc-actions"><button class="dl-btn">↓ MD</button><button class="dl-btn">↓ HTML</button><button class="dl-btn">↓ PDF</button></div></div>
+        <div class="report-card"><div class="rc-top"><span class="rc-title">Attack Narrative</span><span class="badge badge-violet">✨ AI</span></div><div class="rc-desc">AI-synthesised attack story showing how findings chain into a realistic compromise path.</div><div class="rc-actions"><button class="dl-btn">↓ MD</button><button class="dl-btn">↓ HTML</button><button class="dl-btn">↓ PDF</button></div></div>
+        <div class="report-card"><div class="rc-top"><span class="rc-title">SOC 2 Package</span><span class="badge badge-green">ready</span></div><div class="rc-desc">Maps findings to SOC 2 trust services criteria with coverage statement.</div><div class="rc-actions"><button class="dl-btn">↓ MD</button><button class="dl-btn">↓ HTML</button><button class="dl-btn">↓ PDF</button></div></div>
+        <div class="report-card"><div class="rc-top"><span class="rc-title">PCI DSS Package</span><span class="badge badge-green">ready</span></div><div class="rc-desc">Maps findings to PCI DSS v4.0 requirements. Coverage and gap statement included.</div><div class="rc-actions"><button class="dl-btn">↓ MD</button><button class="dl-btn">↓ HTML</button><button class="dl-btn">↓ PDF</button></div></div>
+        <div class="report-card"><div class="rc-top"><span class="rc-title">Retest / Verification</span><span class="badge badge-green">ready</span></div><div class="rc-desc">Tracks open, in-progress, and verified findings. Includes proof-of-resolution evidence.</div><div class="rc-actions"><button class="dl-btn">↓ MD</button><button class="dl-btn">↓ HTML</button><button class="dl-btn">↓ PDF</button></div></div>
+      </div>
+    </div>
+
+    <!-- ══ SETTINGS ══ -->
+    <div class="screen" id="s-settings" style="padding:24px">
+      <div style="margin-bottom:20px"><div class="page-title">Settings</div></div>
+      <div class="settings-wrap">
+        <div class="settings-nav">
+          <div class="sn-item active">AI Provider</div>
+          <div class="sn-item">Network Scope</div>
+          <div class="sn-item">Integrations</div>
+          <div class="sn-item">Notifications</div>
+          <div class="sn-item">Instance</div>
+        </div>
+        <div class="settings-content">
+          <div class="sg-title">AI Provider</div>
+          <div class="sg-desc">Connect an AI provider to enable finding enrichment, AutoFix patches, and autonomous agent intelligence.</div>
+          <div class="setting-row">
+            <div><div class="sr-label">Provider</div><div class="sr-desc">Powers finding enrichment, AutoFix, and intake intelligence</div></div>
+            <div class="radio-group">
+              <div class="radio-opt">Disabled</div>
+              <div class="radio-opt sel">ChatGPT OAuth</div>
+              <div class="radio-opt">HTTP Webhook</div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div><div class="sr-label">ChatGPT Connection</div><div class="sr-desc">Use your ChatGPT Plus/Pro subscription — no API key needed</div></div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;color:var(--c-text-muted)">Not connected</span><button class="connect-btn">Connect →</button></div>
+          </div>
+          <div style="height:20px"></div>
+          <div class="sg-title">Default Network Scope</div>
+          <div class="sg-desc">Pre-fill these in new missions to avoid re-entering each time.</div>
+          <div class="setting-row setting-full">
+            <div class="sr-label">Default LAN CIDR</div>
+            <input class="text-input" type="text" value="10.0.20.0/24" placeholder="e.g. 10.0.0.0/8"/>
+          </div>
+          <div class="setting-row setting-full" style="margin-top:6px">
+            <div class="sr-label">Additional VLANs</div>
+            <div class="tag-wrap">
+              <span class="tag">10.0.10.0/24<span class="tag-rm">×</span></span>
+              <span class="tag">192.168.1.0/24<span class="tag-rm">×</span></span>
+              <span style="font-size:11px;color:var(--c-text-muted);cursor:pointer;padding:2px 4px">+ Add</span>
+            </div>
+          </div>
+          <div class="setting-row setting-full" style="margin-top:6px">
+            <div class="sr-label">Default Domain</div>
+            <input class="text-input" type="text" value="example.com" placeholder="e.g. example.com"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- FINDING DRAWER -->
+<div class="drawer" id="drawer">
+  <div class="drawer-top">
+    <button class="drawer-close" onclick="closeDrawer()">×</button>
+    <h3>SQL Injection — GraphQL endpoint</h3>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <span class="badge badge-red">Critical</span>
+      <span class="badge badge-amber">⚡ CISA KEV</span>
+      <span class="badge badge-cyan">⬡ Chain</span>
+      <span class="badge badge-gray">nuclei · validated</span>
+    </div>
+  </div>
+  <div class="drawer-section">
+    <div class="ds-title">Risk Assessment</div>
+    <div class="gauge-row">
+      <svg width="80" height="50" viewBox="0 0 80 50">
+        <path d="M10,45 A35,35 0 0,1 70,45" fill="none" stroke="#e2e8f0" stroke-width="7" stroke-linecap="round"/>
+        <path d="M10,45 A35,35 0 0,1 70,45" fill="none" stroke="#ef4444" stroke-width="7" stroke-linecap="round" stroke-dasharray="110" stroke-dashoffset="12"/>
+        <text x="40" y="42" text-anchor="middle" fill="#ef4444" font-size="13" font-weight="800">9.4</text>
+      </svg>
+      <div class="gauge-info"><h4>Critical</h4><p>CVSS 9.4 · Operator-validated<br>High exploitability</p></div>
+    </div>
+    <div class="kev-pill">⚡ CISA KEV — actively exploited · added 2024-03-15</div>
+  </div>
+  <div class="drawer-section">
+    <div class="ds-title">Methodology</div>
+    <div class="method-chain">
+      <span class="method-pill">PTES: Exploitation</span><span class="method-arrow">→</span>
+      <span class="method-pill">WSTG-INPV-05</span><span class="method-arrow">→</span>
+      <span class="method-pill">NIST: Execution</span><span class="method-arrow">→</span>
+      <span class="method-pill">ASVS L2</span>
+    </div>
+  </div>
+  <div class="drawer-section">
+    <div class="ds-title">Evidence</div>
+    <div class="terminal">
+      <div class="terminal-hd"><span class="t-tool">nuclei</span><span class="t-meta">v3.3.1 · api.example.com · exit: 0</span></div>
+      <div class="terminal-body">
+        <span class="tl-dim">[INF] Templates: 847 loaded</span><br>
+        <span class="tl-hit">[sql-injection-graphql] api.example.com/graphql [critical]</span>
+        <span class="tl-warn">[sqli-error-based] {"error":"SQL syntax near ..."}</span><br>
+        <span class="tl-dim">[INF] Scan complete: 14.3s</span>
+      </div>
+    </div>
+  </div>
+  <div class="drawer-section">
+    <div class="ds-title">AutoFix ✨</div>
+    <div class="autofix">
+      <div class="autofix-hd">
+        <span class="autofix-label">Python · <span>AI generated</span></span>
+        <button class="copy-btn" onclick="this.textContent='Copied ✓';setTimeout(()=>this.textContent='Copy Fix',2000)">Copy Fix</button>
+      </div>
+      <div class="diff-body">
+        <span class="diff-ctx">def resolve_user(id):</span>
+        <span class="diff-rm">-    query = f"SELECT * FROM users WHERE id = {id}"</span>
+        <span class="diff-add">+    query = "SELECT * FROM users WHERE id = %s"</span>
+        <span class="diff-add">+    cursor.execute(query, (id,))</span>
+        <span class="diff-ctx">    return cursor.fetchone()</span>
+      </div>
+    </div>
+  </div>
+  <div class="drawer-section">
+    <div class="ds-title">Actions</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm">Schedule Retest</button>
+      <button class="btn btn-secondary btn-sm">Create Fix PR ↗</button>
+      <button class="btn btn-secondary btn-sm">Jira →</button>
+      <button class="btn btn-secondary btn-sm">Export PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN SWITCHER -->
+<div class="demo-bar">
+  <button class="demo-tab" onclick="show('intake')">Intake</button>
+  <button class="demo-tab active" onclick="show('mission')">Mission Control</button>
+  <button class="demo-tab" onclick="show('agents')">Agents</button>
+  <button class="demo-tab" onclick="show('findings')">Findings</button>
+  <button class="demo-tab" onclick="show('reports')">Reports</button>
+  <button class="demo-tab" onclick="show('settings')">Settings</button>
+</div>
+
+<script>
+const screens = { intake:'s-intake', mission:'s-mission', agents:'s-agents', findings:'s-findings', reports:'s-reports', settings:'s-settings' };
+const navLabels = { intake:'Intake', mission:'Mission Control', agents:'Mission Control', findings:'Findings', reports:'Reports', settings:'Settings' };
+
+function show(name) {
+  Object.values(screens).forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('active'); });
+  const s = document.getElementById(screens[name]);
+  if(s) s.classList.add('active');
+  document.querySelectorAll('.sb-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(el => { if(el.textContent.trim().startsWith(navLabels[name]?.substring(0,5)||'XX')) el.classList.add('active'); });
+  document.querySelectorAll('.demo-tab').forEach(el => { el.classList.toggle('active', el.textContent.trim().toLowerCase().replace(' ','').startsWith(name.substring(0,4))); });
+  closeDrawer();
+}
+function openDrawer() { document.getElementById('drawer').classList.add('open'); }
+function closeDrawer() { const d = document.getElementById('drawer'); if(d) d.classList.remove('open'); }
+
+// Animate sev bars
+setTimeout(() => {
+  document.querySelectorAll('.sev-bar').forEach(el => {
+    const w = el.style.width; el.style.width = '0%';
+    setTimeout(() => el.style.width = w, 200);
+  });
+}, 400);
+</script>
+</body>
+</html>

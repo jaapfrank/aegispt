@@ -1,0 +1,110 @@
+{
+  "task": "backlog-249-rce-detection-nuclei-templates-expansion",
+  "date": "2026-05-07",
+  "summary": {
+    "implemented": true,
+    "live_target_scan_performed": false,
+    "ui_runtime_127_0_0_1_8000_relevant": false,
+    "reason_ui_not_relevant": "The slice changed Nuclei runner dispatch, run-profile metadata, command preview text, and evidence artifacts; no operator-console UI rendering or browser workflow was changed.",
+    "safety_boundary": "Detection-only. No RCE exploitation, webshell upload, persistence, file write, or shell execution path was added."
+  },
+  "nuclei_host_state": {
+    "binary": "/usr/local/bin/nuclei",
+    "engine_version": "v3.7.1",
+    "local_template_listing_command": "nuclei -duc -tl -id CVE-2021-44228,CVE-2022-22965,CVE-2024-36401,CVE-2024-23897,CVE-2021-25646,CVE-2021-43798,CVE-2019-16113,CVE-2017-7494,CVE-2018-7600",
+    "reported_template_version": "v10.4.2",
+    "reported_template_root": "/home/administrator/nuclei-templates"
+  },
+  "template_status": [
+    {
+      "cve_id": "CVE-2021-44228",
+      "name": "Log4Shell",
+      "local_status": "present",
+      "safety_status": "blocked_by_detection_only_policy",
+      "blocked_reasons": ["raw_request", "interactsh_callback_payload", "jndi_callback_payload"]
+    },
+    {
+      "cve_id": "CVE-2022-22965",
+      "name": "Spring4Shell",
+      "local_status": "present",
+      "safety_status": "blocked_by_detection_only_policy",
+      "blocked_reasons": ["raw_request", "payload_key", "interactsh_callback_payload"]
+    },
+    {
+      "cve_id": "CVE-2024-36401",
+      "name": "GeoServer RCE",
+      "local_status": "present",
+      "safety_status": "blocked_by_detection_only_policy",
+      "blocked_reasons": ["raw_request", "interactsh_callback_payload", "command_execution_string", "outbound_curl_payload"]
+    },
+    {
+      "cve_id": "CVE-2024-23897",
+      "name": "Jenkins CLI RCE",
+      "local_status": "present",
+      "safety_status": "blocked_by_detection_only_policy",
+      "blocked_reasons": ["body_payload", "payload_key", "javascript_protocol", "code_protocol"]
+    },
+    {
+      "cve_id": "CVE-2021-25646",
+      "name": "Apache Druid RCE",
+      "local_status": "present",
+      "safety_status": "blocked_by_detection_only_policy",
+      "blocked_reasons": ["raw_request", "command_execution_string"]
+    },
+    {
+      "cve_id": "CVE-2021-43798",
+      "name": "Grafana path traversal/file read",
+      "local_status": "present",
+      "safety_status": "safe_detection_only",
+      "blocked_reasons": []
+    },
+    {
+      "cve_id": "CVE-2019-16113",
+      "name": "Bludit RCE",
+      "local_status": "not_verified",
+      "safety_status": "not_verified",
+      "blocked_reasons": ["template_not_present"]
+    },
+    {
+      "cve_id": "CVE-2017-7494",
+      "name": "SambaCry",
+      "local_status": "not_verified",
+      "safety_status": "not_verified",
+      "blocked_reasons": ["template_not_present"]
+    },
+    {
+      "cve_id": "CVE-2018-7600",
+      "name": "Drupalgeddon2",
+      "local_status": "present",
+      "safety_status": "blocked_by_detection_only_policy",
+      "blocked_reasons": ["raw_request", "command_execution_string"]
+    }
+  ],
+  "implemented_controls": [
+    "active-web-rce-nuclei-audit profile is approval-gated and separate from passive-web-nuclei-audit",
+    "passive-web-nuclei-audit remains the existing passive-safe pinned baseline",
+    "runner can perform governed nuclei -update-templates only when task params include update_templates and template_update_approved",
+    "runner emits nuclei-rce-plan.json with candidate template ids, selected safe ids, blocked ids, OOB status, update status, repository status, and service evidence samples",
+    "runner disables Interactsh with -no-interactsh unless oob_enabled is true and interactsh_server is explicitly configured",
+    "service-aware selection maps existing inventory/service evidence such as Jenkins, Grafana, Druid, Spring, GeoServer, Log4j, Bludit, Samba, and Drupal to CVE template ids",
+    "official local CVE templates are filtered before execution when they contain raw requests, payload keys, JavaScript/code protocol, command execution strings, JNDI/Interactsh callbacks, or outbound curl payloads"
+  ],
+  "validation": {
+    "focused": [
+      "source .venv/bin/activate && python -m pytest workers/tests/test_nuclei_rce_runner.py -q",
+      "source .venv/bin/activate && python -m pytest api/tests/test_nuclei_dispatch.py workers/tests/test_runner_contract.py workers/tests/test_nuclei_rce_runner.py api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_rce_nuclei_profile_requires_approval_and_queues_service_aware_task -q",
+      "source .venv/bin/activate && ruff check workers/runners/nuclei/runner.py workers/runners/nuclei/rce_catalog.py workers/tests/test_nuclei_rce_runner.py api/app/services/runs.py api/app/services/run_profiles.py api/tests/test_runs.py workers/orchestration/tasks.py"
+    ],
+    "required_final_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ]
+  },
+  "remaining_gaps": [
+    "No live AutoPenBench WS5/WS6 target was scanned in this build-lane task.",
+    "No self-hosted Interactsh/OOB callback proof was run; OOB remains blocked without explicit configuration.",
+    "Official local RCE templates for Log4Shell, Spring4Shell, GeoServer, Jenkins, Druid, and Drupal are present but blocked by the detection-only policy because they contain callback payloads, raw requests, payload keys, code/javascript protocol, command strings, or outbound curl probes.",
+    "Bludit and SambaCry template IDs were not verified in the local Nuclei template cache."
+  ]
+}

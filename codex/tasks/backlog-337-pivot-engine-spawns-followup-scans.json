@@ -1,0 +1,102 @@
+{
+  "id": "backlog-337-pivot-engine-spawns-followup-scans",
+  "task_file": "codex/tasks/backlog-337-pivot-engine-spawns-followup-scans.json",
+  "task_type": "ai_reasoning_capability",
+  "title": "Pivot Engine Automatically Queues Follow-Up Scans from Confirmed Findings",
+  "goal": "When the pivot engine detects an access-confirming finding (XSS, SQLi, SSRF, RCE, path traversal, auth bypass), it currently creates a TargetContextDocument recording the pivot vantage \u2014 but it does NOT queue any follow-up task. This task wires the pivot engine into the ai_loop run path so that: (1) for ai_loop runs, after a pivot context doc is created, a follow-up passive task is automatically queued using the pivot context's recommended_tools and target; (2) for standard/chain runs, the pivot doc is created as before (review-gated proposal only). The follow-up task must be a registered runner within scope, dispatched through the existing task_dispatch path. Example chain: httpx finds XSS \u2192 pivot engine creates ssrf_outbound_pivot context \u2192 queues auth-flow task against the target with the XSS parameter as context \u2192 auth-flow finds authenticated endpoint \u2192 pivot engine creates session_token_pivot context \u2192 queues idor-bac task.",
+  "scope": "api/app/services/ai_planner.py, workers/orchestration/tasks.py",
+  "status": "queued",
+  "generated_by": "gap-analysis-pivot-engine-no-dispatch",
+  "generation_reason": "generate_pivot_contexts_for_run() creates context documents but does not queue tasks. The pivot chain only advances if the operator manually approves proposals. For ai_loop runs this must be automatic.",
+  "source_context": {
+    "queue_index": 289,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "REQUIRES: backlog-336",
+    "broader_theme": "ai_chained_exploitation",
+    "key_files": [
+      "api/app/services/ai_planner.py",
+      "workers/orchestration/tasks.py",
+      "api/app/services/assessment_loop.py",
+      "api/tests/test_pivot_engine.py"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "ai_loop_only": "Automatic pivot task dispatch only applies to runs where run_uses_ai_loop(run) is True. Standard and chain runs get proposals only.",
+    "registered_runners_only": "Only dispatch tasks for tools in the registered runner registry. Do not invent new runner names.",
+    "passive_first": "Only auto-dispatch the first follow-up tool from the pivot context recommended_tools if it is passive tier. Active tools require operator approval.",
+    "scope_boundary": "The follow-up task target must pass validate_target_is_allowed(scope, target) before dispatch.",
+    "idempotent": "Already-queued pivot follow-ups must not be re-queued on repeat calls.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "where": "In _maybe_detect_and_record_pivots() in tasks.py, after generate_pivot_contexts_for_run() returns created docs, for each doc check if the run uses ai_loop and the first recommended tool is passive tier. If so, create a Task for that tool targeting the pivot endpoint and dispatch it.",
+    "task_creation": "Use the same pattern as _queue_passive_loop_task() in assessment_loop.py to create the Task record and link it to the pivot context document.",
+    "deduplication": "Store the queued task id in the pivot context doc's provenance_json under 'follow_up_task_id'. Skip if already set."
+  },
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_pivot_engine.py",
+      "pytest api/tests/"
+    ],
+    "acceptance_criteria": [
+      "For an ai_loop run, when an SSRF finding is confirmed, a follow-up httpx task is automatically queued targeting the SSRF endpoint.",
+      "For a standard run, only a proposal is created \u2014 no automatic dispatch.",
+      "The queued task id is stored in the pivot context document's provenance_json.",
+      "Running pivot detection twice does not create duplicate tasks."
+    ]
+  },
+  "success_criteria": [
+    "For an ai_loop run, when an SSRF finding is confirmed, a follow-up httpx task is automatically queued targeting the SSRF endpoint.",
+    "For a standard run, only a proposal is created \u2014 no automatic dispatch.",
+    "The queued task id is stored in the pivot context document's provenance_json.",
+    "Running pivot detection twice does not create duplicate tasks."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_planner.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_pivot_engine.py"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,98 @@
+{
+  "id": "backlog-385-cross-runner-verifier-system",
+  "task_file": "codex/tasks/backlog-385-cross-runner-verifier-system.json",
+  "task_type": "evidence_model",
+  "title": "Cross-Runner Verifier: Independent Confirmation for Critical Findings",
+  "goal": "Before any critical or high finding is committed to the run report, a second independent runner or primitive sequence verifies the impact claim. Eliminates the false-positive class where a single runner's heuristic match is treated as proof.",
+  "scope": "Add api/app/services/finding_verifier.py with verify_finding(finding, run, scope) -> VerifierVerdict. Picker is updated to route critical/high findings through verifier before persistence. Verifier chooses an independent check (different primitive sequence from the original) and runs it. Findings that fail verification get severity downgraded with a verifier_note.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Today, a runner that says 'admin compromise proven' because it saw 'Manage this server' in the body has no independent check. AI is trusting itself. Cross-runner verification is the canonical way to reach zero-false-positive on critical findings - one of the key differentiators against rule-based competitors.",
+  "source_context": {
+    "queue_index": 335,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_4_cross_target",
+    "key_files": [
+      "api/app/services/finding_chains.py",
+      "api/app/services/evidence_integrity.py",
+      "api/app/services/hypothesis_confidence.py",
+      "api/app/services/assessment_loop.py",
+      "workers/runners/exec_plan/runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Verifier service + picker integration only. Do NOT add new severities, do NOT change the existing severity scale, do NOT replace existing finding_chains heuristic.",
+    "verifier_independence": "Verifier check MUST use a different code path than the originating runner. Same runner re-running is not independent verification.",
+    "no_block_low_severity": "Verifier only runs on critical and high severity. Medium/low/info findings persist without extra verification step (cost control)."
+  },
+  "success_criteria": [
+    "finding_verifier.verify_finding chooses an independent check based on finding kind (e.g. for 'admin compromise' it fetches a known admin-only endpoint with the captured session and asserts admin content present).",
+    "Critical/high findings that fail verification are persisted with severity downgraded one notch and a verifier_note explaining the discrepancy.",
+    "Critical/high findings that pass verification are persisted with verifier_verdict: confirmed.",
+    "Verifier failure (network issue, scope blocked) results in severity unchanged but verifier_verdict: inconclusive (not auto-downgrade).",
+    "Live test: 1 known-good critical finding on Gruyere verifies as confirmed. 1 contrived false-positive case verifies as failed and is downgraded."
+  ],
+  "likely_touched_files": [
+    "api/app/services/finding_verifier.py",
+    "api/app/services/assessment_loop.py",
+    "api/app/services/finding_chains.py",
+    "api/tests/test_finding_verifier.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "workers/runners/",
+    "workers/orchestration/",
+    "_AI_PICKER_SYSTEM_PROMPT body"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_finding_verifier.py api/tests/test_finding_chains.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/finding_verifier.py api/app/services/assessment_loop.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Critical findings carry verifier_verdict field after this task.",
+      "Verifier check uses a different code path than the originating runner.",
+      "No regression in finding persistence for medium/low/info severity."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-384 must be merged."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-386 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Non-HTTP primitives (task #386).",
+    "Severity-scale redesign.",
+    "Verifier UI surfacing (separate UX task)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

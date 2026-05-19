@@ -112,6 +112,7 @@ def build_codex_context(pack: CapabilityPack) -> CodexBuildContextRead:
                 "Treat Prompt 1 and Prompt 2 methodology and adaptive pack fields as authoritative.",
                 "Edit exported pack artifacts and review notes, not the active runtime path.",
                 "Keep generated changes reviewable, versioned, and tied to the pack id/version.",
+                "Stage validated Codex output through the controlled reimport API as a child pack; never edit deployed runtime packs in place.",
                 "Record operator notes before approval and deployment.",
                 "Use the existing validate, approve, and deploy hooks instead of side-loading artifacts into runtime.",
             ],
@@ -122,6 +123,16 @@ def build_codex_context(pack: CapabilityPack) -> CodexBuildContextRead:
                 method="POST",
                 path=f"/api/v1/packs/{pack.id}/validate",
                 description="Run the existing validation lane against the current pack artifacts.",
+                blocking=True,
+            ),
+            CodexValidationHookRead(
+                name="pack.codex_reimport_stage",
+                method="POST",
+                path=f"/api/v1/packs/{pack.id}/codex-reimport",
+                description=(
+                    "Stage validated Codex workspace artifacts as a generated child pack; "
+                    "approval, deployment, and runtime binding still require the existing pack lifecycle."
+                ),
                 blocking=True,
             ),
             CodexValidationHookRead(

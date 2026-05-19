@@ -1,0 +1,108 @@
+{
+  "id": "backlog-34-detection-engineering-assistant-foundation",
+  "task_file": "codex/tasks/backlog-34-detection-engineering-assistant-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Detection Engineering Assistant Foundation",
+  "goal": "Add defensive value by mapping evidence-backed findings to detection ideas operators can review.",
+  "scope": "Implement a first detection-engineering assistant output that suggests detection logic, telemetry sources, or SIEM rule starting points based on existing findings, tools, and attack scenarios. Keep output advisory and operator-reviewed.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found detection-engineering assistant work was not represented in the backlog.",
+  "source_context": {
+    "queue_index": 34,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/competitive_landscape_2026.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "defensive_value_add",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/competitive_landscape_2026.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Generate advisory detection guidance only. Do not deploy SIEM rules, call customer systems, or claim detections are production-ready.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Detection ideas must be traceable to evidence or attack scenarios.",
+      "Unsupported telemetry sources must be clearly marked."
+    ]
+  },
+  "success_criteria": [
+    "Selected findings can show advisory detection-engineering suggestions.",
+    "Suggested telemetry and rule ideas are clearly non-production drafts.",
+    "Sparse findings and unsupported scenarios fall back truthfully.",
+    "Tests cover suggested and unsupported cases.",
+    "No external SIEM or EDR system is modified."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_enrichment.py",
+    "api/app/schemas/finding_views.py",
+    "ui/assets/modules/findings.js",
+    "api/tests/test_ai_finding_enrichment.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "api/app/schemas/findings.py",
+    "external SIEM or EDR integrations",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_finding_enrichment.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Detection output is advisory and evidence-linked.",
+      "Unsupported cases are explicit.",
+      "No customer detection system is modified."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Advisory wording and unsupported telemetry behavior are defined."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with detection-assistant changes and validation evidence.",
+      "Update CURRENT_STATE.md with the detection-assistant baseline and deployment limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "SIEM rule deployment",
+    "EDR integration",
+    "Production-ready detection guarantees",
+    "Threat actor attribution",
+    "Changing finding schema fields"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

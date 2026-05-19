@@ -1,0 +1,98 @@
+{
+  "id": "backlog-126-continuous-testing",
+  "task_file": "codex/tasks/backlog-126-continuous-testing.json",
+  "task_type": "backlog_slice",
+  "title": "Continuous Testing and Drift Detection \u2014 Scheduled Scans with Change Highlighting",
+  "goal": "Enable scheduled weekly or daily baseline scans on saved targets, and automatically compare each new run against the previous to highlight new findings, resolved findings, and changed exposure score.",
+  "scope": "Two parts: (1) SCHEDULED SCANS: activate the existing ScheduledRun model (already in DB schema). Add a Schedule section to Settings that lets the operator configure: engagement, profile (passive only for scheduled), target, frequency (daily/weekly/never), time of day, enabled toggle. Store in ScheduledRun records. Add a background job that runs on startup using APScheduler (already a dependency) that checks due scheduled runs and creates+dispatches them. Show next scheduled scan on Dashboard in the Upcoming Scans section (already present in Dashboard schema). (2) DRIFT DETECTION: after every run completion (run.status=completed or completed_with_errors), automatically compare the run against the previous completed run for the same engagement and profile using the existing comparison logic from explorer-history module. Compute: new_findings (found in this run, not in previous), resolved_findings (found in previous, not in this run), exposure_delta (current exposure score minus previous). Store as a RunDrift record (new simple table: run_id, previous_run_id, new_finding_count, resolved_finding_count, exposure_delta, computed_at). Show a Drift Summary banner in Mission Control after run completes: N new findings since last run / N resolved / Exposure score +/- N.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "Continuous testing is the key differentiator of modern security tools (DEFION positions this as their core product). Scheduled scans and drift detection give clients ongoing security assurance instead of point-in-time snapshots.",
+  "queue_index": 126,
+  "source_context": {
+    "queue_index": 125,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "continuous_security",
+    "source_documents": [
+      "api/app/models/control.py",
+      "api/app/services/scheduled_runs.py",
+      "api/app/routers/dashboard.py",
+      "ui/assets/modules/settings.js",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Passive profiles only for scheduled scans. No auto-intrusive scheduled scans. Drift is informational only, does not auto-create new findings.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Settings shows Schedule section with engagement/profile/frequency/time/enabled fields.",
+    "Scheduled runs are created and dispatched at configured time.",
+    "Dashboard Upcoming Scans section shows next scheduled run.",
+    "After run completion, drift is computed vs previous run.",
+    "Mission Control shows Drift Summary banner after run completes.",
+    "RunDrift records stored correctly.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/services/scheduled_runs.py",
+    "api/app/routers/dashboard.py",
+    "api/app/routers/runs.py",
+    "ui/assets/modules/settings.js",
+    "ui/assets/modules/mission-control.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Intrusive run profiles for scheduling",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "Scheduled intrusive scans",
+    "Email digest of drift",
+    "Automated remediation on drift"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Scheduled scans configurable and execute. Drift computed and shown in Mission Control."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

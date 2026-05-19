@@ -1,0 +1,98 @@
+{
+  "id": "backlog-144-attack-path-test-scope-mismatch",
+  "task_file": "codex/tasks/backlog-144-attack-path-test-scope-mismatch.json",
+  "task_type": "corrective_test_slice",
+  "title": "Fix attack path tests failing due to run target outside engagement scope",
+  "goal": "Update _create_scoped_engagement (or create a new variant) to include '10.0.1.10' in the scope allowlist when used by the cloud/inferred edge tests. The scope allowlist should include both the named hosts and the IP address: allowlist_json: {'hosts': ['app.example.test', 'api.example.test', '10.0.1.10']}. Alternatively, change the run configuration targets to use 'app.example.test' instead of '10.0.1.10'. The cleanest fix is to add '10.0.1.10' to the scope allowlist in the shared _create_scoped_engagement helper since the first passing test also uses 10.0.1.10 in inventory.",
+  "scope": "api/tests/test_attack_paths.py has two failing tests: test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges and test_attack_path_summary_retains_unmatched_findings_as_low_confidence. Both fail with KeyError: 'id' when accessing run['id'] after creating a run. The actual cause is the run creation returns HTTP 400 with 'configured target 10.0.1.10 is outside the approved engagement scope'. The engagement scope allows hosts=['app.example.test', 'api.example.test'] but the run configuration uses targets={'hosts': ['10.0.1.10']}. The target IP is not in the scope allowlist, so the run creation is correctly rejected by the scope guard added in backlog-100.",
+  "status": "queued",
+  "generated_by": "full-system-assessment-2026-04-30",
+  "generation_reason": "api/tests/test_attack_paths.py has two failing tests: test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges and test_attack_path_summary_retains_unmatched_findings_as_low_confidence. Both fail with KeyError: 'id' when accessing run['id'] after creating a run. The actual cause is the run creation returns HTTP 400 with 'configured target 10.0.1.10 is outside the approved engagement scope'. The engagement scope allows hosts=['app.example.test', 'api.example.test'] but the run configuration uses targets={'hosts': ['10.0.1.10']}. The target IP is not in the scope allowlist, so the run creation is correctly rejected by the scope guard added in backlog-100.",
+  "source_context": {
+    "queue_index": 142,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "full_system_regression_unblockers",
+    "source_documents": [
+      "api/tests/test_attack_paths.py",
+      "TASK_QUEUE.md",
+      "NEXT_TASK.md"
+    ],
+    "affected_tests": [
+      "api/tests/test_attack_paths.py::test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges",
+      "api/tests/test_attack_paths.py::test_attack_path_summary_retains_unmatched_findings_as_low_confidence"
+    ],
+    "root_cause": "The _create_scoped_engagement helper creates a scope with allowlist {'hosts': ['app.example.test', 'api.example.test']}. The run configuration uses targets {'hosts': ['10.0.1.10']} which does not match the scope. The scope enforcement from backlog-100 rejects this. Tests were written before strict scope enforcement was added."
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep the fix to the named regression slice. Do not use this task for broad UI/product redesign or unrelated runtime changes.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges passes.",
+    "test_attack_path_summary_retains_unmatched_findings_as_low_confidence passes.",
+    "All other attack path tests continue to pass."
+  ],
+  "likely_touched_files": [
+    "api/tests/test_attack_paths.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "approval or scope gate bypass",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_attack_paths.py --tb=short -q",
+      "Confirm all attack path tests pass",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges passes.",
+      "test_attack_path_summary_retains_unmatched_findings_as_low_confidence passes.",
+      "All other attack path tests continue to pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad product redesign",
+    "Installing new tools",
+    "Running live customer or intrusive targets",
+    "Changing unrelated schemas or prompts"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

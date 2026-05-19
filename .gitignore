@@ -7,6 +7,8 @@ __pycache__/
 *.pyo
 *.pyd
 *.db
+*.db-shm
+*.db-wal
 .env
 infra/compose/.env
 .cache/
@@ -24,7 +26,14 @@ Thumbs.db
 *.egg-info/
 node_modules/
 artifacts/
+.aegispt-artifacts/
 reports/
+ui/screenshots/
 ui/test-results/
+ui-v2/test-results/
+scripts/_*.py
+scripts/_*.sh
+scripts/_*.txt
 codex/results/*
 !codex/results/README.md
+!codex/results/validation-matrix-latest.json

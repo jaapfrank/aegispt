@@ -1,0 +1,107 @@
+{
+  "id": "backlog-16-workflow-handoff-expansion-foundation",
+  "task_file": "codex/tasks/backlog-16-workflow-handoff-expansion-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Workflow Handoff Expansion Foundation",
+  "goal": "Extend the Jira-first integration foundation into a generic, controlled workflow-handoff pattern without creating a shadow runtime lane.",
+  "scope": "Add the next enterprise workflow slice by defining and implementing one generic outbound handoff pattern, such as webhook or GitHub issue handoff, using the existing integration configuration/linking style. Keep automatic background synchronization, broad marketplace installation, and uncontrolled plugin behavior out of scope.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 16,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/integrations.md",
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/competitive_landscape_2026.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "enterprise_workflow_integrations",
+    "source_documents": [
+      "docs/integrations.md",
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/competitive_landscape_2026.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add exactly one controlled handoff pattern. Do not bundle Slack, Teams, ServiceNow, GitHub, webhooks, and bidirectional sync into one task.",
+    "runtime_mutation": false,
+    "no_uncontrolled_plugin_installation": true,
+    "notes": [
+      "Reuse the existing integration configuration and finding-link concepts where possible.",
+      "Any external action must be explicit, operator-triggered, and auditable."
+    ]
+  },
+  "success_criteria": [
+    "One additional workflow handoff pattern is implemented or fully specified as the next controlled integration slice.",
+    "Finding linkage and sync state remain additive and separate from canonical finding fields.",
+    "Operator-triggered handoff is auditable and failure-aware.",
+    "Docs clearly state what integrations remain future work.",
+    "No background sync worker or uncontrolled plugin installation is introduced."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/integrations.py",
+    "api/app/schemas/integrations.py",
+    "api/app/services/jira.py",
+    "docs/integrations.md",
+    "api/tests/test_integrations.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "workers/orchestration/tasks.py",
+    "pack registry and runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_integrations.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The handoff is operator-triggered and auditable.",
+      "Failure state is visible and stored without corrupting finding records.",
+      "Only one integration expansion is included in this slice."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The selected integration handoff target is explicitly named before implementation starts."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with integration handoff changes and validation evidence.",
+      "Update CURRENT_STATE.md with the new integration baseline and remaining integration gaps.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Background automatic sync workers",
+    "ServiceNow plus Slack plus Teams in the same slice",
+    "Uncontrolled plugin installation",
+    "Changing canonical finding schema fields",
+    "Runtime execution changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

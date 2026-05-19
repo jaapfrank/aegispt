@@ -1,0 +1,105 @@
+{
+  "catalog": "/home/administrator/project/automation skill/AegisPT/scripts/validation/expected_findings.json",
+  "generated_at": "2026-05-05T18:14:49.327546+00:00",
+  "matrix_id": "known_vulnerability_validation_v1",
+  "mode": "auto-execute",
+  "scenarios": [
+    {
+      "counts": {
+        "actual_findings": 0,
+        "expected": 4,
+        "expected_found": 0,
+        "forbidden_findings": 0,
+        "unexpected_findings": 0
+      },
+      "detection_rate_pct": null,
+      "execution_blocker": {
+        "details": {
+          "docker_stderr": "Error response from daemon: No such image: webgoat/webgoat:2023.8",
+          "image": "webgoat/webgoat:2023.8"
+        },
+        "reason": "Docker image webgoat/webgoat:2023.8 is not present locally; remote image pulls are disabled for the default safe validation path.",
+        "safest_next_step": "Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+        "type": "docker_image_missing"
+      },
+      "false_positive_rate_pct": null,
+      "minimum_coverage_pct": 75,
+      "missing_expected": [
+        "webgoat-sql-injection",
+        "webgoat-cross-site-scripting",
+        "webgoat-access-control",
+        "webgoat-weak-crypto-or-secret"
+      ],
+      "reason": "Docker image webgoat/webgoat:2023.8 is not present locally; remote image pulls are disabled for the default safe validation path.",
+      "scenario_id": "webgoat-active-web-safe",
+      "scenario_name": "OWASP WebGoat active-safe validation",
+      "status": "blocked"
+    },
+    {
+      "counts": {
+        "actual_findings": 0,
+        "expected": 4,
+        "expected_found": 0,
+        "forbidden_findings": 0,
+        "unexpected_findings": 0
+      },
+      "detection_rate_pct": null,
+      "execution_blocker": {
+        "details": {
+          "docker_stderr": "Error response from daemon: No such image: vulnerables/web-dvwa:latest",
+          "image": "vulnerables/web-dvwa:latest"
+        },
+        "reason": "Docker image vulnerables/web-dvwa:latest is not present locally; remote image pulls are disabled for the default safe validation path.",
+        "safest_next_step": "Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+        "type": "docker_image_missing"
+      },
+      "false_positive_rate_pct": null,
+      "minimum_coverage_pct": 80,
+      "missing_expected": [
+        "dvwa-sql-injection",
+        "dvwa-command-injection",
+        "dvwa-cross-site-scripting",
+        "dvwa-file-inclusion"
+      ],
+      "reason": "Docker image vulnerables/web-dvwa:latest is not present locally; remote image pulls are disabled for the default safe validation path.",
+      "scenario_id": "dvwa-active-web-safe",
+      "scenario_name": "DVWA active-safe validation",
+      "status": "blocked"
+    },
+    {
+      "counts": {
+        "actual_findings": 0,
+        "expected": 0,
+        "expected_found": 0,
+        "forbidden_findings": 0,
+        "unexpected_findings": 0
+      },
+      "detection_rate_pct": null,
+      "execution_blocker": {
+        "details": {
+          "docker_stderr": "Error response from daemon: No such image: nginx:1.25-alpine",
+          "image": "nginx:1.25-alpine"
+        },
+        "reason": "Docker image nginx:1.25-alpine is not present locally; remote image pulls are disabled for the default safe validation path.",
+        "safest_next_step": "Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+        "type": "docker_image_missing"
+      },
+      "false_positive_rate_pct": null,
+      "minimum_coverage_pct": 100,
+      "missing_expected": [],
+      "reason": "Docker image nginx:1.25-alpine is not present locally; remote image pulls are disabled for the default safe validation path.",
+      "scenario_id": "clean-nginx-passive-web",
+      "scenario_name": "Clean nginx false-positive guard",
+      "status": "blocked"
+    }
+  ],
+  "schema_version": 1,
+  "status": "blocked",
+  "summary": {
+    "blocked": 3,
+    "failed": 0,
+    "not_run": 0,
+    "passed": 0,
+    "scenarios": 3
+  }
+}

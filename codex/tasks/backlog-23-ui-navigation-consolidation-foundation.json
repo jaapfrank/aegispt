@@ -1,0 +1,109 @@
+{
+  "id": "backlog-23-ui-navigation-consolidation-foundation",
+  "task_file": "codex/tasks/backlog-23-ui-navigation-consolidation-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "UI Navigation Consolidation Foundation",
+  "goal": "Reduce operator context switching by consolidating evidence and dossier review into the surfaces where operators already make decisions.",
+  "scope": "Implement the first navigation-consolidation slice by embedding Evidence Replay context into Finding Theater and moving the run dossier value from Explorer into Report Center or an adjacent run-context tab. Preserve existing API contracts and evidence provenance.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found navigation consolidation was only implicit, not a decision-complete queued package.",
+  "source_context": {
+    "queue_index": 23,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/operator_console_stabilization_plan.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "commercial_viability_ui",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/ui_report_center.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Consolidate navigation only where existing data already supports the target surface. Do not delete evidence, report, or dossier capabilities.",
+    "runtime_mutation": false,
+    "notes": [
+      "The goal is fewer decision surfaces, not loss of auditability.",
+      "Any legacy route kept for compatibility must point operators to the consolidated surface."
+    ]
+  },
+  "success_criteria": [
+    "Finding Theater can show the relevant evidence context needed to review a finding.",
+    "Report Center or an adjacent run-context view shows the practical run dossier context operators need.",
+    "The active shell presents fewer high-friction navigation choices for the same decision flow.",
+    "Browser tests cover finding evidence review and report/dossier review after consolidation.",
+    "Existing evidence provenance and report exports remain intact."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/findings.js",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/explorer-history.js",
+    "ui/assets/app.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/ui_report_center.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "api/app/models/control.py",
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Navigation consolidation is visible in the browser.",
+      "Evidence and dossier context remain evidence-backed.",
+      "No runtime behavior or finding schema changes are introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The exact surfaces to consolidate are confirmed from current UI behavior."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with navigation consolidation changes and validation evidence.",
+      "Update CURRENT_STATE.md with the consolidated navigation baseline and remaining UI limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "New backend evidence model",
+    "Removing audit trails",
+    "Adding a new dashboard lane",
+    "React or framework rewrite",
+    "Runtime behavior changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
