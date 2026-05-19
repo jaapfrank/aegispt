@@ -1,5 +1,47 @@
 # Done Log
 
+- 2026-05-19: completed backlog-398 (queue #336 — assessment_planner respects autonomous_intrusive_allowed) — **first of the 3 live-reliability root-cause fixes filed 2026-05-18 after Gruyere diagnosis**:
+  - rationale: live Gruyere run 9f951a0f (2026-05-18) produced 0/17 known vulnerability classes despite `autonomous_intrusive_allowed=True` on the run. Root cause traced to `assessment_planner._score_capability` lines 277-279: `if risk_tier in INTRUSIVE_TIERS: decision = "NEEDS_APPROVAL"` — no consultation of the run flag. The picker (Claude Opus) reads the correct INTRUSIVE-AUTHORIZED system-prompt block at assessment_loop.py:838-856 and tries to plan exec_plan / impacket / metasploit chains, but the statically-scored planner overrules it. Empirically: 24 picker reasonings, 0 exec_plan picks, 4 final picks ended up as random residual tools (`ai-shell`, `c2-ingest`, `graphql-command-injection`, `iot-default-creds`), run died on `max_iterations_reached`.
+  - implementation in `api/app/services/assessment_planner.py` (~20 added lines):
+    - new kwarg `intrusive_allowed: bool = False` on `_score_capability`. Default preserves backward compatibility for any caller that doesn't pass it (existing tests + any future callers that don't yet know about the bypass).
+    - new local `intrusive_bypass = bool(intrusive_allowed) and risk_tier in INTRUSIVE_TIERS`. When True, the `if risk_tier in INTRUSIVE_TIERS:` gate is skipped and the decision falls through to the SAME evidence-driven branches (sqlmap / jwt-probe / deserialization-probe / matched_blockers / matched_triggers / matched_weak_triggers / WEB_SIGNALS / default) that active/passive runners use.
+    - new audit-trail field `auto_allowed_intrusive: bool` in the returned plan-item dict. True when the bypass actually moved the decision away from NEEDS_APPROVAL (so True for RUN/WAIT/SKIP under intrusive_allowed=True; False for the NEEDS_APPROVAL fallback case OR for non-intrusive tiers where the kwarg has no effect). Operators reviewing a plan see which entries used the bypass.
+    - `build_assessment_plan_for_run` now reads `bool(getattr(run, "autonomous_intrusive_allowed", False))` and threads it to every `_score_capability` call. `getattr` with default keeps the function safe against runs that haven't loaded the column (defensive).
+    - `_decision_sentence` deliberately NOT modified: once `decision` is `RUN`/`WAIT`/`SKIP` the existing sentence templates fire correctly. The "Controlled proof work needs the explicit approval gate" sentence only triggers on `decision == "NEEDS_APPROVAL"`, which under bypass no longer happens.
+  - tests (8 new tests in `api/tests/test_assessment_planner.py` under "#336 / backlog-398" section, all pass):
+    - `test_score_capability_intrusive_not_allowed_still_needs_approval`: regression guard — default `intrusive_allowed=False` keeps NEEDS_APPROVAL semantics + reasoning sentence intact. Audit flag False.
+    - `test_score_capability_intrusive_allowed_with_matched_triggers_decides_run`: ACCEPTANCE — allowed + triggers → RUN, audit flag True, no "approval gate" sentence.
+    - `test_score_capability_intrusive_allowed_with_blocker_decides_skip`: bypass doesn't override evidence safety — matched blocker still wins → SKIP, audit flag True (bypass moved decision off NEEDS_APPROVAL).
+    - `test_score_capability_intrusive_allowed_with_weak_triggers_decides_wait`: WAIT under bypass — same evidence threshold as active/passive runners.
+    - `test_score_capability_intrusive_allowed_no_signals_decides_skip`: no evidence → SKIP under bypass, audit flag True (operators see "intrusive runner didn't run by lack of evidence, not lack of approval").
+    - `test_score_capability_non_intrusive_tier_ignores_intrusive_allowed_kwarg`: kwarg is a no-op for active/passive (they never went through NEEDS_APPROVAL).
+    - `test_score_capability_default_kwarg_preserves_backward_compat`: callers that don't pass the kwarg still get NEEDS_APPROVAL on intrusive (backward-compat contract).
+    - `test_score_capability_source_threads_intrusive_allowed_from_run`: source-grep sentinel — `build_assessment_plan_for_run` must read `autonomous_intrusive_allowed` AND pass `intrusive_allowed=intrusive_allowed` to `_score_capability`. If a future refactor breaks the wire, this fails loudly.
+    - 8/8 new tests pass; 11/13 total pass in the file (2 pre-existing `test_adaptive_wave_completion_*` failures verified independent of this change via `git stash` baseline — those land in backlog-343 broader codebase hygiene).
+  - constraints honored (must_not_touch + scope_creep_guard from task package):
+    - `INTRUSIVE_TIERS` set membership unchanged
+    - `_AI_PICKER_SYSTEM_PROMPT` untouched (the system-prompt block at 838-856 is already correct; this fix makes the planner consistent with what Claude already reads)
+    - `approval_workflows.py` / `approvals.py` untouched
+    - `workers/runners/` and `workers/orchestration/` untouched
+    - Approval path preserved for `autonomous_intrusive_allowed=False` runs (proven by `test_score_capability_intrusive_not_allowed_still_needs_approval`)
+    - Audit trail in place via `auto_allowed_intrusive` field on every plan item (each test asserts the expected True/False value)
+  - validation:
+    - scripts/validate_backlog_tasks.py: 350 queued 1:1 (no queue change)
+    - .venv/bin/pytest api/tests/test_assessment_planner.py: 11/13 pass (8 new + 3 existing pass; 2 pre-existing `adaptive_wave_completion` failures unrelated to #336 — verified via git stash baseline)
+    - .venv/bin/pytest api/tests/test_assessment_loop.py: 5 pre-existing failures unchanged (status drift `running` vs `waiting_for_execution`; tracked under backlog-343 / backlog-307 — same pattern as #330/#331/#335/#344 DONE_LOG entries)
+    - python3 -m compileall -q api: clean
+    - .venv/bin/ruff check api/app/services/assessment_planner.py: All checks passed
+    - git diff --check on touched files: clean
+  - acceptance criteria status (from task package):
+    - "build_assessment_plan_for_run threads run.autonomous_intrusive_allowed into _score_capability" → ✓ (source-grep sentinel + behavioral test)
+    - "When autonomous_intrusive_allowed=True, intrusive-tier capabilities with matched triggers decide RUN (not NEEDS_APPROVAL)" → ✓ (test_score_capability_intrusive_allowed_with_matched_triggers_decides_run)
+    - "When autonomous_intrusive_allowed=False, intrusive-tier capabilities still decide NEEDS_APPROVAL" → ✓ (test_score_capability_intrusive_not_allowed_still_needs_approval + the existing integration `test_assessment_plan_scores_runner_decisions_from_signal_profile` still asserts `metasploit["decision"] == "NEEDS_APPROVAL"` for a run without the flag)
+    - "Live test against juice-shop/testfire with autonomous_intrusive_allowed=True: at least 1 exec_plan task gets queued during a 20-advance run" → DEFERRED to backlog-399/400 follow-up live run (operator restarts API onto current HEAD; this code change alone needs to combine with backlog-399 auth_discoverer fix + backlog-400 path-augmentation before a fair live test is possible — the picker's exec_plan choice depends on evidence the other two bugs currently block)
+    - "Unit tests cover: allowed+triggered → RUN; allowed+blocker → SKIP; allowed+no_triggers → WAIT/SKIP; not_allowed+anything → NEEDS_APPROVAL" → ✓ (all 4 paths + 4 additional guards)
+    - "AgentReasoning.thought_text for an allowed-intrusive run no longer contains the 'Controlled proof work needs the explicit approval gate' template" → STRUCTURAL ✓ (under bypass, decision is no longer NEEDS_APPROVAL, so the template branch at `_decision_sentence` line 252-253 never fires; verifiable in live run after deployment)
+  - load-bearing constraint that forced the design: scope_creep_guard "Single-function refactor + tests only" forced the additive-kwarg approach rather than restructuring the planner pipeline. Second constraint: "audit_trail required" forced the `auto_allowed_intrusive` field on EVERY plan item (not just bypassed-RUN) so operators see the complete picture — including SKIP-under-bypass decisions that confirm evidence safety still applied.
+  - next: promote backlog-399 (#337 — auth_discoverer: discover register/login from target_intel hints + index link-scan) into NEXT_TASK.md. Second of the 3 live-reliability fixes. Once #337 + #338 land, a live re-test against Gruyere will measure how many of the 0/17 classes flip to detected.
+
 - 2026-05-18: completed backlog-396 (queue #346 — Auth-recipe cache eviction + schema migration) — **fifth of the 6 deferred-capability follow-ups (#342-#347), #327 follow-up**:
   - rationale: #327 made `store_recipe` REJECT new entries when the 50 KB dir cap engaged — no eviction, no LRU, just permanent rejection. Once the cache filled, NEW fingerprints got an absent verdict forever and paid the Claude Haiku call on EVERY run. Same problem on `schema_version` mismatch: `_load_cache_entry` returned `None` (forward-compat absent) but there was no migration path, so older entries became permanent dead weight on a schema bump. #327 task body called both "successes" but in production they're regressions dressed as features — exactly the deferred-capability pattern the operator audit on 2026-05-17 surfaced.
   - implementation in `api/app/services/auth_discoverer.py` (~210 added lines):

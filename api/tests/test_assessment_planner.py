@@ -415,3 +415,178 @@ def test_adaptive_wave_completion_creates_review_only_compound_chain_proposal(cl
             select(Task).where(Task.run_id == UUID(run["id"]), Task.tool == "auth-flow")
         )
         assert auth_task is None
+
+
+# ---------------------------------------------------------------------------
+# #336 / backlog-398 — assessment_planner respects autonomous_intrusive_allowed
+# ---------------------------------------------------------------------------
+#
+# Bug: _score_capability marked every intrusive-tier capability as
+# NEEDS_APPROVAL regardless of run.autonomous_intrusive_allowed. The picker
+# (Claude Opus) reads the correct "INTRUSIVE TIER AUTHORIZED" block in the
+# system prompt and tries to plan exec_plan / impacket / metasploit etc.,
+# but the planner overrules it. Result on live Gruyere 2026-05-18: 0
+# exec_plan picks in 24 reasonings, picker falls back to random residual
+# tools, run dies on max_iterations_reached.
+#
+# Fix: _score_capability now takes intrusive_allowed: bool=False. When
+# True AND risk_tier=intrusive, the decision falls through to the same
+# evidence-driven logic as active/passive runners. The bypass is audit-
+# trailed via the `auto_allowed_intrusive` field on each plan item.
+
+
+def _make_intrusive_capability(
+    *,
+    name: str = "metasploit",
+    triggers: list[str] | None = None,
+    weak_triggers: list[str] | None = None,
+    blockers: list[str] | None = None,
+) -> dict:
+    return {
+        "name": name,
+        "risk_tier": "intrusive",
+        "required_approvals": 1,
+        "triggers": triggers or [],
+        "weak_triggers": weak_triggers or [],
+        "blockers": blockers or [],
+        "estimated_minutes": 5,
+    }
+
+
+def test_score_capability_intrusive_not_allowed_still_needs_approval() -> None:
+    """Regression guard: when intrusive_allowed=False (the default), an
+    intrusive-tier capability MUST still emit NEEDS_APPROVAL — that's the
+    preserved-approval-path contract."""
+    from api.app.services.assessment_planner import _score_capability
+
+    cap = _make_intrusive_capability(triggers=["smb_share_enumerated"])
+    result = _score_capability(cap, {"smb_share_enumerated"}, intrusive_allowed=False)
+    assert result["decision"] == "NEEDS_APPROVAL"
+    assert result["auto_allowed_intrusive"] is False
+    # The reasoning still carries the approval-gate sentence so operators
+    # see WHY this lands in their approval queue.
+    assert any("approval gate" in r for r in result["reasons"])
+
+
+def test_score_capability_intrusive_allowed_with_matched_triggers_decides_run() -> None:
+    """Acceptance: when intrusive_allowed=True AND triggers match, the
+    decision is RUN (not NEEDS_APPROVAL). This is the exec_plan path the
+    picker tries to take on live targets when the operator opted in."""
+    from api.app.services.assessment_planner import _score_capability
+
+    cap = _make_intrusive_capability(
+        triggers=["smb_share_enumerated", "credential_replay_seed"],
+    )
+    result = _score_capability(
+        cap,
+        {"smb_share_enumerated", "credential_replay_seed"},
+        intrusive_allowed=True,
+    )
+    assert result["decision"] == "RUN"
+    assert result["auto_allowed_intrusive"] is True
+    # The reasoning no longer carries the "approval gate" sentence.
+    assert not any("approval gate" in r for r in result["reasons"])
+
+
+def test_score_capability_intrusive_allowed_with_blocker_decides_skip() -> None:
+    """Bypass does NOT mean 'always RUN'. A matched blocker still wins —
+    operator opt-in does not override evidence-based safety. The audit
+    flag is True because the bypass DID shift the decision away from
+    NEEDS_APPROVAL (and into SKIP); the operator can still see this in
+    review."""
+    from api.app.services.assessment_planner import _score_capability
+
+    cap = _make_intrusive_capability(
+        triggers=["smb_share_enumerated"],
+        blockers=["smb_signing_required"],
+    )
+    result = _score_capability(
+        cap,
+        {"smb_share_enumerated", "smb_signing_required"},
+        intrusive_allowed=True,
+    )
+    assert result["decision"] == "SKIP"
+    assert result["auto_allowed_intrusive"] is True
+
+
+def test_score_capability_intrusive_allowed_with_weak_triggers_decides_wait() -> None:
+    """When intrusive is allowed but evidence is only weakly matching,
+    decision is WAIT — same as for an active-tier capability. Bypass is
+    still 'true' because the run reached a non-NEEDS_APPROVAL decision
+    via the bypass path."""
+    from api.app.services.assessment_planner import _score_capability
+
+    cap = _make_intrusive_capability(
+        triggers=["smb_share_enumerated"],
+        weak_triggers=["smb_port_open"],
+    )
+    result = _score_capability(
+        cap,
+        {"smb_port_open"},
+        intrusive_allowed=True,
+    )
+    assert result["decision"] == "WAIT"
+    assert result["auto_allowed_intrusive"] is True
+
+
+def test_score_capability_intrusive_allowed_no_signals_decides_skip() -> None:
+    """No matched triggers AND no weak triggers AND no web-passive signal
+    → SKIP (confidence 0.1). Audit flag is True because we exited
+    NEEDS_APPROVAL via the bypass path — operators see this entry to
+    confirm the intrusive runner didn't run by lack of evidence, not
+    lack of approval."""
+    from api.app.services.assessment_planner import _score_capability
+
+    cap = _make_intrusive_capability(triggers=["smb_share_enumerated"])
+    result = _score_capability(cap, set(), intrusive_allowed=True)
+    assert result["decision"] == "SKIP"
+    assert result["auto_allowed_intrusive"] is True
+
+
+def test_score_capability_non_intrusive_tier_ignores_intrusive_allowed_kwarg() -> None:
+    """For active/passive tier capabilities the kwarg has no effect —
+    they were never NEEDS_APPROVAL to begin with."""
+    from api.app.services.assessment_planner import _score_capability
+
+    active_cap = {
+        "name": "content-discovery",
+        "risk_tier": "passive",
+        "triggers": ["web_target"],
+        "weak_triggers": [],
+        "blockers": [],
+        "estimated_minutes": 2,
+    }
+    result_no = _score_capability(active_cap, {"web_target"}, intrusive_allowed=False)
+    result_yes = _score_capability(active_cap, {"web_target"}, intrusive_allowed=True)
+    assert result_no["decision"] == result_yes["decision"]
+    assert result_no["auto_allowed_intrusive"] is False
+    assert result_yes["auto_allowed_intrusive"] is False  # not intrusive tier
+
+
+def test_score_capability_default_kwarg_preserves_backward_compat() -> None:
+    """Existing callers of _score_capability that don't pass
+    intrusive_allowed (e.g. older tests calling the function directly)
+    keep getting the NEEDS_APPROVAL path for intrusive tiers."""
+    from api.app.services.assessment_planner import _score_capability
+
+    cap = _make_intrusive_capability(triggers=["smb_share_enumerated"])
+    result = _score_capability(cap, {"smb_share_enumerated"})  # no kwarg
+    assert result["decision"] == "NEEDS_APPROVAL"
+    assert result["auto_allowed_intrusive"] is False
+
+
+def test_score_capability_source_threads_intrusive_allowed_from_run() -> None:
+    """Sentinel: build_assessment_plan_for_run MUST read
+    run.autonomous_intrusive_allowed and pass it to _score_capability. If
+    a future refactor breaks the wire, this test fails loudly and the
+    #336 visibility-window fix regresses."""
+    import inspect
+    from api.app.services.assessment_planner import build_assessment_plan_for_run
+
+    src = inspect.getsource(build_assessment_plan_for_run)
+    assert "autonomous_intrusive_allowed" in src, (
+        "build_assessment_plan_for_run must read run.autonomous_intrusive_allowed"
+    )
+    assert "intrusive_allowed=intrusive_allowed" in src, (
+        "build_assessment_plan_for_run must pass intrusive_allowed= to _score_capability"
+    )

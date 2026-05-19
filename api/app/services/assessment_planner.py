@@ -262,7 +262,12 @@ def _decision_sentence(
     return f"{runner} is skipped because required evidence is absent in the current SignalProfile."
 
 
-def _score_capability(capability: dict[str, Any], signals: set[str]) -> dict[str, Any]:
+def _score_capability(
+    capability: dict[str, Any],
+    signals: set[str],
+    *,
+    intrusive_allowed: bool = False,
+) -> dict[str, Any]:
     runner = str(capability.get("name") or "").strip()
     risk_tier = str(capability.get("risk_tier") or "active").strip().lower()
     required_approval_count = int(capability.get("required_approvals") or 0)
@@ -274,7 +279,18 @@ def _score_capability(capability: dict[str, Any], signals: set[str]) -> dict[str
     matched_blockers = _matched(blockers, signals)
     missing_triggers = _missing(triggers, signals)
 
-    if risk_tier in INTRUSIVE_TIERS:
+    # #336 — when the operator has opted into autonomous intrusive on the
+    # run (autonomous_intrusive_allowed=True), the picker is told via the
+    # system prompt block at assessment_loop.py:838-856 that intrusive
+    # actions may proceed without waiting for an approval gate. The
+    # planner has to be consistent with that — fall through to the
+    # evidence-driven logic instead of forcing NEEDS_APPROVAL. The
+    # bypass is audit-trailed via the `auto_allowed_intrusive` flag in
+    # the returned dict so post-hoc reviewers can see which decisions
+    # used the bypass path.
+    intrusive_bypass = bool(intrusive_allowed) and risk_tier in INTRUSIVE_TIERS
+
+    if risk_tier in INTRUSIVE_TIERS and not intrusive_bypass:
         decision = "NEEDS_APPROVAL"
         confidence = 0.95
     elif runner == "sqlmap":
@@ -365,14 +381,28 @@ def _score_capability(capability: dict[str, Any], signals: set[str]) -> dict[str
         "follow_up_tools": list(capability.get("follow_up_tools") or []),
         "category": capability.get("category"),
         "description": capability.get("description"),
+        # #336 audit trail — True when this decision was taken under the
+        # operator's autonomous_intrusive_allowed bypass instead of the
+        # default NEEDS_APPROVAL gate. False for non-intrusive tiers and
+        # for intrusive-tier decisions that ended up NEEDS_APPROVAL (no
+        # bypass actually used).
+        "auto_allowed_intrusive": intrusive_bypass and decision != "NEEDS_APPROVAL",
     }
 
 
 def build_assessment_plan_for_run(session: Session, run: Run) -> dict[str, Any]:
     planner_signals = _extract_planner_signals(session, run)
     registry = runner_capability_registry()
+    # #336 — propagate the operator's per-run intrusive opt-in so
+    # intrusive-tier capabilities are scored on evidence (matching the
+    # picker's system prompt), not forced to NEEDS_APPROVAL.
+    intrusive_allowed = bool(getattr(run, "autonomous_intrusive_allowed", False))
     runners = [
-        _score_capability(capability, planner_signals.signals)
+        _score_capability(
+            capability,
+            planner_signals.signals,
+            intrusive_allowed=intrusive_allowed,
+        )
         for capability in registry.get("capabilities", [])
         if isinstance(capability, dict)
     ]
