@@ -9,7 +9,7 @@
   "generated_by": "sprint-2026-mythos-foundation-2026-05-19",
   "generation_reason": "Empirical evidence from run 3e2cfa5b log: 'Claude said EXEC_PLAN plan_name=admin-takeover-via-leaked-creds steps=0', followed by 'AI loop: exec_plan rejected — empty or malformed plan body'. Also: 'picker JSON parse failed despite structured-output schema; err=Unterminated string starting at: line 1 column 1158 (char 1157)' — the schema is valid but max_tokens=1024 truncates mid-string, and the structured-output enforcement does not (and cannot) prevent token-budget truncation. Claude is being asked to produce a complete multi-step attack plan in 1024 tokens; that's structurally too small for even a 3-step chain with proper assertions. The deeper issue is that the loop never tells Claude why his plan failed, so even with more tokens he can't iterate. This task addresses both: more budget + a feedback loop. Subsumes backlog-391 (filed 2026-05-17, never executed).",
   "source_context": {
-    "queue_index": 341,
+    "queue_index": 342,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

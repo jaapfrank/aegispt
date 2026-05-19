@@ -9,7 +9,7 @@
   "generated_by": "sprint-2026-mythos-foundation-2026-05-19",
   "generation_reason": "Empirical diagnosis 2026-05-19 of run 3e2cfa5b showed `next_best_action_selector_used=True` on all 14 AgentReasoning rows + 0 exec_plan picks + 0 chain-attacks. Operator pushback 2026-05-19: 'Waarom alleen Gruyere — een slim systeem moet op elke website elke target kunnen werken... Hierdoor moet het systeem dus juist slim zijn.' Live evidence + the new feedback_live_proof_must_be_diverse_real_targets memory rule force the conclusion that #337/#338's per-stack registries are anti-patterns: they only help on targets enumerated in the table. The smart-system fix is dynamic discovery by target_intel, not registry expansion. backlog-401 (broaden the keyword table) is queued as `blocked-pending #344-backlog-406 validation` — if this task's replacement covers what #401 was supposed to fix, #401 is closed as subsumed.",
   "source_context": {
-    "queue_index": 340,
+    "queue_index": 341,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

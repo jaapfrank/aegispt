@@ -9,7 +9,7 @@
   "generated_by": "sprint-2026-mythos-foundation-2026-05-19",
   "generation_reason": "Empirical evidence from run 3e2cfa5b: 14 picker reasonings showed Claude reasoning over flat lists of signals ('xss-extended is the next best observation candidate from form_with_post_action, http_service_present, web_target_present'). No row connected 'xss_confirmed' to 'session_cookie_present' to 'admin_endpoint_observed' as a chain. Without that connection, the picker has no signal that finding A enables capability B. #343 added a CHAIN REASONING ADDENDUM to the prompt instructing Claude to use RECENT_CAPTURES, but the addendum is inert because (a) 0 captured_value entities exist when exec_plan never dispatches successfully, and (b) even with captures, the flat projection doesn't connect them. This task projects the chain causally so the picker prompt is actionable.",
   "source_context": {
-    "queue_index": 343,
+    "queue_index": 344,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

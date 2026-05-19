@@ -9,7 +9,7 @@
   "generated_by": "sprint-2026-mythos-foundation-2026-05-19",
   "generation_reason": "Empirical evidence from run 3e2cfa5b: 14/14 AgentReasoning rows have `next_best_action_selector_used=True` + `selector_decision='APPROVAL'` + `action_text='Create a reviewable AI proposal; execution waits for existing approval flow'`. The deterministic selector is treating an autonomous-intrusive run as if it were operator-supervised. Meanwhile auto_queue_active fired ~17 dispatches without Claude consultation. #336 fixed the planner-level bypass; this is the matching fix at the dispatch layer. Without this, the Claude picker can never be 'in charge' regardless of how good his reasoning gets.",
   "source_context": {
-    "queue_index": 342,
+    "queue_index": 343,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

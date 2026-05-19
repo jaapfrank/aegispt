@@ -2,14 +2,14 @@
   "id": "backlog-406-multi-target-validation-harness",
   "task_file": "codex/tasks/backlog-406-multi-target-validation-harness.json",
   "task_type": "ai_loop",
-  "title": "Multi-target validation harness on 5 real-world OSS apps (Mantis BT 2.21, MediaWiki 1.34, Roundcube 1.4, Gitea 1.13, Etherpad-lite 1.8.5) — sprint-gate for backlog-402/403/404/405",
-  "goal": "Provide a reproducible validation harness against 5 unrelated real-world OSS apps that AegisPT has NOT been tuned for (per feedback_live_proof_must_be_diverse_real_targets). This is the sprint-gate for the entire mythos-foundation sprint: backlog-402/403/404/405 are only declared DONE when the harness shows the promised effect on ≥2 of the 5 targets — emergently, with chain steps that came from observation (target_intel's observed_paths + RECENT_CHAINS projection), not from a deleted registry. Subsumes backlog-397 (Empirical Phase-3 live validation) which was never executed; that task is closed as part of this one.",
+  "title": "Multi-target validation harness on 5 real-world OSS apps (Mantis BT 2.21, MediaWiki 1.34, Roundcube 1.4, Gitea 1.13, Etherpad-lite 1.8.5) — sprint baseline + per-task incremental gate + sprint-final gate for backlog-402/403/404/405",
+  "goal": "Provide a reproducible validation harness against 5 unrelated real-world OSS apps that AegisPT has NOT been tuned for (per feedback_live_proof_must_be_diverse_real_targets). This task lands FIRST in the mythos-foundation sprint so it functions as (a) BASELINE on raw HEAD before any sprint fix lands, (b) INCREMENTAL VALIDATION after each of backlog-402/403/404/405 lands, and (c) the FINAL sprint-gate that closes the cohort. The promised effect — exec_plan_successful ≥1 + chain_findings ≥1 on ≥2 of 5 targets emergently — only needs to be met at the FINAL gate after backlog-405 lands. Baseline and incremental runs are observational, not pass/fail. Subsumes backlog-397 (Empirical Phase-3 live validation) which was never executed; that task is closed as part of this one.",
   "scope": "New scripts/multi_target_validation.py (~300 lines, Python): (1) docker-compose generation for the 5 chosen targets — Mantis Bug Tracker 2.21 (vimagick/mantisbt:2.21 or compatible), MediaWiki 1.34 (mediawiki:1.34), Roundcube 1.4.0 (roundcube/roundcubemail:1.4.0-apache), Gitea 1.13 (gitea/gitea:1.13), Etherpad-lite 1.8.5 (etherpad/etherpad:1.8.5). All public Docker Hub images; no app-specific configuration beyond enabling external HTTP access. (2) Per target: bring up container, wait for health, register an engagement + scope in AegisPT, kick off an autonomous-intrusive run with profile=autonomous-web, poll for 20 advances or stuck_no_new_signals (whichever comes first), capture metrics: claude_picks, exec_plan_dispatches, exec_plan_successful, captured_values_emitted, chain_findings, high_or_critical_findings, runtime_minutes. Tear down container. (3) Report output to docs/validation/sprint-2026-mythos-foundation-{date}.md with per-target table + before/after baseline (if a prior baseline exists). (4) Sprint-gate predicate: the harness PASSES when on ≥2 of the 5 targets, exec_plan_successful ≥ 1 AND chain_findings ≥ 1 (a finding whose evidence references ≥2 distinct task outputs).",
   "status": "queued",
   "generated_by": "sprint-2026-mythos-foundation-2026-05-19",
   "generation_reason": "Operator pushback 2026-05-19: 'Waarom alleen Gruyere — een slim systeem moet op elke website elke target kunnen werken.' Live validation must use real-world non-training apps. The 5 chosen targets are diverse in stack (PHP×3 in different frameworks, Go, Node.js) and purpose (bug tracker, wiki, webmail, git hosting, real-time collab editor) and all have real historical CVEs in older versions but were NOT designed for training. backlog-397 (Empirical Phase-3 live validation) was filed 2026-05-17 but never executed; this task subsumes it because the same validation infrastructure covers both the Phase-3 mechanics (parse-fail, retry, cost) and the foundation-sprint capabilities (target_intel emit, exec_plan refine, single dispatch, chains).",
   "source_context": {
-    "queue_index": 344,
+    "queue_index": 340,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,
@@ -38,13 +38,13 @@
   "success_criteria": [
     "scripts/multi_target_validation.py exists, accepts `--target {mantis|mediawiki|roundcube|gitea|etherpad|all}`, dockerizes the target(s), runs AegisPT autonomous-intrusive, captures metrics, tears down.",
     "The script is idempotent: running it twice produces two report files; no leaked containers between runs (defensive teardown on any exception path).",
-    "Report output: docs/validation/sprint-2026-mythos-foundation-{YYYY-MM-DD}.md with per-target table containing the 7 metrics + the sprint-gate predicate evaluated (PASS/FAIL).",
-    "Sprint-gate predicate: PASS when on ≥2 of the 5 targets, exec_plan_successful ≥ 1 AND chain_findings ≥ 1.",
+    "Report output: docs/validation/sprint-2026-mythos-foundation-{YYYY-MM-DD}-{phase}.md with per-target table containing the 7 metrics. Phase ∈ {baseline, after-402, after-403, after-404, after-405} so each subsequent sprint task's empirical delta is auditable.",
+    "Sprint-gate predicate (evaluated only at the FINAL after-405 run): PASS when on ≥2 of the 5 targets, exec_plan_successful ≥ 1 AND chain_findings ≥ 1.",
+    "Baseline run on raw HEAD (no sprint code change yet): produces baseline report showing pre-sprint metrics. Acts as anchor for the after-402..after-405 deltas. No PASS/FAIL evaluation on baseline — it captures the starting state.",
     "Greppable test on production source: 0 occurrences of `mantis`, `mediawiki`, `roundcube`, `gitea`, `etherpad` (case-insensitive) in workers/runners/ or api/app/services/ source files. The validation script + tests + docs/ may reference them, but production code must not.",
-    "Live execution (operator-class action, agent-runnable per feedback_self_validation): run the harness on the 5 targets after backlog-402 lands as a baseline; re-run after each subsequent backlog-403/404/405 task lands to show incremental delta.",
-    "Final report at sprint close: PASS gate met on ≥2 targets, deltas attributed to which sprint task moved which metric.",
-    "backlog-397 marked SUBSUMED-BY-backlog-406 and closed in DONE_LOG + TASK_QUEUE.",
-    "Live re-test as part of acceptance: the harness PASS gate is met. If gate FAILS, the sprint is rolled back rather than the harness adjusted to pass."
+    "Live execution after THIS task lands: baseline report produced on raw HEAD via `python3 scripts/multi_target_validation.py --target all --phase baseline`. Each subsequent sprint task (402/403/404/405) re-runs the harness with --phase after-{NNN} as part of its own acceptance.",
+    "Final after-405 report: PASS gate met on ≥2 targets, deltas attributed to which sprint task moved which metric. If gate FAILS, the sprint is rolled back rather than the harness adjusted to pass.",
+    "backlog-397 marked SUBSUMED-BY-backlog-406 and closed in DONE_LOG.md + TASK_QUEUE.md."
   ],
   "likely_touched_files": [
     "scripts/multi_target_validation.py",
@@ -74,24 +74,24 @@
       "git grep -inE 'mantis|mediawiki|roundcube|gitea|etherpad' -- workers/runners/ api/app/services/ || true"
     ],
     "acceptance_criteria": [
-      "Sprint-gate PASS on ≥2 of the 5 targets: exec_plan_successful ≥ 1 AND chain_findings ≥ 1 per target.",
+      "Harness script + grep-guard tests + docs/validation/ directory exist and run cleanly on raw HEAD.",
+      "Baseline report produced at docs/validation/sprint-2026-mythos-foundation-{date}-baseline.md — captures pre-sprint metrics on all 5 targets (or skip-marked per target with reason if Docker pull fails).",
       "Greppable assertion: no target hostname literals in production source (only in scripts/, tests/, docs/).",
-      "Report at docs/validation/ is reproducible: re-running the harness produces a comparable report.",
-      "backlog-397 closed as SUBSUMED-BY-backlog-406."
+      "Re-running the harness produces a comparable report (idempotent + reproducible).",
+      "backlog-397 closed as SUBSUMED-BY-backlog-406 in DONE_LOG.md + TASK_QUEUE.md.",
+      "NOTE: Sprint-gate PASS predicate is evaluated by the after-405 run, NOT by this task. This task's DONE means the harness exists, runs, and produced a baseline — empirical PASS on ≥2 targets happens later in the sprint."
     ]
   },
   "promotion_requirements": {
     "before_promotion": [
       "NEXT_TASK.md must contain this task as the single active task.",
-      "backlog-402/403/404/405 must all be DONE — the harness validates them as a cohort, not individually.",
       "Operator confirms Docker is available + has ≥4GB RAM free for the 5 containers (single-target runs need ≤1GB)."
     ],
     "after_completion": [
-      "Update DONE_LOG.md with the sprint-final report URL + the PASS gate evaluation. If FAIL: rollback the sprint commits, log the failure rationale, file targeted follow-ups.",
-      "Update CURRENT_STATE.md with new validation baseline.",
+      "Update DONE_LOG.md with the baseline report URL + a brief reading of the baseline metrics. No sprint-gate PASS/FAIL evaluation at this point (PASS happens at the after-405 run).",
+      "Update CURRENT_STATE.md with the new baseline anchor.",
       "Close backlog-397 (Empirical Phase-3) as SUBSUMED-BY-backlog-406 in DONE_LOG.md + TASK_QUEUE.md.",
-      "If backlog-401 (stack-hint extraction broaden) is shown to be subsumed by backlog-402's target_intel output via this harness, close it as well; otherwise re-evaluate.",
-      "Promote the next queued item into NEXT_TASK.md (post-sprint follow-up TBD based on what the validation surfaces).",
+      "Promote backlog-402 (queue #341 — target_intel emit observed_paths) into NEXT_TASK.md.",
       "Save validation harness setup as memory reference [[reference-multi-target-validation-harness]] so future sprints reuse rather than rebuild."
     ]
   },
