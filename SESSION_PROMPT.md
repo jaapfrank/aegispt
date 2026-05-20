@@ -4,11 +4,12 @@
 
 ## 0. Oriëntatie — lees vóór elke actie
 
-1. `NEXT_TASK.md`
-2. Het bijbehorende `codex/tasks/backlog-NNN-*.json` (scope, must_not_touch, success_criteria, live acceptance)
-3. `docs/validation/sprint-2026-mythos-foundation-*-baseline.md` — de empirische startgetallen
-4. De laatste 3 entries van `DONE_LOG.md`
-5. Memory files: `feedback_live_proof_before_done`, `feedback_live_proof_must_be_diverse_real_targets`, `feedback_no_prescriptive_recipes`, `feedback_deferred_capability_followup`. Deze 4 regels **overschrijven altijd** wat Claude van plan is — als ze botsen met instinct, volgt Claude de regel.
+1. **`ANTI_DRIFT.md`** (repo root) — 5 hard rules + pre-commit checklist + strenger DONE-definitie. Vanaf 2026-05-20 verplicht voor ELKE capability-task. **Overschrijft sectie 5 van deze prompt.**
+2. `NEXT_TASK.md`
+3. Het bijbehorende `codex/tasks/backlog-NNN-*.json` (scope, must_not_touch, success_criteria, live acceptance)
+4. `docs/validation/sprint-*-baseline.md` (of meest recente phase report) — de empirische startgetallen
+5. De laatste 3 entries van `DONE_LOG.md`
+6. Memory files: `feedback_live_proof_before_done`, `feedback_live_proof_must_be_diverse_real_targets`, `feedback_no_prescriptive_recipes`, `feedback_deferred_capability_followup`, **`feedback_anti_drift_contract`**. Deze 5 regels **overschrijven altijd** wat Claude van plan is — als ze botsen met instinct, volgt Claude de regel.
 
 ## 1. Voor elke task: declare delta-doelstelling
 
@@ -48,17 +49,13 @@ python3 scripts/multi_target_validation.py --target all --phase after-NNN
 
 Het rapport in `docs/validation/sprint-2026-mythos-foundation-{date}-after-NNN.md` MOET een meetbare delta tonen ten opzichte van de baseline op ≥1 target voor de metric die jouw task beloofde te verhogen. Geen delta = geen DONE.
 
-## 5. DONE-definitie (strikt, geen interpretatie)
+## 5. DONE-definitie — zie ANTI_DRIFT.md
 
-DONE = ALLE volgende waar:
+**Vanaf 2026-05-20**: DONE-definitie staat in `ANTI_DRIFT.md` (9 criteria, strenger dan voorheen). De originele §5 hier (5 criteria) was te zwak — sprint mythos-foundation passeerde alle 5 zonder dat het system iets extra exploiteerde.
 
-- sectie 3 checks alle pass
-- sectie 4 live harness laat de aangekondigde delta zien
-- DONE_LOG entry bevat de before/after tabel uit het harness-rapport
-- TASK_QUEUE.md annotaties bijgewerkt (DONE / SUBSUMED-BY / CLOSED)
-- NEXT_TASK.md gepromoveerd naar de volgende sprint-task
+Quick-reference: een capability-task is alleen DONE wanneer een **user-value metric** (XBOW score / exec_plan_ok / chain_findings / captured_values) meetbaar bewoog op een real-world target, PLUS de pre-commit checklist uit ANTI_DRIFT.md is ingevuld in de commit message. Unit tests passing telt NIET als bewijs.
 
-Als ÉÉN van bovenstaande false is: NIET committen als DONE, NIET NEXT_TASK promoten, STOP en rapporteer aan de operator.
+Bij ontbreken van ANY criterium: NIET committen als DONE, NIET NEXT_TASK promoten, STOP en rapporteer aan operator.
 
 ## 6. Stop-gates (verplicht wachten op operator)
 
