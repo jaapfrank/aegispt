@@ -4151,8 +4151,16 @@ def target_value_is_allowed(target_map: dict[str, Any] | None, target_id: str) -
     except ValueError:
         ip_candidate = None
 
-    if ip_candidate is not None:
-        return any(ip_candidate in network for network in cidr_ranges)
+    # When the candidate's host is an IP, prefer CIDR-range matching when CIDR
+    # entries exist in the scope. But ALSO fall through to the host-string
+    # match below — otherwise URL-only scopes like http://127.0.0.1:5000 (no
+    # CIDR entries) wrongly reject any deeper path on that same IP host,
+    # because the legacy short-circuit returned False on the empty cidr_ranges.
+    # Reproduced 2026-05-20: agent's correct attempt at http://127.0.0.1:5000/challenge
+    # was rejected by post-task scope check, masking real probe activity.
+    if ip_candidate is not None and cidr_ranges:
+        if any(ip_candidate in network for network in cidr_ranges):
+            return True
 
     normalized_host = str(host_candidate or "").strip().lower()
     normalized_allowed = {
