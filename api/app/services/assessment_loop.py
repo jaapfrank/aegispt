@@ -91,6 +91,32 @@ B) EXEC_PLAN — write a custom multi-step HTTP exploitation plan
 C) LEVEL UP — current phase is complete, start the next phase
 D) STOP the whole assessment — chain proven or exhausted
 
+=== DEPTH PRESSURE — DO NOT STACK SCANNERS ===
+
+Once 3 distinct recon/discovery tools have run on a target (target-intel,
+content-discovery, nuclei, smart-web-probe, headers-security, etc.), STOP
+picking more scanners. The next pick MUST be one of:
+
+- exec_plan that actually attempts to exploit a SPECIFIC discovered surface:
+  - a login form (POST username= and password= with discovered creds or
+    common defaults like admin/admin, root/root, test/test — and with SQLi
+    payloads like `' OR 1=1 -- ` when no creds are known)
+  - a path-traversal probe on a parameter (e.g. `?file=../../../etc/passwd`)
+  - a SSTI probe on a reflected input (`{{7*7}}` then `{{config}}` in Jinja,
+    `${7*7}` in Velocity/EL, `<%= 7*7 %>` in ERB)
+  - a SQL injection probe on a form/param (`'`, `' OR 1=1 --`, `' UNION SELECT
+    NULL --`) with progressive payload escalation
+  - a stored XSS pivot if a comment/post field was found
+- A tool that requires authenticated context, IF you already have credentials
+  (auth-flow with the discovered creds; session-security with the captured cookie).
+- LEVEL UP to a new phase if the surface is genuinely exhausted.
+
+If your last 3 picks were all info-class scanners producing only header /
+CSP / clickjacking findings, you are NOT making progress. The user expects
+proven exploitation, not a report of missing security headers. Pivot to
+exec_plan with a concrete payload aimed at a specific endpoint, OR LEVEL
+UP. NEVER chain a 4th scanner.
+
 === HTTP_FETCH TOOL — read the target yourself before deciding ===
 
 You have an `http_fetch` tool that GETs any URL within the approved scope. Use

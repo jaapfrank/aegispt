@@ -226,12 +226,52 @@ def _run(cmd: list[str], *, cwd: Path | None = None, timeout: float, env: dict[s
     )
 
 
+def _normalize_compose(challenge_dir: Path) -> Path:
+    """Some upstream XBOW compose files have duplicate YAML keys at the same
+    nesting level (e.g. XBEN-001-24/docker-compose.yml has ``depends_on:``
+    defined twice on the same service). Docker's compose parser rejects this;
+    PyYAML accepts it (last value wins). Round-trip through PyYAML to produce
+    a normalized variant we then point ``docker compose`` at via ``-f``.
+
+    Returns the path to use for compose commands — the original if no
+    duplicate keys were found, otherwise the normalized sibling file.
+    """
+    original = challenge_dir / "docker-compose.yml"
+    if not original.is_file():
+        return original
+    try:
+        import yaml  # local import keeps the module top-level deps unchanged
+    except ImportError:
+        return original
+    try:
+        raw = original.read_text(encoding="utf-8", errors="replace")
+        parsed = yaml.safe_load(raw)
+    except (yaml.YAMLError, OSError):
+        return original
+    if not isinstance(parsed, dict):
+        return original
+    # Round-trip serialisation. PyYAML's default Dumper collapses any duplicate
+    # keys to the last seen value, which fixes the XBEN-001 class of bug.
+    try:
+        normalized = yaml.safe_dump(parsed, sort_keys=False, default_flow_style=False)
+    except yaml.YAMLError:
+        return original
+    if normalized.strip() == raw.strip():
+        return original
+    out = challenge_dir / "docker-compose.normalized.yml"
+    out.write_text(normalized, encoding="utf-8")
+    logger.info("xbow harness: normalized compose written for %s", challenge_dir.name)
+    return out
+
+
 @contextmanager
 def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, up_timeout: float):
     """Bring up a single XBOW challenge; tear down unconditionally on exit."""
     env_overlay = {"FLAG": flag}
+    compose_file = _normalize_compose(challenge_dir)
+    compose_flags = ["-f", compose_file.name] if compose_file.name != "docker-compose.yml" else []
     build = _run(
-        ["docker", "compose", "build", "--build-arg", f"flag={flag}"],
+        ["docker", "compose", *compose_flags, "build", "--build-arg", f"flag={flag}"],
         cwd=challenge_dir,
         timeout=build_timeout,
         env=env_overlay,
@@ -242,14 +282,14 @@ def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, u
             f"{(build.stderr or build.stdout)[:400]}"
         )
     up = _run(
-        ["docker", "compose", "up", "-d", "--wait"],
+        ["docker", "compose", *compose_flags, "up", "-d", "--wait"],
         cwd=challenge_dir,
         timeout=up_timeout,
         env=env_overlay,
     )
     if up.returncode != 0:
         try:
-            _run(["docker", "compose", "down", "-v"], cwd=challenge_dir, timeout=120, env=env_overlay)
+            _run(["docker", "compose", *compose_flags, "down", "-v"], cwd=challenge_dir, timeout=120, env=env_overlay)
         except Exception:
             pass
         raise RuntimeError(
@@ -260,7 +300,7 @@ def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, u
         yield
     finally:
         try:
-            _run(["docker", "compose", "down", "-v"], cwd=challenge_dir, timeout=120, env=env_overlay)
+            _run(["docker", "compose", *compose_flags, "down", "-v"], cwd=challenge_dir, timeout=120, env=env_overlay)
         except Exception as exc:  # noqa: BLE001
             logger.warning("teardown of %s raised %s — investigate manually", challenge_dir.name, exc)
 
@@ -653,8 +693,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-challenges", type=int, default=0, help="Cap total challenges run (0 = no cap).")
     parser.add_argument("--wait-seconds", type=int, default=1200, help="Per-challenge poll budget (default 20 min).")
     parser.add_argument("--poll-interval", type=float, default=10.0, help="Run-status poll interval.")
-    parser.add_argument("--build-timeout", type=float, default=600.0, help="Docker compose build timeout.")
-    parser.add_argument("--up-timeout", type=float, default=180.0, help="Docker compose up --wait timeout.")
+    parser.add_argument("--build-timeout", type=float, default=900.0, help="Docker compose build timeout (sec). mysql/postgres image pulls can need 600+; default 900.")
+    parser.add_argument("--up-timeout", type=float, default=300.0, help="Docker compose up --wait timeout (sec); db healthchecks can need 120-300.")
     parser.add_argument("--out-dir", default=str(REPO_ROOT / "docs" / "validation"), help="Report output dir.")
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args(argv)
