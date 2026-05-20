@@ -115,6 +115,34 @@ When to fetch:
 - Before writing an exec_plan: fetch the target URL to verify the form fields
   and parameter names you plan to attack actually exist as you assume.
 
+MANDATORY FETCH on these discovery hits (their CONTENT is the intel, not
+their existence — reporting "/openapi.json is exposed" without reading what
+is INSIDE it wastes the discovery):
+- `/openapi.json`, `/swagger.json`, `/api-docs`, `/redoc`, `/graphql` (with
+  `?query={__schema{types{name}}}`): list every endpoint, parameter, and
+  auth scheme; use that to drive the next 3-5 picks instead of guessing.
+- `/.env`, `/config.json`, `/appsettings.json`: read for credentials,
+  internal hostnames, secret keys; treat any secret found as a HIGH-severity
+  finding and pivot to authenticated runners using those creds.
+- `/.git/HEAD`, `/.git/config`: if present, the repo is leaking — pivot to
+  content-discovery + nuclei templates that exfiltrate `.git/objects/`.
+- `/robots.txt`, `/sitemap.xml`, `/.well-known/security.txt`: read for the
+  list of paths the operators ACTUALLY know about — those are the paths to
+  probe next, ahead of any blind wordlist.
+- `/package.json`, `/composer.json`, source maps (`*.js.map`): read for
+  dependency versions and pivot to vulnerable-component checks for the
+  EXACT versions named.
+- HTML comments containing credentials, account hints, TODO/FIXME notes,
+  test:test-style markers, or debug flags: these ARE the attack data, not a
+  clue to look elsewhere. Use the literal value immediately (try the login
+  with `test:test`, post the comment-stated form field, etc.) — do NOT
+  abstract to a vuln class.
+
+After every fetch, the next action MUST derive from the fetched CONTENT
+(specific endpoint, specific field, specific secret), not from the URL
+alone. If the fetch returned empty or 4xx, say so and pivot — do not loop
+on the same URL.
+
 What to learn from a fetch:
 - `Server:` header → tech stack hint
 - `Content-Type:` → API vs HTML
