@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleStop, MonitorPlay, ChevronDown, ChevronRight, Pause } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { AgentProposal, Finding, Run, Task, TaskDetail } from '../../api/types';
+import type { AgentProposal, Finding, Run, Task } from '../../api/types';
 import { getRunProposals, getTaskDetail, reviewAgentProposal } from '../../api/client';
 
 function cn(...inputs: ClassValue[]) {
@@ -1500,11 +1500,12 @@ ${active ? '⚡ executing...' : 'last update: ' + String(t.updated_at ?? t.creat
 }
 
 /* =========================================================================
-   LIVE TASK DRILL-DOWN — real command + stdout from the API, auto-refreshing.
-   Replaces the placeholder "$ tool --target X" preview with what is actually
-   running. Operator can pick any task from the dropdown to inspect; default
-   is the active one. Polls /api/v1/tasks/{id} every 3s while open.
+   LIVE TASK TERMINAL — real CLI feel: SSE-streamed stdout (line-by-line as
+   they arrive on the API), terminal-styled (dark bg, monospace, auto-scroll,
+   blinking cursor), auto-switches to the next task when one becomes active.
    ========================================================================= */
+
+type TerminalLine = { text: string; stream: string; sequence: number };
 
 function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
   const active = useMemo(() => activeTaskNow(tasks), [tasks]);
@@ -1515,7 +1516,6 @@ function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
   }, [tasks]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // When a new active task appears, auto-follow it unless the operator pinned a selection.
   const pinnedRef = useRef(false);
   useEffect(() => {
     if (!pinnedRef.current && active && active.id !== selectedId) {
@@ -1525,69 +1525,131 @@ function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
     }
   }, [active, selectedId, recentTasks]);
 
-  const [detail, setDetail] = useState<TaskDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [lines, setLines] = useState<TerminalLine[]>([]);
+  const [streamStatus, setStreamStatus] = useState<'connecting' | 'live' | 'done' | 'error'>('connecting');
+  const [taskStatus, setTaskStatus] = useState<string>('?');
+  const [exitCode, setExitCode] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // Open one SSE per selected task; replace cleanly when task changes.
   useEffect(() => {
     if (!selectedId) {
-      setDetail(null);
+      setLines([]);
+      setStreamStatus('connecting');
       return undefined;
     }
-    let cancelled = false;
-    const fetchOnce = async () => {
-      setLoading(true);
+    setLines([]);
+    setStreamStatus('connecting');
+    setExitCode(null);
+
+    const url = `/api/v1/tasks/${selectedId}/stdout/events`;
+    const es = new EventSource(url);
+    let live = true;
+
+    const ingest = (e: MessageEvent) => {
+      if (!live) return;
       try {
-        const data = await getTaskDetail(selectedId as `${string}-${string}-${string}-${string}-${string}`);
-        if (!cancelled) {
-          setDetail(data);
-          setError(null);
+        const data = JSON.parse(e.data);
+        const incoming: TerminalLine[] = (data.lines ?? []).map((l: { text?: string; stream?: string; sequence?: number }) => ({
+          text: String(l.text ?? ''),
+          stream: String(l.stream ?? ''),
+          sequence: typeof l.sequence === 'number' ? l.sequence : 0,
+        }));
+        // Snapshot events replace; update events append-only. The API encodes
+        // both via stream_terminal flag + we can dedupe on sequence.
+        setLines((prev) => {
+          const seen = new Set(prev.map((p) => p.sequence));
+          const merged = [...prev];
+          for (const l of incoming) {
+            if (!seen.has(l.sequence)) {
+              merged.push(l);
+              seen.add(l.sequence);
+            }
+          }
+          return merged;
+        });
+        if (data.task_status) setTaskStatus(String(data.task_status));
+        if (data.stream_terminal) {
+          setStreamStatus('done');
+          es.close();
+        } else {
+          setStreamStatus('live');
         }
-      } catch (e) {
-        if (!cancelled) setError((e as Error).message || 'fetch failed');
-      } finally {
-        if (!cancelled) setLoading(false);
+      } catch {
+        // ignore malformed event
       }
     };
-    void fetchOnce();
-    // Poll faster while the task is running.
-    const status = String(detail?.status ?? '').toLowerCase();
-    const interval = status === 'running' || status === 'queued' || status === 'dispatched' ? 2000 : 5000;
-    const handle = window.setInterval(fetchOnce, interval);
-    return () => {
-      cancelled = true;
-      window.clearInterval(handle);
-    };
-  // detail.status drives polling cadence; intentional re-arm when it changes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, detail?.status]);
 
-  const snapshot = detail?.stdout_snapshot;
-  const command = useMemo(() => {
-    const lines = snapshot?.lines ?? [];
-    const cmd = lines.find((l) => {
-      const text = String(l.text ?? '').trim();
-      return text.startsWith('$ ');
+    es.addEventListener('task.stdout.snapshot', ingest);
+    es.addEventListener('task.stdout.update', ingest);
+    es.addEventListener('task.stdout.missing', () => {
+      setStreamStatus('done');
+      es.close();
     });
-    return cmd ? String(cmd.text).trim() : '';
-  }, [snapshot]);
-  const bodyLines = useMemo(() => {
-    const lines = snapshot?.lines ?? [];
-    return lines
-      .map((l) => String(l.text ?? ''))
-      .filter((text) => !text.trim().startsWith('$ '));
-  }, [snapshot]);
-  const execution = detail?.executions?.[0];
-  const exitCode = execution?.exit_code;
-  const stderr = execution?.stderr_text ?? '';
+    es.onerror = () => {
+      // EventSource will auto-retry; surface state so operator knows.
+      if (live) setStreamStatus('error');
+    };
+
+    // Pull exit_code via one detail fetch when stream terminates (the SSE
+    // snapshot doesn't carry exit code separately).
+    const fetchExitCode = async () => {
+      try {
+        const d = await getTaskDetail(selectedId as `${string}-${string}-${string}-${string}-${string}`);
+        if (live && d.executions?.[0]?.exit_code !== undefined) {
+          setExitCode(d.executions[0].exit_code);
+        }
+      } catch {
+        // best-effort
+      }
+    };
+    const exitCheckHandle = window.setTimeout(fetchExitCode, 1500);
+    const exitCheckHandle2 = window.setInterval(fetchExitCode, 8000);
+
+    return () => {
+      live = false;
+      es.close();
+      window.clearTimeout(exitCheckHandle);
+      window.clearInterval(exitCheckHandle2);
+    };
+  }, [selectedId]);
+
+  // Auto-scroll to bottom whenever new lines land.
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [lines]);
+
+  const command = useMemo(() => {
+    const cmd = lines.find((l) => l.stream === 'command' || l.text.trim().startsWith('$ '));
+    return cmd ? cmd.text.trim() : '';
+  }, [lines]);
+  const bodyLines = useMemo(
+    () => lines.filter((l) => !(l.stream === 'command' || l.text.trim().startsWith('$ '))),
+    [lines],
+  );
+
+  const dotClass = useMemo(() => {
+    if (streamStatus === 'live') return 'bg-green-400 animate-pulse';
+    if (streamStatus === 'error') return 'bg-red-400';
+    if (streamStatus === 'done') return 'bg-line';
+    return 'bg-amber-400 animate-pulse';
+  }, [streamStatus]);
 
   return (
-    <div className="rounded border border-line-soft bg-surface/30 overflow-hidden">
-      <div className="px-3 py-1.5 bg-bg-2/60 border-b border-line-soft flex items-center gap-2 flex-wrap">
-        <span className={cn('h-1.5 w-1.5 rounded-full', active && active.id === selectedId ? 'bg-green-400 animate-pulse' : 'bg-line')} />
-        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-text">Live task</span>
+    <div className="rounded border border-line-soft overflow-hidden bg-[#0b0f13]">
+      {/* macOS-style window chrome / status bar */}
+      <div className="px-3 py-1.5 bg-[#1a1f26] border-b border-line-soft flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-red-500/70" />
+          <span className="h-2 w-2 rounded-full bg-yellow-500/70" />
+          <span className="h-2 w-2 rounded-full bg-green-500/70" />
+        </div>
+        <span className={cn('h-1.5 w-1.5 rounded-full ml-2', dotClass)} />
+        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-green-300">aegispt — live task</span>
         <select
-          className="font-mono text-[0.7rem] bg-bg-2 text-text border border-line-soft rounded px-1 py-0.5 max-w-[14rem] truncate"
+          className="font-mono text-[0.7rem] bg-[#0b0f13] text-green-300 border border-green-700/40 rounded px-1 py-0.5 max-w-[18rem] truncate"
           value={selectedId ?? ''}
           onChange={(e) => {
             pinnedRef.current = true;
@@ -1612,29 +1674,34 @@ function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
             unpin
           </button>
         )}
-        <span className="ml-auto font-mono text-[0.6rem] text-muted">
-          {loading ? 'fetching…' : detail?.status ?? '—'}
-          {exitCode !== null && exitCode !== undefined ? ` · exit ${exitCode}` : ''}
+        <span className="ml-auto font-mono text-[0.6rem] text-green-300/60">
+          {streamStatus} · {taskStatus}
+          {exitCode !== null ? ` · exit ${exitCode}` : ''}
         </span>
       </div>
-      {error && (
-        <div className="px-3 py-1 font-mono text-[0.7rem] text-red">{error}</div>
-      )}
-      {command && (
-        <pre className="px-3 py-1.5 font-mono text-[0.72rem] text-amber leading-snug bg-bg-2/40 border-b border-line-soft whitespace-pre-wrap break-all">
-          {command}
-        </pre>
-      )}
-      <pre className="px-3 py-2 font-mono text-[0.72rem] text-text leading-snug bg-bg-2/20 max-h-72 overflow-y-auto whitespace-pre-wrap break-all">
-        {bodyLines.length === 0
-          ? '(no stdout yet)'
-          : bodyLines.join('\n')}
-      </pre>
-      {stderr && stderr.trim() && (
-        <pre className="px-3 py-1.5 font-mono text-[0.7rem] text-red leading-snug bg-red/5 border-t border-line-soft max-h-28 overflow-y-auto whitespace-pre-wrap break-all">
-          {stderr}
-        </pre>
-      )}
+      {/* Terminal body */}
+      <div
+        ref={scrollRef}
+        className="px-3 py-2 font-mono text-[0.78rem] leading-snug bg-[#0b0f13] max-h-[28rem] min-h-[12rem] overflow-y-auto whitespace-pre-wrap break-all"
+      >
+        {command && (
+          <div className="text-amber-300 mb-1">{command}</div>
+        )}
+        {bodyLines.length === 0 && !command && (
+          <span className="text-green-300/40">(waiting for output…)</span>
+        )}
+        {bodyLines.map((l, idx) => {
+          const isErr = l.stream === 'stderr' || l.stream === 'error';
+          return (
+            <div key={`${l.sequence}-${idx}`} className={isErr ? 'text-red-400' : 'text-green-200'}>
+              {l.text}
+            </div>
+          );
+        })}
+        {streamStatus === 'live' && (
+          <span className="text-green-300 animate-pulse">▌</span>
+        )}
+      </div>
     </div>
   );
 }
