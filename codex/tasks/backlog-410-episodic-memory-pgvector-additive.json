@@ -1,0 +1,101 @@
+{
+  "id": "backlog-410-episodic-memory-pgvector-additive",
+  "task_file": "codex/tasks/backlog-410-episodic-memory-pgvector-additive.json",
+  "task_type": "ai_loop",
+  "title": "Episodic memory layer — PostgreSQL + pgvector ADDITIVE (memory_backend stays as short-term scratchpad)",
+  "goal": "Add an episodic memory layer for (action, context, outcome, success_marker) tuples queryable via vector similarity. Per Codex refinement: ADDITIVE, NOT a replacement of memory_backend.py. File-backed memory_backend stays as short-term scratchpad; pgvector layer is for cross-advance and cross-run retrieval. Memory remains skeptical per Claude Code lessons — every retrieval is a HINT, evidence must still be verified.",
+  "scope": "(1) Database migration: new `agent_episodic_memory` table with columns (id, run_id, engagement_id, action_type, action_context_jsonb, outcome_jsonb, success_marker, embedding vector(1536), created_at, is_benchmark). (2) New `api/app/services/episodic_memory.py`: write_episode(action, context, outcome) + recall_similar(query, k=5, filter_run_id=None) + skeptical_recall_with_verify_hint() that flags every result as 'hint, verify before use'. (3) Embeddings via configurable provider (default Anthropic via litellm — backlog-417 dependency met after that lands; for now OpenAI ada-002 via direct API). (4) Per Codex contamination guard: writes during benchmark mode tagged is_benchmark=True, NEVER returned to non-benchmark recalls. (5) memory_backend.py UNTOUCHED — file-memory blijft als short-term scratchpad per Codex refinement #3.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per PentAGI architectuur: 3-layer memory (long-term vector + working context + episodic actions). Per Claude Code architectuur: Index-Based Skeptical Memory ('memory is hint, verify before action'). Currently AegisPT only has file-based memory_backend (short-term + persist). Missing the episodic+queryable layer needed for cross-run learning ('did I solve a similar challenge before?'). Per Codex refinement #3: ADDITIVE, not replacement. Per Codex contamination guard: benchmark vs production memory isolated.",
+  "source_context": {
+    "queue_index": 360,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "api/app/services/episodic_memory.py",
+      "migrations/versions/{date}_agent_episodic_memory.py",
+      "api/app/models/control.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md AND ANTI_DRIFT.md is loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Episodic layer ADDITIVE. memory_backend.py UNTOUCHED. Per Codex refinement: file-memory blijft scratchpad. Episodic = nieuwe queryable layer voor cross-run/cross-advance recall.",
+    "skeptical_memory": "Per Claude Code architectuur: every recall returns results flagged as 'hint, verify before use'. recall_similar() return type explicitly carries verification_required=True flag. Caller is responsible for verifying before acting.",
+    "contamination_guard": "Benchmark-mode writes tagged is_benchmark=True via thread-local context. recall_similar() in non-benchmark mode filters them out. Greppable test verifies benchmark solutions never appear in production recall."
+  },
+  "success_criteria": [
+    "Metric: agent_episodic_memory table exists, write_episode() and recall_similar() callable from picker code.",
+    "Metric: ≥10 episodes written during a smoke-test advance and recallable via vector similarity.",
+    "Metric: skeptical_recall returns results with verification_required=True flag (asserted in unit test).",
+    "Metric: contamination guard test — benchmark writes invisible to non-benchmark recalls (verified via test fixture).",
+    "memory_backend.py UNCHANGED (git diff shows 0 modifications to that file).",
+    "Embedding cost telemetry per write/recall (via backlog-407 OTEL).",
+    "Live: backlog-408 XBOW harness re-runs with episodic enabled; per Codex 'memory is hint' — no expected score change from this alone; the value emerges when subsequent tasks consume the layer."
+  ],
+  "likely_touched_files": [
+    "api/app/services/episodic_memory.py",
+    "api/app/models/control.py",
+    "migrations/versions/{date}_agent_episodic_memory.py",
+    "api/tests/test_episodic_memory.py",
+    "tests/test_episodic_contamination_guard.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/memory_backend.py (per Codex refinement: file-memory stays as scratchpad)",
+    "_AI_PICKER_SYSTEM_PROMPT body",
+    "Agent dispatch logic"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_episodic_memory.py tests/test_episodic_contamination_guard.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/episodic_memory.py",
+      "git diff --check",
+      "git diff --stat api/app/services/memory_backend.py | grep -q 'changed' && echo 'FAIL: memory_backend.py modified' || echo 'PASS: memory_backend.py untouched'"
+    ],
+    "acceptance_criteria": [
+      "Episodic table + service callable from picker.",
+      "≥10 episodes written + recalled successfully in smoke test.",
+      "Contamination guard: 0 benchmark leak into production recall (test passes).",
+      "Skeptical recall returns verification_required=True flag.",
+      "memory_backend.py: 0 changes (preserved as scratchpad)."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-409 must be DONE."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with: episode write/recall demo + contamination test pass + memory_backend untouched evidence + pre-commit checklist per ANTI_DRIFT.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-411 (queue #361 — Context curation) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Replacing memory_backend.py (Codex refinement explicit)",
+    "Adding picker-side memory consumption (later tasks)",
+    "Cross-run learning logic (later tasks; this provides the storage)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

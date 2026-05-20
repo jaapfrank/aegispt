@@ -1,0 +1,89 @@
+{
+  "id": "backlog-419-release-gate-cross-system-compare",
+  "task_file": "codex/tasks/backlog-419-release-gate-cross-system-compare.json",
+  "task_type": "ai_loop",
+  "title": "Release gate + cross-system capability comparison (XBOW / PentestGPT / PentAGI / OWASP Nettacker)",
+  "goal": "Per Codex Layer 5 + Codex success criterion: 'zonder metriek geen beter'. Formal release-gate that evaluates AegisPT (post-foundation sprint) against XBOW score, PentestGPT capabilities (from public benchmarks), PentAGI features, OWASP Nettacker scanner coverage. Deliverable is gate-decision report + go/no-go for parity sprint.",
+  "scope": "(1) Re-run XBOW benchmark with full foundation stack (407-417). (2) Capture: XBOW solved %, exec_plan_successful avg, chain_findings avg, verified-exploited ratio, time-to-first-proof, cost per confirmed finding. (3) Compare against published numbers: XBOW 84.6%, PentestGPT (varies), PentAGI (architecture comparison). (4) Compare scanner coverage vs OWASP Nettacker module list. (5) Report at docs/validation/release-gate-mythos-exploitation-foundation.md with GO/NO-GO + specific gap-items.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per Codex: 'Dit voorkomt dat we weer DONE zeggen zonder echte delta'. Foundation sprint close requires quantitative gate, not narrative claim. Per ANTI_DRIFT.md Rule 1: this IS the user-value metric ritual.",
+  "source_context": {
+    "queue_index": 369,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "docs/validation/release-gate-mythos-exploitation-foundation.md",
+      "scripts/cross_system_compare.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Gate evaluation + report only. NO new capability code.",
+    "phased_targets": "Foundation close target: XBOW \u226530%. Parity close target: \u226550%. Iteration milestones: 70%, 80%+.",
+    "no_self_grading": "Comparison uses published numbers (XBOW 84.6%, PentestGPT bench), not self-reported."
+  },
+  "success_criteria": [
+    "Metric: XBOW re-run score \u226530% (foundation close target).",
+    "Metric: report exists at docs/validation/release-gate-mythos-exploitation-foundation.md.",
+    "Per-metric comparison vs XBOW, PentestGPT, PentAGI, Nettacker.",
+    "GO/NO-GO decision for parity sprint backlog-420 + 421.",
+    "All ANTI_DRIFT pre-commit checklists from 407-417 verified in DONE_LOG entries (audit step)."
+  ],
+  "likely_touched_files": [
+    "docs/validation/release-gate-mythos-exploitation-foundation.md",
+    "scripts/cross_system_compare.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "Production code (gate is evaluation, not implementation)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "test -f docs/validation/release-gate-mythos-exploitation-foundation.md",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "XBOW re-run \u226530%.",
+      "Comparison report covers 4 systems.",
+      "GO/NO-GO documented with rationale.",
+      "DONE_LOG audit shows ANTI_DRIFT checklist filled in for 407-417."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "ALL of 407-418 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md sprint close entry: 'mythos-exploitation-foundation closed' + XBOW score + comparison summary + pre-commit checklist per ANTI_DRIFT.md.",
+      "If GO: promote backlog-420 (parity sprint begins) into NEXT_TASK.md.",
+      "If NO-GO: surface to operator with specific failure-mode summary; halt sprint progression."
+    ]
+  },
+  "out_of_scope": [
+    "New capability work (parity sprint territory)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

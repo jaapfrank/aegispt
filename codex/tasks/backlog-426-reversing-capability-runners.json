@@ -1,0 +1,81 @@
+{
+  "id": "backlog-426-reversing-capability-runners",
+  "task_file": "codex/tasks/backlog-426-reversing-capability-runners.json",
+  "task_type": "ai_loop",
+  "title": "Binary reversing capability \u2014 radare2 + Ghidra integration (CTF domain coverage)",
+  "goal": "Add binary reverse-engineering capability for CTF challenges + closed-source binary analysis. Wraps radare2 (open) + Ghidra headless (Apache 2.0) as AegisPT runners.",
+  "scope": "(1) New `workers/runners/binary_reversing/runner.py`: r2_strings + r2_function_list + r2_xref + ghidra_decompile + symbol_lookup. (2) Tools shelled out via Docker sidecar (radare2 + Ghidra headless). (3) Output normalized into EvidenceObservation.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-domain-coverage-2026-05-20",
+  "generation_reason": "Per Codex gap analysis: CTF reversing. Real-world: closed-source binary analysis for firmware/IoT/legacy software pentests.",
+  "source_context": {
+    "queue_index": 376,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_domain_coverage",
+    "key_files": [
+      "workers/runners/binary_reversing/runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "r2 + Ghidra wrapping; no custom analysis logic."
+  },
+  "success_criteria": [
+    "5 reversing primitives functional",
+    "Sandboxed exec",
+    "\u22651 CTF reversing challenge solved"
+  ],
+  "likely_touched_files": [
+    "workers/runners/binary_reversing/runner.py",
+    "workers/runners/capabilities.json",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_binary_reversing.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Primitives work",
+      "1 reversing challenge solved"
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-425 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md + promote backlog-427 (pwn)",
+      "Promote next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Custom decompiler",
+    "ML-based analysis"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

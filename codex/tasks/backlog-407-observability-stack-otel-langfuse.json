@@ -1,0 +1,114 @@
+{
+  "id": "backlog-407-observability-stack-otel-langfuse",
+  "task_file": "codex/tasks/backlog-407-observability-stack-otel-langfuse.json",
+  "task_type": "ai_loop",
+  "title": "Observability stack — OpenTelemetry + Langfuse instrumentation (TRACING ONLY, no agent logic changes)",
+  "goal": "Instrument every picker call, runner dispatch, memory operation, validator decision, and tool execution with OpenTelemetry traces sent to Langfuse. Per Codex refinement: TRACING ONLY — zero changes to agent logic, dispatch, or runner behavior in this task. Establishes the cockpit's speedometer before subsequent tasks build the engine.",
+  "scope": "Three additive code changes (no behavioral changes): (1) `pip install opentelemetry-api opentelemetry-sdk opentelemetry-instrumentation-fastapi opentelemetry-instrumentation-sqlalchemy langfuse` added to api/requirements.txt + workers/requirements.txt. (2) New `api/app/observability/tracing.py` module that initializes the OTEL TracerProvider with Langfuse OTLP exporter; reads endpoint+key from env vars LANGFUSE_HOST + LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY. (3) Decorator-based instrumentation at the boundaries: `@traced('picker.advance')` on `advance_assessment_loop`, `@traced('picker.claude_call')` on `_claude_select_next_action`, `@traced('runner.dispatch')` on `dispatch_runner`, `@traced('memory.read'/'memory.write')` on memory_backend public functions. Each trace carries run_id + task_id + engagement_id as span attributes. Cost/latency tokens automatically captured from Anthropic SDK response metadata.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per Codex review 2026-05-20: 'Observability eerst — zonder Langfuse/OTEL blijven we raden waarom de agent iets doet.' Sprint mythos-foundation produced 24 claude_picks across 5 targets but operators could not see WHY any specific decision was made. This task is the cockpit instrumentation before subsequent capability tasks; without it we cannot debug the exploitation engine we're about to build. Per ANTI_DRIFT.md Rule 1: this task is NOT a capability task (it changes no behavior); its delta-metric is observational (% of agent decisions with traceable rationale).",
+  "source_context": {
+    "queue_index": 357,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "api/app/observability/tracing.py",
+      "api/app/services/assessment_loop.py",
+      "workers/orchestration/tasks.py",
+      "api/app/services/memory_backend.py",
+      "api/requirements.txt",
+      "workers/requirements.txt"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md AND ANTI_DRIFT.md + SESSION_PROMPT.md have been loaded as session kickoff context.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "TRACING ONLY — per Codex refinement. NO changes to agent logic, dispatch, runner behavior, prompts, or decision-making code paths. The diff is restricted to: new tracing module, decorator additions at function boundaries, requirements.txt entries. Any agent-logic edit found in this task's commits invalidates the DONE claim.",
+    "no_secrets_in_traces": "Langfuse traces may contain finding titles, target URLs (scope-allowlisted only), and tool names. Never raw response bodies, credential values, or session tokens. Add explicit redaction in span attribute setters.",
+    "graceful_degradation": "When LANGFUSE_* env vars unset OR Langfuse unreachable: tracing falls back to local stdout/log destination silently. NO impact on agent runtime."
+  },
+  "success_criteria": [
+    "Metric: ≥90% of picker.advance calls have an associated OTEL trace_id visible in Langfuse (measured over a 20-advance test run).",
+    "Metric: ≥95% of runner.dispatch invocations have parent-trace linkage to their triggering picker.advance.",
+    "Metric: untraced agent decisions count = 0 (per Codex: zero untraced decisions is the target).",
+    "Each trace carries span attributes: run_id, task_id, engagement_id, tool_name (where applicable), confidence_score (where present in decision metadata).",
+    "Cost metrics: input_tokens / output_tokens / cache_read_tokens captured per Anthropic API call as span events.",
+    "Failure mode: Langfuse down → app continues normally (graceful_degradation tested).",
+    "Greppable assertion: NO behavioral code edits outside the 6 listed key_files (verified via `git diff --stat`).",
+    "Unit tests: trace decorator unit-tested with in-memory exporter; span structure asserted.",
+    "Live: 1 manual smoke-test advance against any target shows full trace tree in local Langfuse instance OR exported OTLP collector."
+  ],
+  "likely_touched_files": [
+    "api/app/observability/tracing.py",
+    "api/app/services/assessment_loop.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/memory_backend.py",
+    "api/requirements.txt",
+    "workers/requirements.txt",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT body (any line)",
+    "_PICKER_OUTPUT_SCHEMA (#330 contract)",
+    "_call_picker_with_retries / _call_picker_with_exec_plan_refinement (#331/403 logic)",
+    "_claude_select_next_action body (only decorator added at function signature)",
+    "All 30+ workers/runners/*/runner.py bodies (only optional decorator on execute_* functions)",
+    "Approval / scope / governance code paths",
+    "Evidence ingest entity types"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_observability_tracing.py",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check api/app/observability/tracing.py",
+      ".venv/bin/pytest tests/test_multi_target_validation_grep_guard.py",
+      "git diff --check",
+      "git diff --stat api/app/services/assessment_loop.py workers/orchestration/tasks.py api/app/services/memory_backend.py | awk '{print $3+$5}' | paste -sd+ | bc"
+    ],
+    "acceptance_criteria": [
+      "≥90% picker.advance calls in 20-advance smoke run have OTEL trace_id (verifiable via Langfuse UI OR OTLP collector log).",
+      "Cost metrics captured per Anthropic API call.",
+      "Graceful degradation: app runs identically when Langfuse env vars unset.",
+      "ZERO behavioral edits to picker/dispatcher/runner logic (git diff stat shows additive-only changes outside the new tracing module)."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "ANTI_DRIFT.md must be loaded as session context (per SESSION_PROMPT §0)."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the trace-coverage % measured + commit-stat showing additive-only delta + pre-commit checklist per ANTI_DRIFT.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-408 (queue #358 — XBOW benchmark baseline) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Agent logic changes (any kind)",
+    "Prompt edits",
+    "Runner behavior changes",
+    "Dispatch decisions",
+    "Memory backend behavior (only tracing added at boundaries)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

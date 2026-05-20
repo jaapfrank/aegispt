@@ -1,0 +1,103 @@
+{
+  "id": "backlog-421-nettacker-smb-ssh-port",
+  "task_file": "codex/tasks/backlog-421-nettacker-smb-ssh-port.json",
+  "task_type": "ai_loop",
+  "title": "OWASP Nettacker scanner port \u2014 SMB + SSH protocols (proof-of-pattern for multi-protocol coverage)",
+  "goal": "PARITY toward OWASP Nettacker: port 2 high-value protocol scanner modules (SMB + SSH) as AegisPT runners. Proof-of-pattern that we can absorb Nettacker modules; remaining ~28 protocols become an ongoing port program (backlog-430 in next sprint).",
+  "scope": "(1) Clone OWASP Nettacker; extract SMB enum + SSH enum modules. (2) New `workers/runners/smb_enum/runner.py` and `workers/runners/ssh_enum/runner.py` wrapping Nettacker's logic adapted to AegisPT's RunnerExecution contract. (3) MIT license attribution + provenance file. (4) Register in capabilities.json. (5) Per backlog-409 governance: dispatch routed through control_plane. Per backlog-407: OTEL traced.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-parity-2026-05-20",
+  "generation_reason": "Per gap analysis: Nettacker has ~30 protocol modules; we have ~5 non-HTTP. Per Codex: 'AegisPT heeft meer AI/evidence ambitie, maar Nettacker is robuuster als pure recon/scanner'. SMB + SSH are highest-frequency on LAN/AD pentests. Per ANTI_DRIFT.md Rule 1: metric is 'XBOW + lab targets with SMB/SSH surface get \u22651 finding from new modules'.",
+  "source_context": {
+    "queue_index": 373,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_parity",
+    "key_files": [
+      "workers/runners/smb_enum/runner.py",
+      "workers/runners/ssh_enum/runner.py",
+      "workers/runners/capabilities.json"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "2 modules only (SMB + SSH). Remaining ~28 Nettacker protocols deferred to backlog-430.",
+    "license_attribution": "Nettacker is GPL; AegisPT is currently MIT-spirit. Add LICENSE notice + ATTRIBUTION.md entry. If GPL incompatibility found: file follow-up before merge.",
+    "evidence_contract": "Ports MUST emit EvidenceObservation via api/app/services/evidence_ingest.make_observation \u2014 not bespoke runner-output."
+  },
+  "success_criteria": [
+    "Metric: 2 new runners registered in capabilities.json + supported_execution_tools.",
+    "Metric: smb_enum + ssh_enum each return \u22651 EvidenceObservation on a lab target (synthetic SMB/SSH server).",
+    "Metric: dispatch routed through control_plane (governance).",
+    "Metric: OTEL traces for each runner invocation.",
+    "License attribution complete (LICENSE-NETTACKER + ATTRIBUTION.md).",
+    "Live: \u22651 XBOW or harness target with SMB/SSH surface produces finding from new runners."
+  ],
+  "likely_touched_files": [
+    "workers/runners/smb_enum/runner.py",
+    "workers/runners/smb_enum/__init__.py",
+    "workers/runners/ssh_enum/runner.py",
+    "workers/runners/ssh_enum/__init__.py",
+    "workers/runners/capabilities.json",
+    "ATTRIBUTION.md",
+    "LICENSE-NETTACKER",
+    "workers/tests/test_smb_enum.py",
+    "workers/tests/test_ssh_enum.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "Existing runners",
+    "_AI_PICKER_SYSTEM_PROMPT",
+    "Other Nettacker modules (deferred)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_smb_enum.py workers/tests/test_ssh_enum.py",
+      "python3 -m compileall -q workers",
+      ".venv/bin/ruff check workers/runners/smb_enum/ workers/runners/ssh_enum/",
+      "git diff --check",
+      "test -f LICENSE-NETTACKER && test -f ATTRIBUTION.md"
+    ],
+    "acceptance_criteria": [
+      "Both runners registered + invocable.",
+      "\u22651 finding each on lab targets.",
+      "License attribution present.",
+      "Live \u22651 finding from new runners."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-420 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md with runner registration + lab findings + license note + pre-commit checklist per ANTI_DRIFT.md.",
+      "Promote backlog-424 (queue #374 \u2014 CLI/TUI) \u2014 domain-coverage sprint starts.",
+      "OR: declare parity sprint DONE + run release gate (backlog-419 re-run with new score), then operator decides next direction.",
+      "Promote next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Remaining ~28 Nettacker protocols (backlog-430)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

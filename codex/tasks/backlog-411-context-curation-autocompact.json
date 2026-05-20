@@ -1,0 +1,73 @@
+{
+  "id": "backlog-411-context-curation-autocompact",
+  "task_file": "codex/tasks/backlog-411-context-curation-autocompact.json",
+  "task_type": "ai_loop",
+  "title": "Context curation (Claude Code autoCompact-style) — evidence-preserving summarization at budget thresholds",
+  "goal": "Implement context-window curation per Claude Code's autoCompact pattern: at 60%/80% budget triggers, summarize older conversational turns into dense representations, DROP verbose raw tool outputs (large nuclei JSON, full HTML bodies), PRESERVE outcomes + captured_value entities + finding records. Prevents context starvation during long-running advance loops.",
+  "scope": "(1) New `api/app/services/context_curation.py` with curate_for_picker(messages, budget_pct) function. (2) Hook into `_claude_select_next_action` to call curate before sending messages to Anthropic. (3) Configurable preserve-rules: outcomes ALWAYS preserved, captured_value entities NEVER dropped, raw tool stdouts summarized after >2KB. (4) Per Claude Code lessons: drops raw verbose, summarizes old conversational turns, preserves outcomes. Telemetry via backlog-407 OTEL: each curation event traced with before/after token count.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per Claude Code architectuur (research 2026-05-20): autoCompact() Reactive Context Compression is core. AegisPT picker accumulates raw findings + recent_failures + recent_rejections + target_intel_plan per advance — at ~10 advances the context budget is exhausted, picker quality degrades. Per ANTI_DRIFT.md Rule 1: success metric is 'picker continues making coherent decisions past 15 advances' (current limit ~10 before degradation).",
+  "source_context": {
+    "queue_index": 361,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": ["api/app/services/context_curation.py", "api/app/services/assessment_loop.py"]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Curation logic + hook into picker call only. NO changes to picker decision logic or prompt body.",
+    "evidence_preservation": "Outcomes + captured_value + findings NEVER dropped. Only raw tool stdouts + old conversational turns get summarized. Per ANTI_DRIFT.md: no quiet evidence loss."
+  },
+  "success_criteria": [
+    "Metric: picker advances ≥20 times without context-exhaustion stop (vs current ~10).",
+    "Metric: context size stays ≤80% of budget after each curation trigger (verified via OTEL telemetry).",
+    "Metric: 0 captured_value entities dropped across a 20-advance run (DB query verifies count preserved).",
+    "Unit: curate_for_picker reduces token count by ≥30% on a 8KB conversational history while keeping outcomes intact.",
+    "Live: backlog-408 XBOW harness shows ≥1 challenge solved that previously failed due to context exhaustion (compare baseline vs after-411)."
+  ],
+  "likely_touched_files": [
+    "api/app/services/context_curation.py",
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_context_curation.py",
+    "DONE_LOG.md", "TASK_QUEUE.md"
+  ],
+  "must_not_touch": ["_AI_PICKER_SYSTEM_PROMPT", "Decision logic in _claude_select_next_action body (only the message-list preprocessing changes)"],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_context_curation.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/context_curation.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "20+ advance run completes without context exhaustion.",
+      "Token budget stays ≤80% after each curation.",
+      "0 captured_value drops verified.",
+      "Live XBOW shows ≥1 long-tail challenge improved."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md single active task", "backlog-410 DONE"],
+    "after_completion": [
+      "Update DONE_LOG.md with token-saving % + advance-count improvement + pre-commit checklist per ANTI_DRIFT.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-412 (queue #362 — Attack state machine) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": ["Decision logic", "Memory backend changes", "Prompt edits"],
+  "expected_output": {"decision_complete": true, "task_package_type": "single_clear_slice", "validation_required": true, "docs_update_required": true},
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

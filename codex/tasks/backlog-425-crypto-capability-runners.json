@@ -1,0 +1,81 @@
+{
+  "id": "backlog-425-crypto-capability-runners",
+  "task_file": "codex/tasks/backlog-425-crypto-capability-runners.json",
+  "task_type": "ai_loop",
+  "title": "Crypto capability runners \u2014 factor weak keys, mode detection, MAC/signature attacks (CTF domain coverage)",
+  "goal": "Add cryptographic attack capability for CTF-style challenges + real-world crypto misconfig findings. Per Codex gap analysis: PentestGPT has CTF coverage; we lack it. Domain-coverage sprint task.",
+  "scope": "(1) New `workers/runners/crypto_attacks/runner.py`: rsa_factor_weak_keys + ecb_mode_detect + padding_oracle_probe + hash_length_extension + mac_signature_replay. (2) Library deps: python-rsa, cryptography, hashpumpy. (3) Sandboxed per backlog-409. (4) EvidenceObservation per finding.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-domain-coverage-2026-05-20",
+  "generation_reason": "Per Codex gap analysis: 'Minder breed op CTF-categorie\u00ebn zoals crypto/reversing/pwn/priv-esc'. Crypto is highest-yield CTF + real-world misconfig. Per ANTI_DRIFT.md Rule 1: metric is 'XBOW crypto-category challenges solved increases'.",
+  "source_context": {
+    "queue_index": 375,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_domain_coverage",
+    "key_files": [
+      "workers/runners/crypto_attacks/runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Crypto category only; reversing/pwn are separate tasks."
+  },
+  "success_criteria": [
+    "5 attack functions implemented + unit-tested",
+    "Sandboxed per backlog-409",
+    "\u22651 XBOW crypto-category challenge solved post-425"
+  ],
+  "likely_touched_files": [
+    "workers/runners/crypto_attacks/runner.py",
+    "workers/runners/capabilities.json",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_crypto_attacks.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "5 functions working",
+      "Crypto XBOW challenge solved"
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-424 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md + promote backlog-426 (reversing)",
+      "Promote next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Reversing",
+    "Pwn"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

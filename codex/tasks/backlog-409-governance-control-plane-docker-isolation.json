@@ -1,0 +1,106 @@
+{
+  "id": "backlog-409-governance-control-plane-docker-isolation",
+  "task_file": "codex/tasks/backlog-409-governance-control-plane-docker-isolation.json",
+  "task_type": "ai_loop",
+  "title": "Governance Control Plane (Layer 0) — central scope/ROE/approvals/credentials/sandbox/budget API + Docker isolation per tool",
+  "goal": "Consolidate verspreide scope/ROE/approval/credential/sandbox/budget checks into one central Layer 0 Governance Control Plane (per Codex 6-layer architectuur). Every agent decision and runner dispatch validates through this single API. ADDITIONALLY: Docker isolation per exec_plan execution (heavy isolation per PentAGI pattern) so escape risk cannot reach host. No agent bypasses Layer 0.",
+  "scope": "(1) New `api/app/governance/` module with `control_plane.py`: single class GovernanceControlPlane with methods authorize_dispatch(run, runner, target, tier), authorize_credential_use(run, cred_id), authorize_external_network(run, target), authorize_exec_plan_step(run, step), check_budget(run). All return DispatchAuthorization dataclass with allow/deny/needs_approval. (2) Refactor: replace verspreide approval checks in assessment_loop.py + ai_action_selector.py + workers/orchestration/tasks.py with calls to GovernanceControlPlane. (3) Docker isolation: workers/orchestration/sandbox_runner.py NEW — runs exec_plan steps in fresh Docker container per step (gVisor-isolated if gVisor available, plain Docker otherwise). Container teardown mandatory.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per Codex 6-layer architectuur: Layer 0 Governance wraps everything. Currently AegisPT has approval checks verspreid over 4+ files (assessment_loop, ai_action_selector, ai_agent, workers/orchestration). Per OpenClaw architectuur (research 2026-05-20): tiered permissions (agent + sandbox + network) zijn niet-onderhandelbaar voor productie. Per ANTI_DRIFT.md Rule 2: this task replaces existing verspreide code; old approval checks MUST be removed in same commit.",
+  "source_context": {
+    "queue_index": 359,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "api/app/governance/control_plane.py",
+      "api/app/services/assessment_loop.py",
+      "api/app/services/ai_action_selector.py",
+      "workers/orchestration/tasks.py",
+      "workers/orchestration/sandbox_runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md AND ANTI_DRIFT.md is loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Three coordinated edits: control_plane module + refactor of 3 caller sites + sandbox_runner. Do NOT add new approval semantics; only centralize existing ones. Per ANTI_DRIFT.md Rule 3: REMOVE the verspreide approval code in same commit (no parallel coexistence).",
+    "no_bypass": "No agent / runner / picker code path may execute a dispatch without authorize_dispatch() returning allow=True. Greppable test verifies every dispatch site routes through control_plane.",
+    "isolation_default_deny": "sandbox_runner default-deny on container network egress. Allowlist must be explicit per engagement scope. Per OpenClaw lessons: deny by default + explicit allowlist."
+  },
+  "success_criteria": [
+    "Metric: 100% of dispatch decisions route through GovernanceControlPlane.authorize_dispatch() (verified via grep + unit test).",
+    "Metric: verspreide approval-check code lines REMOVED (cite git diff line-count for deletions).",
+    "Metric: all exec_plan steps run in isolated Docker container; 0 host-process executions of exec_plan steps (verified via process tree assertion in test).",
+    "Metric: greppable test passes — no direct approval logic outside governance/ module in production code.",
+    "Source-grep sentinel: `assessment_loop.py` calls `control_plane.authorize_dispatch(...)` ≥1 time AND `ai_action_selector.py` calls `control_plane.authorize_dispatch(...)` ≥1 time.",
+    "Non-autonomous regression: a run with autonomous_intrusive_allowed=False still produces APPROVAL via control_plane (regression test).",
+    "Network egress default-deny: test that container without explicit allowlist cannot reach external IPs.",
+    "Live (XBOW harness): authorize_dispatch traces visible in Langfuse (per backlog-407 instrumentation); ≥1 challenge solved via sandboxed exec_plan."
+  ],
+  "likely_touched_files": [
+    "api/app/governance/control_plane.py",
+    "api/app/governance/__init__.py",
+    "api/app/services/assessment_loop.py",
+    "api/app/services/ai_action_selector.py",
+    "workers/orchestration/tasks.py",
+    "workers/orchestration/sandbox_runner.py",
+    "api/tests/test_governance_control_plane.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT body",
+    "Memory backend behavior",
+    "Runner-internal logic (only their dispatch entry point routes through control_plane)",
+    "Evidence ingest / observation types"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_governance_control_plane.py api/tests/test_assessment_loop_dispatch_authority.py",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check api/app/governance/ workers/orchestration/sandbox_runner.py",
+      "git diff --check",
+      "git grep -nE 'approval_required|selector_decision.*APPROVAL' -- api/app/services/ workers/orchestration/ | grep -v 'control_plane.py' || true"
+    ],
+    "acceptance_criteria": [
+      "100% of dispatch decisions route through control_plane (greppable verified).",
+      "verspreide approval-checks DELETED (git diff shows net deletions in services/).",
+      "exec_plan steps execute in Docker container (process tree assertion).",
+      "Live XBOW run produces traces showing control_plane.authorize_dispatch calls."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-407 + backlog-408 must be DONE."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with: deleted-LOC count + 100% routing evidence + 1 sandboxed exec_plan demo + pre-commit checklist per ANTI_DRIFT.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-410 (queue #360 — Episodic memory) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Adding new approval semantics (only centralize existing)",
+    "Agent logic changes (Layer 4 territory)",
+    "Memory architecture (backlog-410)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,81 @@
+{
+  "id": "backlog-430-nettacker-remaining-protocols-port",
+  "task_file": "codex/tasks/backlog-430-nettacker-remaining-protocols-port.json",
+  "task_type": "ai_loop",
+  "title": "OWASP Nettacker remaining protocol modules port \u2014 ~28 protocols (FTP, DNS, SMTP, LDAP, SNMP, RDP, etc.)",
+  "goal": "Complete OWASP Nettacker parity: port remaining ~28 protocol scanner modules beyond SMB+SSH from backlog-421. Multi-protocol coverage for enterprise pentests.",
+  "scope": "(1) Per protocol: extract Nettacker module, wrap as AegisPT runner, register in capabilities.json. (2) Batch in waves of 3-5 protocols per commit. (3) License attribution maintained.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-domain-coverage-2026-05-20",
+  "generation_reason": "Per Codex gap analysis: Nettacker has ~30 protocols; we'll have 2 (SMB+SSH) after parity sprint. This closes the remaining ~28.",
+  "source_context": {
+    "queue_index": 380,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_domain_coverage",
+    "key_files": [
+      "workers/runners/{protocol}_enum/runner.py per protocol"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Protocol porting only; per-protocol runner contract identical to SMB+SSH from backlog-421."
+  },
+  "success_criteria": [
+    "\u226510 new protocols added in first wave",
+    "Per-protocol unit tests pass",
+    "\u22653 LAN/AD pentest scenarios produce findings from new modules"
+  ],
+  "likely_touched_files": [
+    "workers/runners/{protocol}_enum/* per protocol",
+    "workers/runners/capabilities.json",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT",
+    "Existing runners"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "\u226510 new protocols in wave 1",
+      "Lab findings demonstrated"
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-429 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md + promote backlog-431 (permanent improvement)",
+      "Promote next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Net-new protocols beyond Nettacker"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

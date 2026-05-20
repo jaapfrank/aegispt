@@ -1,0 +1,62 @@
+{
+  "id": "backlog-412-attack-state-machine-foothold-tree",
+  "task_file": "codex/tasks/backlog-412-attack-state-machine-foothold-tree.json",
+  "task_type": "ai_loop",
+  "title": "Attack State Machine — foothold model + TAP-style attack tree per hypothesis",
+  "goal": "Layer 3 of the new architectuur: foothold_state per run ∈ {anonymous, authenticated_user, admin, file_read, code_execution, shell_like}. Attack tree per finding. TAP-style breadth-first + depth-first + pruning. Recursion + back-to-root per exhausted branch. Replay-first on previously-proven paths (uses backlog-410 episodic memory).",
+  "scope": "(1) New `api/app/services/attack_state.py`: FootholdState dataclass + AttackTree (LangGraph-style stateful graph). (2) State transitions triggered by validator-verified exploits (backlog-413 will provide verifier). (3) `attack_tree_step(run, current_foothold) -> next_hypothesis | back_off | exhausted`. (4) Picker prompt receives current_foothold + tree_state. (5) Replay-first: at run-start, check episodic memory for proven paths on similar targets; try those first.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per user's vision: 'find 1 high, exploit to layer 3, back to layer 1 for next exploit'. Per Cyber-AutoAgent KNOW→THINK→TEST→VALIDATE pattern. Currently AegisPT has no foothold concept — every advance is stateless. Per ANTI_DRIFT.md Rule 1: metric is 'foothold transitions observed' + 'attack-tree depth reached'.",
+  "source_context": {"queue_index": 362, "queue_file": "TASK_QUEUE.md", "pack_id": null, "pack_version": null, "inventory_snapshot_id": null, "relevance_decision_id": null, "threat_intel_refs": []},
+  "inputs": {"prerequisite_active_task": "NEXT_TASK.md", "broader_theme": "mythos_exploitation_foundation", "key_files": ["api/app/services/attack_state.py", "api/app/models/control.py"]},
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true, "no_untracked_future_work": true,
+    "scope_creep_guard": "State machine + tree only. No validator logic (413). No multi-agent (415).",
+    "no_unverified_transitions": "Foothold transitions ONLY on validator-verified exploits. No claim-based transitions."
+  },
+  "success_criteria": [
+    "Metric: ≥1 run shows foothold transition from anonymous → authenticated_user via verified exploit (on XBOW or harness target).",
+    "Metric: attack_tree depth ≥3 hops on ≥1 run.",
+    "Metric: replay-first proven path retry test passes (synthetic episodic memory + recall + replay).",
+    "Foothold state visible in run.attack_state JSON; transition history in DB.",
+    "TAP-style pruning: dead branches marked exhausted, picker doesn't re-pick them.",
+    "Live (after-412 XBOW): score +5-10% vs after-411 (foothold-aware picker reaches more challenges)."
+  ],
+  "likely_touched_files": [
+    "api/app/services/attack_state.py",
+    "api/app/services/assessment_loop.py",
+    "api/app/models/control.py",
+    "migrations/versions/{date}_attack_state.py",
+    "api/tests/test_attack_state.py",
+    "DONE_LOG.md", "TASK_QUEUE.md"
+  ],
+  "must_not_touch": ["Validator logic (413 territory)", "Multi-agent split (415 territory)", "_AI_PICKER_SYSTEM_PROMPT body lines 1-200"],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_attack_state.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/attack_state.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Foothold transition observed in live run.",
+      "Attack tree depth ≥3 on ≥1 run.",
+      "Replay-first verified via synthetic episodic.",
+      "XBOW score +5-10% vs after-411."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK single active", "backlog-411 DONE"],
+    "after_completion": [
+      "Update DONE_LOG.md with foothold transition evidence + tree depth metric + XBOW delta + pre-commit checklist per ANTI_DRIFT.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-413 (queue #363 — Validator) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": ["Validator", "Multi-agent", "Custom script generation"],
+  "expected_output": {"decision_complete": true, "task_package_type": "single_clear_slice", "validation_required": true, "docs_update_required": true},
+  "validation_status": "task_package_ready", "approval_status": "queued_not_promoted"
+}

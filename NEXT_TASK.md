@@ -1,63 +1,75 @@
 # Active Task
 
-> **Read first:** [`SESSION_PROMPT.md`](SESSION_PROMPT.md) — kickoff discipline for AegisPT sessions (forbidden patterns, required_checks, live-acceptance gate, DONE-definitie). De regels daar overschrijven Claude's instinct.
+> **Read FIRST:** [`ANTI_DRIFT.md`](ANTI_DRIFT.md) (repo root) — 5 hard rules + pre-commit checklist + strenger DONE-definitie. Vanaf 2026-05-20 verplicht voor ELKE capability-task. Overschrijft SESSION_PROMPT §5.
+>
+> **Read SECOND:** [`SESSION_PROMPT.md`](SESSION_PROMPT.md) — kickoff discipline voor AegisPT sessies.
 
 ## Title
 
-Evidence projection as attack-graph — RECENT_CAPTURES becomes RECENT_CHAINS with causal lineage between observations and consuming capabilities (sprint mythos-foundation, task 5 of 5; sprint-gate task)
+Observability stack — OpenTelemetry + Langfuse instrumentation (TRACING ONLY, no agent logic changes) — **Sprint mythos-exploitation-foundation, task 1 of 15**
 
 ## Goal
 
-Today `project_graph_for_picker` (`api/app/services/assessment_graph.py`) projects observations as a flat bag-of-signals: `form_with_post_action`, `cookie_weakness`, `xss_confirmed`, `session_cookie_present` each appear as separate lines with no connection. After-404 confirmed the dispatch fix lands the picker firing (claude_picks=13, exec_plan_successful=5 on 3/5 targets) — but chain_findings stays at 0 because the picker doesn't see how observations CHAIN. The Mythos differentiator hinges on this: a smart system reasons "I have a stored-XSS at /snippets that reflects on /admin; I have a session-cookie sid=abc from /login response; the cookie matches the session-required parameter on /admin" — not the three signals separately.
+Instrument every picker call, runner dispatch, memory operation, validator decision, and tool execution with OpenTelemetry traces sent to Langfuse. **Per Codex refinement: TRACING ONLY** — zero changes to agent logic, dispatch, or runner behavior in this task. Establishes the cockpit's speedometer before subsequent tasks build the engine.
 
-This task replaces the existing RECENT_CAPTURES section (#334) with a richer RECENT_CHAINS section that projects attack-chains: per captured_value, list the task it came from + the capabilities-or-runners that could consume it (based on required-input matching) + the observed evidence connecting them. Chain depth capped at 4 hops; max 5 chains projected per advance.
+## Sprint context
 
-## Baseline anchor (proof from prior sprint tasks)
+Deze taak is task 1 van 15 in sprint `mythos-exploitation-foundation`, opvolger van `mythos-foundation` na empirische drift (10 commits + 24 claude_picks + 6 high+crit findings MAAR 0 chain_findings + 0 daadwerkelijke penetraties op 5 real-world targets).
 
-backlog-404 after-404 baseline (2026-05-20):
+Per [Codex review 2026-05-20](docs/) + user feedback: 6-layer architectuur (Governance / Coordinator / Attack State / Memory+Knowledge / Primitives + cross-cutting Evaluation Gates). Deze task implementeert de Evaluation Gates observability laag.
 
-| target | claude_picks | exec_plan_ok | chain_findings | high+crit |
-|---|---:|---:|---:|---:|
-| mantis | 3 | 2 | 0 | 2 |
-| mediawiki | 3 | 1 | 0 | 3 |
-| roundcube | 2 | 0 | 0 | 0 |
-| gitea | 2 | 2 | 0 | 1 |
-| etherpad | 3 | 0 | 0 | 0 |
+Per [ANTI_DRIFT.md](ANTI_DRIFT.md) Rule 1: dit task is GEEN capability task; delta-metric is observational (% van agent decisions met traceable rationale, target ≥90%).
 
-`chain_findings` is the missing metric. backlog-405 moves it.
+## Delta-doelstelling (verplicht per SESSION_PROMPT §1)
+
+> Deze task verhoogt **traceable_agent_decisions** van 0% (huidige staat — geen OTEL) naar **≥90%** binnen een 20-advance test run. Tweede metric: **untraced agent decisions count** → **0**. Live verificatie via Langfuse trace view.
 
 ## Scope
 
-Two coordinated edits in `api/app/services/assessment_graph.py`:
+Drie ADDITIEVE code changes (zero behavioral changes per ANTI_DRIFT Rule 2):
 
-1. New `_project_chains(observations, capabilities) -> list[str]` helper that for each `captured_value` observation walks forward: find target capabilities whose `required_inputs` field type matches the capture's `value_kind`; emit a chain line `[origin_task/observation_X] → [capture: value_kind=cookie var=sid] → [consumer: exec_plan POST /admin with cookie] | status: 1/3 hops materialized`. The walk uses `workers/runners/capabilities.json` `required_inputs` declarations + a small heuristic mapping (cookie → session-required, captured-token → bearer-required, etc.).
-2. `project_graph_for_picker` calls `_project_chains` and inserts RECENT_CHAINS section in place of (or above) the existing RECENT_CAPTURES section. The flat captures section is preserved BELOW the chains section so reviewers still see the raw data; the chains section is what Claude reads strategically.
+1. `pip install opentelemetry-api opentelemetry-sdk opentelemetry-instrumentation-fastapi opentelemetry-instrumentation-sqlalchemy langfuse` toegevoegd aan `api/requirements.txt` + `workers/requirements.txt`
+2. Nieuwe `api/app/observability/tracing.py` module die OTEL TracerProvider initialiseert met Langfuse OTLP exporter (env vars LANGFUSE_HOST + LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY)
+3. Decorator-based instrumentation alleen op boundaries:
+   - `@traced('picker.advance')` op `advance_assessment_loop`
+   - `@traced('picker.claude_call')` op `_claude_select_next_action`
+   - `@traced('runner.dispatch')` op `dispatch_runner`
+   - `@traced('memory.read'/'memory.write')` op memory_backend public functions
 
-## Constraints
+Elke trace draagt span attributes: `run_id`, `task_id`, `engagement_id`. Cost/latency tokens automatisch capture'd uit Anthropic SDK response metadata.
 
-- Per SESSION_PROMPT §2 forbidden: no per-target conditionals, no pre-baked path/payload registries, no claiming DONE on green unit tests alone.
-- No new entity types in `evidence_ingest`. The captured_value type from #334 stays the only chain-bearing type.
-- No changes to `workers/runners/capabilities.json` schema (only consume existing `required_inputs` declarations).
-- Per `feedback_no_prescriptive_recipes`: chain-discovery is heuristic over observed type-matchings (cookie kind matches session-required parameter), NOT hardcoded chain-templates.
-- Bounded projection: max chain depth = 4 hops. Max chains projected = 5 per advance. Per-line length ≤ 200 chars. Section omitted entirely when 0 chains materialize.
+## Constraints (per task package + ANTI_DRIFT.md)
+
+- **TRACING ONLY** — NUL changes aan agent logic, dispatch, runner behavior, prompts, decision-making code paths
+- **Per ANTI_DRIFT Rule 2 (no dead code)**: decorator op functie = invoked vanaf eerste API call → satisfied
+- **Per ANTI_DRIFT Rule 3 (no backward-compat creep)**: pure additive; geen oude code te vervangen
+- **No secrets in traces**: redact target URLs / response bodies / credentials
+- **Graceful degradation**: Langfuse down → app continues normally (NO impact on agent runtime)
+- Active task gate: ANTI_DRIFT.md + SESSION_PROMPT.md geladen als session context
 
 ## Source Package
 
-`codex/tasks/backlog-405-evidence-projection-as-attack-graph.json`
+`codex/tasks/backlog-407-observability-stack-otel-langfuse.json`
 
-## Reference
+## Validation (per ANTI_DRIFT.md sectie "Pre-commit checklist")
 
-- backlog-404 after-404 report (`docs/validation/sprint-2026-mythos-foundation-2026-05-20-after-404.md`) — empirical evidence that picker now fires, exec_plan succeeds on 3/5 targets, but chain_findings stays 0
-- backlog-402 + backlog-403 + backlog-404 DONE_LOG entries
-- Memory: [[feedback_live_proof_before_done]], [[feedback_live_proof_must_be_diverse_real_targets]]
-- After backlog-405 lands: the after-405 harness phase evaluates the SPRINT-GATE PASS predicate from backlog-406: `exec_plan_successful ≥ 1 AND chain_findings ≥ 1 on ≥2 of 5 targets`.
+Vóór DONE-commit verplicht ingevuld in commit message:
 
-## Validation
+```
+- [ ] Mijn code is INVOKED in production path (call site: assessment_loop.py:<line>, workers/orchestration/tasks.py:<line>)
+- [ ] Delta-metric bewoog: traceable_agent_decisions van 0% naar X% in 20-advance test
+- [ ] Removed code I replaced: no removal needed (additive only — verified via git diff --stat)
+- [ ] Geen scope creep: alle changes binnen scope (decorator additions + new tracing module + requirements.txt)
+- [ ] Follow-ups gefiled voor blocked items: <refs OR "none">
+- [ ] Live test geslaagd: <link to Langfuse trace tree OR OTLP collector log>
+```
+
+Plus standard checks:
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_attack_graph_projection.py api/tests/test_cross_target_provenance.py api/tests/test_assessment_graph.py api/tests/test_assessment_loop_structured_outputs.py`
-- `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/assessment_graph.py`
+- `.venv/bin/pytest api/tests/test_observability_tracing.py`
+- `python3 -m compileall -q api workers`
+- `.venv/bin/ruff check api/app/observability/tracing.py`
+- `.venv/bin/pytest tests/test_multi_target_validation_grep_guard.py`
 - `git diff --check`
-- `.venv/bin/pytest tests/test_multi_target_validation_grep_guard.py` (must still pass)
-- Live: API restart → harness `--phase after-405` on the 5 targets → ≥1 target with a RECENT_CHAINS section in the picker prompt (verifiable via API log) AND **the sprint-gate PASS predicate met (`exec_plan_successful ≥ 1 AND chain_findings ≥ 1` on ≥2 of 5 targets)**.
+- `git diff --stat api/app/services/assessment_loop.py workers/orchestration/tasks.py api/app/services/memory_backend.py` → moet additive-only show (sentinel)

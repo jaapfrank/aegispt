@@ -1,0 +1,98 @@
+{
+  "id": "backlog-422-picker-as-real-agent-claude-code-equivalent",
+  "task_file": "codex/tasks/backlog-422-picker-as-real-agent-claude-code-equivalent.json",
+  "task_type": "ai_loop",
+  "title": "Picker becomes real agent \u2014 Bash / file / web_search / web_fetch / code_exec / subagent tools (Claude-Code-equivalent)",
+  "goal": "Close the 'AegisPT picker IS Mythos' capability gap. Currently AegisPT picker has tool-pick-from-list affordances. Give it the same agentic toolset Claude has in interactive sessions: Bash exec (sandboxed), file r/w (scope-bounded), web_search + web_fetch, code execution (Python sandbox), subagent spawn. Per user insight: 'you ARE Mythos \u2014 same model, different scaffolding'.",
+  "scope": "(1) New `api/app/agents/agent_tools/` module: BashTool, FileReadTool, FileWriteTool, WebSearchTool, WebFetchTool, CodeExecTool, SubagentSpawnTool \u2014 each as Anthropic tool-use schema. (2) Register tools with picker via Claude Messages API tools parameter. (3) Per backlog-409 Governance: every tool call routed through control_plane.authorize_dispatch(). (4) Per backlog-407 OTEL: every tool invocation traced. (5) Sandbox isolation: Bash + CodeExec run in Docker per backlog-409 sandbox_runner.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per user 2026-05-20: 'R&D budget van Mythos heb jij al in je \u2014 jij bent Mythos. Same model, different scaffolding'. Picker-as-tool-selector cannot do what Claude-as-agent does. This task closes the agentic affordance gap. Per ANTI_DRIFT.md Rule 1: metric is 'XBOW challenges solved via agentic tools (Bash/web/code) \u22653'.",
+  "source_context": {
+    "queue_index": 370,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "api/app/agents/agent_tools/",
+      "api/app/services/assessment_loop.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "7 agent tools + registration + governance integration. NO new picker decision logic beyond exposing tools.",
+    "sandboxed_default": "Bash + CodeExec ALWAYS in Docker sandbox per backlog-409.",
+    "scope_allowlist_for_files": "FileRead/FileWrite restricted to engagement scope dirs (e.g. /tmp/aegispt-run-{run_id}/), never host paths.",
+    "no_credential_leak": "WebFetch/WebSearch redacted in OTEL traces (URLs + bodies sanitized for credentials)."
+  },
+  "success_criteria": [
+    "Metric: \u22653 XBOW challenges solved via agentic tool use (Bash exec OR web research informed exploit, verifiable in traces).",
+    "Metric: 100% of agentic tool calls routed through control_plane (sentinel test).",
+    "Metric: 100% of agentic tool calls traced via OTEL (Langfuse coverage check).",
+    "Metric: Bash/CodeExec sandbox isolation enforced \u2014 no host-process exec for agent-invoked commands.",
+    "All 7 tools functional + unit-tested in isolation.",
+    "Live (after-422 XBOW): score climbs +10-15% via agentic tool use."
+  ],
+  "likely_touched_files": [
+    "api/app/agents/agent_tools/__init__.py",
+    "api/app/agents/agent_tools/bash.py",
+    "api/app/agents/agent_tools/file_io.py",
+    "api/app/agents/agent_tools/web.py",
+    "api/app/agents/agent_tools/code_exec.py",
+    "api/app/agents/agent_tools/subagent.py",
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_agent_tools.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT body lines 1-200",
+    "Existing runner registry"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_agent_tools.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/agents/agent_tools/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "\u22653 XBOW challenges solved via agentic tools.",
+      "100% routed through governance + OTEL.",
+      "Sandbox enforced (process tree assertion).",
+      "XBOW +10-15%."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-409 + 415 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md with tool-use count + governance routing + XBOW delta + pre-commit checklist per ANTI_DRIFT.md.",
+      "Promote backlog-423 (queue #371 \u2014 Score-climbing automation) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Score-climbing automation (423)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

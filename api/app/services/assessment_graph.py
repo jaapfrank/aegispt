@@ -490,6 +490,83 @@ _PROJECTION_LINE_CHAR_CAP = 200
 # chains. Top-N most-recent values, redacted preview only.
 _PROJECTION_RECENT_CAPTURES_LIMIT = 5
 
+# backlog-405: a complementary RECENT_CHAINS section that projects each
+# captured_value as a causal chain string: lineage on the LEFT (which step
+# captured it), generic consumer-class hint on the RIGHT (which kind of
+# next-step would naturally consume that value_kind). The chain is the
+# strategic view; RECENT_CAPTURES below is the raw-data view.
+#
+# Per `feedback_no_prescriptive_recipes`: the consumer hint is GENERIC —
+# "next HTTP step that needs session auth", not "POST /admin with cookie=
+# ${sid}". The picker prompt addendum (#343) tells Claude HOW to use
+# captures; this projection gives him the WHAT.
+_PROJECTION_RECENT_CHAINS_LIMIT = 5
+
+_CONSUMER_HINTS_BY_KIND: dict[str, str] = {
+    "cookie": "next HTTP step needing session auth",
+    "session_cookie": "next HTTP step needing session auth",
+    "token": "next step needing a bearer/CSRF token in headers or form",
+    "csrf_token": "next form POST needing the CSRF token",
+    "bearer_token": "next step needing a bearer auth header",
+    "api_key": "next step needing the API key",
+    "hostname": "next step pivoting to that host",
+    "credential_ref": "next auth step (value resolved from vault at execution)",
+    "url": "next HTTP step following this URL (redirect or captured next-action)",
+}
+
+
+def _consumer_hint_for_kind(value_kind: str) -> str:
+    """Return a GENERIC consumer-class hint for a given capture value_kind.
+
+    No per-runner names, no per-target seeding — only describes the CLASS
+    of next-step that would consume the value. Backlog-405 keeps the
+    smart-system contract: the picker decides which specific runner;
+    this just narrows the decision space.
+    """
+    key = (value_kind or "other").strip().lower()
+    return _CONSUMER_HINTS_BY_KIND.get(key, "next step needing this value")
+
+
+def _project_chains(capture_nodes: list[dict[str, Any]]) -> list[str]:
+    """Project captured_value entities as RECENT_CHAINS strings.
+
+    Each line carries the capture's lineage (origin step + var name +
+    value_kind) and a generic consumer-class hint. Format::
+
+        [step=<origin>] captured <value_kind>=<var> → reference as
+            ${<origin>.<var>} for <consumer hint>
+
+    Bounded: top :data:`_PROJECTION_RECENT_CHAINS_LIMIT` captures by
+    created_at desc; each line truncated to
+    :data:`_PROJECTION_LINE_CHAR_CAP`. Returns [] when no captures exist
+    (the caller omits the section entirely).
+    """
+    if not capture_nodes:
+        return []
+
+    def _sort_key(node: dict[str, Any]) -> tuple[str, str]:
+        attrs = node.get("attributes") if isinstance(node.get("attributes"), dict) else {}
+        created_at = str((attrs or {}).get("created_at") or node.get("created_at") or "")
+        return (created_at, str(node.get("label") or ""))
+
+    ranked = sorted(capture_nodes, key=_sort_key, reverse=True)
+    lines: list[str] = []
+    for node in ranked[:_PROJECTION_RECENT_CHAINS_LIMIT]:
+        attrs = node.get("attributes") if isinstance(node.get("attributes"), dict) else {}
+        attrs = attrs or {}
+        var_name = str(attrs.get("var_name") or node.get("label") or "?")[:60]
+        value_kind = str(attrs.get("value_kind") or node.get("subtype") or "other")[:24]
+        origin_step = str(attrs.get("origin_step_name") or "?")[:60]
+        consumer_hint = _consumer_hint_for_kind(value_kind)
+        line = (
+            f"[step={origin_step}] captured {value_kind}={var_name} → "
+            f"reference as ${{{origin_step}.{var_name}}} for {consumer_hint}"
+        )
+        if len(line) > _PROJECTION_LINE_CHAR_CAP:
+            line = line[: _PROJECTION_LINE_CHAR_CAP - 4] + " ..."
+        lines.append(line)
+    return lines
+
 
 def project_graph_for_picker(
     graph: dict[str, Any],
@@ -579,10 +656,22 @@ def project_graph_for_picker(
     # projection focused on entities/relationships and to stay within the
     # token budget.
 
+    # backlog-405 — Recent Chains: project each captured_value as a
+    # causal chain string (lineage + generic consumer hint). This is the
+    # STRATEGIC view of the same data RECENT_CAPTURES carries below.
+    # Picker reads chains first (decision-narrowing), captures second
+    # (raw-data verification).
+    capture_nodes = nodes_by_type.get("captured_value") or []
+    chain_lines = _project_chains(capture_nodes)
+    if chain_lines:
+        chains_section = f"RECENT_CHAINS ({len(chain_lines)}): " + " | ".join(chain_lines)
+        if len(chains_section) <= char_budget - used_chars:
+            lines.append(chains_section)
+            used_chars += len(chains_section) + 1
+
     # #334 — Recent Captures: surface the most-recent captured_value
     # observations with lineage so the picker can chain across tasks
     # ("token captured in step X of task Y → use it as auth in step Z").
-    capture_nodes = nodes_by_type.get("captured_value") or []
     if capture_nodes:
         # Sort by created_at desc when available (most-recent first); fall
         # back to label for stability.

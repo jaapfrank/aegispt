@@ -1,0 +1,84 @@
+{
+  "id": "backlog-431-permanent-xbow-score-improvement",
+  "task_file": "codex/tasks/backlog-431-permanent-xbow-score-improvement.json",
+  "task_type": "ai_loop",
+  "title": "Permanent XBOW score improvement program \u2014 climb from 80% toward 84.6%+ (continuous, not single-task)",
+  "goal": "Ongoing program: after every committed sprint, run backlog-423 score-climbing automation against XBOW 104 challenges. Target trajectory: 50% \u2192 70% (foundation+parity close), 70% \u2192 80% (cycle 1-3), 80% \u2192 84.6%+ (cycle 4+ ongoing). This task formally institutionalizes the iteration program.",
+  "scope": "(1) Quarterly cycle: run backlog-423 \u2192 review failure clusters \u2192 approve top 5 prompt/state proposals \u2192 re-benchmark \u2192 publish score report. (2) Score reports public at docs/validation/xbow-score-trajectory.md. (3) Operator-on-demand triggers; default quarterly cadence. (4) Per Codex 'zonder metriek geen beter': this IS the metriek-program.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-domain-coverage-2026-05-20",
+  "generation_reason": "Per user 2026-05-20: 'minimaal 80% XBOW score'. 80% is not a one-shot target; requires sustained iteration. Per ANTI_DRIFT.md Rule 1: this task IS the user-value-metric ritual institutionalized.",
+  "source_context": {
+    "queue_index": 381,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_continuous_improvement",
+    "key_files": [
+      "docs/validation/xbow-score-trajectory.md",
+      "scripts/quarterly_score_review.sh"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Program institutionalization only; uses backlog-423 mechanism."
+  },
+  "success_criteria": [
+    "Quarterly cycle defined + documented",
+    "First cycle executed end-to-end",
+    "Score trajectory report exists + updates per cycle",
+    "Target: 80% reached within 3 cycles, 84.6%+ within 6 cycles (per industry comparator XBOW)"
+  ],
+  "likely_touched_files": [
+    "docs/validation/xbow-score-trajectory.md",
+    "scripts/quarterly_score_review.sh",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "Production prompts directly (per backlog-423 versioned proposal mechanism)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check",
+      "test -f docs/validation/xbow-score-trajectory.md"
+    ],
+    "acceptance_criteria": [
+      "Cycle defined",
+      "First cycle executed",
+      "Score trajectory report updates"
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "All prior tasks 407-430 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md with first-cycle data + trajectory + pre-commit checklist per ANTI_DRIFT.md.",
+      "This is ongoing \u2014 next promotion is operator-determined.",
+      "Promote next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "One-shot achievement (this is permanent)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,81 @@
+{
+  "id": "backlog-424-cli-tui-research-interface",
+  "task_file": "codex/tasks/backlog-424-cli-tui-research-interface.json",
+  "task_type": "ai_loop",
+  "title": "CLI/TUI research interface (PentestGPT-style) \u2014 alternative to web Mission Control",
+  "goal": "Researcher-friendly CLI/TUI alternative to web Mission Control. Per PentestGPT pattern: interactive shell-like loop for security researchers iterating on a target. Domain-coverage sprint task.",
+  "scope": "(1) New `aegispt` CLI entry point. (2) TUI via Textual or Rich library. (3) Sub-commands: `aegispt target add`, `aegispt run start`, `aegispt run watch`, `aegispt findings list`, `aegispt prompt-proposals review`. (4) Reuses existing API endpoints; no new business logic.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-domain-coverage-2026-05-20",
+  "generation_reason": "Per Codex gap analysis: PentestGPT has CLI/TUI loop voor research-style pentesting. Niet kritiek voor capability; comfort feature.",
+  "source_context": {
+    "queue_index": 374,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_domain_coverage",
+    "key_files": [
+      "scripts/aegispt_cli.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "CLI/TUI only; reuses API."
+  },
+  "success_criteria": [
+    "CLI installable + 5 sub-commands functional",
+    "Operator can do a complete run start-to-finish via CLI on a single target",
+    "TUI watch mode shows live trace stream from Langfuse (OTEL)"
+  ],
+  "likely_touched_files": [
+    "scripts/aegispt_cli.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "Business logic",
+    "_AI_PICKER_SYSTEM_PROMPT"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest tests/test_cli.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "CLI + 5 sub-commands working",
+      "End-to-end run via CLI demonstrated"
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "Parity sprint DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md + promote backlog-425 (crypto)",
+      "Promote next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "New business logic",
+    "Replacing web UI"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

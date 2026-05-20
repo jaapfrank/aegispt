@@ -365,10 +365,10 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 338. Live-reliability — probe path-catalogs are stack-aware (target_intel observations augment info_disclosure / file_upload / param_pollution / cookie_tamper / stored_xss PROBE_PATHS at runtime; #328 'generality' threw away Gruyere's /dump.gtl and replaced it with nothing) `codex/tasks/backlog-400-probe-path-stack-augmentation.json`
 339. **[BLOCKED-PENDING-#344-backlog-406]** Stack-hint extraction broaden + target_intel explicit stack_family field — anti-pattern per feedback_live_proof_must_be_diverse_real_targets; close as SUBSUMED if backlog-402's target_intel emit + backlog-406 validation prove the registry is unneeded; otherwise re-evaluate `codex/tasks/backlog-401-stack-hint-extraction-broaden.json`
 340. **[SPRINT mythos-foundation BASELINE — DONE 2026-05-19]** Multi-target validation harness on 5 real-world OSS apps — baseline captured: 5/5 targets at 0/0/0/0/0/0 (`docs/validation/sprint-2026-mythos-foundation-2026-05-19-baseline.md`). Awaits re-run as --phase after-402/403/404/405 as each subsequent sprint task lands. `codex/tasks/backlog-406-multi-target-validation-harness.json`
-341. **[SPRINT mythos-foundation]** target_intel emit observed_paths + attack_candidates + REMOVE _STACK_*_REGISTRY anti-patterns from #337/#338 `codex/tasks/backlog-402-target-intel-emit-observed-paths.json`
-342. **[SPRINT mythos-foundation]** exec_plan iterative refinement loop — bounded re-prompt on empty/malformed/failed plan; raises picker max_tokens 1024 → 4096 (subsumes backlog-391) `codex/tasks/backlog-403-exec-plan-iterative-refinement.json`
-343. **[SPRINT mythos-foundation]** Single dispatch authority on autonomous-intrusive runs — Claude becomes THE picker; selector APPROVAL + auto_queue gated on flag `codex/tasks/backlog-404-single-dispatch-authority-on-autonomous-intrusive.json`
-344. **[SPRINT mythos-foundation]** Evidence projection as attack-graph — RECENT_CAPTURES becomes RECENT_CHAINS with causal lineage between observations and consuming capabilities `codex/tasks/backlog-405-evidence-projection-as-attack-graph.json`
+341. **[SPRINT mythos-foundation — DONE 2026-05-19]** target_intel emit observed_paths + attack_candidates + REMOVE _STACK_*_REGISTRY anti-patterns from #337/#338 `codex/tasks/backlog-402-target-intel-emit-observed-paths.json`
+342. **[SPRINT mythos-foundation — DONE 2026-05-19]** exec_plan iterative refinement loop — bounded re-prompt on empty/malformed/failed plan; raises picker max_tokens 1024 → 4096 (subsumes backlog-391) `codex/tasks/backlog-403-exec-plan-iterative-refinement.json`
+343. **[SPRINT mythos-foundation — DONE 2026-05-20]** Single dispatch authority on autonomous-intrusive runs — Claude becomes THE picker; selector APPROVAL + auto_queue gated on flag `codex/tasks/backlog-404-single-dispatch-authority-on-autonomous-intrusive.json`
+344. **[SPRINT mythos-foundation — SUPERSEDED-BY-mythos-exploitation-foundation 2026-05-20]** Evidence projection as attack-graph — RECENT_CAPTURES becomes RECENT_CHAINS with causal lineage between observations and consuming capabilities `codex/tasks/backlog-405-evidence-projection-as-attack-graph.json`
 345. Mythos Phase 4 — Non-HTTP Primitives: SMB and LDAP as exec_plan Steps `codex/tasks/backlog-386-non-http-primitives-smb-ldap.json`
 346. Mythos Final Review — Convergence Demo and Capability Sign-Off `codex/tasks/backlog-387-final-review-mythos-convergence-demo.json`
 347. Mythos Tool Breadth — Specialized Tool Pack Fork from HexStrike (10-15 wrappers) `codex/tasks/backlog-388-specialized-tool-pack-fork-from-hexstrike.json`
@@ -381,3 +381,41 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 354. Operator-credentialed auth path for login-only targets (#328/#329 deferred — closes the emergent-registration-only gap; most real targets are login-only) `codex/tasks/backlog-395-operator-credentialed-auth-path.json`
 355. Auth-recipe cache eviction policy + schema migration (#327 deferred — full cache currently silently rejects new entries, paying $$$ AI calls forever) `codex/tasks/backlog-396-auth-recipe-cache-eviction.json`
 356. **[CLOSED-SUBSUMED-BY-#340-backlog-406 — DONE 2026-05-19]** Empirical Phase-3 live validation — closed in DONE_LOG; backlog-406's harness covers the same surface `codex/tasks/backlog-397-empirical-phase3-live-validation.json`
+
+<!-- Sprint mythos-exploitation-foundation (2026-05-20) — successor to mythos-foundation
+     after empirical drift review (10 commits + 24 claude_picks + 6 high+crit findings BUT
+     0 chain_findings on 5 real-world targets). New sprint follows 6-layer architectuur per
+     Codex review + user feedback. ANTI_DRIFT.md contract applies. -->
+
+357. **[SPRINT mythos-exploitation-foundation]** Observability stack — OpenTelemetry + Langfuse instrumentation (TRACING ONLY, no agent logic changes) `codex/tasks/backlog-407-observability-stack-otel-langfuse.json`
+358. **[SPRINT mythos-exploitation-foundation]** XBOW benchmark baseline harness — 104 challenges Docker isolated + anti-contamination guard `codex/tasks/backlog-408-xbow-benchmark-baseline-harness.json`
+359. **[SPRINT mythos-exploitation-foundation]** Governance Control Plane (Layer 0) + per-tool Docker isolation (replaces verspreide approval checks) `codex/tasks/backlog-409-governance-control-plane-docker-isolation.json`
+360. **[SPRINT mythos-exploitation-foundation]** Episodic memory — PostgreSQL + pgvector ADDITIVE (memory_backend stays as scratchpad) `codex/tasks/backlog-410-episodic-memory-pgvector-additive.json`
+361. **[SPRINT mythos-exploitation-foundation]** Context curation (Claude Code autoCompact-style) `codex/tasks/backlog-411-context-curation-autocompact.json`
+362. **[SPRINT mythos-exploitation-foundation]** Attack state machine + foothold model + TAP-style attack tree `codex/tasks/backlog-412-attack-state-machine-foothold-tree.json`
+363. **[SPRINT mythos-exploitation-foundation]** Deterministic validator + reproducible PoC artifact engine `codex/tasks/backlog-413-deterministic-validator-reproducible-poc.json`
+364. **[SPRINT mythos-exploitation-foundation]** Exploit Developer agent + meta-tooling (runtime custom script generation) `codex/tasks/backlog-414-exploit-developer-agent-meta-tooling.json`
+365. **[SPRINT mythos-exploitation-foundation]** Multi-agent coordinator + 6 specialists + per-agent ACL + versioned prompt proposals `codex/tasks/backlog-415-multi-agent-coordinator-versioned-prompts.json`
+366. **[SPRINT mythos-exploitation-foundation]** External knowledge (ExploitDB / NVD / CISA KEV) read-only + provenance-scored `codex/tasks/backlog-416-external-knowledge-exploitdb-readonly-provenance.json`
+367. **[SPRINT mythos-exploitation-foundation]** Multi-LLM abstraction via LiteLLM (Claude / GPT-4o / Gemini / DeepSeek selectable) `codex/tasks/backlog-417-multi-llm-abstraction-litellm.json`
+368. **[SPRINT mythos-exploitation-foundation]** PentAGI deep-dive + reusable components report `codex/tasks/backlog-418-pentagi-deep-dive-reusable-components.json`
+369. **[SPRINT mythos-exploitation-foundation]** Release gate + cross-system capability compare (XBOW / PentestGPT / PentAGI / OWASP Nettacker) `codex/tasks/backlog-419-release-gate-cross-system-compare.json`
+370. **[SPRINT mythos-exploitation-foundation]** Picker becomes real agent — Bash / file / web / code / subagent tools (Claude-Code-equivalent) `codex/tasks/backlog-422-picker-as-real-agent-claude-code-equivalent.json`
+371. **[SPRINT mythos-exploitation-foundation]** Score-climbing automation loop — benchmark → analyze → versioned proposal → approve → re-run `codex/tasks/backlog-423-score-climbing-automation-loop.json`
+
+<!-- Sprint mythos-exploitation-parity (2026-05-20) — gap-closure against PentAGI + Nettacker. -->
+
+372. **[SPRINT mythos-exploitation-parity]** Neo4j + Graphiti knowledge graph — cross-target attack-chain queries `codex/tasks/backlog-420-neo4j-graphiti-knowledge-graph.json`
+373. **[SPRINT mythos-exploitation-parity]** OWASP Nettacker scanner port — SMB + SSH (proof-of-pattern) `codex/tasks/backlog-421-nettacker-smb-ssh-port.json`
+
+<!-- Sprint mythos-exploitation-domain-coverage (2026-05-20) — CTF + protocol breadth + permanent improvement.
+     Pre-emptief gequeued zodat zichtbaar staat dat we het werk kennen + plannen. -->
+
+374. **[SPRINT mythos-exploitation-domain-coverage]** CLI/TUI research interface (PentestGPT-style) `codex/tasks/backlog-424-cli-tui-research-interface.json`
+375. **[SPRINT mythos-exploitation-domain-coverage]** Crypto capability runners (factor weak keys, mode detection, padding oracle) `codex/tasks/backlog-425-crypto-capability-runners.json`
+376. **[SPRINT mythos-exploitation-domain-coverage]** Binary reversing (radare2 + Ghidra headless) `codex/tasks/backlog-426-reversing-capability-runners.json`
+377. **[SPRINT mythos-exploitation-domain-coverage]** Pwn / binary exploitation (pwntools + ROPgadget) `codex/tasks/backlog-427-pwn-binary-exploitation-runners.json`
+378. **[SPRINT mythos-exploitation-domain-coverage]** Priv-esc enumeration (linpeas + winpeas) — foothold-gated `codex/tasks/backlog-428-privesc-enumeration-runners.json`
+379. **[SPRINT mythos-exploitation-domain-coverage]** Mobile pentest (Android apktool + iOS class-dump) `codex/tasks/backlog-429-mobile-pentest-runners.json`
+380. **[SPRINT mythos-exploitation-domain-coverage]** Nettacker remaining ~28 protocols port `codex/tasks/backlog-430-nettacker-remaining-protocols-port.json`
+381. **[SPRINT mythos-continuous-improvement]** Permanent XBOW score improvement program (target trajectory 50 → 70 → 80 → 84.6%+) `codex/tasks/backlog-431-permanent-xbow-score-improvement.json`

@@ -1,0 +1,94 @@
+{
+  "id": "backlog-417-multi-llm-abstraction-litellm",
+  "task_file": "codex/tasks/backlog-417-multi-llm-abstraction-litellm.json",
+  "task_type": "ai_loop",
+  "title": "Multi-LLM abstraction via LiteLLM \u2014 provider-agnostic brain (Claude / GPT-4o / Gemini / DeepSeek selectable)",
+  "goal": "Brain becomes provider-agnostic. `_claude_select_next_action` becomes `_picker_select_next_action(model_provider)`. Default Claude Opus 4.7 (existing prompts tuned for it), but Gemini 2.5 / GPT-4o / DeepSeek V3 selectable per run-config. Customers bring their own API key for preferred provider.",
+  "scope": "(1) Add `litellm` to requirements. (2) New `api/app/services/llm_provider.py`: LLMProvider abstraction wrapping LiteLLM. (3) Refactor `_claude_select_next_action` + ExploitDeveloper agent (414) + Coordinator (415) calls through LLMProvider. (4) Run-level config: `run.configuration_json['llm_provider']` selects (default claude-opus-4-7). (5) Per-provider response normalization handled by LiteLLM. Cost tracking per provider via OTEL telemetry (backlog-407).",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per OpenClaw architectuur: model-agnostic vanaf dag 1 (supports Claude 4, GPT-4o, Gemini 2.0, DeepSeek V3). Open product zonder model-lock-in is differentiator. Per ANTI_DRIFT.md Rule 1: metric is 'XBOW score with non-Claude provider \u226570% van Claude score' (sanity check that abstraction doesn't degrade signal).",
+  "source_context": {
+    "queue_index": 367,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "api/app/services/llm_provider.py",
+      "api/app/services/assessment_loop.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "LLM abstraction + provider config + refactor of callers only. NO prompt changes.",
+    "default_unchanged": "Default provider remains claude-opus-4-7. Existing prompt-tuning preserved.",
+    "cost_visibility": "Per-provider cost telemetry via OTEL spans (backlog-407)."
+  },
+  "success_criteria": [
+    "Metric: same XBOW challenge solvable with both claude-opus-4-7 AND one alternative provider (gemini-2.5 OR gpt-4o).",
+    "Metric: alternative-provider XBOW score \u226570% of Claude score (acceptable degradation; prompts are Claude-tuned).",
+    "Run config `llm_provider` selectable; default Claude unchanged.",
+    "Cost telemetry visible per provider in Langfuse.",
+    "Source-grep sentinel: no direct `import anthropic` in picker / agent code (all routed via LLMProvider)."
+  ],
+  "likely_touched_files": [
+    "api/app/services/llm_provider.py",
+    "api/app/services/assessment_loop.py",
+    "api/app/agents/exploit_developer.py",
+    "api/app/agents/coordinator.py",
+    "api/requirements.txt",
+    "api/tests/test_llm_provider.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT body",
+    "Prompt content (only provider routing changes)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_llm_provider.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/llm_provider.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "XBOW solvable with \u22652 providers.",
+      "Alt-provider score \u226570% of Claude.",
+      "Default Claude preserved.",
+      "Per-provider cost in Langfuse."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-416 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md with multi-provider comparison + cost data + pre-commit checklist per ANTI_DRIFT.md.",
+      "Promote backlog-418 (queue #368 \u2014 PentAGI deep-dive) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Prompt re-tuning per provider (separate task if needed)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,59 @@
+{
+  "id": "backlog-413-deterministic-validator-reproducible-poc",
+  "task_file": "codex/tasks/backlog-413-deterministic-validator-reproducible-poc.json",
+  "task_type": "ai_loop",
+  "title": "Deterministic validator + reproducible PoC artifact engine",
+  "goal": "Per Codex 6-layer architectuur Layer 1: deterministic validator engine that re-executes any claimed exploit in isolated context and produces a reproducible PoC artifact (executable script + expected output). Every finding categorized as: verified-exploited | observed-vulnerable | hypothesis. Per XBOW pattern: 'findings only accepted when exploitability confirmed through controlled validation'.",
+  "scope": "(1) New `api/app/services/exploit_validator.py`: validate_exploit(finding, replay_artifact) -> ValidationResult{verified|failed|inconclusive, evidence_hash, replay_script}. (2) `api/app/services/poc_artifact.py`: build_executable_poc(finding, captured_evidence) generates standalone Python script that reproduces the exploit. (3) Integration with backlog-412 attack state machine: foothold-state transitions ONLY on verified-exploited findings. (4) Per ANTI_DRIFT.md Rule 4: validator is DETERMINISTIC (no LLM). Re-runs the exact captured request chain and asserts response markers.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per XBOW evidence-first principle: 'safe proof, reproducible artifacts, traceable evidence are table stakes'. Currently AegisPT findings are 'detected' without proof of impact. Per backlog-385 (#335 verifier) already exists but is LLM-based; this task adds DETERMINISTIC layer. Per ANTI_DRIFT.md Rule 1: metric is 'verified-exploited count' as new finding category.",
+  "source_context": {"queue_index": 363, "queue_file": "TASK_QUEUE.md", "pack_id": null, "pack_version": null, "inventory_snapshot_id": null, "relevance_decision_id": null, "threat_intel_refs": []},
+  "inputs": {"prerequisite_active_task": "NEXT_TASK.md", "broader_theme": "mythos_exploitation_foundation", "key_files": ["api/app/services/exploit_validator.py", "api/app/services/poc_artifact.py"]},
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true, "no_untracked_future_work": true,
+    "scope_creep_guard": "Validator + PoC builder only. No new exploit-generation logic (414).",
+    "deterministic_only": "Validator MUST be deterministic (no LLM). Re-executes captured request chain in isolated sandbox; asserts response markers; produces yes/no/inconclusive.",
+    "poc_replayable_by_human": "Generated PoC script must be runnable standalone by a human pentester via `python poc.py --target X` and reproduce the impact."
+  },
+  "success_criteria": [
+    "Metric: every exec_plan_successful task produces a ValidationResult; ≥80% are verified-exploited (not just observed-vulnerable).",
+    "Metric: ≥1 reproducible PoC artifact generated and human-runnable (manual smoke).",
+    "Foothold state transitions in attack_state.py are gated on validate_exploit verdict (sentinel test).",
+    "Per Codex impact-proof requirement: findings now categorized verified-exploited / observed-vulnerable / hypothesis (no silent assumption of impact).",
+    "Live (after-413 XBOW): score climbs +5% AND ≥3 challenges produce verified-exploited findings with PoC artifacts."
+  ],
+  "likely_touched_files": [
+    "api/app/services/exploit_validator.py", "api/app/services/poc_artifact.py",
+    "api/app/services/attack_state.py", "api/app/models/control.py",
+    "api/tests/test_exploit_validator.py", "DONE_LOG.md", "TASK_QUEUE.md"
+  ],
+  "must_not_touch": ["_AI_PICKER_SYSTEM_PROMPT", "Existing #335 finding_verifier (complementary, not replacement)"],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_exploit_validator.py api/tests/test_finding_verifier.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/exploit_validator.py api/app/services/poc_artifact.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "≥80% exec_plan_successful tasks get verified-exploited verdict.",
+      "≥1 PoC artifact manually replays exploit successfully.",
+      "Foothold transitions gated on validator (sentinel test passes).",
+      "XBOW score +5%."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK single active", "backlog-412 DONE"],
+    "after_completion": [
+      "Update DONE_LOG.md with verified-exploited ratio + PoC sample + XBOW delta + pre-commit checklist per ANTI_DRIFT.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-414 (queue #364 — Exploit Developer agent) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": ["Exploit generation (414)", "Multi-agent coordinator (415)"],
+  "expected_output": {"decision_complete": true, "task_package_type": "single_clear_slice", "validation_required": true, "docs_update_required": true},
+  "validation_status": "task_package_ready", "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,94 @@
+{
+  "id": "backlog-420-neo4j-graphiti-knowledge-graph",
+  "task_file": "codex/tasks/backlog-420-neo4j-graphiti-knowledge-graph.json",
+  "task_type": "ai_loop",
+  "title": "Neo4j + Graphiti knowledge graph \u2014 cross-target attack-chain queries + semantic relationships (parity sprint)",
+  "goal": "PARITY with PentAGI: add Neo4j knowledge graph via Graphiti library for cross-target attack-chain queries ('which exploits worked on similar tech stacks?'), cross-run pattern detection, multi-hop reasoning. Per Codex: 'pas wanneer relational queries empirisch tekortschieten' \u2014 by parity-sprint time we have foundation evidence; this is the upgrade.",
+  "scope": "(1) Neo4j Docker service added to deployment + Graphiti library to requirements. (2) New `api/app/services/knowledge_graph.py`: write_relationship(source_entity, target_entity, rel_type, attributes) + query_paths(from, to, max_hops) + semantic_neighbors(entity, k). (3) Episodic memory (backlog-410) writes also emit graph relationships for connectable entities (target \u2192 finding \u2192 captured_value \u2192 next_step). (4) Per Codex contamination: benchmark writes tagged + filtered.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-parity-2026-05-20",
+  "generation_reason": "Per gap analysis: PentAGI has Neo4j+Graphiti; we don't. After foundation sprint we have episodic memory but only vector similarity, not relational/graph reasoning. Per ANTI_DRIFT.md Rule 1: metric is 'cross-target multi-hop queries return \u22651 actionable result on XBOW after-420 run'.",
+  "source_context": {
+    "queue_index": 372,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_parity",
+    "key_files": [
+      "api/app/services/knowledge_graph.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Neo4j + Graphiti integration + dual-write from episodic memory. No agent decision logic changes.",
+    "additive_only": "Postgres+pgvector (backlog-410) remains primary; Neo4j ADDS graph capabilities. Falls back gracefully if Neo4j unreachable.",
+    "contamination_guard": "Benchmark-mode writes tagged + filtered from non-benchmark queries (same pattern as episodic memory)."
+  },
+  "success_criteria": [
+    "Metric: \u22651 cross-target multi-hop query returns actionable result during XBOW after-420 run.",
+    "Metric: graph write succeeds for each captured_value entity (verified via Neo4j count).",
+    "Graceful fallback: app runs normally when Neo4j unreachable.",
+    "Contamination guard: 0 benchmark graph data visible in production queries.",
+    "Live (after-420 XBOW): score climbs +3-7% via cross-target reasoning."
+  ],
+  "likely_touched_files": [
+    "api/app/services/knowledge_graph.py",
+    "api/app/services/episodic_memory.py",
+    "api/requirements.txt",
+    "docker-compose.yml",
+    "api/tests/test_knowledge_graph.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT",
+    "Episodic memory primary write path (only dual-write added)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_knowledge_graph.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/knowledge_graph.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Multi-hop query returns result on XBOW.",
+      "Graph writes succeed.",
+      "Graceful fallback works.",
+      "Contamination guard passes.",
+      "XBOW +3-7%."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "Foundation sprint (407-419, 422-423) DONE + release-gate GO"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md with multi-hop query sample + graph writes count + XBOW delta + pre-commit checklist per ANTI_DRIFT.md.",
+      "Promote backlog-421 (queue #373 \u2014 Nettacker port) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Replacing pgvector (additive)",
+    "Visualization UI"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

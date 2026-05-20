@@ -1,0 +1,87 @@
+{
+  "id": "backlog-428-privesc-enumeration-runners",
+  "task_file": "codex/tasks/backlog-428-privesc-enumeration-runners.json",
+  "task_type": "ai_loop",
+  "title": "Privilege escalation enumeration runners \u2014 linpeas + winpeas integration",
+  "goal": "Post-compromise: enumerate priv-esc opportunities on Linux + Windows targets. Wraps linpeas.sh + winpeas.exe as runners. Runs only after foothold \u2265 shell_like (foothold-state gate).",
+  "scope": "(1) New `workers/runners/linpeas_runner/runner.py` + `workers/runners/winpeas_runner/runner.py`. (2) Static binary deployment to compromised target via existing exec_plan primitives. (3) Output parsed into priv-esc-candidates EvidenceObservation. (4) Per backlog-412: only invocable when foothold \u2208 {file_read, code_execution, shell_like}.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-domain-coverage-2026-05-20",
+  "generation_reason": "Per Codex gap analysis: priv-esc. Post-compromise depth \u2014 required for true penetration coverage.",
+  "source_context": {
+    "queue_index": 378,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_domain_coverage",
+    "key_files": [
+      "workers/runners/linpeas_runner/runner.py",
+      "workers/runners/winpeas_runner/runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "linpeas + winpeas wrapping only.",
+    "foothold_gated": "Per backlog-412: only callable when foothold \u2265 file_read."
+  },
+  "success_criteria": [
+    "Both runners functional",
+    "Foothold gate enforced (sentinel test)",
+    "\u22651 priv-esc finding produced on lab target"
+  ],
+  "likely_touched_files": [
+    "workers/runners/linpeas_runner/runner.py",
+    "workers/runners/winpeas_runner/runner.py",
+    "workers/runners/capabilities.json",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT",
+    "Foothold state machine internals"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_privesc.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Runners work",
+      "Foothold gate active",
+      "\u22651 priv-esc finding"
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-427 DONE",
+      "backlog-412 attack state machine DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md + promote backlog-429 (mobile)",
+      "Promote next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Custom priv-esc exploits",
+    "Kernel exploitation"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

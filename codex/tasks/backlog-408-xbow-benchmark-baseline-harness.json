@@ -1,0 +1,102 @@
+{
+  "id": "backlog-408-xbow-benchmark-baseline-harness",
+  "task_file": "codex/tasks/backlog-408-xbow-benchmark-baseline-harness.json",
+  "task_type": "ai_loop",
+  "title": "XBOW benchmark baseline harness — 104 challenges Docker isolated + anti-contamination guard",
+  "goal": "Establish empirical baseline for AegisPT against XBOW's 104 real-world web vulnerability scenarios (industry gold standard). Per Codex refinement: includes explicit anti-contamination guard — XBOW solutions MUST NOT leak into reusable memory or prompts. Provides the measurement instrument all subsequent capability tasks (409-419) will be evaluated against.",
+  "scope": "New scripts/xbow_benchmark.py + tests/test_xbow_contamination_guard.py: (1) clone/wrap https://github.com/KeygraphHQ/xbow-validation-benchmarks (or upstream xbow set if accessible). (2) For each of 104 challenges: bring up Docker container, register engagement+scope in AegisPT, kick off autonomous-intrusive run, poll until run terminates, check if CTF flag captured. (3) Per-challenge metrics: solved_yes_no, time_to_solve, exec_plan_dispatches, exec_plan_successful, refinement_attempts. (4) Aggregate report at docs/validation/xbow-{date}-{phase}.md with score X/104 + per-category breakdown (OWASP Top 10 + business logic). (5) Anti-contamination guard: scripts/xbow_benchmark.py runs AegisPT in 'benchmark mode' where memory_backend writes are tagged is_benchmark=True and NEVER read back into non-benchmark runs. Greppable test verifies no XBOW challenge paths/solutions appear in any non-benchmark code path.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per Codex review: 'XBOW baseline vroeg — anders bouwen we op gevoel.' Onze huidige 5-target Mantis/MediaWiki/Roundcube/Gitea/Etherpad harness is amateuristisch vergeleken met XBOW's 104-challenge industry standard. MAPTA haalt 76.9% op deze set; XBOW zelf 84.6%. Wij willen ≥30% bij sprint-close, klimmen naar 80% in iteration sprints. Zonder dit benchmark instrument is 'beter dan vorige sprint' niet meetbaar. Per ANTI_DRIFT.md Rule 1: dit task is meet-instrument, niet capability — delta-metric is 'benchmark runs successfully and produces score'.",
+  "source_context": {
+    "queue_index": 358,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "scripts/xbow_benchmark.py",
+      "tests/test_xbow_contamination_guard.py",
+      "docs/validation/xbow-{date}-baseline.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md AND ANTI_DRIFT.md is loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Benchmark harness + contamination guard only. Do NOT modify api/app/services/ or workers/ (those are touched by 409-419 capability tasks; this task only OBSERVES).",
+    "contamination_guard_strict": "Per Codex refinement: XBOW challenge paths, flags, payloads MUST NOT leak into any non-benchmark code path. memory_backend writes during benchmark runs are tagged is_benchmark=True at write time + filtered out at read time during non-benchmark runs. Greppable test scans production source for XBOW-specific strings.",
+    "isolated_docker": "Each XBOW challenge runs in fresh Docker container; container teardown is mandatory (defensive try/finally) to prevent state leak between challenges."
+  },
+  "success_criteria": [
+    "Metric: scripts/xbow_benchmark.py runs end-to-end against ≥20 XBOW challenges without harness crash.",
+    "Metric: baseline report produced at docs/validation/xbow-{date}-baseline.md with score X/104 (initial score may be low; baseline is the measurement, not a target).",
+    "Metric: contamination_guard_strict test passes (0 XBOW challenge paths/flags in production source code).",
+    "Metric: ≥95% of challenges teardown cleanly (no zombie Docker containers post-run).",
+    "Per-challenge data: solved_yes_no, time_to_solve_sec, exec_plan_count.",
+    "Aggregate per OWASP Top 10 category breakdown.",
+    "memory_backend writes during benchmark runs ALL tagged is_benchmark=True (verifiable via DB query).",
+    "Live: benchmark run actually executed; baseline score documented even if 0% solved (the measurement itself is the deliverable)."
+  ],
+  "likely_touched_files": [
+    "scripts/xbow_benchmark.py",
+    "tests/test_xbow_contamination_guard.py",
+    "api/app/services/memory_backend.py",
+    "docs/validation/xbow-{date}-baseline.md",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "Agent logic / picker / dispatch (capability tasks)",
+    "Runner behavior (capability tasks)",
+    "Approval/scope/governance",
+    "_AI_PICKER_SYSTEM_PROMPT"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest tests/test_xbow_contamination_guard.py tests/test_multi_target_validation_grep_guard.py",
+      "python3 -m compileall -q scripts",
+      ".venv/bin/ruff check scripts/xbow_benchmark.py",
+      "git diff --check",
+      "git grep -inE 'XBOW.*flag|xbow_challenge_solution' -- api/ workers/ || true"
+    ],
+    "acceptance_criteria": [
+      "Baseline report exists at docs/validation/xbow-{date}-baseline.md.",
+      "≥20 XBOW challenges run end-to-end.",
+      "0 production-code leakage of XBOW challenge specifics (greppable check passes).",
+      "is_benchmark=True tagging verified in memory_backend writes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-407 (observability) must be DONE so the benchmark run is fully traceable.",
+      "Operator confirms Docker + adequate disk space for XBOW challenge images."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with: baseline score X/104, per-category breakdown, contamination guard pass evidence, pre-commit checklist per ANTI_DRIFT.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-409 (queue #359 — Governance Control Plane + Docker isolation) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Improving the score (capability tasks 409-419 do that)",
+    "Modifying agent logic to pass benchmarks (would violate anti-contamination)",
+    "Adding XBOW-specific runners or paths"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

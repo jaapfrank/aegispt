@@ -1,0 +1,99 @@
+{
+  "id": "backlog-415-multi-agent-coordinator-versioned-prompts",
+  "task_file": "codex/tasks/backlog-415-multi-agent-coordinator-versioned-prompts.json",
+  "task_type": "ai_loop",
+  "title": "Multi-agent coordinator (Layer 4) \u2014 meta-agent + 6 specialists + confidence-gated delegation + versioned prompt proposals",
+  "goal": "Per Codex Layer 4 + Cyber-AutoAgent meta-everything pattern: ONE meta-agent decides, delegates to specialists (Recon, Hypothesis, ExploitDev, Validator, Memorist, Reporter, Reflector) on confidence < 70%. Per Codex 'no runtime self-modification': prompt/meta-prompt changes are VERSIONED proposals with operator approval, not agent-self-rewrite. Per OpenClaw: per-agent tool allow/deny ACL.",
+  "scope": "(1) New `api/app/agents/coordinator.py`: MetaCoordinator with KNOW\u2192THINK\u2192TEST\u2192VALIDATE loop + confidence scoring + delegation. (2) Specialists call out to backlog-414 ExploitDev + backlog-413 Validator + backlog-410 Memorist via episodic_memory + new Reporter + Reflector. (3) Per-agent ACL: each specialist has tools.allow/deny (OpenClaw pattern). (4) Versioned prompt proposals: changes to specialist prompts via PR-style proposal file in prompts/proposals/{date}-{specialist}-rev{N}.md, requires operator approve_prompt_change() before live.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per Codex success criterion: '\u22652 specialist agents leveren aantoonbaar betere chain-findings dan single picker'. Currently single picker. Per Codex 'no runtime self-modification': versioned approvals replace meta-prompting risk. Per ANTI_DRIFT.md Rule 1: metric is 'multi-agent chain-findings vs single-picker chain-findings on same XBOW subset'.",
+  "source_context": {
+    "queue_index": 365,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "api/app/agents/coordinator.py",
+      "api/app/agents/specialists/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Coordinator + specialists + per-agent ACL + versioned prompt mechanism only.",
+    "no_runtime_self_modify": "Per Codex: agents do NOT rewrite their own production prompts at runtime. Proposed changes go through prompts/proposals/ + operator approval workflow.",
+    "per_agent_acl": "Per OpenClaw: each specialist has explicit tools.allow / tools.deny list. Coordinator validates before delegation.",
+    "single_decision_maker": "Per Cyber-AutoAgent lesson #1: ONE meta-agent decides, delegates only when confidence < 70%. NOT a free-for-all agent swarm."
+  },
+  "success_criteria": [
+    "Metric: \u22652 specialists (e.g. ExploitDev + Validator) actively delegated-to on \u22653 XBOW challenges.",
+    "Metric: chain_findings count with multi-agent \u22651.5x single-picker baseline on same XBOW subset.",
+    "Metric: per-agent ACL enforced \u2014 test that Recon specialist cannot call exec-plan tool (denied via ACL).",
+    "Metric: 0 runtime prompt self-modifications (all prompt changes have proposal file + approval log).",
+    "Confidence-gated delegation: meta-agent only delegates when its own confidence < 70%; high-confidence cases handled directly.",
+    "Live (after-415 XBOW): score climbs +8-12% via multi-agent coordination."
+  ],
+  "likely_touched_files": [
+    "api/app/agents/coordinator.py",
+    "api/app/agents/specialists/recon.py",
+    "api/app/agents/specialists/hypothesis.py",
+    "api/app/agents/specialists/reporter.py",
+    "api/app/agents/specialists/reflector.py",
+    "prompts/proposals/.gitkeep",
+    "api/tests/test_coordinator.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT body lines 1-200",
+    "Validator + ExploitDev internals"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_coordinator.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/agents/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "\u22652 specialists active on \u22653 challenges.",
+      "Multi-agent chain_findings \u22651.5x single-picker baseline.",
+      "Per-agent ACL enforced (sentinel test).",
+      "0 runtime self-modifications (audit log verified).",
+      "XBOW +8-12%."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-413 + 414 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md with multi-agent vs single-picker comparison + XBOW delta + pre-commit checklist per ANTI_DRIFT.md.",
+      "Promote backlog-416 (queue #366 \u2014 External knowledge) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "External knowledge (416)",
+    "Multi-LLM (417)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,92 @@
+{
+  "id": "backlog-423-score-climbing-automation-loop",
+  "task_file": "codex/tasks/backlog-423-score-climbing-automation-loop.json",
+  "task_type": "ai_loop",
+  "title": "Score-climbing automation loop \u2014 benchmark run \u2192 failure analysis \u2192 versioned prompt proposal \u2192 operator approve \u2192 re-run",
+  "goal": "The motor that drives AegisPT from 50% \u2192 80% XBOW score. Automated iteration: after each benchmark run, analyze failed challenges, identify patterns (prompt gap? state-machine gap? tool gap?), generate VERSIONED prompt/state proposals (no runtime self-modify per Codex), operator approves, re-run, compare delta. Permanent improvement infrastructure.",
+  "scope": "(1) New `scripts/xbow_score_climb.py`: orchestrates iteration cycle. (2) `api/app/services/failure_analysis.py`: cluster failed XBOW challenges by failure-mode using Claude. (3) Proposal generation: writes new prompt/state-machine version to `prompts/proposals/{date}-{component}-rev{N}.md`. (4) Operator approval workflow: CLI command `aegispt promote-proposal {file}` moves proposal \u2192 live after operator confirms. (5) Delta-report after each iteration. Per Codex 'no runtime self-modify': all changes versioned + approved.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per user 2026-05-20: 'Ik verwacht minimaal 80% XBOW score'. Reaching 80% requires sustained iteration, not one-shot prompt-tuning. Per Codex: 'versioned proposals met approval' \u2014 no runtime self-modify. Per ANTI_DRIFT.md Rule 1: metric is 'XBOW score climbed \u2265X% per iteration cycle, sustained over \u22653 cycles'.",
+  "source_context": {
+    "queue_index": 371,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "scripts/xbow_score_climb.py",
+      "api/app/services/failure_analysis.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Iteration loop + failure analysis + proposal mechanism only.",
+    "versioned_proposals_only": "All prompt/state changes written to prompts/proposals/ as PR-style files. Operator must explicitly approve before live deployment. No agent-self-rewrite of production prompts.",
+    "audit_trail": "Each iteration cycle logged with before-score, after-score, delta, applied-proposals."
+  },
+  "success_criteria": [
+    "Metric: \u22651 complete iteration cycle executed end-to-end (baseline \u2192 analyze \u2192 propose \u2192 approve \u2192 re-run \u2192 delta).",
+    "Metric: Iteration cycle 1 produces XBOW score delta \u2265+5% (e.g. 30% \u2192 35%).",
+    "Metric: 0 prompts in production were changed without proposal+approval trail (audit log verified).",
+    "Failure clustering identifies \u22653 distinct failure-mode categories.",
+    "Cycle telemetry: time-per-iteration, cost-per-iteration, prompts-proposed, prompts-approved, prompts-rejected.",
+    "Live: cycle 1 demonstrated; cycles 2+ are operator-on-demand (ongoing program, not single-task DONE)."
+  ],
+  "likely_touched_files": [
+    "scripts/xbow_score_climb.py",
+    "api/app/services/failure_analysis.py",
+    "prompts/proposals/.gitkeep",
+    "scripts/aegispt_cli.py",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "Production prompts directly (only via proposal mechanism)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_failure_analysis.py tests/test_xbow_score_climb.py",
+      "python3 -m compileall -q scripts api",
+      ".venv/bin/ruff check scripts/xbow_score_climb.py api/app/services/failure_analysis.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "\u22651 iteration cycle end-to-end demonstrated.",
+      "Score delta \u2265+5% cycle 1.",
+      "0 unauthorized prompt changes.",
+      "\u22653 failure-mode categories identified."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-422 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md with cycle 1 evidence + score climb + audit trail + pre-commit checklist per ANTI_DRIFT.md.",
+      "Promote backlog-420 (queue #372 \u2014 Neo4j knowledge graph) into NEXT_TASK.md (parity sprint starts)."
+    ]
+  },
+  "out_of_scope": [
+    "Reaching 80% in this task (continuous program; this delivers cycle 1)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

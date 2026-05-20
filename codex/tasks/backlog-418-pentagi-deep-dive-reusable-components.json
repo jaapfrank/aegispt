@@ -1,0 +1,84 @@
+{
+  "id": "backlog-418-pentagi-deep-dive-reusable-components",
+  "task_file": "codex/tasks/backlog-418-pentagi-deep-dive-reusable-components.json",
+  "task_type": "ai_loop",
+  "title": "PentAGI deep-dive + reusable components report \u2014 identify directly portable code",
+  "goal": "Investigation task (no code edits). Deep read of PentAGI (https://github.com/vxcontrol/pentagi, MIT licensed, 12.5k stars). Identify: (a) which specialist prompts can we directly port? (b) which planner logic patterns? (c) which test/eval infra? Deliverable is research report at docs/research/pentagi-component-reuse.md.",
+  "scope": "(1) Clone + study PentAGI source. (2) Per component (Researcher, Developer, Executor, Planner, Memorist agents): assess port-ability. (3) Report at docs/research/pentagi-component-reuse.md with: component name + LoC estimate + license-compat check + recommended action (port-as-is | adapt | ignore). (4) Per-action: list our existing code that would be replaced/extended. NO code changes in this task.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-exploitation-foundation-2026-05-20",
+  "generation_reason": "Per Codex: 'niet forken voordat we precies weten wat herbruikbaar is'. We've referenced PentAGI in many design discussions; now formal eval. Per ANTI_DRIFT.md Rule 1: metric is 'identified reusable components count + recommendations'.",
+  "source_context": {
+    "queue_index": 368,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_exploitation_foundation",
+    "key_files": [
+      "docs/research/pentagi-component-reuse.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Single active task AND ANTI_DRIFT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Investigation + report only. NO code edits in production.",
+    "license_check": "Verify MIT compatibility before recommending port. Document any caveats.",
+    "deliverable_is_report": "Output is markdown research report, not code."
+  },
+  "success_criteria": [
+    "Metric: report exists at docs/research/pentagi-component-reuse.md with \u226510 components analyzed.",
+    "Per component: name, LoC estimate, license check, recommended action (port-as-is | adapt | ignore | already-have-better).",
+    "Top 3 highest-value port candidates identified with rationale.",
+    "Any IP/license concerns documented.",
+    "Follow-up tasks filed for top recommendations (separate backlog-NNN entries)."
+  ],
+  "likely_touched_files": [
+    "docs/research/pentagi-component-reuse.md",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "Any production code"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "test -f docs/research/pentagi-component-reuse.md",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Report exists + \u226510 components covered.",
+      "Top-3 candidates have follow-up tasks filed.",
+      "License compatibility verified."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK single active",
+      "backlog-417 DONE"
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md with component count + top-3 + follow-up backlog refs + pre-commit checklist per ANTI_DRIFT.md (investigation variant \u2014 no code delta needed).",
+      "Promote backlog-419 (queue #369 \u2014 Release gate) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Actual code porting (that's the follow-up tasks)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
