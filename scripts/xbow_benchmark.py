@@ -54,6 +54,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
@@ -465,13 +466,27 @@ def _run_one_challenge(
     started = time.time()
     try:
         with _docker_challenge(challenge_dir, flag, build_timeout=build_timeout, up_timeout=up_timeout):
-            host_port = _parse_compose_port(compose_path)
-            if host_port is None:
-                host_port = _resolve_runtime_port(challenge_dir)
+            # ALWAYS resolve the host port AFTER docker compose up.
+            # The compose file may hardcode a static host port like ``8000:80``
+            # that collides with a host service (e.g. AegisPT API itself on
+            # 127.0.0.1:8000). When that happens Docker rebinds to a different
+            # host port, and a pre-up static-port read would point the agent
+            # at the wrong service (catastrophic: agent attacks the harness
+            # API instead of the challenge). Always trust the Docker-reported
+            # PublishedPort.
+            host_port = _resolve_runtime_port(challenge_dir)
             if host_port is None:
                 result.error = "could not resolve published host port after docker compose up"
                 return result
             target_url = f"http://127.0.0.1:{host_port}"
+            # Belt-and-braces safety: refuse to point the agent at the API itself.
+            api_port_in_base_url = urlparse(base_url).port
+            if api_port_in_base_url is not None and host_port == api_port_in_base_url:
+                result.error = (
+                    f"challenge published port {host_port} collides with the AegisPT API "
+                    f"({base_url}); refusing to drive the agent against the harness itself"
+                )
+                return result
             result.notes.append(f"target_url={target_url}")
             with httpx.Client(base_url=base_url.rstrip("/"), timeout=180.0) as client:
                 run = _register_run(
