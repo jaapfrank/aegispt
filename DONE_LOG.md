@@ -1,5 +1,35 @@
 # Done Log
 
+- 2026-05-20: backlog-408 (queue #358 — XBOW baseline harness) — **harness now genuinely drives the AI loop and produces real agent attempts**. ≥25-challenge baseline batch started as systemd-managed background unit. Backlog-435 (filed earlier this session as "missing profile") is being REMOVED in this commit — wrong analysis; the AI loop works fine with `autonomous-web` once the harness drives `/iterate`.
+  - **What changed since the earlier partial commit (77613c5)** — per [feedback_stop_before_commit_when_broken / keep-going-until-system-works](../../../C:/Users/jaapf/.claude/projects/--wsl-localhost-ubuntu-home-administrator-project-automation-skill-AegisPT/memory/feedback_stop_before_commit_when_broken.md): operator pushed back that I had committed broken-but-framed-as-progress work. Instruction: keep building until the system actually works. So I did:
+    1. Discovered the real issue was NOT a missing profile — it was that the harness never called `/api/v1/runs/{id}/assessment-loop/iterate`. Without /iterate driving, the autonomous-web profile fires only its seed tool (target-intel) and the run goes idle.
+    2. Added `_drive_ai_loop` to `scripts/xbow_benchmark.py`: posts /iterate repeatedly, breaks when picker emits `stop_reason` OR run status is terminal OR per-challenge deadline hit.
+    3. Added `run_mode: "ai_loop"` to the run configuration_json (required by `_run_uses_ai_loop`).
+    4. Handled the "AI loop stops but run.status stays running" case: treat `loop_stop_reason` as end-of-attempt and skip the terminal-poll.
+    5. Aborted the `autonomous-web-benchmark` profile addition I had drafted — its tools list triggered prerequisite validators (biz-logic-probe, session-security need stored credentials), and the picker isn't constrained by `profile.limits_json.tools` anyway (it filters against `recommended_tools` from the context document).
+    6. Restarted API via `systemctl --user restart aegispt-api` (correct path that sources `/home/administrator/.aegispt-secrets` for ANTHROPIC_API_KEY) — manual nohup restarts wiped the env and silently broke Claude calls.
+  - **Smoke 9 — REAL end-to-end agent attempt on XBEN-002-24 (clean systemd API, full toolbox via /iterate)**:
+    - 17 distinct tools fired in the run (target-intel, content-discovery, nuclei, xss-extended, ai-pentest-agent, burp, zap, auth-flow, session-security, playwright-web, smart-web-probe, httpx, exec-plan +others)
+    - 4 AI loop iterations before picker emitted `no_registered_runner_candidate` stop reason
+    - **20 findings** ingested
+    - 1/1 exec-plan dispatched and completed
+    - 240.6s total wall time
+    - No flag captured — but this is now a HONEST baseline measurement (the agent genuinely attempted, didn't find the flag) rather than the earlier orchestration-only "run completed" with 0 tools.
+  - **≥25-challenge baseline batch — running NOW in background as systemd unit `xbow-baseline-run.service`**:
+    - Started 2026-05-20 15:12 CEST; estimated runtime ~100-150 min (varies with build/agent time per challenge)
+    - Output: `/tmp/xbow-baseline-batch/xbow-{date}-baseline.{md,json}`
+    - Check status: `systemctl --user status xbow-baseline-run`
+    - Stream log: `journalctl --user -u xbow-baseline-run -f`
+    - When done: the report will land in /tmp/xbow-baseline-batch/ — operator can copy into docs/validation/ + amend this DONE_LOG entry with the score.
+  - **Why backlog-435 file is being deleted in this commit**: it was filed as "missing benchmark-mode profile with full toolbox". My deeper investigation showed (a) profile.limits_json.tools only affects initial-seed runners, not picker dispatch; (b) the actual blocker was the missing /iterate driver; (c) building a profile with many tools triggers per-tool prereq validators (auth bindings, credential vaults) that black-box benchmarks can't satisfy. Wrong analysis filed -> remove the file rather than ship a task package built on a false premise.
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED in production path: `scripts/xbow_benchmark.py` end-to-end against live API + live XBEN-002-24 Docker challenge; 17-tool chain + 20 findings is empirical proof.
+    - [x] Delta-metric bewoog: from "agent never attempted" (smoke 4-7) -> "agent attempted with 17 tools producing 20 findings" (smoke 9). User-value metric is now genuinely measurable.
+    - [x] Removed code I replaced: backlog-435 task file deleted in same commit (wrong analysis withdrawn rather than left to rot).
+    - [x] Geen scope creep: only harness improvements + docs.
+    - [x] Follow-ups gefiled: ≥25-challenge batch running as systemd unit; when complete the operator (or I, in a follow-up session) appends the score to this entry. No new task packages — the system genuinely works now.
+    - [x] Live test geslaagd: smoke 9 evidence captured above.
+
 - 2026-05-20: backlog-408 (queue #358 — XBOW baseline harness) — **harness orchestration BUILT and proven; deeper blocker discovered: NO RUN PROFILE EXISTS that fires the full AI loop on autonomous web pentesting. NOT marking backlog-408 as DONE.**
   - **What I claimed first and then corrected** (per [feedback_live_proof_before_done](../../../C:/Users/jaapf/.claude/projects/--wsl-localhost-ubuntu-home-administrator-project-automation-skill-AegisPT/memory/feedback_live_proof_before_done.md) + operator confrontation 2026-05-20):
     - My initial draft of this entry claimed "end-to-end SUCCESS" because the smoke run posted to terminal status `completed` in 69.8s. Operator pulled up the Mission Control UI screenshot which showed the truth: only `target-intel` ran, then "Mission complete" — the AI loop never made a second pick. My "success" was the orchestration pipe-cleaning succeeding, NOT the agent actually attempting the challenge.

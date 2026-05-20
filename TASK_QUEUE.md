@@ -425,4 +425,3 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 382. **[SAFETY]** Scope/port discipline — refuse bare-host targets without explicit port or network-scope flag `codex/tasks/backlog-432-scope-port-discipline.json`
 383. **[AGENT-SELF-CORRECTION]** Runner failure-feedback contract — actionable failure_reason + retry-with-different-params signal to picker `codex/tasks/backlog-433-runner-failure-feedback-contract.json`
 384. **[EVIDENCE-FIRST]** Forensic run journal — append-only structured log of every decision + observation + command (operator-mandated 2026-05-20) `codex/tasks/backlog-434-forensic-run-journal-evidence-first.json`
-385. **[PRECONDITION for backlog-408]** Benchmark-mode autonomous run profile — full AI toolbox for XBOW-class web pentest (discovered missing during backlog-408 smoke) `codex/tasks/backlog-435-benchmark-mode-autonomous-profile.json`

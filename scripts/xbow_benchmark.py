@@ -76,8 +76,9 @@ COMPOSE_PORT_LONG_RE = re.compile(r'^\s*-\s*"?(\d{1,5}):(\d{1,5})"?\s*$')
 COMPOSE_PORT_SHORT_RE = re.compile(r'^\s*-\s*"?(\d{1,5})"?\s*$')
 COMPOSE_SERVICE_RE = re.compile(r"^([A-Za-z0-9_-]+):\s*$")
 WEB_CONTAINER_PORTS = (80, 443, 8080, 8443, 5000, 5003, 3000, 8000)
-DEFAULT_PROFILE_NAME = "autonomous-web"
+DEFAULT_PROFILE_NAME = "autonomous-web"  # seeds target-intel; AI loop drives the rest via /iterate
 TERMINAL_STATUSES = {"completed", "failed", "cancelled", "stopped", "errored"}
+LOOP_TERMINAL_STATUSES = {"stopped", "completed", "failed", "cancelled"}
 
 
 @dataclass
@@ -93,6 +94,9 @@ class ChallengeResult:
     exec_plan_successful: int = 0
     refinement_attempts: int = 0
     finding_count: int = 0
+    tool_chain_length: int = 0
+    loop_iterations: int = 0
+    loop_stop_reason: str | None = None
     run_id: str | None = None
     run_status: str | None = None
     error: str | None = None
@@ -296,7 +300,9 @@ def _register_run(
     # NB: deliberately omit the challenge_id from configuration_json so no
     # XBOW-specific identifier ever lands in api/ or workers/ state. The
     # contamination guard (tests/test_xbow_contamination_guard.py) enforces
-    # this at the source level.
+    # this at the source level. run_mode=ai_loop enables /iterate driving
+    # below (without it, the run only fires the profile's initial tools and
+    # terminates — exactly the empty-loop bug discovered 2026-05-20).
     run_response = client.post(
         f"/api/v1/engagements/{engagement['id']}/runs",
         headers=api_headers(actor),
@@ -305,6 +311,7 @@ def _register_run(
             "autonomous_intrusive_allowed": True,
             "configuration_json": {
                 "target_url": target_url,
+                "run_mode": "ai_loop",
             },
         },
     )
@@ -315,6 +322,66 @@ def _register_run(
             f"{run_response.text[:400]}"
         )
     return run_response.json()
+
+
+def _drive_ai_loop(
+    client: httpx.Client,
+    *,
+    actor: str,
+    run_id: str,
+    max_iterations: int,
+    poll_interval: float,
+    deadline_seconds: float,
+) -> dict[str, Any]:
+    """Drive the autonomous AI loop by calling /iterate until the loop says stop.
+
+    Each /iterate call asks the picker to choose the next action, enqueues 1
+    task, dispatches it inline, and returns. Loop terminates when the picker
+    emits action=stop, max_iterations is hit, or the run reaches a terminal
+    status. Returns the final loop state for the report.
+    """
+    started = time.time()
+    iterations = 0
+    last_loop_state: dict[str, Any] = {}
+    while iterations < max_iterations and (time.time() - started) < deadline_seconds:
+        iterations += 1
+        try:
+            iter_resp = client.post(
+                f"/api/v1/runs/{run_id}/assessment-loop/iterate",
+                headers=api_headers(actor),
+                json={"operator_note": "xbow-benchmark autonomous drive"},
+                timeout=120.0,
+            )
+        except httpx.HTTPError as exc:
+            last_loop_state = {"iterate_error": str(exc)[:200], "iterations": iterations}
+            break
+        if iter_resp.status_code == 409:
+            # 409 typically means: waiting for execution OR loop already terminal.
+            # Either way we should poll the run status to decide.
+            pass
+        elif iter_resp.status_code >= 400:
+            last_loop_state = {
+                "iterate_http_error": iter_resp.status_code,
+                "body": iter_resp.text[:200],
+                "iterations": iterations,
+            }
+            break
+        else:
+            last_loop_state = iter_resp.json()
+            loop_status = str(last_loop_state.get("status") or "").lower()
+            stop_reason = str(last_loop_state.get("stop_reason") or "")
+            if loop_status in LOOP_TERMINAL_STATUSES or stop_reason:
+                break
+        # Poll run status as the authoritative terminal-check.
+        run_resp = client.get(f"/api/v1/runs/{run_id}", headers=api_headers(actor))
+        if run_resp.status_code == 200:
+            run_status = str(run_resp.json().get("status") or "").lower()
+            if run_status in TERMINAL_STATUSES:
+                break
+        time.sleep(poll_interval)
+    last_loop_state["loop_driver_iterations"] = iterations
+    last_loop_state["loop_driver_elapsed_sec"] = round(time.time() - started, 1)
+    return last_loop_state
 
 
 def _scan_for_flag(client: httpx.Client, actor: str, run_id: str, flag: str) -> list[str]:
@@ -344,12 +411,13 @@ def _scan_for_flag(client: httpx.Client, actor: str, run_id: str, flag: str) -> 
 
 
 def _aggregate_metrics(client: httpx.Client, actor: str, run_id: str) -> dict[str, int]:
-    """Pull exec_plan + refinement counts from the run payload (#403/#331)."""
+    """Pull exec_plan + refinement + tool chain counts from the run payload."""
     counters = {
         "exec_plan_dispatches": 0,
         "exec_plan_successful": 0,
         "refinement_attempts": 0,
         "finding_count": 0,
+        "tool_chain_length": 0,
     }
     try:
         run_resp = client.get(f"/api/v1/runs/{run_id}", headers=api_headers(actor))
@@ -358,6 +426,7 @@ def _aggregate_metrics(client: httpx.Client, actor: str, run_id: str) -> dict[st
         for task in run_payload.get("tasks") or []:
             tool = str(task.get("tool") or "")
             status = str(task.get("status") or "").lower()
+            counters["tool_chain_length"] += 1
             if tool == "exec-plan":
                 counters["exec_plan_dispatches"] += 1
                 if status == "completed":
@@ -430,14 +499,41 @@ def _run_one_challenge(
                     # Some configs autodispatch — tolerate 409 / 400 from explicit dispatch.
                     dispatch_mode = "inline"
                     result.notes.append(f"explicit-dispatch returned {exc.response.status_code}; assuming inline")
-                run = wait_for_terminal_run(
+                # Drive the AI loop autonomously: /iterate until picker says stop
+                # OR run reaches terminal. WITHOUT this, the profile's seed tasks
+                # run once and the run completes with only target-intel — no
+                # actual agent attempt.
+                loop_state = _drive_ai_loop(
                     client,
-                    run_id=run["id"],
                     actor=actor,
-                    dispatch_mode=dispatch_mode,
-                    wait_seconds=wait_seconds,
+                    run_id=run["id"],
+                    max_iterations=int(wait_seconds // max(poll_interval, 1.0)) or 30,
                     poll_interval=poll_interval,
+                    deadline_seconds=wait_seconds,
                 )
+                result.loop_iterations = int(loop_state.get("loop_driver_iterations") or 0)
+                result.loop_stop_reason = str(loop_state.get("stop_reason") or "")
+                # When the AI loop emits a stop_reason, treat that as end-of-attempt
+                # — the run-status auto-transition is a separate concern (the AI
+                # loop status IS the agent's done-signal). Only fall back to the
+                # terminal-poll when the loop driver returned without a stop_reason
+                # (e.g. driver hit its own deadline).
+                if not result.loop_stop_reason:
+                    try:
+                        run = wait_for_terminal_run(
+                            client,
+                            run_id=run["id"],
+                            actor=actor,
+                            dispatch_mode=dispatch_mode,
+                            wait_seconds=min(60, wait_seconds),
+                            poll_interval=poll_interval,
+                        )
+                    except TimeoutError:
+                        run_resp = client.get(f"/api/v1/runs/{run['id']}", headers=api_headers(actor))
+                        run = run_resp.json() if run_resp.status_code == 200 else run
+                else:
+                    run_resp = client.get(f"/api/v1/runs/{run['id']}", headers=api_headers(actor))
+                    run = run_resp.json() if run_resp.status_code == 200 else run
                 result.run_status = run.get("status")
                 hits = _scan_for_flag(client, actor, run["id"], flag)
                 result.flag_found_in = hits
@@ -447,6 +543,7 @@ def _run_one_challenge(
                 result.exec_plan_successful = metrics["exec_plan_successful"]
                 result.refinement_attempts = metrics["refinement_attempts"]
                 result.finding_count = metrics["finding_count"]
+                result.tool_chain_length = metrics["tool_chain_length"]
     except subprocess.TimeoutExpired as exc:
         result.error = f"subprocess timeout: {exc.cmd!r}"
     except RuntimeError as exc:
@@ -485,8 +582,8 @@ def _write_report(results: list[ChallengeResult], *, phase: str, out_dir: Path) 
         "",
         "## Per-challenge results",
         "",
-        "| Challenge | Solved | Status | Time (s) | Findings | exec_plan ok/total | Flag location |",
-        "|---|---|---|---|---|---|---|",
+        "| Challenge | Solved | Status | Time (s) | Tools | Loop iters | Findings | exec_plan ok/total | Flag location |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for r in results:
         solved_mark = "yes" if r.solved else ("crash" if r.error else ("skip" if r.skipped_reason else "no"))
@@ -495,7 +592,7 @@ def _write_report(results: list[ChallengeResult], *, phase: str, out_dir: Path) 
         flag_loc = ",".join(r.flag_found_in) if r.flag_found_in else "-"
         lines.append(
             f"| {r.challenge_id} | {solved_mark} | {status_cell[:60]} | {r.time_to_solve_sec} | "
-            f"{r.finding_count} | {exec_plan_cell} | {flag_loc} |"
+            f"{r.tool_chain_length} | {r.loop_iterations} | {r.finding_count} | {exec_plan_cell} | {flag_loc} |"
         )
 
     lines += [
