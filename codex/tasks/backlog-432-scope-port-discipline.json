@@ -1,0 +1,103 @@
+{
+  "id": "backlog-432-scope-port-discipline",
+  "task_file": "codex/tasks/backlog-432-scope-port-discipline.json",
+  "task_type": "ai_loop",
+  "title": "Scope/port discipline — refuse bare-host targets without explicit port or network-scope flag",
+  "goal": "Block the failure mode where a scope entry of bare `127.0.0.1` (or any bare hostname/IP without scheme+port) silently fans out into a full local-services scan when nmap-class runners pick it up. Reproduced live 2026-05-20: target-intel normalized `127.0.0.1` to `https://127.0.0.1` (web — safe) but the same scope value, when consumed by nmap with default `--top-ports 100`, would scan 100 local services (Postgres 5432, the AegisPT API itself, dev daemons). This is a scope-leakage class bug, not a capability gap.",
+  "scope": "Pure additive guard (no behavior change in normal flow): (1) new `api/app/services/scope_validator.py` `validate_target_scope(value: str, *, kind: str) -> ValidationResult` that rejects bare host/IP unless kind=='network' OR an explicit `--scope-mode=network` engagement flag is set. (2) called from engagement create + scope-update endpoints (where targets enter the system) — single line per endpoint. (3) unit tests covering: bare host rejected for kind=url, bare host accepted for kind=network, scheme+port accepted, network-mode escape hatch accepted. (4) docs/security/scope-port-discipline.md explaining the rule + why + the escape hatch.",
+  "status": "queued",
+  "generated_by": "session-2026-05-20-target-intel-bare-host-finding",
+  "generation_reason": "Operator-flagged 2026-05-20 during backlog-407 live smoke: 'target-intel running 127.0.0.1 — kan toch niet zonder poort nummer aangezien je dan de complete machine lokaal scant?' Investigation showed target-intel itself is HTTP-only (safe), but the same scope value propagates unchecked to nmap which DOES scan many local ports by default. Per ANTI_DRIFT Rule 1: this is a safety-gate task, not a capability task — delta-metric is 'bare-host scope writes rejected at API boundary'.",
+  "source_context": {
+    "queue_index": 382,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "safety_gates",
+    "key_files": [
+      "api/app/services/scope_validator.py",
+      "api/app/routers/engagements.py",
+      "api/app/routers/scopes.py",
+      "api/tests/test_scope_port_discipline.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md AND ANTI_DRIFT.md + SESSION_PROMPT.md have been loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Validator added ONLY at API ingestion boundaries (engagement create + scope update). Do NOT add runtime checks inside runners — runners must remain dumb tools.",
+    "no_capability_drift": "This task adds NO scanning capability. Per ANTI_DRIFT Rule 1: it BLOCKS a leakage path, not enables a new one.",
+    "must_have_escape_hatch": "Operators doing legitimate internal network assessments MUST be able to set scope kind=network OR engagement flag scope_mode=network to bypass the bare-host rule — documented in docs/security/scope-port-discipline.md."
+  },
+  "success_criteria": [
+    "Metric: bare-host scope writes (kind=url, no scheme+port) rejected with 400 + clear error message at engagement-create and scope-update endpoints.",
+    "Metric: escape hatch documented and tested — kind=network OR engagement.scope_mode=network accepts bare host.",
+    "Live: attempting to register `127.0.0.1` as kind=url returns 400 with explanation; attempting same as kind=network succeeds.",
+    "Greppable: `git grep validate_target_scope` shows ≥2 call sites (engagement create + scope update).",
+    "Unit tests cover all 4 cases above."
+  ],
+  "likely_touched_files": [
+    "api/app/services/scope_validator.py",
+    "api/app/routers/engagements.py",
+    "api/app/routers/scopes.py",
+    "api/tests/test_scope_port_discipline.py",
+    "docs/security/scope-port-discipline.md",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "Any runner runner.py file (runners stay dumb)",
+    "assessment_loop.py picker logic",
+    "Existing scope storage schema (additive validation only)",
+    "_AI_PICKER_SYSTEM_PROMPT or any decision-time code path"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_scope_port_discipline.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/scope_validator.py",
+      "git diff --check",
+      "git grep -n validate_target_scope -- api/app/routers/"
+    ],
+    "acceptance_criteria": [
+      "Live: POST /engagements with bare 127.0.0.1 (kind=url) returns 400 with message naming the missing port/scheme.",
+      "Live: same POST with kind=network succeeds.",
+      "Live: same POST with http://127.0.0.1:8080 (kind=url) succeeds.",
+      "ZERO changes outside listed key_files (verified via git diff --stat)."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "ANTI_DRIFT.md must be loaded as session context."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with: pre-commit checklist, live evidence (curl examples or test output) of all 3 acceptance scenarios, and the diff-stat showing additive-only changes.",
+      "Update CURRENT_STATE.md.",
+      "Clear NEXT_TASK.md or promote the next queued package into NEXT_TASK.md per the task queue order.",
+      "Cross-reference backlog-433 (runner failure feedback) and backlog-434 (forensic journal) — they share the same root motivation: blind agents can't self-correct."
+    ]
+  },
+  "out_of_scope": [
+    "Capability runner changes",
+    "Picker logic changes",
+    "Network-segmentation / firewall enforcement (runtime defense in depth is a separate concern)",
+    "Auto-discovering allowed ports — operator must declare scope explicitly"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,114 @@
+{
+  "id": "backlog-433-runner-failure-feedback-contract",
+  "task_file": "codex/tasks/backlog-433-runner-failure-feedback-contract.json",
+  "task_type": "ai_loop",
+  "title": "Runner failure-feedback contract — actionable failure_reason + retry-with-different-params signal to picker",
+  "goal": "Close the picker-blindness loop revealed live 2026-05-20: `_collect_recent_failures` exists and feeds failures back to Claude (assessment_loop.py:527), but most failed runners return empty stderr or generic 'failed' status, so Claude falls back to '(no error text)' and keeps re-picking the same broken approach. Establish a hard contract: every runner that fails MUST emit `metadata.failure_reason` (1-line diagnosis) and SHOULD emit `metadata.suggested_retry_params` (optional). Picker prompt gains a 'previous attempt with these params failed because X — try different angle or different tool' hint when failure_reason is present.",
+  "scope": "(1) Define contract in `workers/runners/base/contracts.py`: extend RunnerExecution metadata schema with optional `failure_reason: str` and `suggested_retry_params: dict | None`. (2) Audit all 30+ runners; for each runner that currently exits non-zero or returns status=failed/timeout without a reason, add a 1-line failure_reason (e.g. nmap timeout → 'nmap exceeded host-timeout; try --host-timeout=120s or smaller port set'). (3) Disambiguate `status=completed + findings=[]` (no vuln found) from `status=failed` (runner crashed) — consistent enum across all runners, documented in docs/contracts/runner-status-contract.md. (4) `_collect_recent_failures` (assessment_loop.py:527) reads `failure_reason` first, only falls back to stderr if absent. (5) Picker prompt template (assessment_loop.py ~898/1014) gains explicit instruction to AVOID re-picking the same tool+params combo seen in recent_failures unless explicitly justified.",
+  "status": "queued",
+  "generated_by": "session-2026-05-20-failed-task-no-adjustment-finding",
+  "generation_reason": "Operator-flagged 2026-05-20 during backlog-407 live smoke: 'zijn failed really failed of gewoon niet niks gevonden. Als failed hoe kan dit? Hoe gaan we dit oplossen aangezien het programma gewoon doorgaat en het commando niet aanpast zodat het wel succes geeft?' Investigation showed mechanism exists but error-text payload is empty → Claude has no actionable signal. Per ANTI_DRIFT Rule 1: delta-metric is empirical — '% of failed runner picks followed by a DIFFERENT tool/params choice within 3 advances'. Pre-task baseline must be measured before changes land.",
+  "source_context": {
+    "queue_index": 383,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "agent_self_correction",
+    "key_files": [
+      "workers/runners/base/contracts.py",
+      "api/app/services/assessment_loop.py",
+      "workers/runners/nmap/runner.py",
+      "workers/runners/httpx/runner.py",
+      "workers/runners/exec_plan/runner.py",
+      "workers/runners/session_security/runner.py",
+      "workers/runners/xss_extended/runner.py",
+      "docs/contracts/runner-status-contract.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task AND ANTI_DRIFT.md + SESSION_PROMPT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Contract + runner audit ONLY. NO new capability runners, NO new picker decision logic beyond the 'avoid repeating failed combo' hint. The picker still chooses; this task only sharpens the signal it sees.",
+    "baseline_measurement_required": "Before changes land: run live etherpad smoke + count (failed-task → next-pick same tool+params). After changes land: same measurement. Both numbers in DONE_LOG. Per ANTI_DRIFT Rule 1: capability claim requires measured movement, not 'should improve'.",
+    "no_silent_status_changes": "Existing tasks with status=failed and empty failure_reason must NOT be silently re-categorized. New contract applies forward-only — old records stay as-is.",
+    "no_prescriptive_recipes": "failure_reason text must describe WHAT went wrong (timeout, parse error, exit code) — never WHAT to exploit next. Recipe-seeding for the picker is explicitly forbidden per feedback_no_prescriptive_recipes."
+  },
+  "success_criteria": [
+    "Metric: ≥90% of runner executions with exit_code!=0 OR status=failed/timeout emit a non-empty `metadata.failure_reason` (measured over a 20-advance live run).",
+    "Metric: % of failed-task → next-pick combinations that REPEAT the same tool+params drops measurably between pre- and post-baseline runs (delta documented).",
+    "Live: at least one smoke-run trace shows picker reading failure_reason from recent_failures and choosing a different tool/params next advance.",
+    "Greppable: every runner.py file with a failure branch contains a failure_reason assignment OR is explicitly listed in docs/contracts/runner-status-contract.md as 'no-failure-possible'.",
+    "Unit tests: contract test enumerates all runners and asserts failure_reason field is populated on simulated failure paths."
+  ],
+  "likely_touched_files": [
+    "workers/runners/base/contracts.py",
+    "api/app/services/assessment_loop.py",
+    "workers/runners/nmap/runner.py",
+    "workers/runners/httpx/runner.py",
+    "workers/runners/exec_plan/runner.py",
+    "workers/runners/session_security/runner.py",
+    "workers/runners/xss_extended/runner.py",
+    "workers/runners/*/runner.py (audit pass)",
+    "docs/contracts/runner-status-contract.md",
+    "api/tests/test_runner_failure_feedback_contract.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT structural rules (only adds the 'avoid repeated failed combo' hint paragraph)",
+    "_PICKER_OUTPUT_SCHEMA",
+    "Evidence ingest entity types",
+    "Approval / scope / governance code paths",
+    "Existing finding chains"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_runner_failure_feedback_contract.py",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check workers/runners/base/contracts.py",
+      ".venv/bin/pytest tests/test_multi_target_validation_grep_guard.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Live: 20-advance etherpad smoke shows ≥90% failed runners with populated failure_reason.",
+      "Live: pre-vs-post measurement of 'failed→same-pick repeats' shows measurable drop (numbers in DONE_LOG).",
+      "Live: at least one trace where picker visibly avoids a previously-failed tool+params combo (logged + linked in DONE_LOG)."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "ANTI_DRIFT.md must be loaded as session context.",
+      "backlog-434 (forensic journal) ideally landed first — failure_reason should write into the journal as a first-class event."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with pre/post measurements + live trace evidence + pre-commit checklist.",
+      "Update CURRENT_STATE.md.",
+      "Clear NEXT_TASK.md or promote the next queued package into NEXT_TASK.md per the task queue order.",
+      "If picker still loops on same-tool failures despite contract: file follow-up backlog task for picker prompt iteration (do not silently absorb)."
+    ]
+  },
+  "out_of_scope": [
+    "New capability runners",
+    "Auto-retry-with-different-params inside runners (picker stays the decision-maker)",
+    "Recipe seeding ('try X next') — feedback is diagnostic only",
+    "Cross-runner orchestration (e.g. 'nmap failed → try masscan')"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

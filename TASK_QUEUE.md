@@ -419,3 +419,9 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 379. **[SPRINT mythos-exploitation-domain-coverage]** Mobile pentest (Android apktool + iOS class-dump) `codex/tasks/backlog-429-mobile-pentest-runners.json`
 380. **[SPRINT mythos-exploitation-domain-coverage]** Nettacker remaining ~28 protocols port `codex/tasks/backlog-430-nettacker-remaining-protocols-port.json`
 381. **[SPRINT mythos-continuous-improvement]** Permanent XBOW score improvement program (target trajectory 50 → 70 → 80 → 84.6%+) `codex/tasks/backlog-431-permanent-xbow-score-improvement.json`
+
+<!-- Session-2026-05-20 (during backlog-407 live smoke): operator-flagged safety / diagnostics / evidence-first gaps. -->
+
+382. **[SAFETY]** Scope/port discipline — refuse bare-host targets without explicit port or network-scope flag `codex/tasks/backlog-432-scope-port-discipline.json`
+383. **[AGENT-SELF-CORRECTION]** Runner failure-feedback contract — actionable failure_reason + retry-with-different-params signal to picker `codex/tasks/backlog-433-runner-failure-feedback-contract.json`
+384. **[EVIDENCE-FIRST]** Forensic run journal — append-only structured log of every decision + observation + command (operator-mandated 2026-05-20) `codex/tasks/backlog-434-forensic-run-journal-evidence-first.json`

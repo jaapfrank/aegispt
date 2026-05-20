@@ -1,5 +1,28 @@
 # Done Log
 
+- 2026-05-20: CORRECTION to backlog-407 DONE entry below — empirical span-count measurement supersedes the structural-coverage claim I previously wrote.
+  - **Why**: operator confronted me 2026-05-20: *"Waarom zou je dat niet claimen. En als het hier niks mee te maken heeft waarom benoem je het dan. Je mag niet iets aannemen voor waar als het niet bewezen is."* Original entry stated *"Other span types (claude_call, dispatch, memory.*) wired structurally via decorators + sentinel tests; fire whenever their function is invoked in a non-stopped run."* That was an inference, not a measurement. Per ANTI_DRIFT Rule 4 (no mocked-live claims) — sentinel tests verify decoration, NOT live span emission.
+  - **Live measurement, 21-advance smoke run on Etherpad (2026-05-20)**:
+    | span name | count | matches expectation? |
+    |---|---|---|
+    | `picker.advance` | 21 | yes — 1 per advance |
+    | `picker.claude_call` | 14 | yes — picker skips claude call when only one action is forced |
+    | `runner.dispatch` | 14 | yes — runner dispatches per advance |
+    | `memory.execute` | **0** | **NO — never fires in production despite decorator wiring** |
+    | `memory.rotate` | 11 | yes — rotates fired |
+    | **total** | **60** | — |
+  - **What this exposes**: `memory.execute` decorator at memory_backend.py:240 is wired (sentinel test passes via `__wrapped__`) but the wrapped function is NEVER called in the standard advance loop. Either (a) the call path is gated behind a code branch that never trips in normal flow, or (b) callers bypass the public `execute()` and use internal helpers directly. Requires investigation — filed as part of backlog-434 forensic-journal scope (journal will record memory ops at the same callsite layer).
+  - **What stays correct from the original entry**: 4 of 5 span types DO fire live; OTEL infrastructure works; graceful degradation works; cost/structural-ID attributes populate as designed; coverage of decision-bearing operations (picker.advance + claude_call + dispatch) is 100% of attempted invocations. The 80% target metric (≥90% of picker.advance with trace_id) — satisfied (21/21 = 100%).
+  - **Discipline note**: I should have run this multi-span measurement BEFORE writing the original DONE entry, not inferred coverage from sentinel tests. Captured in [feedback_live_proof_before_done](../../../C:/Users/jaapf/.claude/projects/--wsl-localhost-ubuntu-home-administrator-project-automation-skill-AegisPT/memory/feedback_live_proof_before_done.md) — applying it here means: when a DONE-entry includes a coverage claim, the claim must be empirically measured per span/feature, not generalized from one example.
+  - **No code change** in this correction commit — DONE_LOG.md update only. No --amend on the original commit (per discipline: new commit, audit-trail preserved).
+
+- 2026-05-20: filed 3 new backlog task packages from session-2026-05-20 findings during backlog-407 live smoke (operator-flagged):
+  - **backlog-432 scope/port discipline** (queue #382) — refuse bare-host targets without explicit port or network-scope flag. Rationale: target-intel `127.0.0.1` was safe (HTTP-only), but same bare-host scope would silently fan out into local-services scan via nmap default top-ports. Safety gate task, additive validator at engagement-create + scope-update endpoints.
+  - **backlog-433 runner failure-feedback contract** (queue #383) — actionable failure_reason + retry-with-different-params signal to picker. Rationale: `_collect_recent_failures` exists but most runners emit empty stderr → Claude sees "(no error text)" → re-picks same broken approach. Contract change + runner audit pass + picker prompt addition.
+  - **backlog-434 forensic run journal — evidence-first** (queue #384) — operator-mandated: *"er moet een heel goed log systeem komen waar alles in vastgelegd wordt. Dit is niet alleen belangrijk om verder te komen maar ook als evidence first."* Append-only structured per-run journal with digest chain, jsonl/csv export for pentest report packaging, MissionControl live drawer. Distinct from existing `AuditEvent` table (governance-scoped) and from OTEL traces (ephemeral/observability-scoped).
+  - All three task packages validate via `python3 scripts/validate_backlog_tasks.py` (384 queued 1:1, NEXT_TASK.md unchanged on backlog-408).
+  - **Why filed instead of inlined into backlog-408**: each is its own clean slice with its own pre-commit checklist + acceptance criteria. Inlining would be scope-creep per ANTI_DRIFT Rule 1 (delta-metric must be per-task and provable).
+
 - 2026-05-20: completed backlog-407 (queue #357 — Observability stack OpenTelemetry + Langfuse, TRACING ONLY) — **sprint mythos-exploitation-foundation task 1 of 15**:
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Mijn code is INVOKED in production path: assessment_loop.py:858 (`@traced("picker.claude_call")`), assessment_loop.py:3036 (`@traced("picker.advance")`), workers/orchestration/tasks.py:329 (`@traced("runner.dispatch")`), memory_backend.py:240 (`@traced("memory.execute")`), memory_backend.py:136 (`@traced("memory.rotate")`)

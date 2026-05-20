@@ -1,0 +1,125 @@
+{
+  "id": "backlog-434-forensic-run-journal-evidence-first",
+  "task_file": "codex/tasks/backlog-434-forensic-run-journal-evidence-first.json",
+  "task_type": "ai_loop",
+  "title": "Forensic run journal — append-only, evidence-first, structured log of every decision + observation + command",
+  "goal": "Build the 'heel goed log systeem waar alles in vastgelegd wordt' that operator explicitly asked for 2026-05-20. Two reasons: (a) diagnostics — without a structured per-run journal we can't see WHY the picker keeps repeating failed picks (backlog-433 sister task); (b) evidence-first — pentest deliverables require a defensible audit trail showing every command issued, every response received, every decision made by the AI, with hashes + timestamps. OTEL traces (backlog-407) give us *spans*; this task gives us *evidence records* — durable, queryable, exportable, and tied to the engagement.",
+  "scope": "(1) New `api/app/models/run_journal.py` — `RunJournalEntry(UUIDMixin, TimestampMixin, Base)` with cols: `run_id`, `engagement_id`, `seq` (monotonic per-run), `entry_kind` (enum: picker_decision / runner_invocation / runner_result / memory_read / memory_write / approval / scope_check / validator_decision / stop), `actor` (claude / operator / system), `payload_json` (full structured payload incl. inputs, outputs, span_id reference), `digest_sha256` (over canonical payload) — append-only by design (no UPDATE in repository layer). (2) Alembic migration. (3) New `api/app/services/run_journal.py` repository: `append(run_id, kind, actor, payload, *, span_id=None)` with monotonic seq + sha256 digest + parent-digest chain (hash of previous entry in payload) for tamper-evidence. (4) Wire callsites: picker decision (assessment_loop._claude_select_next_action result), runner dispatch (workers/orchestration/tasks.dispatch_runner before+after), runner result ingestion, memory_backend read/write, approval gate decisions, scope_validator outcomes, validator_decision (existing internal_validation flow), stop reason. (5) New API endpoint `GET /runs/{run_id}/journal?since_seq=N&kind=...` returning paged entries. (6) New export endpoint `GET /runs/{run_id}/journal/export?format=jsonl|csv` for pentest report packaging. (7) UI v2: new MissionControl drawer showing live journal stream (read-only, append-only). (8) Test coverage: append idempotency on retry, digest chain verification, monotonic seq under concurrent advance loop, export reproducibility.",
+  "status": "queued",
+  "generated_by": "session-2026-05-20-operator-evidence-first-mandate",
+  "generation_reason": "Operator stated explicitly 2026-05-20: 'Daarom zei ik er moet een heel goed log systeem komen waar alles in vastgelegd wordt. Dit is niet alleen belangrijk om verder te komen maar ook als evidence first.' Existing AuditEvent table (api/app/models/control.py:547) is governance-scoped (actor+action+object) — insufficient for per-decision forensic recall. OTEL traces are ephemeral / observability-scoped. Per ANTI_DRIFT Rule 1: delta-metric is observational — '% of agent decisions with corresponding journal entry' + 'journal exportable as legal-quality evidence pack'.",
+  "source_context": {
+    "queue_index": 384,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "evidence_first_forensics",
+    "key_files": [
+      "api/app/models/run_journal.py",
+      "api/app/services/run_journal.py",
+      "api/app/routers/runs.py",
+      "api/app/services/assessment_loop.py",
+      "workers/orchestration/tasks.py",
+      "api/app/services/memory_backend.py",
+      "migrations/versions/20260521_run_journal.py",
+      "ui-v2/src/components/screens/MissionControl.tsx",
+      "api/tests/test_run_journal_contract.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task AND ANTI_DRIFT.md + SESSION_PROMPT.md loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Journal records WHAT happened — it never DRIVES new agent behavior in this task. (Future picker-from-journal-replay is a separate backlog item.) Wiring is callsite-only; do NOT refactor existing picker/dispatch internals beyond adding the journal.append calls.",
+    "append_only_invariant": "Repository MUST expose only append + read + export. No UPDATE, no DELETE. Migration creates table without UPDATE/DELETE indexes; repo unit-tested to fail on attempted mutation.",
+    "no_secrets_in_journal": "Payload redaction same rules as backlog-407 OTEL: structural ids + tool names + finding titles + scope-allowlisted URLs OK; raw credentials / session tokens / response bodies redacted. Reuse the existing _REDACTED_PARAM_NAMES frozenset from observability/tracing.py.",
+    "digest_chain_required": "Each entry's digest_sha256 covers payload + previous_digest, forming a per-run chain — enables tamper detection in exported evidence packs. Verification helper in scripts/verify_run_journal.py.",
+    "graceful_degradation": "Journal-write failure MUST NOT abort the wrapped operation. Log + continue, same contract as OTEL tracing. Per ANTI_DRIFT Rule 1: observability/journaling never breaks agent runtime."
+  },
+  "success_criteria": [
+    "Metric: ≥95% of picker.advance invocations have ≥1 corresponding journal entry of kind=picker_decision (measured over 20-advance live run).",
+    "Metric: ≥95% of runner dispatches have paired journal entries (kind=runner_invocation + kind=runner_result).",
+    "Metric: 100% of approval / scope_check / validator_decision events captured.",
+    "Live: GET /runs/{run_id}/journal returns ordered, monotonic-seq entries with valid digest chain for a smoke-run.",
+    "Live: GET /runs/{run_id}/journal/export?format=jsonl produces a file whose hash chain validates via scripts/verify_run_journal.py.",
+    "Greppable: every journal-emitting callsite is reachable via `git grep run_journal.append` and listed in docs/contracts/run-journal-callsites.md.",
+    "Unit tests: append idempotency, digest chain, append-only invariant (UPDATE attempts raise), monotonic seq under concurrent writes.",
+    "UI: MissionControl drawer renders live journal stream; manual screenshot in DONE_LOG."
+  ],
+  "likely_touched_files": [
+    "api/app/models/run_journal.py",
+    "api/app/services/run_journal.py",
+    "api/app/routers/runs.py",
+    "api/app/services/assessment_loop.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/memory_backend.py",
+    "migrations/versions/20260521_run_journal.py",
+    "ui-v2/src/components/screens/MissionControl.tsx",
+    "scripts/verify_run_journal.py",
+    "api/tests/test_run_journal_contract.py",
+    "docs/contracts/run-journal-callsites.md",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT (journal does NOT feed back into picker in this task)",
+    "_PICKER_OUTPUT_SCHEMA",
+    "_call_picker_with_retries / _call_picker_with_exec_plan_refinement internals (only journal.append calls added around them)",
+    "All workers/runners/*/runner.py bodies (journal lives at orchestration layer)",
+    "Evidence ingest entity types (run journal is orthogonal to evidence graph — different lifecycle)",
+    "Existing AuditEvent table (different scope: governance vs forensic)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_run_journal_contract.py",
+      "python3 -m compileall -q api workers scripts",
+      ".venv/bin/ruff check api/app/services/run_journal.py api/app/models/run_journal.py scripts/verify_run_journal.py",
+      "alembic upgrade head && alembic downgrade -1 && alembic upgrade head",
+      ".venv/bin/pytest tests/test_multi_target_validation_grep_guard.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Live: 20-advance smoke run produces ≥95% picker_decision coverage in journal (numbers in DONE_LOG).",
+      "Live: export jsonl validates via verify_run_journal.py.",
+      "Live: attempted UPDATE on run_journal_entries row fails (repo-layer test).",
+      "Live: MissionControl drawer screenshot showing live journal stream included in DONE_LOG."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "ANTI_DRIFT.md must be loaded as session context.",
+      "backlog-407 (OTEL tracing) DONE — journal references span_id, which assumes spans exist.",
+      "backlog-432 (scope/port discipline) ideally landed too — journal will record scope_check entries."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with coverage metrics + export verification + MissionControl screenshot + pre-commit checklist.",
+      "Update CURRENT_STATE.md.",
+      "Clear NEXT_TASK.md or promote backlog-433 (runner failure feedback) into NEXT_TASK.md — it should write failure_reason into the journal as kind=runner_result, closing the loop.",
+      "File follow-up if any callsite couldn't be wired (do not silently defer per feedback_deferred_capability_followup)."
+    ]
+  },
+  "out_of_scope": [
+    "Journal-driven picker replay / time-travel debugging (future task)",
+    "Cross-engagement journal aggregation / search UI (future task)",
+    "Encryption at rest beyond DB default (separate compliance task)",
+    "Real-time SIEM streaming (future integration task)",
+    "Mutating / redacting old journal entries (append-only invariant forbids this)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
