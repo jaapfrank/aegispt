@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleStop, MonitorPlay, ChevronDown, ChevronRight, Pause } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { AgentProposal, Finding, Run, Task } from '../../api/types';
-import { getRunProposals, reviewAgentProposal } from '../../api/client';
+import type { AgentProposal, Finding, Run, Task, TaskDetail } from '../../api/types';
+import { getRunProposals, getTaskDetail, reviewAgentProposal } from '../../api/client';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -1499,6 +1499,146 @@ ${active ? '⚡ executing...' : 'last update: ' + String(t.updated_at ?? t.creat
   );
 }
 
+/* =========================================================================
+   LIVE TASK DRILL-DOWN — real command + stdout from the API, auto-refreshing.
+   Replaces the placeholder "$ tool --target X" preview with what is actually
+   running. Operator can pick any task from the dropdown to inspect; default
+   is the active one. Polls /api/v1/tasks/{id} every 3s while open.
+   ========================================================================= */
+
+function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
+  const active = useMemo(() => activeTaskNow(tasks), [tasks]);
+  const recentTasks = useMemo(() => {
+    return [...tasks]
+      .sort((a, b) => String(b.updated_at ?? b.created_at).localeCompare(String(a.updated_at ?? a.created_at)))
+      .slice(0, 12);
+  }, [tasks]);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // When a new active task appears, auto-follow it unless the operator pinned a selection.
+  const pinnedRef = useRef(false);
+  useEffect(() => {
+    if (!pinnedRef.current && active && active.id !== selectedId) {
+      setSelectedId(String(active.id));
+    } else if (!pinnedRef.current && !active && !selectedId && recentTasks[0]) {
+      setSelectedId(String(recentTasks[0].id));
+    }
+  }, [active, selectedId, recentTasks]);
+
+  const [detail, setDetail] = useState<TaskDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setDetail(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const fetchOnce = async () => {
+      setLoading(true);
+      try {
+        const data = await getTaskDetail(selectedId as `${string}-${string}-${string}-${string}-${string}`);
+        if (!cancelled) {
+          setDetail(data);
+          setError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setError((e as Error).message || 'fetch failed');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void fetchOnce();
+    // Poll faster while the task is running.
+    const status = String(detail?.status ?? '').toLowerCase();
+    const interval = status === 'running' || status === 'queued' || status === 'dispatched' ? 2000 : 5000;
+    const handle = window.setInterval(fetchOnce, interval);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  // detail.status drives polling cadence; intentional re-arm when it changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, detail?.status]);
+
+  const snapshot = detail?.stdout_snapshot;
+  const command = useMemo(() => {
+    const lines = snapshot?.lines ?? [];
+    const cmd = lines.find((l) => {
+      const text = String(l.text ?? '').trim();
+      return text.startsWith('$ ');
+    });
+    return cmd ? String(cmd.text).trim() : '';
+  }, [snapshot]);
+  const bodyLines = useMemo(() => {
+    const lines = snapshot?.lines ?? [];
+    return lines
+      .map((l) => String(l.text ?? ''))
+      .filter((text) => !text.trim().startsWith('$ '));
+  }, [snapshot]);
+  const execution = detail?.executions?.[0];
+  const exitCode = execution?.exit_code;
+  const stderr = execution?.stderr_text ?? '';
+
+  return (
+    <div className="rounded border border-line-soft bg-surface/30 overflow-hidden">
+      <div className="px-3 py-1.5 bg-bg-2/60 border-b border-line-soft flex items-center gap-2 flex-wrap">
+        <span className={cn('h-1.5 w-1.5 rounded-full', active && active.id === selectedId ? 'bg-green-400 animate-pulse' : 'bg-line')} />
+        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-text">Live task</span>
+        <select
+          className="font-mono text-[0.7rem] bg-bg-2 text-text border border-line-soft rounded px-1 py-0.5 max-w-[14rem] truncate"
+          value={selectedId ?? ''}
+          onChange={(e) => {
+            pinnedRef.current = true;
+            setSelectedId(e.target.value);
+          }}
+        >
+          {recentTasks.map((t) => (
+            <option key={String(t.id)} value={String(t.id)}>
+              {t.tool} · {String(t.status).slice(0, 8)} · {String(t.id).slice(0, 6)}
+            </option>
+          ))}
+        </select>
+        {pinnedRef.current && (
+          <button
+            type="button"
+            className="font-mono text-[0.6rem] text-amber underline"
+            onClick={() => {
+              pinnedRef.current = false;
+              if (active) setSelectedId(String(active.id));
+            }}
+          >
+            unpin
+          </button>
+        )}
+        <span className="ml-auto font-mono text-[0.6rem] text-muted">
+          {loading ? 'fetching…' : detail?.status ?? '—'}
+          {exitCode !== null && exitCode !== undefined ? ` · exit ${exitCode}` : ''}
+        </span>
+      </div>
+      {error && (
+        <div className="px-3 py-1 font-mono text-[0.7rem] text-red">{error}</div>
+      )}
+      {command && (
+        <pre className="px-3 py-1.5 font-mono text-[0.72rem] text-amber leading-snug bg-bg-2/40 border-b border-line-soft whitespace-pre-wrap break-all">
+          {command}
+        </pre>
+      )}
+      <pre className="px-3 py-2 font-mono text-[0.72rem] text-text leading-snug bg-bg-2/20 max-h-72 overflow-y-auto whitespace-pre-wrap break-all">
+        {bodyLines.length === 0
+          ? '(no stdout yet)'
+          : bodyLines.join('\n')}
+      </pre>
+      {stderr && stderr.trim() && (
+        <pre className="px-3 py-1.5 font-mono text-[0.7rem] text-red leading-snug bg-red/5 border-t border-line-soft max-h-28 overflow-y-auto whitespace-pre-wrap break-all">
+          {stderr}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function TechnicalView({
   run,
   findings,
@@ -1529,7 +1669,11 @@ function TechnicalView({
         <RiskTrajectoryChart findings={findings} />
         <ToolChainHeartbeat tasks={tasks} />
       </div>
-      {/* Row 2: Proof + Now playing */}
+      {/* Row 2: Live task drill-down (real command + stdout from API, picker-selectable) */}
+      <div className="px-6 pt-4">
+        <LiveTaskDrillDown tasks={tasks} />
+      </div>
+      {/* Row 3: Proof + Now playing summary */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 px-6 pt-4">
         <ProofPanel findings={findings} />
         <div className="space-y-4">
