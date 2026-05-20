@@ -1,5 +1,47 @@
 # Done Log
 
+- 2026-05-20: backlog-408 (queue #358 — XBOW baseline harness) — **harness orchestration BUILT and proven; deeper blocker discovered: NO RUN PROFILE EXISTS that fires the full AI loop on autonomous web pentesting. NOT marking backlog-408 as DONE.**
+  - **What I claimed first and then corrected** (per [feedback_live_proof_before_done](../../../C:/Users/jaapf/.claude/projects/--wsl-localhost-ubuntu-home-administrator-project-automation-skill-AegisPT/memory/feedback_live_proof_before_done.md) + operator confrontation 2026-05-20):
+    - My initial draft of this entry claimed "end-to-end SUCCESS" because the smoke run posted to terminal status `completed` in 69.8s. Operator pulled up the Mission Control UI screenshot which showed the truth: only `target-intel` ran, then "Mission complete" — the AI loop never made a second pick. My "success" was the orchestration pipe-cleaning succeeding, NOT the agent actually attempting the challenge.
+    - Honest empirical state: XBEN-002-24 run had **1 runner total** (target-intel), 0 findings, no exploit attempt, no flag scan effort, run_status=completed because the picker had nothing else to do.
+  - **Root cause (post-mortem from /api/v1/run-profiles inspection)**:
+    - `autonomous-web` profile: `run_class=passive`, `tools=['target-intel']`. The AI loop CAN'T chain follow-up runners because the profile's tools allowlist literally only contains target-intel.
+    - `autonomous-internal`: `tools=['nmap']` only.
+    - `intrusive-exploitation`: `tools=['metasploit']` only.
+    - `intrusive-validation`: `tools=['zap','nuclei']` only.
+    - `active-ai-shell`: `tools=['ai-shell']` only.
+    - **There is no profile in the current configuration that gives the AI loop the full toolbox.** Every profile is narrow-by-design for ops-staged runs. For XBOW (one AI loop attempts everything), the required profile does not exist.
+  - **Implication for backlog-408 scope**:
+    - The harness is the right measurement instrument. It's done and works.
+    - The "baseline score" cannot be a meaningful number until either (a) a benchmark-mode profile exists that unlocks the full toolbox, OR (b) backlog-408 scope expands to include creating such a profile.
+    - Filing a follow-up task (planned: backlog-435 benchmark-mode autonomous profile) so operator can decide whether to slot it inside backlog-408 scope or treat it as a precondition task.
+  - **What IS committed in this change and stands**:
+    - `scripts/xbow_benchmark.py` (~480 lines): discovers XBEN-NNN-YY challenges, builds with random FLAG, brings up docker-compose, resolves runtime host port via `docker compose ps --format json`, creates engagement+scope+run with operator-configurable `--profile`, polls to terminal, scans findings+task stdout for the injected flag, tears down (mandatory finally), emits per-challenge JSON + aggregate markdown report.
+    - `tests/test_xbow_contamination_guard.py` (11 tests, all pass): grep-guard for forbidden patterns (XBEN-NNN-YY, xbow_challenge_solution, xbow_flag_for_) across api/ + workers/; harness refuses to run unless `AEGISPT_MEMORY_ROOT` contains `bench` or `xbow` (tripwire); compose port parser unit-tested for long + short forms.
+    - `docs/validation/xbow-2026-05-20-baseline-partial.md`: smoke report from XBEN-002-24 showing the harness orchestration succeeded.
+    - Anti-contamination design: NO code changes in `api/app/services/memory_backend.py`. Memory isolation is via env-var-pinned `AEGISPT_MEMORY_ROOT` (separate dir for benchmark runs).
+  - **Smoke evolution** (4 iterations against real XBOW images, surfacing real bugs the harness now handles):
+    1. XBEN-001-24 -> CRASH (upstream compose bug: `depends_on` defined twice in XBEN-001-24/docker-compose.yml). Harness caught + reported cleanly, exited 0.
+    2. XBEN-002-24 -> SKIP (parser missed short-form `- 80` port). FIX: `_challenge_has_web_service` pre-filter + `_resolve_runtime_port` post-up Docker query.
+    3. XBEN-002-24 -> CRASH (run create 400: profile `autonomous-intrusive` doesn't exist; missing roe_ref on engagement). FIX: default to `autonomous-web` + `autonomous_intrusive_allowed=True` flag + `roe_ref` on engagement create + surface API error body in the harness's failure message.
+    4. XBEN-002-24 -> apparent COMPLETED in 69.8s — but ACTUALLY only target-intel ran (see root-cause above). Harness orchestration verified; agent capability not.
+  - **Validation passed for what shipped**:
+    - `pytest tests/test_xbow_contamination_guard.py` -> 11/11 pass
+    - `ruff check` clean
+    - `python3 -m compileall -q scripts/xbow_benchmark.py` clean
+    - `git grep -inE 'XBEN-\d{3}-\d{2}|xbow_challenge_solution' -- api/ workers/` -> empty
+    - `scripts/validate_backlog_tasks.py` -> 384 queued 1:1
+  - **Status**: NEXT_TASK.md stays on backlog-408. Backlog entry stays queued, not DONE. Operator decides whether to:
+    1. Approve scope expansion of backlog-408 to include creating a benchmark-mode profile, OR
+    2. Pause backlog-408, slot a precondition task to build the missing profile, then resume.
+  - **Pre-commit drift check (per ANTI_DRIFT.md) for the partial commit**:
+    - [x] Code INVOKED in production path: harness is a CLI; smoke ran live.
+    - [ ] **Delta-metric bewoog** — NOT MET. The intended metric ("baseline score X/N from agent attempts") cannot move yet because the agent didn't actually attempt. The instrumental sub-metric ("harness runs orchestration end-to-end without crash") DID move, but that's not the user-value metric per ANTI_DRIFT Rule 1.
+    - [x] Removed code I replaced: N/A (pure additive).
+    - [x] Geen scope creep: only harness + contamination test + smoke report committed.
+    - [x] Follow-ups gefiled: backlog-435 (benchmark-mode autonomous profile) to be filed in same commit as this entry; do not silently absorb per feedback_deferred_capability_followup.
+    - [ ] **Live test geslaagd** — partially. Harness pipeline works empirically; the AegisPT agent capability does NOT (target-intel only, no follow-up). Honest reporting per feedback_live_proof_before_done.
+
 - 2026-05-20: CORRECTION to backlog-407 DONE entry below — empirical span-count measurement supersedes the structural-coverage claim I previously wrote.
   - **Why**: operator confronted me 2026-05-20: *"Waarom zou je dat niet claimen. En als het hier niks mee te maken heeft waarom benoem je het dan. Je mag niet iets aannemen voor waar als het niet bewezen is."* Original entry stated *"Other span types (claude_call, dispatch, memory.*) wired structurally via decorators + sentinel tests; fire whenever their function is invoked in a non-stopped run."* That was an inference, not a measurement. Per ANTI_DRIFT Rule 4 (no mocked-live claims) — sentinel tests verify decoration, NOT live span emission.
   - **Live measurement, 21-advance smoke run on Etherpad (2026-05-20)**:
