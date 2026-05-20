@@ -16,3 +16,10 @@ ldap3>=2.9,<3.0
 bloodhound>=1.9,<2.0
 apscheduler>=3.10,<4.0
 PyYAML>=6.0,<7.0
+# backlog-407 (sprint mythos-exploitation-foundation): OpenTelemetry tracing
+# + Langfuse OTLP exporter for agent observability. Graceful fallback: when
+# LANGFUSE_* env vars unset OR Langfuse unreachable, console exporter takes
+# over and app continues normally (see api/app/observability/tracing.py).
+opentelemetry-api>=1.27,<2.0
+opentelemetry-sdk>=1.27,<2.0
+opentelemetry-exporter-otlp-proto-http>=1.27,<2.0

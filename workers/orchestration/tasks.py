@@ -12,6 +12,8 @@ from uuid import UUID
 
 import dramatiq
 
+from api.app.observability import traced  # backlog-407 — tracing-only decorator
+
 logger = logging.getLogger(__name__)
 from dramatiq.brokers.redis import RedisBroker
 from sqlalchemy import select
@@ -20,7 +22,6 @@ from sqlalchemy.orm import joinedload
 from api.app.config import get_settings
 from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
 from api.app.models import (
-    EvidenceObservation,
     Finding,
     InventorySnapshot,
     Run,
@@ -37,7 +38,6 @@ from api.app.services.ai_planner import (
     generate_pivot_contexts_for_run,
     latest_context_document,
 )
-from api.app.services.finding_chains import link_pivot_chain_findings
 from api.app.services.ai_shell_safety import (
     AiShellSafetyError,
     ai_shell_command_preview,
@@ -56,6 +56,7 @@ from api.app.services.audit import write_audit_event
 from api.app.services.cve_sync import suggest_watchlist_from_inventory_snapshot
 from api.app.services.evidence_integrity import apply_artifact_integrity_metadata
 from api.app.services.exposure_score import record_exposure_score
+from api.app.services.finding_chains import link_pivot_chain_findings
 from api.app.services.finding_validator import (
     dispatch_validation_runs,
     finalize_validation_for_task,
@@ -148,6 +149,7 @@ from workers.runners.cloud_native.runner import (
     CLOUD_NATIVE_INVENTORY_ARTIFACT_NAME,
     execute_cloud_native_assessment,
 )
+from workers.runners.cookie_tamper_probe.runner import execute_cookie_tamper_probe
 from workers.runners.credential_attacks.runner import execute_credential_attacks
 from workers.runners.crypto_audit.runner import execute_crypto_audit
 from workers.runners.deserialization_probe.runner import execute_deserialization_probe
@@ -156,7 +158,9 @@ from workers.runners.desktop_client.runner import (
     execute_desktop_client_assessment,
 )
 from workers.runners.easm.runner import execute_easm_discovery
+from workers.runners.exec_plan.runner import execute_exec_plan
 from workers.runners.external_infra.runner import execute_external_infra_assessment
+from workers.runners.file_upload_probe.runner import execute_file_upload_probe
 from workers.runners.graphql_command_injection.runner import execute_graphql_command_injection
 from workers.runners.graphql_probe.runner import execute_graphql_probe
 from workers.runners.headers_security.runner import execute_headers_security_analysis
@@ -164,6 +168,7 @@ from workers.runners.http_smuggling.runner import execute_http_smuggling_probe
 from workers.runners.httpx.runner import execute_httpx_probe
 from workers.runners.idor_bac.runner import execute_idor_bac_probe
 from workers.runners.impacket.runner import execute_impacket_lateral
+from workers.runners.info_disclosure_probe.runner import execute_info_disclosure_probe
 from workers.runners.iot_default_creds.runner import execute_iot_default_credential_audit
 from workers.runners.ipv6_discovery.runner import (
     IPV6_DISCOVERY_RESULTS_ARTIFACT_NAME,
@@ -174,11 +179,6 @@ from workers.runners.ldap_enum.runner import execute_ldap_enum
 from workers.runners.leak_check.runner import execute_leak_check_review
 from workers.runners.llm_probe import execute_llm_probe
 from workers.runners.logging_probe.runner import execute_logging_probe
-from workers.runners.info_disclosure_probe.runner import execute_info_disclosure_probe
-from workers.runners.param_pollution_probe.runner import execute_param_pollution_probe
-from workers.runners.stored_xss_probe.runner import execute_stored_xss_probe
-from workers.runners.cookie_tamper_probe.runner import execute_cookie_tamper_probe
-from workers.runners.file_upload_probe.runner import execute_file_upload_probe
 from workers.runners.malware_sim.runner import execute_malware_simulation_review
 from workers.runners.mdns_ssdp.runner import (
     MDNS_SSDP_ARTIFACT_NAME,
@@ -198,6 +198,7 @@ from workers.runners.network_segmentation.runner import execute_network_segmenta
 from workers.runners.nmap.runner import execute_nmap_scan
 from workers.runners.nuclei.runner import execute_nuclei_scan
 from workers.runners.oauth_probe.runner import execute_oauth_probe
+from workers.runners.param_pollution_probe.runner import execute_param_pollution_probe
 from workers.runners.playwright_web.runner import execute_playwright_web_validation
 from workers.runners.priv_esc_linux.runner import execute_priv_esc_linux
 from workers.runners.responder.runner import execute_responder_capture
@@ -216,6 +217,7 @@ from workers.runners.social_campaign.runner import execute_social_campaign_revie
 from workers.runners.ssh_brute.runner import execute_ssh_brute_force
 from workers.runners.ssrf_probe.runner import execute_ssrf_probe
 from workers.runners.ssti_probe.runner import execute_ssti_probe
+from workers.runners.stored_xss_probe.runner import execute_stored_xss_probe
 from workers.runners.target_intel.runner import execute_target_intel
 from workers.runners.waf_detect.runner import execute_waf_detection
 from workers.runners.web_depth.runner import (
@@ -231,7 +233,6 @@ from workers.runners.wifi_survey.runner import (
     WIFI_SURVEY_RESULTS_ARTIFACT_NAME,
     execute_wifi_survey,
 )
-from workers.runners.exec_plan.runner import execute_exec_plan
 from workers.runners.xss_extended.runner import execute_xss_extended_scan
 from workers.runners.xss_proof.runner import execute_xss_proof
 from workers.runners.zap.runner import execute_zap_scan
@@ -322,6 +323,7 @@ class StoredExecutionResult:
     created_finding_ids: list[UUID]
 
 
+@traced("runner.dispatch")  # backlog-407: tracing-only, no behavior change
 def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
     rate_limit = int(request.params.get("limits", {}).get("max_rps", 2))
     timeout_seconds = float(request.params.get("timeout_seconds", 10.0))

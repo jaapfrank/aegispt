@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from api.app.observability import traced  # backlog-407 — tracing-only decorator
+
 logger = logging.getLogger(__name__)
 
 # Claude-driven candidate selection: prompt + helper functions live next to the
@@ -853,6 +855,7 @@ def _call_picker_with_exec_plan_refinement(
     return decision  # safety; loop exits via returns above
 
 
+@traced("picker.claude_call")  # backlog-407: tracing-only, no behavior change
 def _claude_select_next_action(
     *,
     run: Run,
@@ -3029,6 +3032,7 @@ def _rotate_run_progress_safely() -> dict[str, int] | None:
     return result
 
 
+@traced("picker.advance")  # backlog-407: tracing-only, no behavior change
 def advance_assessment_loop(
     session: Session,
     *,

@@ -1,75 +1,59 @@
 # Active Task
 
-> **Read FIRST:** [`ANTI_DRIFT.md`](ANTI_DRIFT.md) (repo root) — 5 hard rules + pre-commit checklist + strenger DONE-definitie. Vanaf 2026-05-20 verplicht voor ELKE capability-task. Overschrijft SESSION_PROMPT §5.
+> **Read FIRST:** [`ANTI_DRIFT.md`](ANTI_DRIFT.md) (repo root) — 5 hard rules + pre-commit checklist + strenger DONE-definitie. Overschrijft SESSION_PROMPT §5.
 >
 > **Read SECOND:** [`SESSION_PROMPT.md`](SESSION_PROMPT.md) — kickoff discipline voor AegisPT sessies.
 
 ## Title
 
-Observability stack — OpenTelemetry + Langfuse instrumentation (TRACING ONLY, no agent logic changes) — **Sprint mythos-exploitation-foundation, task 1 of 15**
+XBOW benchmark baseline harness — 104 challenges Docker isolated + anti-contamination guard — **Sprint mythos-exploitation-foundation, task 2 of 15**
 
 ## Goal
 
-Instrument every picker call, runner dispatch, memory operation, validator decision, and tool execution with OpenTelemetry traces sent to Langfuse. **Per Codex refinement: TRACING ONLY** — zero changes to agent logic, dispatch, or runner behavior in this task. Establishes the cockpit's speedometer before subsequent tasks build the engine.
+Establish empirical baseline for AegisPT against XBOW's 104 real-world web vulnerability scenarios (industry gold standard). Per Codex refinement: includes explicit anti-contamination guard — XBOW solutions MUST NOT leak into reusable memory or prompts. Provides the measurement instrument all subsequent capability tasks (409-419 + 422-423) will be evaluated against.
 
 ## Sprint context
 
-Deze taak is task 1 van 15 in sprint `mythos-exploitation-foundation`, opvolger van `mythos-foundation` na empirische drift (10 commits + 24 claude_picks + 6 high+crit findings MAAR 0 chain_findings + 0 daadwerkelijke penetraties op 5 real-world targets).
-
-Per [Codex review 2026-05-20](docs/) + user feedback: 6-layer architectuur (Governance / Coordinator / Attack State / Memory+Knowledge / Primitives + cross-cutting Evaluation Gates). Deze task implementeert de Evaluation Gates observability laag.
-
-Per [ANTI_DRIFT.md](ANTI_DRIFT.md) Rule 1: dit task is GEEN capability task; delta-metric is observational (% van agent decisions met traceable rationale, target ≥90%).
+Task 2 van 15 in sprint `mythos-exploitation-foundation`. backlog-407 (observability) DONE met 100% picker.advance trace coverage op live /iterate test. Per Codex: "XBOW baseline vroeg — anders bouwen we op gevoel".
 
 ## Delta-doelstelling (verplicht per SESSION_PROMPT §1)
 
-> Deze task verhoogt **traceable_agent_decisions** van 0% (huidige staat — geen OTEL) naar **≥90%** binnen een 20-advance test run. Tweede metric: **untraced agent decisions count** → **0**. Live verificatie via Langfuse trace view.
+> Deze task levert **scripts/xbow_benchmark.py** dat ≥20 XBOW challenges end-to-end runt zonder harness crash, met baseline XBOW score X/104 (initial mag laag zijn — baseline is meting, niet target). Contamination guard test passt: **0 XBOW challenge paths/flags in production source** + memory writes tijdens benchmark runs allemaal tagged `is_benchmark=True`.
 
 ## Scope
 
-Drie ADDITIEVE code changes (zero behavioral changes per ANTI_DRIFT Rule 2):
+(1) New scripts/xbow_benchmark.py: clone/wrap https://github.com/KeygraphHQ/xbow-validation-benchmarks (of upstream); per challenge: Docker up → register engagement+scope in AegisPT → kick autonomous-intrusive run → poll → check CTF flag captured.
+(2) Per-challenge metrics: solved_yes_no, time_to_solve, exec_plan_dispatches, exec_plan_successful, refinement_attempts.
+(3) Aggregate report `docs/validation/xbow-{date}-baseline.md` + per-OWASP-Top-10 breakdown.
+(4) Anti-contamination guard: benchmark-mode memory_backend writes tagged `is_benchmark=True`; greppable test scans production source for XBOW-specific strings.
 
-1. `pip install opentelemetry-api opentelemetry-sdk opentelemetry-instrumentation-fastapi opentelemetry-instrumentation-sqlalchemy langfuse` toegevoegd aan `api/requirements.txt` + `workers/requirements.txt`
-2. Nieuwe `api/app/observability/tracing.py` module die OTEL TracerProvider initialiseert met Langfuse OTLP exporter (env vars LANGFUSE_HOST + LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY)
-3. Decorator-based instrumentation alleen op boundaries:
-   - `@traced('picker.advance')` op `advance_assessment_loop`
-   - `@traced('picker.claude_call')` op `_claude_select_next_action`
-   - `@traced('runner.dispatch')` op `dispatch_runner`
-   - `@traced('memory.read'/'memory.write')` op memory_backend public functions
+## Constraints (per ANTI_DRIFT.md)
 
-Elke trace draagt span attributes: `run_id`, `task_id`, `engagement_id`. Cost/latency tokens automatisch capture'd uit Anthropic SDK response metadata.
-
-## Constraints (per task package + ANTI_DRIFT.md)
-
-- **TRACING ONLY** — NUL changes aan agent logic, dispatch, runner behavior, prompts, decision-making code paths
-- **Per ANTI_DRIFT Rule 2 (no dead code)**: decorator op functie = invoked vanaf eerste API call → satisfied
-- **Per ANTI_DRIFT Rule 3 (no backward-compat creep)**: pure additive; geen oude code te vervangen
-- **No secrets in traces**: redact target URLs / response bodies / credentials
-- **Graceful degradation**: Langfuse down → app continues normally (NO impact on agent runtime)
-- Active task gate: ANTI_DRIFT.md + SESSION_PROMPT.md geladen als session context
+- Per ANTI_DRIFT Rule 1: meet-instrument, geen capability task. Delta-metric is "benchmark draait + baseline score gedocumenteerd".
+- Per Rule 2: harness wordt actief gebruikt via CLI (`python3 scripts/xbow_benchmark.py --target ... --phase baseline`). Niet dead code.
+- Per Rule 5: contamination guard NIET sluipweg gebruiken om benchmark-solutions in production prompts te lekken.
+- Active task gate: ANTI_DRIFT.md + SESSION_PROMPT.md geladen.
 
 ## Source Package
 
-`codex/tasks/backlog-407-observability-stack-otel-langfuse.json`
+`codex/tasks/backlog-408-xbow-benchmark-baseline-harness.json`
 
-## Validation (per ANTI_DRIFT.md sectie "Pre-commit checklist")
-
-Vóór DONE-commit verplicht ingevuld in commit message:
+## Validation (ANTI_DRIFT.md pre-commit checklist)
 
 ```
-- [ ] Mijn code is INVOKED in production path (call site: assessment_loop.py:<line>, workers/orchestration/tasks.py:<line>)
-- [ ] Delta-metric bewoog: traceable_agent_decisions van 0% naar X% in 20-advance test
-- [ ] Removed code I replaced: no removal needed (additive only — verified via git diff --stat)
-- [ ] Geen scope creep: alle changes binnen scope (decorator additions + new tracing module + requirements.txt)
-- [ ] Follow-ups gefiled voor blocked items: <refs OR "none">
-- [ ] Live test geslaagd: <link to Langfuse trace tree OR OTLP collector log>
+- [ ] Mijn code is INVOKED in production path (script callable via CLI; not auto-imported by API)
+- [ ] Delta-metric bewoog: baseline score X/104 documented at docs/validation/xbow-...-baseline.md
+- [ ] Removed code I replaced: N/A (pure additive — new script + new tests)
+- [ ] Geen scope creep: alle changes binnen scope (harness + grep-guard test + docs/validation/)
+- [ ] Follow-ups gefiled: <refs OR "none">
+- [ ] Live test geslaagd: <link to baseline report OR explicit "≥20 challenges ran" evidence>
 ```
 
-Plus standard checks:
-
+Plus required checks:
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_observability_tracing.py`
-- `python3 -m compileall -q api workers`
-- `.venv/bin/ruff check api/app/observability/tracing.py`
-- `.venv/bin/pytest tests/test_multi_target_validation_grep_guard.py`
+- `.venv/bin/pytest tests/test_xbow_contamination_guard.py tests/test_multi_target_validation_grep_guard.py`
+- `python3 -m compileall -q scripts`
+- `.venv/bin/ruff check scripts/xbow_benchmark.py`
 - `git diff --check`
-- `git diff --stat api/app/services/assessment_loop.py workers/orchestration/tasks.py api/app/services/memory_backend.py` → moet additive-only show (sentinel)
+- `git grep -inE 'XBOW.*flag|xbow_challenge_solution' -- api/ workers/` → empty
+- Live: `python3 scripts/xbow_benchmark.py --target all --phase baseline` produces report at `docs/validation/xbow-{date}-baseline.md` met ≥20 challenges run end-to-end.

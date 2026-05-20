@@ -1,5 +1,10 @@
 """Filesystem backend for the Anthropic Memory tool (`memory_20250818`).
 
+backlog-407 (sprint mythos-exploitation-foundation): public functions
+``execute`` and ``rotate_run_progress`` decorated with ``@traced`` for
+observability. No behavior change.
+
+
 Claude uses this to persist scratch notes across runs/phases. The backend is
 intentionally minimal and unopinionated — Claude decides what to store.
 
@@ -28,6 +33,8 @@ import re
 import shutil
 from pathlib import Path
 from typing import Any
+
+from api.app.observability import traced  # backlog-407 — tracing-only decorator
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +131,7 @@ def _truncate_for_view(payload: str, *, logical_path: str | None = None) -> str:
     return truncated_text + marker
 
 
+@traced("memory.rotate")  # backlog-407: tracing-only, no behavior change
 def rotate_run_progress(*, threshold_bytes: int = ROTATE_THRESHOLD_BYTES,
                         keep_bytes: int = ROTATE_KEEP_BYTES) -> dict[str, int] | None:
     """Trim ``/memories/run-progress.md`` when it exceeds
@@ -235,6 +243,7 @@ def _read_with_line_numbers(path: Path, logical: str, view_range: list[int] | No
     return _truncate_for_view(header + "\n" + "\n".join(body_lines), logical_path=logical)
 
 
+@traced("memory.execute")  # backlog-407: tracing-only, no behavior change
 def execute(command: str, **kwargs: Any) -> str:
     """Run a single memory operation. Returns the response string Claude expects.
 
