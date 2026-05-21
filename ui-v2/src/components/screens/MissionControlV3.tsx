@@ -1540,12 +1540,79 @@ ${active ? '⚡ executing...' : 'last update: ' + String(t.updated_at ?? t.creat
 
 type TerminalLine = { text: string; stream: string; sequence: number };
 
+// Lightweight syntax highlighter for the LIVE TASK terminal output. Tokenises
+// each line and emits coloured spans. Operator asked for "kleuren zoals bij
+// py code" 2026-05-21 — full ANSI parsing is overkill, but URLs, HTTP codes,
+// IPs, exit codes, and error keywords cover the actual readability win.
+const URL_RE = /(https?:\/\/[^\s"'<>]+)/g;
+const IP_PORT_RE = /\b(?:\d{1,3}\.){3}\d{1,3}(?::\d{1,5})?\b/g;
+const HTTP_CODE_RE = /\b(1\d{2}|2\d{2}|3\d{2}|4\d{2}|5\d{2})\b(?=\s|"|$|\]|,)/g;
+const EXIT_CODE_RE = /\bexit[ _]?code?\s*[:=]?\s*(-?\d+)/gi;
+const ERROR_KW_RE = /\b(ERROR|FAIL(?:ED)?|TRACEBACK|EXCEPTION|DENIED|REFUSED|NOT CONFIGURED|TIMED? ?OUT|UNAUTHORIZED|FORBIDDEN)\b/g;
+const WARN_KW_RE = /\b(WARN(?:ING)?|DEPRECAT|SKIP(?:PED|PING)?|RETRY)\b/g;
+const SUCCESS_KW_RE = /\b(OK|SUCCESS|COMPLETED|CONFIRMED|FOUND)\b/g;
+const PATH_RE = /(?:^|[\s"'(])(\/[A-Za-z0-9_\-./?=&%]+)/g;
+
+function colorizeLine(text: string, isErrStream: boolean): React.ReactNode {
+  if (!text) return text;
+  // Build a token map: array of {start, end, className}. Higher priority
+  // regexes are applied later so they overwrite earlier matches.
+  const segments: Array<{ start: number; end: number; cls: string }> = [];
+  const push = (re: RegExp, cls: string) => {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      // For paths the captured group starts after the leading delimiter
+      const start = m.index + (m[0].length - (m[1] ?? m[0]).length);
+      segments.push({ start, end: start + (m[1] ?? m[0]).length, cls });
+      if (m.index === re.lastIndex) re.lastIndex++;
+    }
+  };
+  push(PATH_RE, 'text-blue-300');
+  push(IP_PORT_RE, 'text-cyan-300');
+  push(URL_RE, 'text-cyan-400 underline');
+  push(SUCCESS_KW_RE, 'text-emerald-400 font-semibold');
+  push(WARN_KW_RE, 'text-amber-300');
+  push(HTTP_CODE_RE, 'text-fuchsia-300');
+  push(EXIT_CODE_RE, 'text-red-400 font-semibold');
+  push(ERROR_KW_RE, 'text-red-400 font-semibold');
+
+  if (segments.length === 0) return text;
+  // Resolve overlaps: keep the LAST pushed segment at each position (higher
+  // priority since we pushed in order).
+  segments.sort((a, b) => a.start - b.start || b.end - a.end);
+  const resolved: Array<{ start: number; end: number; cls: string }> = [];
+  let cursor = 0;
+  for (const s of segments) {
+    if (s.start < cursor) continue;
+    resolved.push(s);
+    cursor = s.end;
+  }
+  const out: React.ReactNode[] = [];
+  let i = 0;
+  for (const s of resolved) {
+    if (i < s.start) out.push(text.slice(i, s.start));
+    out.push(
+      <span key={`${s.start}-${s.end}`} className={s.cls}>
+        {text.slice(s.start, s.end)}
+      </span>,
+    );
+    i = s.end;
+  }
+  if (i < text.length) out.push(text.slice(i));
+  return out;
+}
+
 function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
   const active = useMemo(() => activeTaskNow(tasks), [tasks]);
   const recentTasks = useMemo(() => {
+    // Bumped from 12 → 40 per operator request 2026-05-21: with the skip-runner
+    // filter live, a single run can chain through 20-30 tools and the operator
+    // wants to inspect the older ones (e.g. an earlier zap failure) after later
+    // tasks completed and pushed it out of the small-window slice.
     return [...tasks]
       .sort((a, b) => String(b.updated_at ?? b.created_at).localeCompare(String(a.updated_at ?? a.created_at)))
-      .slice(0, 12);
+      .slice(0, 40);
   }, [tasks]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1624,14 +1691,50 @@ function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
       if (live) setStreamStatus('error');
     };
 
-    // Pull exit_code via one detail fetch when stream terminates (the SSE
-    // snapshot doesn't carry exit code separately).
+    // Pull exit_code + persisted stdout/stderr via one detail fetch. The SSE
+    // stream only carries the live stdout snapshot — for fast-failing tasks
+    // (zap exit 1 before any chunk is written) it can be empty. The
+    // ToolExecution row's stderr_text holds the real failure reason in that
+    // case, and the operator can't see it from SSE alone. So we merge it in.
     const fetchExitCode = async () => {
       try {
         const d = await getTaskDetail(selectedId as `${string}-${string}-${string}-${string}-${string}`);
-        if (live && d.executions?.[0]?.exit_code !== undefined) {
-          setExitCode(d.executions[0].exit_code);
-        }
+        if (!live) return;
+        const exec = d.executions?.[0];
+        if (exec?.exit_code !== undefined) setExitCode(exec.exit_code);
+        // Fallback: if SSE delivered (almost) nothing but the persisted
+        // execution has stderr/stdout text, splice it in so the operator
+        // sees WHY the task failed instead of a blank panel.
+        setLines((prev) => {
+          const hasRealBody = prev.some((l) => l.stream !== 'command');
+          if (hasRealBody) return prev;
+          const merged = [...prev];
+          let seq = prev.length > 0 ? Math.max(...prev.map((p) => p.sequence)) + 1 : 1;
+          const stderrText = String(exec?.stderr_text ?? '').trim();
+          const stdoutText = String(exec?.stdout_text ?? '').trim();
+          // Strip the command-prefix line(s) — they're already shown.
+          const stripCmd = (s: string) =>
+            s.split('\n').filter((line) => !line.trim().startsWith('$ ')).join('\n').trim();
+          const stdoutBody = stripCmd(stdoutText);
+          if (stdoutBody) {
+            for (const line of stdoutBody.split('\n')) {
+              merged.push({ text: line, stream: 'stdout', sequence: seq++ });
+            }
+          }
+          if (stderrText) {
+            for (const line of stderrText.split('\n')) {
+              merged.push({ text: line, stream: 'stderr', sequence: seq++ });
+            }
+          }
+          if (merged.length === prev.length && exec) {
+            merged.push({
+              text: `(no captured stdout/stderr; runner exited ${exec.exit_code ?? '?'})`,
+              stream: 'meta',
+              sequence: seq++,
+            });
+          }
+          return merged;
+        });
       } catch {
         // best-effort
       }
@@ -1718,16 +1821,25 @@ function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
         className="px-3 py-2 font-mono text-[0.78rem] leading-snug bg-[#0b0f13] max-h-[28rem] min-h-[12rem] overflow-y-auto whitespace-pre-wrap break-all"
       >
         {command && (
-          <div className="text-amber-300 mb-1">{command}</div>
+          <div className="text-amber-300 mb-1">{colorizeLine(command, false)}</div>
         )}
         {bodyLines.length === 0 && !command && (
           <span className="text-green-300/40">(waiting for output…)</span>
         )}
+        {bodyLines.length === 0 && command && streamStatus === 'done' && (
+          <span className="text-green-300/40">(no captured stdout/stderr yet — fetching execution detail…)</span>
+        )}
         {bodyLines.map((l, idx) => {
           const isErr = l.stream === 'stderr' || l.stream === 'error';
+          const isMeta = l.stream === 'meta';
+          const baseCls = isErr
+            ? 'text-red-300'
+            : isMeta
+              ? 'text-green-300/50 italic'
+              : 'text-green-200';
           return (
-            <div key={`${l.sequence}-${idx}`} className={isErr ? 'text-red-400' : 'text-green-200'}>
-              {l.text}
+            <div key={`${l.sequence}-${idx}`} className={baseCls}>
+              {colorizeLine(l.text, isErr)}
             </div>
           );
         })}

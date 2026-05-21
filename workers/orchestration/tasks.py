@@ -5227,7 +5227,17 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
                 reason="execution_kill_switch_terminated_task",
             )
         else:
-            task.status = "completed" if execution.exit_code == 0 else "failed"
+            # exit_code=78 is the EX_CONFIG convention for "runner unavailable
+            # in this deployment" (e.g. missing credentials/API key) — see
+            # assessment_loop.RUNNER_EXIT_CODE_SKIPPED. Map to status="skipped"
+            # so the operator sees the honest reason; "failed" would
+            # mis-classify these as bugs.
+            if execution.exit_code == 0:
+                task.status = "completed"
+            elif execution.exit_code == 78:
+                task.status = "skipped"
+            else:
+                task.status = "failed"
             _update_run_status(session, task.run)
         run_completion_reached = previous_run_status not in {
             "completed",
