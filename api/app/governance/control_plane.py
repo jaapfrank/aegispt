@@ -285,6 +285,15 @@ class GovernanceControlPlane:
             return None
 
     def _target_in_scope(self, scope: Scope, target: str) -> bool:
+        return self.is_in_scope(scope, target)
+
+    @staticmethod
+    def is_in_scope(scope: Scope, target: str) -> bool:
+        """Pure scope check (denylist > allowlist). Stateless so planning-time
+        helpers (which already hold a Scope object) can call without a session
+        — single source of truth for "is this target within the engagement
+        boundary" used both during planning and during dispatch.
+        """
         if target_value_is_allowed(scope.denylist_json, target):
             return False
         return target_value_is_allowed(scope.allowlist_json, target)

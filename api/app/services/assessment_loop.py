@@ -1553,7 +1553,6 @@ from api.app.services.runs import (
     derive_targets_for_run,
     pending_approvals,
     planned_targets_for_tool,
-    target_value_is_allowed,
 )
 from api.app.services.task_dispatch import supported_execution_tools
 
@@ -1927,9 +1926,13 @@ def _tier_from_capability(item: dict[str, Any], tool: str) -> str:
 
 
 def _scope_target_allowed(scope: Scope, target: str) -> bool:
-    if target_value_is_allowed(scope.denylist_json, target):
-        return False
-    return target_value_is_allowed(scope.allowlist_json, target)
+    # backlog-409: the scope-matching primitive lives in the Layer 0
+    # GovernanceControlPlane (api/app/governance/control_plane.py) so there
+    # is exactly one impl shared by planning-time filters in this module
+    # AND dispatch-time authorization in workers/orchestration/tasks.py.
+    # Local import avoids circular load at module import time.
+    from api.app.governance import GovernanceControlPlane  # noqa: E402
+    return GovernanceControlPlane.is_in_scope(scope, target)
 
 
 def _objective_type(objective: str) -> str:
