@@ -1,5 +1,21 @@
 # Done Log
 
+- 2026-05-21: backlog-418 (queue #368 — PentAGI deep-dive + reusable components report) **DONE**. NEXT_TASK promoted to backlog-419 (Release gate cross-system capability compare).
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED: N/A — investigation-only task per backlog-418 `no_code_in_this_task` constraint. Deliverable is `docs/research/pentagi-component-reuse.md`.
+    - [x] Delta-metric bewoog: from "PentAGI referenced ad-hoc in design discussions" → concrete per-component port-ability matrix with port-as-is / adapt / ignore recommendations and license check.
+    - [x] Removed code I replaced: N/A.
+    - [x] Geen scope creep: one research markdown + DONE/NEXT housekeeping.
+    - [x] Follow-ups gefiled: report explicitly maps adopt actions to existing backlog items (415 slice 2 for prompt ports, 420 for Graphiti, 416-extension note for Sploitus) — no new backlog entries needed.
+    - [x] Live test geslaagd: N/A (research task).
+  - **Key findings from the report** (full doc at `docs/research/pentagi-component-reuse.md`):
+    - **PORT-AS-IS** (translate to Python Markdown): `memorist.tmpl` + `reflector.tmpl` + their `question_*` counterparts. Land as the first batch of `prompts/proposals/` entries when backlog-415 slice 2 wires specialist `run()`.
+    - **ADAPT**: `primary_agent.tmpl`, `pentester.tmpl`, `coder.tmpl`, `searcher.tmpl`, `reporter.tmpl`, `task_planner` family — seed prompts for our 6 specialists + the attack-tree planner upgrade (backlog-412 follow-up).
+    - **IGNORE (already equivalent)**: LLM provider abstraction (417), OTEL observability (407), episodic memory schema (410), playwright_web (existing runner).
+    - **DEFER to backlog-420**: Graphiti + Neo4j knowledge graph integration.
+    - **License**: MIT — direct verbatim port allowed with attribution in `licenses/PENTAGI-MIT.txt`.
+  - **Insight that matters**: PentAGI's structural advantage is the **completeness** of its specialist roster (15+ prompts vs AegisPT's 2 today). backlog-415 slice 1 already shipped the *frame* (MetaCoordinator + per-agent ACL + versioned-prompt-proposal gate); slice 2 populates that frame, and the report names the four PentAGI prompts that should land first.
+
 - 2026-05-21: backlog-417 (queue #367 — Multi-LLM abstraction via LiteLLM) **DONE**. NEXT_TASK promoted to backlog-418 (PentAGI deep-dive + reusable components report).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED: `LLMProvider.chat()` called from `exploit_developer._claude_compose`; `LLMProvider.raw_anthropic_client()` called from `_claude_select_next_action`. Two sentinel tests pin the absence of direct `anthropic.Anthropic(` constructors in both files.

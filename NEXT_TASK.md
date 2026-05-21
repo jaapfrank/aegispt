@@ -6,21 +6,35 @@
 
 ## Title
 
-PentAGI deep-dive + reusable components report — **Sprint mythos-exploitation-foundation, task 12 of 15**
+Release gate + cross-system capability comparison (XBOW / PentestGPT / PentAGI / OWASP Nettacker) — **Sprint mythos-exploitation-foundation, task 13 of 15**
 
 ## Goal
 
-Investigation task (geen code edits). Deep read van PentAGI (12.5k stars, MIT). Per component (Researcher, Developer, Executor, Planner, Memorist agents): assess port-ability. Deliverable: research report at `docs/research/pentagi-component-reuse.md`.
+Per Codex Layer 5 + 'zonder metriek geen beter'. Formal release-gate die AegisPT (post-foundation sprint) evalueert tegen XBOW score, PentestGPT capabilities (publieke benchmarks), PentAGI features (backlog-418 report), OWASP Nettacker scanner coverage. Deliverable: gate-decision report + GO/NO-GO voor parity sprint.
 
 ## Sprint context
 
-Task 12 van 15. backlog-417 DONE — LLM provider abstraction. AegisPT heeft nu de meeste building blocks; tijd om gericht naar PentAGI te kijken voor concrete inspiratie / portable code in plaats van ad-hoc referenties.
+Task 13 van 15. Alle foundation modules zijn nu in production (407-417). De 25-challenge XBOW batch is geland — empirische score in. Tijd om dit formeel als release gate te toetsen.
+
+## Delta-doelstelling
+
+> Deze task levert `docs/validation/release-gate-mythos-exploitation-foundation.md` met: actuele XBOW score, exec_plan_successful avg, chain_findings avg, verified-exploited count, vergelijking tegen XBOW 84.6% target, PentestGPT/PentAGI/Nettacker feature-coverage tabel, en een expliciete GO / NO-GO beslissing met named gap-items.
 
 ## Scope
 
-(1) Survey PentAGI architecture from public README + repo structure.
-(2) Map each PentAGI component to AegisPT's existing module landscape (post-410..417).
-(3) Per component recommend: port-as-is / adapt / ignore — with rationale.
-(4) Write `docs/research/pentagi-component-reuse.md`.
+(1) Lees `/tmp/xbow-baseline-final/xbow-2026-05-21-baseline.{md,json}` (geland van de in-flight batch).
+(2) Bereken metrics: solved/N, exec_plan ok/total avg, tools/run avg, findings/run avg, verified-exploited (validator verdict) count.
+(3) Compare tegen public benchmarks (XBOW 84.6% on cleaned challenges; PentestGPT ~26-40% on various; Shannon Lite 96.15% on cleaned XBOW).
+(4) Compare AegisPT module coverage tegen PentAGI specialist set (per backlog-418 report) + Nettacker scanner modules.
+(5) Write report met GO/NO-GO + gap-items.
 
-NO code changes in this task — investigation only per backlog-418 scope.
+NO code changes — investigation + report only.
+
+## Constraints (per ANTI_DRIFT.md)
+
+- Per Rule 1: this IS the user-value metric ritual. Verdict moet expliciet GO of NO-GO zeggen, niet "we made progress".
+- Per Rule 4: numbers come from the live `/tmp/xbow-baseline-final/` report, not retrofitted estimates.
+
+## Source Package
+
+`codex/tasks/backlog-419-release-gate-cross-system-compare.json`
