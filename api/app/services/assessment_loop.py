@@ -1933,6 +1933,46 @@ def _tier_from_capability(item: dict[str, Any], tool: str) -> str:
     return "active"
 
 
+def _infer_foothold_from_findings(run: Run, current: str) -> str:
+    """Heuristic foothold-advancement based on this run's high/critical
+    findings. Returns the new foothold string (same as ``current`` if no
+    advance was earned).
+
+    Per backlog-412 ``no_unverified_transitions``: only findings of severity
+    ≥ high count as the proxy verifier. Title patterns mapping to foothold
+    candidates are kept narrow + universal (not app-specific recipes) per
+    feedback_no_prescriptive_recipes.
+    """
+    from api.app.services.attack_state import (  # noqa: E402
+        FootholdState,
+        is_higher_foothold,
+    )
+    try:
+        current_state = FootholdState(current)
+    except ValueError:
+        current_state = FootholdState.ANONYMOUS
+    new_state = current_state
+    for finding in list(getattr(run, "findings", None) or []):
+        sev = str(getattr(finding, "severity", "") or "").lower()
+        if sev not in {"critical", "high"}:
+            continue
+        title = str(getattr(finding, "title", "") or "").lower()
+        candidate: FootholdState | None = None
+        if any(t in title for t in ("rce", "remote code execution", "command injection", "code execution")):
+            candidate = FootholdState.CODE_EXECUTION
+        elif any(t in title for t in ("reverse shell", "interactive shell", "ssh access")):
+            candidate = FootholdState.SHELL_LIKE
+        elif any(t in title for t in ("path traversal", "lfi", "arbitrary file read", "directory traversal")):
+            candidate = FootholdState.FILE_READ
+        elif any(t in title for t in ("admin compromise", "account takeover", "privilege escalation", "admin bypass")):
+            candidate = FootholdState.ADMIN
+        elif any(t in title for t in ("auth bypass", "authentication bypass", "session hijack", "credential disclosure", "stored credential")):
+            candidate = FootholdState.AUTHENTICATED_USER
+        if candidate is not None and is_higher_foothold(candidate, new_state):
+            new_state = candidate
+    return new_state.value
+
+
 def _scope_target_allowed(scope: Scope, target: str) -> bool:
     # backlog-409: the scope-matching primitive lives in the Layer 0
     # GovernanceControlPlane (api/app/governance/control_plane.py) so there
@@ -3163,6 +3203,36 @@ def advance_assessment_loop(
         no_new_signal_iterations = 0
     loop_state["no_new_signal_iterations"] = no_new_signal_iterations
     loop_state["latest_evidence_fingerprint"] = evidence_fingerprint
+
+    # backlog-412 — Layer 3 Attack State: foothold tracking + heuristic
+    # advancement from this advance's findings. The full TAP-style AttackTree
+    # is in api/app/services/attack_state.py; this hook persists just the
+    # foothold rank in loop_state so it survives across advances and gets
+    # injected into the picker prompt below. Per ``no_unverified_transitions``
+    # constraint: advancement requires a finding of severity critical/high
+    # (acting as the proxy verifier until backlog-413 lands the deterministic
+    # validator).
+    try:
+        from api.app.services.attack_state import FootholdState  # noqa: E402
+        current_foothold = str(loop_state.get("foothold_state") or FootholdState.ANONYMOUS.value)
+        new_foothold = _infer_foothold_from_findings(run, current_foothold)
+        if new_foothold != current_foothold:
+            loop_state["foothold_state"] = new_foothold
+            loop_state["foothold_transitions"] = list(loop_state.get("foothold_transitions") or []) + [
+                {
+                    "from": current_foothold,
+                    "to": new_foothold,
+                    "at_fingerprint": evidence_fingerprint,
+                }
+            ]
+            logger.info(
+                "attack_state: foothold transition %s -> %s (run=%s)",
+                current_foothold, new_foothold, str(run.id)[:8],
+            )
+        else:
+            loop_state.setdefault("foothold_state", current_foothold)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("attack_state foothold tracking skipped (%s)", exc)
 
     if active_tasks:
         loop_state["status"] = "waiting_for_execution"
