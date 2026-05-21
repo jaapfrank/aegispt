@@ -3074,6 +3074,106 @@ def _store_next_action_proposal(
 _RUN_TERMINAL_STATUSES = {"completed", "completed_with_errors", "failed", "cancelled", "rejected"}
 
 
+def _exec_plan_fallback_candidate(
+    *,
+    run: Run,
+    scope: Scope | None,
+    session: Session | None,
+    targets: list[dict[str, Any]],
+    loop_state: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    """Last-resort candidate when every regular path returned None.
+
+    The dominant pre-fix stop pattern was ``no_registered_runner_candidate``
+    after ~4-12 iterations: the picker had a pick but it didn't match the
+    runner registry, the heuristic chain was empty (no findings yet), and
+    the loop just gave up. Per operator feedback 2026-05-21 (and against
+    feedback_no_prescriptive_recipes — we must NOT hardcode an exploit
+    chain) the right behaviour is to ask Claude once more with a strict
+    constraint: "regular catalog is exhausted; emit exec_plan with steps
+    that use the agent_tools (bash, code_exec, web_fetch, file_io_read,
+    subagent), or admit you cannot proceed."
+
+    Returns:
+        - a LoopCandidate(tool='exec-plan', ...) when Claude returns a
+          valid exec_plan with non-empty steps
+        - None when Claude returns anything else (picker stop, malformed
+          plan, or itself returns None); the caller then falls through to
+          the existing branch-D STOP path
+
+    Guarded by ``exec_plan_fallback_attempted`` in loop_state so we never
+    re-enter this fallback twice in the same advance — prevents infinite
+    re-prompting if Claude is being uncooperative.
+    """
+    if loop_state.get("exec_plan_fallback_attempted"):
+        return None
+    loop_state["exec_plan_fallback_attempted"] = True
+
+    refinement_notes = [{
+        "reason": "catalog_exhausted_use_exec_plan_with_agent_tools",
+        "detail": (
+            "Every other candidate source returned None: target-intel, "
+            "lan-intel, claude, ai-proposal, goal, auth, recursive, "
+            "selector, seed, plan. The runner catalog has been tried "
+            "and yielded no fit for the current evidence. You MUST emit "
+            "action='exec_plan' with a 'plan' body whose 'steps' use the "
+            "agent_tools (bash, code_exec, web_fetch, file_io_read, "
+            "subagent) for free-form exploration of the target. The "
+            "exec-plan runner will dispatch the steps sequentially. "
+            "STOP is acceptable only if you can articulate a concrete "
+            "reason to give up (e.g. flag captured, scope blocked); "
+            "'I have nothing left' is NOT acceptable because the "
+            "agent_tools are always available."
+        ),
+    }]
+    decision = _call_picker_with_retries(
+        run=run,
+        tested_keys=tested_keys,
+        available_tools=["exec-plan"],
+        targets=targets,
+        scope=scope,
+        session=session,
+        loop_state=loop_state,
+        extra_recent_rejections=refinement_notes,
+    )
+    if decision is None:
+        return None
+    if str(decision.get("action") or "").lower() != "exec_plan":
+        return None
+    plan_body = _decode_picker_plan(decision)
+    steps = plan_body.get("steps") if isinstance(plan_body, dict) else None
+    if not isinstance(steps, list) or len(steps) == 0:
+        return None
+    primary_target = str(targets[0].get("value") or "") if targets else ""
+    plan_name = str(decision.get("plan_name") or "fallback-exec-plan")[:120]
+    reasoning = str(decision.get("reasoning") or "agent_tools fallback after catalog exhausted")[:500]
+    confidence_raw = decision.get("confidence")
+    try:
+        confidence = max(0.0, min(1.0, float(confidence_raw))) if confidence_raw is not None else 0.6
+    except (TypeError, ValueError):
+        confidence = 0.6
+    return LoopCandidate(
+        tool="exec-plan",
+        target=primary_target,
+        params={
+            "source": "ai_loop_exec_plan_fallback_after_catalog_exhausted",
+            "ai_reasoning": reasoning,
+            "target_kind": "url",
+            "target_source": "approved_scope_root",
+            "plan": plan_body,
+            "plan_name": plan_name,
+        },
+        tier="active",
+        reasoning=reasoning,
+        confidence=confidence,
+        follow_up_hints=[],
+        expected_evidence=["exec_plan_success", "agent_tool_dispatch"],
+        required_approvals=0,
+        decision_source="ai_loop_exec_plan_fallback",
+    )
+
+
 def _finalize_run_after_loop_stop(run: Run, *, stop_reason: str) -> None:
     """Transition ``run.status`` to a terminal value when the picker emits a
     STOP. Without this hook the picker would set ``loop_state.status=stopped``
@@ -3902,6 +4002,26 @@ def advance_assessment_loop(
             recommended_tools=recommended_tools,
         )
     )
+    if candidate is None:
+        # Last-resort: ask Claude for an exec_plan using agent_tools before
+        # giving up. See _exec_plan_fallback_candidate docstring — without
+        # this the picker stops at iter ~4-12 with no_registered_runner_candidate
+        # even when bash/code_exec/web_fetch could still make progress.
+        candidate = _exec_plan_fallback_candidate(
+            run=run,
+            scope=scope,
+            session=session,
+            targets=targets,
+            loop_state=loop_state,
+            tested_keys=tested_keys,
+        )
+        if candidate is not None:
+            logger.info(
+                "AI loop: exec_plan fallback produced candidate after catalog "
+                "exhausted (run=%s plan_name=%s)",
+                str(run.id)[:8],
+                candidate.params.get("plan_name"),
+            )
     if candidate is None:
         logger.warning(
             "AI loop: candidate is None — stopping loop. "
