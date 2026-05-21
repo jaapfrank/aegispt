@@ -897,18 +897,10 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
             "admin_takeover": False,
         },
     },
-    {
-        "name": "passive-web-burp",
-        "run_class": RunClass.PASSIVE.value,
-        "limits_json": {
-            "description": "Optional Burp Suite REST API scan using the lightweight named scan configuration against approved web targets.",
-            "required_approvals": 0,
-            "tools": ["burp"],
-            "max_rps": 1,
-            "max_concurrency": 1,
-            "named_scan_configurations": ["Audit checks - light"],
-        },
-    },
+    # passive-web-burp profile removed 2026-05-21: operator declined to license
+    # Burp Suite Pro. OWASP ZAP serves the same passive-web role via the existing
+    # `passive-web-baseline` profile (tools: ["zap"]). A Caido-based profile
+    # would be a natural future addition once a Caido runner ships.
     {
         "name": "passive-code-semgrep-audit",
         "run_class": RunClass.PASSIVE.value,

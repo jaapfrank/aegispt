@@ -53,15 +53,26 @@ function deriveMissionState(run: Run, findings: Finding[]): MissionState {
   const counts = countSeverity(findings);
   const isDone = ['completed', 'failed', 'cancelled', 'canceled', 'completed_with_errors'].includes(status);
 
-  // Look for "admin compromise"/"rce"/"takeover" in finding titles
-  const hasCompromise = findings.some((f) => {
+  // COMPROMISED requires HARD evidence: foothold_state has actually advanced
+  // beyond "anonymous" via the verified-only attack_state tracker (backlog-412),
+  // OR there is a critical finding with a verified validator verdict (backlog-413).
+  // Keyword-match on titles alone is NOT enough — that's how we ended up
+  // declaring "I have admin-level access" with foothold=null on 2026-05-21.
+  const loopState = (run.configuration_json as Record<string, unknown> | null | undefined)
+    ?.ai_assessment_loop as Record<string, unknown> | undefined;
+  const footholdState = String((loopState?.foothold_state as string) || 'anonymous').toLowerCase();
+  const footholdProvesCompromise = ['admin', 'admin_user', 'file_read', 'code_execution', 'shell_like'].includes(footholdState);
+  const verifiedCompromiseFinding = findings.some((f) => {
     const sev = (f.severity || '').toLowerCase();
     if (sev !== 'critical') return false;
+    const validation = (f as unknown as Record<string, unknown>).validation as Record<string, unknown> | undefined;
+    const verdict = String(validation?.verdict || '').toLowerCase();
+    if (verdict !== 'passed') return false;
     const title = String(f.title || '').toLowerCase();
     return ['admin', 'compromise', 'takeover', 'rce', 'remote code'].some((kw) => title.includes(kw));
   });
 
-  if (hasCompromise) {
+  if (footholdProvesCompromise || verifiedCompromiseFinding) {
     return { level: 'compromised', tone: 'text-fuchsia-300', toneBg: 'bg-fuchsia-500/15 border-fuchsia-400/40', label: 'COMPROMISED', emoji: '🟣' };
   }
   if (counts.critical > 0) {
@@ -188,6 +199,23 @@ function StatusHero({
   const proof = useMemo(() => topFindingForProof(findings), [findings]);
   const host = useMemo(() => targetHost(run, tasks), [run, tasks]);
   const lastReason = useMemo(() => lastDecisionReasoning(run), [run]);
+  // Read foothold straight from the backend's verified-only attack_state
+  // tracker. Empty/null = "not yet tracked" (different from anonymous).
+  const footholdLabel = useMemo(() => {
+    const cfg = run.configuration_json as Record<string, unknown> | null | undefined;
+    const loop = cfg?.ai_assessment_loop as Record<string, unknown> | undefined;
+    const fs = String((loop?.foothold_state as string) || '').toLowerCase();
+    if (!fs || fs === 'anonymous') return 'no foothold yet';
+    const human: Record<string, string> = {
+      authenticated_user: 'authenticated user',
+      admin_user: 'admin user',
+      file_read: 'file read',
+      code_execution: 'code execution',
+      shell_like: 'shell-like access',
+      admin: 'admin access',
+    };
+    return human[fs] || fs.replace(/_/g, ' ');
+  }, [run]);
 
   const headline = useMemo(() => {
     if (state.level === 'compromised') return 'Full compromise achieved.';
@@ -290,7 +318,12 @@ function StatusHero({
               <span className="font-bold text-red tabular-nums">{counts.critical} critical</span>
             )}
             <span className="text-muted">·</span>
-            <span className="text-muted">no admin access</span>
+            <span className={cn(
+              'tabular-nums',
+              footholdLabel === 'no foothold yet' ? 'text-muted'
+                : footholdLabel === 'admin access' || footholdLabel === 'admin user' ? 'text-fuchsia-300 font-bold'
+                : 'text-amber'
+            )}>{footholdLabel}</span>
             <span className="text-muted">·</span>
             <span className="font-mono text-[0.85rem] text-cyan">{host || 'no target'}</span>
           </div>

@@ -247,7 +247,10 @@ SUPPORTED_TOOLS = {
     "aws-inventory",
     "bloodhound-collect",
     "biz-logic-probe",
-    "burp",
+    # Burp Suite Pro removed 2026-05-21: operator declined to license the
+    # proprietary $399+/yr product. OWASP ZAP is the free-OSS replacement
+    # (still in this set as "zap"). The workers/runners/burp module is
+    # retained for future re-enablement; SUPPORTED_TOOLS gates picker access.
     "c2-ingest",
     "camera-test",
     "cicd-security",
