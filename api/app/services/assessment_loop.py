@@ -633,21 +633,24 @@ def _exec_plan_step_schema() -> dict[str, Any]:
                 "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
             },
             "url": {"type": "string"},
-            # Nested objects use empty-schema additionalProperties so Anthropic
-            # accepts arbitrary keys (which is what these fields need: header
-            # names, param names, cookie names, capture var names, expect
-            # clause names are all open-ended). additionalProperties=False
-            # would force these to be empty objects which breaks the runner;
-            # additionalProperties=true is rejected by Anthropic validator.
-            "headers": {"type": "object", "additionalProperties": {}},
-            "params": {"type": "object", "additionalProperties": {}},
-            "data": {},  # may be string or object — runner accepts both
+            # Anthropic strict mode requires `additionalProperties: false`
+            # on every declared `type: object`. But these fields need
+            # arbitrary keys (header names, param names, capture var names
+            # etc.) — closing the schema breaks the runner. Workaround:
+            # OMIT the type annotation entirely (use `{}` empty schema =
+            # "any value"). Anthropic's object-type check only fires when
+            # type=object is declared; without it, arbitrary nested values
+            # are accepted. Confirmed empirically against the 16:22
+            # rejections.
+            "headers": {},
+            "params": {},
+            "data": {},
             "json": {},
-            "cookies": {"type": "object", "additionalProperties": {}},
+            "cookies": {},
             "cookies_from": {"type": "string"},
-            "expect": {"type": "object", "additionalProperties": {}},
-            "capture": {"type": "object", "additionalProperties": {}},
-            "on_success": {"type": "object", "additionalProperties": {}},
+            "expect": {},
+            "capture": {},
+            "on_success": {},
         },
     }
 
