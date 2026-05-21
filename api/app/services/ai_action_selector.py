@@ -11,7 +11,6 @@ from api.app.models import Run, Scope
 from api.app.services.assessment_graph import build_assessment_graph, build_assessment_hypotheses
 from api.app.services.roe_policy import compile_roe_policy_decision
 from api.app.services.runner_contracts import RunnerContractError, runner_contract_for
-from api.app.services.runs import target_value_is_allowed
 from api.app.services.task_dispatch import supported_execution_tools
 
 SELECTOR_VERSION = "next-best-action-selector-v1"
@@ -852,11 +851,14 @@ def _selector_tier(runner: str, data: dict[str, Any]) -> str:
 
 
 def _target_allowed(scope: Scope, target: str) -> bool:
+    # backlog-409: ai_action_selector now consults the Layer 0
+    # GovernanceControlPlane for scope-matching just like the planning loop
+    # in assessment_loop and the dispatch guard in workers/orchestration/tasks.
+    # One source of truth — the same denylist>allowlist logic.
     if not target:
         return False
-    if target_value_is_allowed(scope.denylist_json, target):
-        return False
-    return target_value_is_allowed(scope.allowlist_json, target)
+    from api.app.governance import GovernanceControlPlane  # noqa: E402
+    return GovernanceControlPlane.is_in_scope(scope, target)
 
 
 def _normalized_strings(value: Any) -> list[str]:
