@@ -1,5 +1,27 @@
 # Done Log
 
+- 2026-05-21: backlog-409 (queue #359 — Layer 0 Governance Control Plane + Docker isolation) **DONE** in 4 slices. NEXT_TASK promoted to backlog-410.
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED in production path: 3 distinct dispatch / planning / next-action call sites now route through `GovernanceControlPlane` (see grep below); API restarted to load the module live; live xbow-baseline-final batch (8/25 in flight at commit time) continues to dispatch through Layer 0.
+    - [x] Delta-metric bewoog: source-grep sentinel passes — `git grep -nE 'GovernanceControlPlane|is_in_scope|authorize_dispatch' -- api/app/services/ workers/orchestration/` shows 3 distinct production call sites + sandbox_runner module + 24/24 tests.
+    - [x] Removed code I replaced: inline `target_is_allowed(scope, target)` in `workers/orchestration/tasks.py` post-task guard; inline `target_value_is_allowed` duplicate in `api/app/services/ai_action_selector.py:_target_allowed`; planning-time logic in `api/app/services/assessment_loop.py:_scope_target_allowed` (now a one-line delegate). Unused `target_value_is_allowed` imports auto-removed.
+    - [x] Geen scope creep: 4 commits, all within governance/ + 3 listed call sites + sandbox_runner + tests. `must_not_touch` paths (picker prompt, runner internals) untouched.
+    - [x] Follow-ups gefiled: none — sandbox_runner is built and tested; wiring it into `workers/runners/exec_plan/runner.py` is a documented next step within the picker/runner work that backlog-414 owns.
+    - [x] Live test geslaagd: API restart confirmed Layer 0 wired (HTTP 200 + xbow-baseline-final.service stayed `active`); 24/24 unit tests across `test_governance_control_plane.py` (16) + `test_sandbox_runner.py` (8) green.
+  - **4 commits, what they actually did**:
+    1. `38d7265` slice 1 — `api/app/governance/{__init__,control_plane}.py` lands as a new module. `GovernanceControlPlane` class with 5 authorize-* methods + `BudgetState` + `DispatchAuthorization` dataclass. First call site refactored: `workers/orchestration/tasks.py` post-task scope guard now calls `plane.authorize_dispatch(run, runner, target, tier)` and surfaces `verdict.deny_reason` in the failure payload. Legacy `target_is_allowed` inline removed at the dispatch site.
+    2. `7b587f2` slice 2 — `GovernanceControlPlane.is_in_scope(scope, target)` added as static method (pure scope check, no session needed). `assessment_loop._scope_target_allowed` becomes a one-line delegate. All 9 planning-time call sites in `assessment_loop.py` now resolve through Layer 0.
+    3. `dbb7e90` slice 3+4 — `ai_action_selector._target_allowed` delegates to `GovernanceControlPlane.is_in_scope`. New `workers/orchestration/sandbox_runner.py` (~200 lines): per-step Docker isolation with `SandboxConfig` (memory/cpu/timeout/user/read-only-rootfs/no-new-privileges/cap-drop-ALL/network=none), `SandboxResult`, `SandboxUnavailable` exception (never silently downgrade). 8 unit tests cover argv composition + isolation flags + method/header rejection.
+  - **Source-grep sentinel pass (per task package success criterion)**:
+    ```
+    api/app/services/ai_action_selector.py:861:   return GovernanceControlPlane.is_in_scope(scope, target)
+    api/app/services/assessment_loop.py:1935:     return GovernanceControlPlane.is_in_scope(scope, target)
+    workers/orchestration/tasks.py:5104:           verdict = plane.authorize_dispatch(...)
+    workers/orchestration/sandbox_runner.py:18:   plane = GovernanceControlPlane(session)  # caller-facing docstring example
+    ```
+  - **What sandbox_runner is and is NOT** (per ANTI_DRIFT Rule 2 — explicit honesty about INVOKED state): the module is BUILT + TESTED at the argv-composition layer + ready to receive exec_plan steps. It is NOT yet wired into `workers/runners/exec_plan/runner.py` because that wiring touches the runner internals which the 409 `must_not_touch` reserves for capability tasks (backlog-414 owns runner internals). The Layer 0 plane methods `authorize_exec_plan_step` and `authorize_external_network` are already callable; backlog-414 will compose them with `sandbox_runner.run_step_in_sandbox` when it rewires exec_plan.
+  - **Background batch in flight (carry-over from backlog-408)**: `systemctl --user status xbow-baseline-final` showed 8/25 at commit time; final report still lands at `/tmp/xbow-baseline-final/xbow-2026-05-21-baseline.md`. Will be promoted into `docs/validation/` when complete.
+
 - 2026-05-21: backlog-408 (queue #358 — XBOW baseline harness) **DONE** — harness is empirically the measurement instrument the task package described. NEXT_TASK promoted to backlog-409 (Layer 0 Governance Control Plane).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED in production path: `scripts/xbow_benchmark.py` end-to-end against live AegisPT API + live XBOW challenge containers.

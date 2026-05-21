@@ -6,65 +6,69 @@
 
 ## Title
 
-Governance Control Plane (Layer 0) — central scope/ROE/approvals/credentials/sandbox/budget API + Docker isolation per tool — **Sprint mythos-exploitation-foundation, task 3 of 15**
+Episodic memory layer — PostgreSQL + pgvector ADDITIVE (memory_backend stays as short-term scratchpad) — **Sprint mythos-exploitation-foundation, task 4 of 15**
 
 ## Goal
 
-Consolidate verspreide scope/ROE/approval/credential/sandbox/budget checks into one central Layer 0 Governance Control Plane (per Codex 6-layer architectuur). Every agent decision and runner dispatch validates through this single API. ADDITIONALLY: Docker isolation per exec_plan execution (heavy isolation per PentAGI pattern) so escape risk cannot reach host. No agent bypasses Layer 0.
+Add an episodic memory layer for (action, context, outcome, success_marker) tuples queryable via vector similarity. Per Codex refinement: ADDITIVE, NOT a replacement of `api/app/services/memory_backend.py`. File-backed memory_backend stays as short-term scratchpad; pgvector layer is for cross-advance and cross-run retrieval. Memory remains skeptical per Claude Code lessons — every retrieval is a HINT, evidence must still be verified.
 
 ## Sprint context
 
-Task 3 van 15 in sprint `mythos-exploitation-foundation`. backlog-408 (XBOW baseline harness) DONE — harness empirisch geverifieerd: 16 tools / 20 findings / 3/3 exec-plan per challenge, geen API self-attack, scope+AI-loop+terminal-UI werken. Een 25-challenge background batch draait voor de finale ≥20-challenge meting; backlog-408 DONE entry wordt aangevuld als die landt. Per Codex 6-layer architectuur: Layer 0 Governance Control Plane wraps EVERYTHING — daarna pas kan Layer 1+ veilig uitbreiden.
+Task 4 van 15 in sprint `mythos-exploitation-foundation`. backlog-409 (Layer 0 Governance Control Plane + sandbox_runner) DONE in 4 slices — 3 dispatch-authorization call sites now route through `GovernanceControlPlane`, sandbox_runner module ready voor wire-in door 414. Met Layer 0 in place is het veilig om aan de memory layer te bouwen omdat episodic recalls nu via één authorize-pad lopen.
 
 ## Delta-doelstelling (verplicht per SESSION_PROMPT §1)
 
-> Deze task levert `api/app/governance/control_plane.py` met `GovernanceControlPlane` klasse en methodes `authorize_dispatch(...)`, `authorize_credential_use(...)`, `authorize_external_network(...)`, `authorize_exec_plan_step(...)`, `check_budget(...)`. Verspreide approval-check code in `assessment_loop.py` + `ai_action_selector.py` + `workers/orchestration/tasks.py` wordt VERVANGEN door calls naar Layer 0. PLUS `workers/orchestration/sandbox_runner.py` — exec_plan steps draaien in vers Docker container per step. Greppable test verifieert 100% van dispatch sites routes through control_plane.
+> Deze task levert `api/app/services/episodic_memory.py` met `write_episode(action, context, outcome)` + `recall_similar(query, k=5)` + `skeptical_recall_with_verify_hint()`. Database table `agent_episodic_memory` via Alembic migratie. Embeddings via configurable provider. Per Codex contamination guard: benchmark writes tagged `is_benchmark=True`, NEVER teruggegeven aan non-benchmark recalls. `memory_backend.py` blijft ongewijzigd — file-memory als short-term scratchpad behouden.
 
 ## Scope
 
-(1) New `api/app/governance/` module met `control_plane.py`: single class `GovernanceControlPlane` met methodes:
-- `authorize_dispatch(run, runner, target, tier) -> DispatchAuthorization` (allow/deny/needs_approval)
-- `authorize_credential_use(run, cred_id) -> bool`
-- `authorize_external_network(run, target) -> bool`
-- `authorize_exec_plan_step(run, step) -> bool`
-- `check_budget(run) -> BudgetState` (rps/concurrency/duration consumed vs limits)
+(1) Alembic migration `migrations/versions/{date}_agent_episodic_memory.py` — new table:
+- `id` UUID, `run_id` UUID, `engagement_id` UUID
+- `action_type` str (e.g. "exec_plan", "runner_dispatch")
+- `action_context_jsonb` JSONB, `outcome_jsonb` JSONB
+- `success_marker` str (e.g. "flag_captured", "finding_critical", "no_progress")
+- `embedding vector(1536)` (pgvector)
+- `created_at` timestamptz, `is_benchmark` bool
 
-(2) Refactor: vervang verspreide approval-checks in `assessment_loop.py` + `ai_action_selector.py` + `workers/orchestration/tasks.py` door calls naar `GovernanceControlPlane`. Oude code REMOVE in dezelfde commit (per ANTI_DRIFT Rule 3 — geen parallel coexistence).
+(2) New `api/app/services/episodic_memory.py`:
+- `write_episode(session, *, run, action_type, context, outcome, success_marker)` — embeds context+outcome, persists row, tags `is_benchmark` based on engagement config.
+- `recall_similar(session, *, query, k=5, filter_run_id=None, include_benchmark=False)` — vector similarity query, default excludes benchmark rows.
+- `skeptical_recall_with_verify_hint(session, *, query, k=5)` — wraps recall_similar and prepends `[HINT, VERIFY BEFORE USE]` marker on every result.
 
-(3) Docker isolation: nieuwe `workers/orchestration/sandbox_runner.py` — exec_plan steps draaien in vers Docker container per step (gVisor-isolated als gVisor beschikbaar, plain Docker anders). Container teardown verplicht. Netwerk default-deny + expliciete allowlist per engagement scope.
+(3) Embeddings provider abstraction: `_embed(text)` reads `EPISODIC_EMBED_PROVIDER` env (default `openai`, fallback `local_hash` for tests). LiteLLM-based provider lands when backlog-417 unifies LLM access — keep the abstraction so the swap is one line.
 
-(4) Tests: `api/tests/test_governance_control_plane.py` — unit tests voor elke authorize-methode + integration test dat assessment_loop een dispatch correct routeert via Layer 0.
+(4) `memory_backend.py` UNTOUCHED — file-memory blijft als short-term scratchpad per Codex refinement #3.
+
+(5) Unit tests `api/tests/test_episodic_memory.py`: write+read round-trip, is_benchmark isolation (benchmark write NOT returned in production recall), skeptical-hint marker present, fallback to local_hash when no provider configured.
 
 ## Constraints (per ANTI_DRIFT.md)
 
-- Per Rule 1: capability task. Delta-metric = "100% dispatch decisions route via GovernanceControlPlane" (greppable + tested).
-- Per Rule 2: control_plane MOET aangeroepen worden vanuit de drie call sites in dezelfde commit; geen dead code.
-- Per Rule 3 (geen backward-compat creep): verspreide approval checks REMOVE in dezelfde commit; cite git diff line-count voor deletions.
-- Per Rule 4 (geen mocked-live): live verificatie via XBOW harness run met sandboxed exec_plan ≥1 challenge.
-- Per Rule 5: geen sluipweg om Layer 0 te bypassen.
-- `no_bypass`: greppable test verifies every dispatch site routes through control_plane.
-- `isolation_default_deny`: sandbox_runner default-deny op container network egress; allowlist explicit per scope.
+- Per Rule 1: capability task. Delta-metric = "≥1 recall_similar call from a live picker.advance returns ≥1 episode written by a previous advance in the same run (verified via OTEL trace + DB query)".
+- Per Rule 2: `episodic_memory.write_episode` MOET aangeroepen worden vanuit `advance_assessment_loop` per advance; geen dead code.
+- Per Rule 3 (geen backward-compat creep): `memory_backend.py` stays — additive layer. Mark this explicitly in commit message ("memory_backend untouched; new layer is queryable + cross-run").
+- Per Rule 4 (geen mocked-live): live verification via XBOW harness — `recall_similar` returns ≥1 row after 3+ advances on the same run.
+- Per Rule 5: contamination guard — write_episode during benchmark engagements tagged `is_benchmark=True`; recall_similar default excludes those rows.
 
 ## Source Package
 
-`codex/tasks/backlog-409-governance-control-plane-docker-isolation.json`
+`codex/tasks/backlog-410-episodic-memory-pgvector-additive.json`
 
 ## Validation (ANTI_DRIFT.md pre-commit checklist)
 
 ```
-- [ ] Mijn code is INVOKED in production path (control_plane called from assessment_loop + ai_action_selector + workers/orchestration/tasks)
-- [ ] Delta-metric bewoog: 100% dispatch decisions route via control_plane (grep + test verified)
-- [ ] Removed code I replaced: cite N lines deleted from assessment_loop.py + ai_action_selector.py + tasks.py
-- [ ] Geen scope creep: governance module + 3 refactored call sites + sandbox_runner only
+- [ ] Code INVOKED in production path: episodic_memory.write_episode called from advance_assessment_loop on every advance
+- [ ] Delta-metric bewoog: recall_similar returns >=1 episode after 3+ advances on same run (cite OTEL trace ids)
+- [ ] Removed code I replaced: N/A (additive; memory_backend untouched — confirm in commit)
+- [ ] Geen scope creep: episodic_memory module + migration + tests + 1 advance_assessment_loop call site only
 - [ ] Follow-ups gefiled: <refs OR "none">
-- [ ] Live test geslaagd: <link to live trace OR XBOW challenge run via sandboxed exec_plan>
+- [ ] Live test geslaagd: <link to live trace OR DB query of agent_episodic_memory rows>
 ```
 
 Plus required checks:
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_governance_control_plane.py`
-- `python3 -m compileall -q api workers`
-- `.venv/bin/ruff check api/app/governance/control_plane.py workers/orchestration/sandbox_runner.py`
+- `.venv/bin/pytest api/tests/test_episodic_memory.py`
+- `python3 -m compileall -q api`
+- `.venv/bin/ruff check api/app/services/episodic_memory.py`
+- `alembic upgrade head && alembic downgrade -1 && alembic upgrade head`
 - `git diff --check`
-- `git grep -nE 'authorize_dispatch' -- api/app/services/ workers/orchestration/` → ≥3 distinct call sites
-- Live: an XBOW challenge run produces ≥1 exec_plan step that ran inside a sandboxed Docker container (visible in trace logs).
+- Live: ≥1 XBOW challenge run produces ≥3 agent_episodic_memory rows + recall_similar returns prior episode hint to the next advance.
