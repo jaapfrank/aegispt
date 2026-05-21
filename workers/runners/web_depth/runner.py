@@ -2333,7 +2333,7 @@ def execute_external_osint_recon(
     if not shodan_api_key and not (censys_api_id and censys_api_secret):
         return RunnerExecution(
             tool="external-osint",
-            exit_code=0,
+            exit_code=78,  # EX_CONFIG — runner unavailable in this deployment
             stdout="external-osint skipped: no SHODAN_API_KEY or Censys credentials configured. Set SHODAN_API_KEY or CENSYS_API_ID/CENSYS_API_SECRET to enable.",
             stderr="",
             artifacts=[],

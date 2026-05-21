@@ -339,7 +339,7 @@ def execute_auth_flow_analysis(
     except ValueError as exc:
         return RunnerExecution(
             tool="auth-flow",
-            exit_code=0,
+            exit_code=78,  # EX_CONFIG — runner unavailable in this deployment
             stdout=f"auth-flow skipped: {exc}. Configure credentials via the credential vault or set registration_url for auto-register.",
             stderr="",
             artifacts=[],

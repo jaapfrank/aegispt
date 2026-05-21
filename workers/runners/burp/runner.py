@@ -213,7 +213,12 @@ def execute_burp_scan(
         # Burp Suite Pro is not installed or not configured — skip gracefully.
         return RunnerExecution(
             tool="burp",
-            exit_code=0,
+            # exit_code=78 (EX_CONFIG) is the project convention for "runner
+            # unavailable in this deployment" — see assessment_loop.RUNNER_EXIT_CODE_SKIPPED.
+            # Pre-2026-05-21 this returned 0, which made the picker think burp
+            # had been tried and tested_keys locked the slot. Now the picker
+            # excludes burp from available_tools after the first 78.
+            exit_code=78,
             stdout=f"Burp Suite Pro is not configured ({exc}). Install Burp Suite Pro and set BURP_API_URL to enable this runner. Skipping.",
             stderr="",
             artifacts=[],

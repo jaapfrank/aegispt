@@ -1925,12 +1925,57 @@ def _task_key(tool: str, target: str) -> str:
     return f"{str(tool).strip()}::{str(target).strip()}"
 
 
+RUNNER_EXIT_CODE_SKIPPED = 78  # EX_CONFIG — runner unavailable in this deployment
+
+
+def _runners_skipped_in_run(run: Run) -> set[str]:
+    """Tools whose runner returned ``exit_code=78`` (EX_CONFIG) on at least
+    one execution in this run = unavailable in this deployment.
+
+    Pre-fix 2026-05-21 reality: 6 runners (burp, auth_flow, session_security,
+    web_depth, client_state, idor_bac) returned ``exit_code=0`` + metadata
+    ``{"skipped": True}`` when a required env var/binary was missing. The
+    task completed "successfully" but did NOTHING. Tested_keys got
+    populated → picker thought the tool was tried → never re-picked it AND
+    never picked a working substitute. ``metadata`` is mostly dropped at
+    persistence (only runner_digest and tool_version survive on
+    ToolExecution), so the only durable signal is ``exit_code``.
+
+    Convention introduced 2026-05-21: skipped runners return
+    ``exit_code=78``. ToolExecution.exit_code IS persisted, so this helper
+    can read it back.
+
+    Used by the picker's available_tools build path to drop these tools
+    BEFORE Claude sees them in the allowlist, and by ``_tested_action_keys``
+    to NOT count skipped tasks as proper test runs.
+    """
+    skipped: set[str] = set()
+    for task in list(run.tasks or []):
+        tool = str(task.tool or "").strip()
+        if not tool:
+            continue
+        for execution in list(task.executions or []):
+            if int(execution.exit_code or 0) == RUNNER_EXIT_CODE_SKIPPED:
+                skipped.add(tool)
+                break
+    return skipped
+
+
 def _tested_action_keys(run: Run) -> set[str]:
     keys: set[str] = set()
+    skipped_runners = _runners_skipped_in_run(run)
     for task in list(run.tasks or []):
-        if str(task.tool or "").strip() == "bootstrap":
+        tool = str(task.tool or "").strip()
+        if tool == "bootstrap":
             continue
-        keys.add(_task_key(task.tool, task.target_id))
+        if tool in skipped_runners:
+            # The runner returned metadata.skipped=True — no real work was
+            # done, so this task should NOT count as "tested" in tested_keys.
+            # Otherwise the picker thinks it tried burp/auth_flow/etc and
+            # locks the tool out of future iterations on the same target,
+            # even though nothing actually happened.
+            continue
+        keys.add(_task_key(tool, task.target_id))
     for proposal in list(run.agent_proposals or []):
         metadata = _as_dict(proposal.metadata_json)
         if metadata.get("proposal_kind") == LOOP_PROPOSAL_KIND:
@@ -3730,6 +3775,17 @@ def advance_assessment_loop(
     )
     if tested_keys:
         available_tools = supported_execution_tools()
+        # Drop runners that returned metadata.skipped=True earlier in this
+        # run — they're unconfigured in this deployment, and offering them
+        # to Claude again just produces another no-op task. See
+        # _runners_skipped_in_run docstring.
+        skipped_runners = _runners_skipped_in_run(run)
+        if skipped_runners:
+            available_tools = available_tools - skipped_runners
+            logger.info(
+                "AI loop: hiding %d skipped runner(s) from picker (%s) run=%s",
+                len(skipped_runners), sorted(skipped_runners), str(run.id)[:8],
+            )
         decision = _call_picker_with_exec_plan_refinement(
             run=run,
             tested_keys=tested_keys,

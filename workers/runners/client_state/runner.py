@@ -349,7 +349,7 @@ def execute_client_state_analysis(
     except ValueError as exc:
         return RunnerExecution(
             tool="client-state",
-            exit_code=0,
+            exit_code=78,  # EX_CONFIG — runner unavailable in this deployment
             stdout=f"client-state skipped: {exc}. Configure authenticated access accounts via the credential vault.",
             stderr="",
             artifacts=[],

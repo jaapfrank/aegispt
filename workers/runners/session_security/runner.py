@@ -440,7 +440,7 @@ def execute_session_security_analysis(
     except ValueError as exc:
         return RunnerExecution(
             tool="session-security",
-            exit_code=0,
+            exit_code=78,  # EX_CONFIG — runner unavailable in this deployment
             stdout=f"session-security skipped: {exc}. Configure username/password via the credential vault to enable session testing.",
             stderr="",
             artifacts=[],

@@ -413,7 +413,7 @@ def execute_idor_bac_probe(
     except ValueError as exc:
         return RunnerExecution(
             tool="idor-bac",
-            exit_code=0,
+            exit_code=78,  # EX_CONFIG — runner unavailable in this deployment
             stdout=f"idor-bac skipped: {exc}. Configure authenticated access accounts via the credential vault to enable IDOR/BAC testing.",
             stderr="",
             artifacts=[],
