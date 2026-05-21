@@ -1,5 +1,13 @@
 # Current State
 
+## Latest Continuation — backlog-437 picker A/B comparison harness (2026-05-21)
+
+Backlog-437 is implemented as a validation-only harness. Added `scripts/picker_ab.py`, which can emit a Claude vs ChatGPT-OAuth picker comparison report from either a safe dry-run fixture or a recorded two-run JSON input. The report records target, evidence fixture ID, provider configs, run IDs when available, matched picker decisions, finding counts, high/critical counts, canary/proof deltas, and failure reasons. It explicitly keeps `winner_claim` as `null` and states that dry-run output proves report generation/provider-shape only, not model capability.
+
+Dry-run evidence is recorded in `docs/validation/backlog-437-picker-ab-dry-run-20260521.md`. Focused tests in `scripts/tests/test_picker_ab.py` cover dry-run report shape, no-winner wording, recorded input preservation of run IDs/failure reasons, and CLI report writing. No production picker logic, runner behavior, approval gates, scope gates, finding schema, prompt foundations, capability pack registry, deployment flow, runtime binding, or UI behavior changed.
+
+Validation passed: `python3 scripts/validate_backlog_tasks.py`, `python3 -m compileall -q api scripts`, `.venv/bin/ruff check scripts/picker_ab.py`, `.venv/bin/ruff check scripts/picker_ab.py scripts/tests/test_picker_ab.py`, `.venv/bin/pytest scripts/tests/test_picker_ab.py -q` with 4 tests, and `git diff --check`. `NEXT_TASK.md` now records that no queued task remains after queue item #388 and awaits operator selection while preserving the validator-required Title/Goal shape.
+
 ## Latest Continuation — backlog-436 ChatGPT-OAuth picker provider path (2026-05-21)
 
 Operator asked to continue while another AI is also programming on other tasks. I kept the work scoped to the picker provider path and did not touch the existing unrelated dirty files (`api/app/services/narrator.py`, `api/app/services/scheduled_runs.py`, `docs/validation/sprint-2026-mythos-foundation-2026-05-20-smoke.md`, or untracked diagnostic/task artifacts).

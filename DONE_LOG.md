@@ -1,5 +1,36 @@
 # Done Log
 
+- 2026-05-21: backlog-437 (queue #387 — Picker A/B comparison harness: Claude vs ChatGPT-OAuth) **DONE**. No queued task remains after #388, so `NEXT_TASK.md` now holds an operator-selection placeholder.
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Mijn code is INVOKED in runnable path: `scripts/picker_ab.py` has a CLI entrypoint and dry-run report generation; `scripts/tests/test_picker_ab.py` exercises both function and CLI paths.
+    - [x] Delta-metric bewoog: the repo now has a deterministic harness report artifact with matched provider configs, decision logs, finding counts, canary/proof deltas, and failure reasons.
+    - [x] Removed code I replaced: none; validation-only additive script.
+    - [x] Geen scope creep: no production picker logic, runner behavior, approval, scope, finding schema, prompt, capability pack, deployment, runtime binding, or UI behavior changed.
+    - [x] Follow-ups gefiled voor blocked items: no new task filed; live/lab measurement remains the next use of this harness rather than a code gap in the harness itself.
+    - [x] Live test geslaagd: dry-run/fixture mode generated `docs/validation/backlog-437-picker-ab-dry-run-20260521.md`; no live target or model superiority claim is made.
+  - rationale:
+    - active task required an evidence-first comparison harness after backlog-436 enabled the ChatGPT-OAuth picker branch
+    - dry-run mode is intentionally safe and reproducible; recorded-input mode can ingest future authorized lab/XBOW run results with explicit target/run IDs
+    - report format keeps `winner_claim` null and records limitations so structure-only checks cannot become a capability claim
+  - files:
+    - `scripts/picker_ab.py`
+    - `scripts/tests/test_picker_ab.py`
+    - `docs/validation/backlog-437-picker-ab-dry-run-20260521.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed: 388 queued task packages mapped one-to-one, exactly one active task
+    - `python3 -m compileall -q api scripts` passed
+    - `.venv/bin/ruff check scripts/picker_ab.py` passed
+    - `.venv/bin/ruff check scripts/picker_ab.py scripts/tests/test_picker_ab.py` passed
+    - `.venv/bin/pytest scripts/tests/test_picker_ab.py -q` passed with 4 tests
+    - `git diff --check` passed
+  - remaining risks:
+    - dry-run mode proves report generation and comparable provider configuration only; it does not prove either model finds more vulnerabilities
+    - future live/lab use must provide explicit authorization, target, comparable evidence inputs, and recorded run IDs
+
 - 2026-05-21: backlog-436 (queue #386 — Wire ChatGPT-OAuth as a picker provider) **DONE**. NEXT_TASK promoted to backlog-437 (queue #387 — Picker A/B comparison harness).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Mijn code is INVOKED in production path: `_claude_select_next_action` now resolves `LLMProvider.for_run(...)` and dispatches ChatGPT-OAuth configured runs to `_chatgpt_oauth_select_next_action`.
