@@ -42,13 +42,21 @@ accept the trade-offs below.
 
 ## What you'd lose by switching the picker to ChatGPT
 
-| Anthropic now | ChatGPT subscription |
+**Correction 2026-05-21**: operator noted that the OAuth path proxies to
+OpenAI's backend (GPT-5/5.5 family) which DOES support structured outputs.
+Earlier draft of this doc was wrong on that point. The actual
+`send_chatgpt_backend_streaming_json_request` helper in
+`api/app/services/chatgpt_oauth.py:446` is wired specifically for the
+structured-JSON streaming case. So this is a smaller gap than first
+written.
+
+| Anthropic now | ChatGPT-via-OAuth (corrected) |
 |---|---|
-| Native structured outputs (`output_config.format.json_schema`) — schema-enum binding catches hallucinated tool names BEFORE they reach our code | OAuth path does not have equivalent native enforcement; we'd parse plain text and risk Claude-style hallucinations slipping through |
-| Cached system prompt (~23KB) at ephemeral cache for cost reduction | Browser-OAuth path has no equivalent cache control |
-| `tools=` parameter for agent_tools (bash, code_exec, web_fetch) Anthropic-side dispatch | ChatGPT browser path has no tool-use parameter — agent_tools would need to be parsed out of plain-text decisions |
-| Stable model identifier (`claude-opus-4-7`) under our control | Subscription-side model can change without us being notified |
-| `not`/`enum` keyword constraints in JSON schema | Plain-text parsing fallback only |
+| Native structured outputs via `output_config.format.json_schema` | Equivalent via `send_chatgpt_backend_streaming_json_request` — GPT-5.x supports JSON schemas |
+| Cached system prompt at ephemeral cache for cost reduction | Subscription is a flat fee, so per-call caching is less critical |
+| `tools=` parameter for agent_tools (bash, code_exec, web_fetch) at the Anthropic API surface | OpenAI's "tool calling" surface is equivalent BUT the existing backend wrapper doesn't yet expose it — would need wrapper extension |
+| Stable model identifier (`claude-opus-4-7`) under our control | Subscription model can change but it's the model the operator already chose |
+| `not`/`enum` JSON schema keywords | OpenAI accepts `enum`; `not` support varies by API version (same caveat as Anthropic per our ced6030 regression) |
 
 ## What you'd gain
 

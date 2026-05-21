@@ -1,0 +1,109 @@
+{
+  "id": "backlog-438-ui-v2-static-phrase-catalog-fuller-i18n",
+  "task_file": "codex/tasks/backlog-438-ui-v2-static-phrase-catalog-fuller-i18n.json",
+  "task_type": "ui",
+  "title": "React ui-v2 fuller static phrase translation coverage",
+  "goal": "Extend ui-v2 beyond the core shell translation from backlog-435 by adding deterministic static translations for the remaining high-visibility screen copy, without adding any runtime external translation service.",
+  "scope": "(1) Add a static repo-backed phrase catalog for existing visible English UI copy that has not yet been converted to keyed i18n. (2) Apply the catalog deterministically from the existing i18n provider so Dashboard, Problems, History, Evidence Replay, Surface Map, Packs, Research, CVE Library, Findings, Reports, Intake, Autopilot, and Mission Control entry text switch with the selected locale. (3) Keep product names, protocol names, security acronyms, CVE identifiers, tool names, user data, findings, report bodies, runner output, and API-provided content unmodified unless explicitly represented as static UI chrome. (4) Add tests proving deeper screen copy switches in Dutch, German, and French.",
+  "status": "queued",
+  "generated_by": "operator-request-2026-05-21-fuller-ui-v2-i18n",
+  "generation_reason": "Operator asked whether the rest was translated and agreed to continue with the proposed static build-lane translation approach instead of adding Google Translate at runtime.",
+  "source_context": {
+    "queue_index": 388,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_v2_product_readiness",
+    "key_files": [
+      "ui-v2/src/i18n/",
+      "ui-v2/src/components/",
+      "ui-v2/src/components/screens/",
+      "ui-v2/tests/i18n.spec.ts"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "This package must be the single active task in NEXT_TASK.md before completion can be claimed.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "UI static translation coverage only. Do not change backend behavior, assessment logic, runner behavior, prompts, findings schema, report generation, or security decisions.",
+    "no_runtime_translation_service": "Do not call Google Translate, DeepL, browser translation, LLMs, or any external translation API from the running product.",
+    "static_phrase_catalog_only": "Translations must be stored in repo source and applied deterministically.",
+    "customer_data_boundary": "Do not translate API-provided customer data, finding text, runner output, report body content, target names, credentials, or evidence artifacts in this task."
+  },
+  "success_criteria": [
+    "Metric: selected locale changes deeper screen chrome beyond shell/Settings/Mission Control, including at least Dashboard, Problems, History, Evidence Replay, Surface Map, Research/Packs/CVE, Findings/Reports, Intake, and Autopilot static labels.",
+    "Metric: no runtime external translation API is introduced.",
+    "Metric: existing keyed locale parity still passes for en/nl/de/fr.",
+    "Browser: Playwright assertions cover deeper screen copy in Dutch, German, and French on desktop and mobile.",
+    "Build: ui-v2 production build passes.",
+    "Lint/typecheck: ui-v2 lint/typecheck pass."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/i18n/index.tsx",
+    "ui-v2/src/i18n/phraseCatalog.ts",
+    "ui-v2/tests/i18n.spec.ts",
+    "codex/results/backlog-438-ui-v2-static-phrase-catalog-*.md",
+    "TASK_QUEUE.md",
+    "NEXT_TASK.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/assessment_loop.py",
+    "_AI_PICKER_SYSTEM_PROMPT",
+    "workers/runners/",
+    "workers/orchestration/",
+    "api/app/models/control.py finding schema",
+    "report/PDF generation behavior",
+    "Capability pack registry / validation / approval / runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run lint",
+      "cd ui-v2 && npm run test -- --run i18n",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Live/browser: language selector still switches to Nederlands, Deutsch, and Francais without full-page errors.",
+      "Live/browser: selected language survives reload and route changes.",
+      "Live/browser: assertions prove static chrome translation on deeper routes beyond Settings and Mission Control.",
+      "Documentation/result file records the explicit boundary: API-provided data, evidence, findings, report bodies, tool names, CVE IDs, and acronyms are intentionally not machine-translated."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "ANTI_DRIFT.md and SESSION_PROMPT.md must be loaded."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with build/lint/test results and browser proof summary.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next queued package into NEXT_TASK.md or leave an operator-directed note in NEXT_TASK.md if this is the last queued task."
+    ]
+  },
+  "out_of_scope": [
+    "Backend API localization",
+    "Report/PDF body localization",
+    "Runtime AI prompt translation",
+    "Machine translation at runtime",
+    "Calling Google Translate, DeepL, LLMs, or browser translation services from the product",
+    "Changing assessment, runner, approval, scope, or evidence behavior",
+    "Full legal localization review"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

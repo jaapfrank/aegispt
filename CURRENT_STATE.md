@@ -1,5 +1,13 @@
 # Current State
 
+## Latest Continuation — backlog-438 broader ui-v2 static phrase translation coverage (2026-05-21)
+
+Operator asked to continue after backlog-435 and avoid runtime Google Translate. Added backlog-438 as the active UI follow-up and implemented a deterministic static phrase catalog in `ui-v2/src/i18n/phraseCatalog.ts`, applied from the existing i18n provider. The catalog broadens translation coverage beyond shell/Settings/Mission Control into high-visibility screen chrome for Dashboard, Problems, History, Evidence Replay, Surface Map, Packs, Research, CVE Library, Findings, Reports, Intake, and Autopilot labels.
+
+No runtime translation service was added. API-provided customer data, finding details, report bodies, runner output, target names, CVE IDs, tool names, protocol names, and evidence artifacts remain intentionally untranslated unless they are static UI chrome. Evidence is recorded in `codex/results/backlog-438-ui-v2-static-phrase-catalog-20260521.md`. Validation passed with `python3 scripts/validate_backlog_tasks.py`, `cd ui-v2 && npm run lint`, `cd ui-v2 && npm run build`, `cd ui-v2 && npm run test -- --run i18n`, and scoped `git diff --check`. The existing non-blocking Vite/PostCSS `@import` ordering warning remains.
+
+During this work I found two operator-added queue entries (#386/#387) for ChatGPT-OAuth picker provider/A-B comparison that referenced missing task packages. I backfilled `codex/tasks/backlog-436-picker-chatgpt-oauth-provider.json` and `codex/tasks/backlog-437-picker-ab-claude-vs-chatgpt-oauth.json` to restore one-to-one backlog validation, without implementing those picker tasks.
+
 ## Latest Continuation — backlog-435 ui-v2 internationalization implemented (2026-05-21)
 
 Operator promoted backlog-435 for implementation. `ui-v2` now has static repo-backed i18n resources for `en`, `nl`, `de`, and `fr`, a top-bar language selector persisted in `localStorage`, English fallback behavior, translated core shell/navigation, Intake entrypoint, Settings entrypoints, command palette shell copy, and Mission Control entrypoints. The old dead `MissionControl.tsx` wrapper was reduced to a compact shell around `MissionControlV3`, which removed pre-existing TypeScript/lint failures from unused legacy UI code while preserving the V3 operator surface.

@@ -1,0 +1,98 @@
+{
+  "id": "backlog-436-picker-chatgpt-oauth-provider",
+  "task_file": "codex/tasks/backlog-436-picker-chatgpt-oauth-provider.json",
+  "task_type": "backend",
+  "title": "Wire ChatGPT-OAuth as a picker provider",
+  "goal": "Extend the picker provider path so a run configured for the existing ChatGPT OAuth backend can request structured picker decisions through the already-governed OAuth streaming JSON helper instead of silently skipping non-Anthropic providers.",
+  "scope": "Add a provider branch in the picker decision path that routes ChatGPT-OAuth configured runs through the existing `send_chatgpt_backend_streaming_json_request` helper with the same picker schema and safety prompt boundaries. Preserve Anthropic behavior and keep all approval, scope, runtime binding, and safety gates unchanged.",
+  "status": "queued",
+  "generated_by": "operator-request-2026-05-21-picker-chatgpt-oauth",
+  "generation_reason": "Operator added TASK_QUEUE.md item #386 for ChatGPT-OAuth picker provider work during the UI i18n follow-up. This package backfills the missing repo-backed task file required by backlog validation.",
+  "source_context": {
+    "queue_index": 386,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "picker_provider_ablation",
+    "key_files": [
+      "api/app/services/assessment_loop.py",
+      "api/app/services/chatgpt_oauth.py",
+      "docs/design/picker-on-chatgpt-tradeoff.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Picker provider routing only. Do not change runner behavior, approval gates, scope gates, finding schema, or prompt foundations beyond the minimal provider branch required."
+  },
+  "success_criteria": [
+    "Metric: ChatGPT-OAuth configured picker calls no longer return None solely because the provider is non-Anthropic.",
+    "Metric: Anthropic picker behavior remains unchanged.",
+    "Metric: structured picker JSON is parsed through the existing ChatGPT OAuth helper path.",
+    "Tests cover Claude path preservation and ChatGPT-OAuth picker branch behavior.",
+    "No approval, scope, runner, capability pack, or finding schema behavior changes."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "api/app/services/chatgpt_oauth.py",
+    "api/tests/",
+    "docs/validation/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "NEXT_TASK.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "workers/orchestration/",
+    "api/app/models/control.py finding schema",
+    "Capability pack registry / validation / approval / runtime binding flows",
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/assessment_loop.py api/app/services/chatgpt_oauth.py",
+      ".venv/bin/pytest <focused picker/chatgpt oauth tests>",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A fixture or mocked provider test proves the ChatGPT-OAuth branch is called for a ChatGPT-OAuth configured picker run.",
+      "A regression test proves Anthropic picker calls still use the existing path.",
+      "Documentation records that this only enables the picker provider path; it does not prove ChatGPT makes better choices."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "ANTI_DRIFT.md and SESSION_PROMPT.md must be loaded."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with validation results and provider-path evidence.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next queued package into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "A/B benchmark comparison",
+    "Changing picker schema semantics",
+    "Changing runner execution behavior",
+    "Changing approval or scope gates",
+    "Claiming ChatGPT-OAuth is better without the follow-up A/B harness"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

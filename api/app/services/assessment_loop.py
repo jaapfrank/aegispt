@@ -624,7 +624,7 @@ def _exec_plan_step_schema() -> dict[str, Any]:
     """
     return {
         "type": "object",
-        "additionalProperties": True,
+        "additionalProperties": False,
         "required": ["name", "url"],
         "properties": {
             "name": {"type": "string"},
@@ -633,15 +633,21 @@ def _exec_plan_step_schema() -> dict[str, Any]:
                 "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
             },
             "url": {"type": "string"},
-            "headers": {"type": "object", "additionalProperties": True},
-            "params": {"type": "object", "additionalProperties": True},
+            # Nested objects use empty-schema additionalProperties so Anthropic
+            # accepts arbitrary keys (which is what these fields need: header
+            # names, param names, cookie names, capture var names, expect
+            # clause names are all open-ended). additionalProperties=False
+            # would force these to be empty objects which breaks the runner;
+            # additionalProperties=true is rejected by Anthropic validator.
+            "headers": {"type": "object", "additionalProperties": {}},
+            "params": {"type": "object", "additionalProperties": {}},
             "data": {},  # may be string or object — runner accepts both
             "json": {},
-            "cookies": {"type": "object", "additionalProperties": True},
+            "cookies": {"type": "object", "additionalProperties": {}},
             "cookies_from": {"type": "string"},
-            "expect": {"type": "object", "additionalProperties": True},
-            "capture": {"type": "object", "additionalProperties": True},
-            "on_success": {"type": "object", "additionalProperties": True},
+            "expect": {"type": "object", "additionalProperties": {}},
+            "capture": {"type": "object", "additionalProperties": {}},
+            "on_success": {"type": "object", "additionalProperties": {}},
         },
     }
 

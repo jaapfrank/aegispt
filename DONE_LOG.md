@@ -1,5 +1,40 @@
 # Done Log
 
+- 2026-05-21: backlog-438 (queue #388 — React ui-v2 fuller static phrase translation coverage) **DONE**. NEXT_TASK promoted to backlog-436 (queue #386 — ChatGPT-OAuth picker provider) because #386/#387 were already operator-added queue items ahead of #388.
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Mijn code is INVOKED in production path: `I18nProvider` in `ui-v2/src/i18n/index.tsx` now calls `applyPhraseCatalog(locale)` and observes UI mutations; `App` already wraps the whole React app in `I18nProvider`.
+    - [x] Delta-metric bewoog: browser-observable static chrome translation coverage moved from shell/Settings/Mission-Control-only to deeper routes; Playwright now verifies translated screen chrome on Dashboard, Problems, History, Research, Evidence Replay, and Packs across `nl/de/fr`.
+    - [x] Removed code I replaced: no product code replacement; additive static phrase catalog plus deterministic provider hook.
+    - [x] Geen scope creep: UI static translation only; no backend, runner, prompt, finding schema, report generation, approval, scope, credential, kill-switch, or evidence behavior changes.
+    - [x] Follow-ups gefiled voor blocked items: none for this slice; full legal localization and report/PDF body localization remain out of scope by task package.
+    - [x] Live test geslaagd: `cd ui-v2 && npm run test -- --run i18n` passed with 3 Playwright browser tests and key parity.
+  - rationale:
+    - user asked whether the rest was translated and approved continuing with a controlled static translation approach instead of runtime Google Translate
+    - runtime machine translation was deliberately avoided to prevent customer/evidence data leakage and nondeterministic safety copy
+    - during validation, two operator-added queue entries (#386/#387) referenced missing task JSON; added their repo-backed task files only so `validate_backlog_tasks.py` remains truthful
+  - files:
+    - `ui-v2/src/i18n/index.tsx`
+    - `ui-v2/src/i18n/phraseCatalog.ts`
+    - `ui-v2/tests/i18n.spec.ts`
+    - `codex/tasks/backlog-436-picker-chatgpt-oauth-provider.json`
+    - `codex/tasks/backlog-437-picker-ab-claude-vs-chatgpt-oauth.json`
+    - `codex/tasks/backlog-438-ui-v2-static-phrase-catalog-fuller-i18n.json`
+    - `codex/results/backlog-438-ui-v2-static-phrase-catalog-20260521.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed: 388 queued task packages mapped one-to-one, exactly one active task
+    - `cd ui-v2 && npm run lint` passed
+    - `cd ui-v2 && npm run build` passed, with existing non-blocking Vite/PostCSS `@import` warning
+    - `cd ui-v2 && npm run test -- --run i18n` passed: 3 Playwright tests
+    - `git diff --check` passed on scoped files
+  - remaining risks:
+    - the phrase catalog is broader but not a full professional/legal localization review
+    - dynamic API-provided content, findings, report bodies, evidence, target names, runner output, CVE IDs, and tool/protocol names are intentionally not translated
+    - future new hardcoded screen copy still needs either keyed i18n extraction or phrase-catalog entries
+
 - 2026-05-21: backlog-435 (queue #385 — React ui-v2 internationalization: Nederlands, Deutsch, Francais) **DONE**. There is no queued task after #385, so `NEXT_TASK.md` now holds an operator-selection placeholder until the next approved task is chosen.
   - rationale:
     - operator asked to execute the newly-created UI task, verify it, and commit it cleanly

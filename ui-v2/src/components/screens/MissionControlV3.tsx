@@ -2184,9 +2184,22 @@ function LiveApiLogTail({ defaultOpen = false }: { defaultOpen?: boolean }) {
     };
   }, [open]);
 
+  // "Stick to bottom" — only auto-scroll if the user is currently AT the
+  // bottom. If they've scrolled up to read older entries, leave their
+  // position alone so they can read freely while new lines land. Threshold
+  // of 32px to allow for sub-pixel rendering / wheel deltas.
+  const [stickToBottom, setStickToBottom] = useState(true);
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [lines]);
+    const el = scrollRef.current;
+    if (!el || !stickToBottom) return;
+    el.scrollTop = el.scrollHeight;
+  }, [lines, stickToBottom]);
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+    setStickToBottom(atBottom);
+  }, []);
 
   const filtered = filter.trim()
     ? lines.filter((l) => l.text.toLowerCase().includes(filter.toLowerCase()))
@@ -2236,13 +2249,15 @@ function LiveApiLogTail({ defaultOpen = false }: { defaultOpen?: boolean }) {
             close
           </button>
         </div>
-        <div
-          ref={scrollRef}
-          className="px-3 py-2 font-mono text-[0.74rem] leading-tight bg-[#0b0f13] h-[20rem] overflow-y-auto whitespace-pre-wrap break-words"
-        >
-          {!connected && lines.length === 0 && (
-            <span className="text-green-300/40">(connecting to /api/v1/system/api-log/stream …)</span>
-          )}
+        <div className="relative">
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="px-3 py-2 font-mono text-[0.74rem] leading-tight bg-[#0b0f13] h-[20rem] overflow-y-auto whitespace-pre-wrap break-words"
+          >
+            {!connected && lines.length === 0 && (
+              <span className="text-green-300/40">(connecting to /api/v1/system/api-log/stream …)</span>
+            )}
           {filtered.map((l, idx) => {
             const isErr = /\bERROR\b|Traceback|Exception|FAIL/i.test(l.text);
             const isWarn = /\bWARN(ING)?\b|Skip|REJECT/i.test(l.text);
@@ -2262,6 +2277,21 @@ function LiveApiLogTail({ defaultOpen = false }: { defaultOpen?: boolean }) {
               </div>
             );
           })}
+          </div>
+          {!stickToBottom && (
+            <button
+              type="button"
+              onClick={() => {
+                const el = scrollRef.current;
+                if (el) el.scrollTop = el.scrollHeight;
+                setStickToBottom(true);
+              }}
+              className="absolute bottom-2 right-3 px-2 py-1 rounded font-mono text-[0.65rem] bg-amber-500/20 border border-amber-400/50 text-amber-200 hover:bg-amber-500/40"
+              title="Jump to newest line and resume auto-follow"
+            >
+              ↓ new lines (resume auto-scroll)
+            </button>
+          )}
         </div>
       </div>
     </div>
