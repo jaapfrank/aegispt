@@ -1934,19 +1934,23 @@ def _tier_from_capability(item: dict[str, Any], tool: str) -> str:
 
 
 def _infer_foothold_from_findings(run: Run, current: str) -> str:
-    """Heuristic foothold-advancement based on this run's high/critical
-    findings. Returns the new foothold string (same as ``current`` if no
-    advance was earned).
+    """Foothold-advancement gated by the backlog-413 deterministic validator.
 
-    Per backlog-412 ``no_unverified_transitions``: only findings of severity
-    ≥ high count as the proxy verifier. Title patterns mapping to foothold
-    candidates are kept narrow + universal (not app-specific recipes) per
-    feedback_no_prescriptive_recipes.
+    For each high/critical finding the validator re-executes the captured
+    request chain (``replay_recipe_json``) and only when the verdict is
+    ``verified`` does the title pattern get to advance the foothold. When
+    the validator returns ``failed`` or ``inconclusive`` the finding is
+    treated as ``observed-vulnerable``/``hypothesis`` per Codex's
+    evidence-first categorization — no foothold transition.
+
+    Per `feedback_no_prescriptive_recipes`: title patterns map to foothold
+    classes but are universal (not per-app recipes).
     """
     from api.app.services.attack_state import (  # noqa: E402
         FootholdState,
         is_higher_foothold,
     )
+    from api.app.services.exploit_validator import validate_exploit  # noqa: E402
     try:
         current_state = FootholdState(current)
     except ValueError:
@@ -1968,8 +1972,30 @@ def _infer_foothold_from_findings(run: Run, current: str) -> str:
             candidate = FootholdState.ADMIN
         elif any(t in title for t in ("auth bypass", "authentication bypass", "session hijack", "credential disclosure", "stored credential")):
             candidate = FootholdState.AUTHENTICATED_USER
-        if candidate is not None and is_higher_foothold(candidate, new_state):
-            new_state = candidate
+        if candidate is None or not is_higher_foothold(candidate, new_state):
+            continue
+        # backlog-413: deterministic validator re-runs the recipe before we
+        # promote the foothold. No replay_recipe means we cannot verify →
+        # treat as observed-vulnerable, no transition.
+        recipe = getattr(finding, "replay_recipe_json", None) or getattr(finding, "replay_recipe", None)
+        if not isinstance(recipe, dict) or not recipe.get("steps"):
+            logger.info(
+                "attack_state: candidate foothold %s skipped — finding %s has no replay recipe (observed-vulnerable, not verified)",
+                candidate.value, str(getattr(finding, "id", ""))[:8],
+            )
+            continue
+        try:
+            verdict = validate_exploit(finding, recipe)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("validator threw on finding %s: %s", getattr(finding, "id", ""), exc)
+            continue
+        if verdict.verdict != "verified":
+            logger.info(
+                "attack_state: candidate foothold %s NOT promoted — validator verdict=%s for finding %s",
+                candidate.value, verdict.verdict, str(getattr(finding, "id", ""))[:8],
+            )
+            continue
+        new_state = candidate
     return new_state.value
 
 
