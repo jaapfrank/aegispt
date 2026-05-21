@@ -1859,6 +1859,192 @@ function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
   );
 }
 
+/* =========================================================================
+   LIVE EVENTS FEED — operator-facing equivalent of `tail -f` over the API.
+   Subscribes to /api/v1/runs/{id}/events SSE (the existing snapshot stream)
+   AND finding.enriched events. Diffs successive snapshots client-side to
+   emit discrete events (task added, status changed, run terminal, foothold
+   transition, finalizer fire). Renders chronologically — newest at the
+   bottom, append-only — so the operator sees what the agent is doing in
+   the moment without staring at a single per-task panel that only updates
+   when its task changes.
+
+   This is the in-browser version of scripts/aegispt_live.py. The Python
+   script remains for headless/SSH use; this is for "I'm watching the run
+   in the UI and I want to see everything as it happens".
+   ========================================================================= */
+
+type FeedEvent = {
+  ts: number;
+  tag: string;
+  text: string;
+  cls: string; // tailwind text-* class
+};
+
+function LiveEventsFeed({ runId }: { runId: string }) {
+  const [events, setEvents] = useState<FeedEvent[]>([]);
+  const prevSnapshotRef = useRef<{
+    status?: string;
+    tasks: Map<string, { status: string; tool: string; target: string }>;
+    foothold?: string;
+    iterationCount?: number;
+  } | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!runId) return undefined;
+    setEvents([]);
+    prevSnapshotRef.current = null;
+    const url = `/api/v1/runs/${runId}/events`;
+    const es = new EventSource(url);
+    let live = true;
+
+    const append = (tag: string, text: string, cls: string) => {
+      if (!live) return;
+      setEvents((prev) => {
+        const next = [...prev, { ts: Date.now(), tag, text, cls }];
+        return next.length > 200 ? next.slice(next.length - 200) : next;
+      });
+    };
+
+    const onSnapshot = (e: MessageEvent, isInitial: boolean) => {
+      try {
+        const snap = JSON.parse(e.data);
+        // Build current state for diffing
+        const taskMap = new Map<string, { status: string; tool: string; target: string }>();
+        for (const t of snap.tasks ?? []) {
+          taskMap.set(String(t.id), {
+            status: String(t.status ?? '?'),
+            tool: String(t.tool ?? '?'),
+            target: String(t.target_id ?? '?'),
+          });
+        }
+        const cfg = (snap.configuration_json ?? {}) as Record<string, unknown>;
+        const loop = (cfg?.ai_assessment_loop ?? {}) as Record<string, unknown>;
+        const foothold = String(loop?.foothold_state ?? '');
+        const iterCount = Number(loop?.iteration_count ?? 0);
+        const runStatus = String(snap.status ?? '?');
+
+        if (isInitial) {
+          append('CONNECTED', `tracking run ${String(snap.run_id).slice(0, 8)} (${taskMap.size} tasks, status=${runStatus})`, 'text-cyan-400');
+          prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount };
+          return;
+        }
+        const prev = prevSnapshotRef.current;
+        if (!prev) {
+          prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount };
+          return;
+        }
+
+        // Diff: tasks added or status-changed
+        for (const [tid, t] of taskMap.entries()) {
+          const prior = prev.tasks.get(tid);
+          if (!prior) {
+            append('TASK+', `${t.tool} -> ${t.target} (${t.status})`, 'text-blue-300');
+          } else if (prior.status !== t.status) {
+            const isFail = t.status === 'failed';
+            const isSkip = t.status === 'skipped';
+            const isOk = t.status === 'completed';
+            const cls = isFail ? 'text-red-400'
+              : isSkip ? 'text-amber-300'
+              : isOk ? 'text-green-400'
+              : 'text-green-200';
+            append(t.status.toUpperCase(), `${t.tool} -> ${t.target}`, cls);
+          }
+        }
+        // Diff: foothold transition
+        if (foothold && foothold !== prev.foothold) {
+          append('FOOTHOLD', `${prev.foothold || 'anonymous'} → ${foothold}`, 'text-fuchsia-300 font-semibold');
+        }
+        // Diff: iteration count went up
+        if (iterCount > (prev.iterationCount ?? 0)) {
+          append('ITER', `picker iter ${prev.iterationCount ?? 0} → ${iterCount}`, 'text-cyan-300');
+        }
+        // Diff: run status change
+        if (runStatus !== prev.status) {
+          const terminal = ['completed', 'completed_with_errors', 'failed', 'cancelled', 'rejected'].includes(runStatus);
+          append('RUN', `status ${prev.status} → ${runStatus}`,
+            terminal ? 'text-amber-300 font-semibold' : 'text-cyan-400');
+        }
+
+        prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount };
+      } catch {
+        // ignore malformed
+      }
+    };
+
+    es.addEventListener('run.snapshot', (e) => onSnapshot(e as MessageEvent, true));
+    es.addEventListener('run.update', (e) => onSnapshot(e as MessageEvent, false));
+    es.addEventListener('finding.enriched', (e) => {
+      try {
+        const d = JSON.parse((e as MessageEvent).data);
+        const sev = String(d.severity || '?').toLowerCase();
+        const cls = sev === 'critical' ? 'text-red-400 font-semibold'
+          : sev === 'high' ? 'text-orange-300 font-semibold'
+          : sev === 'medium' ? 'text-amber-300'
+          : 'text-green-200';
+        append('FINDING', `[${sev}] ${d.finding_title || '?'}`, cls);
+      } catch {
+        // ignore
+      }
+    });
+    es.addEventListener('run.missing', () => {
+      append('LOST', 'run no longer queryable', 'text-red-400');
+    });
+    es.onerror = () => append('RECONNECTING', '(SSE error — browser will retry automatically)', 'text-amber-300');
+
+    return () => {
+      live = false;
+      es.close();
+    };
+  }, [runId]);
+
+  // Auto-scroll to bottom on new events
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [events]);
+
+  return (
+    <div className="rounded border border-line-soft overflow-hidden bg-[#0b0f13]">
+      <div className="px-3 py-1.5 bg-[#1a1f26] border-b border-line-soft flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-red-500/70" />
+          <span className="h-2 w-2 rounded-full bg-yellow-500/70" />
+          <span className="h-2 w-2 rounded-full bg-green-500/70" />
+        </div>
+        <span className="h-1.5 w-1.5 rounded-full ml-2 bg-green-400 animate-pulse" />
+        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-green-300">aegispt — live events</span>
+        <span className="font-mono text-[0.6rem] text-green-300/50 italic">
+          (diffed SSE feed — picker / task / foothold / finding events as they arrive)
+        </span>
+        <span className="ml-auto font-mono text-[0.6rem] text-green-300/60 tabular-nums">{events.length} events</span>
+      </div>
+      <div
+        ref={scrollRef}
+        className="px-3 py-2 font-mono text-[0.78rem] leading-snug bg-[#0b0f13] max-h-[24rem] min-h-[10rem] overflow-y-auto whitespace-pre-wrap break-all"
+      >
+        {events.length === 0 && (
+          <span className="text-green-300/40">(connecting to /runs/{runId.slice(0, 8)}/events …)</span>
+        )}
+        {events.map((ev, idx) => {
+          const time = new Date(ev.ts).toLocaleTimeString('en-GB', { hour12: false }) + '.'
+            + String(ev.ts % 1000).padStart(3, '0');
+          return (
+            <div key={`${ev.ts}-${idx}`} className="grid grid-cols-[7rem_5.5rem_1fr] gap-2">
+              <span className="text-green-300/40">{time}</span>
+              <span className={cn('font-semibold', ev.cls)}>{ev.tag}</span>
+              <span className={ev.cls}>{colorizeLine(ev.text, false)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 function TechnicalView({
   run,
   findings,
@@ -1888,6 +2074,11 @@ function TechnicalView({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-4 px-6 pt-4">
         <RiskTrajectoryChart findings={findings} />
         <ToolChainHeartbeat tasks={tasks} />
+      </div>
+      {/* Row 1.5: Continuous event feed — picker decisions, task transitions,
+                   foothold, findings — appended as they happen */}
+      <div className="px-6 pt-4">
+        <LiveEventsFeed runId={String(run.id)} />
       </div>
       {/* Row 2: Live task drill-down (real command + stdout from API, picker-selectable) */}
       <div className="px-6 pt-4">
