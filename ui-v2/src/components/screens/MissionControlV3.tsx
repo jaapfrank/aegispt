@@ -1548,9 +1548,11 @@ const URL_RE = /(https?:\/\/[^\s"'<>]+)/g;
 const IP_PORT_RE = /\b(?:\d{1,3}\.){3}\d{1,3}(?::\d{1,5})?\b/g;
 const HTTP_CODE_RE = /\b(1\d{2}|2\d{2}|3\d{2}|4\d{2}|5\d{2})\b(?=\s|"|$|\]|,)/g;
 const EXIT_CODE_RE = /\bexit[ _]?code?\s*[:=]?\s*(-?\d+)/gi;
-const ERROR_KW_RE = /\b(ERROR|FAIL(?:ED)?|TRACEBACK|EXCEPTION|DENIED|REFUSED|NOT CONFIGURED|TIMED? ?OUT|UNAUTHORIZED|FORBIDDEN)\b/g;
-const WARN_KW_RE = /\b(WARN(?:ING)?|DEPRECAT|SKIP(?:PED|PING)?|RETRY)\b/g;
-const SUCCESS_KW_RE = /\b(OK|SUCCESS|COMPLETED|CONFIRMED|FOUND)\b/g;
+// All case-INSENSITIVE per operator 2026-05-21: actual stderr is lowercase
+// ("Error: timed out", "not reachable") so /g alone missed everything.
+const ERROR_KW_RE = /\b(ERROR|FAIL(?:ED|URE)?|TRACEBACK|EXCEPTION|DENIED|REFUSED|NOT CONFIGURED|NOT REACHABLE|UNREACHABLE|COULD NOT|TIMED? ?OUT|UNAUTHORIZED|FORBIDDEN|CRASH(?:ED)?)\b/gi;
+const WARN_KW_RE = /\b(WARN(?:ING)?|DEPRECAT(?:ED)?|SKIP(?:PED|PING)?|RETRY(?:ING)?|REJECTED?)\b/gi;
+const SUCCESS_KW_RE = /\b(OK|SUCCESS|COMPLETED|CONFIRMED|FOUND|MATCHED)\b/gi;
 const PATH_RE = /(?:^|[\s"'(])(\/[A-Za-z0-9_\-./?=&%]+)/g;
 
 function colorizeLine(text: string, isErrStream: boolean): React.ReactNode {
@@ -1783,7 +1785,13 @@ function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
           <span className="h-2 w-2 rounded-full bg-green-500/70" />
         </div>
         <span className={cn('h-1.5 w-1.5 rounded-full ml-2', dotClass)} />
-        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-green-300">aegispt — live task</span>
+        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-green-300">aegispt — task output</span>
+        <span
+          className="font-mono text-[0.6rem] text-green-300/50 italic"
+          title="For a true streaming terminal session run: scripts/aegispt_live.py"
+        >
+          (web mirror — real CLI: scripts/aegispt_live.py)
+        </span>
         <select
           className="font-mono text-[0.7rem] bg-[#0b0f13] text-green-300 border border-green-700/40 rounded px-1 py-0.5 max-w-[18rem] truncate"
           value={selectedId ?? ''}
@@ -1833,7 +1841,7 @@ function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
           const isErr = l.stream === 'stderr' || l.stream === 'error';
           const isMeta = l.stream === 'meta';
           const baseCls = isErr
-            ? 'text-red-300'
+            ? 'text-red-400'
             : isMeta
               ? 'text-green-300/50 italic'
               : 'text-green-200';
