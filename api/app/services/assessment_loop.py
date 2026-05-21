@@ -1240,6 +1240,14 @@ def _claude_select_next_action(
         # results are larger and Claude may use multiple per decision.
         for _hop in range(12):
             _set_thinking_state("thinking", _hop, "Calling Claude for next action")
+            # backlog-411: curate the message list against the cache budget
+            # before every Anthropic call. At 60%/80% triggers older turns
+            # get summarized and large raw stdouts get shrunk into one-line
+            # envelopes; finding + captured_value carriers always survive.
+            # The @traced decorator on curate_for_picker emits one OTEL span
+            # per call with before/after token counts.
+            from api.app.services.context_curation import curate_for_picker  # noqa: E402
+            messages, _curation_event = curate_for_picker(messages, max_tokens=120_000)
             msg = client.messages.create(
                 model="claude-opus-4-7",
                 max_tokens=PICKER_MAX_TOKENS,
