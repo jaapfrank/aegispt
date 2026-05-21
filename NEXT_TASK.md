@@ -6,35 +6,47 @@
 
 ## Title
 
-Release gate + cross-system capability comparison (XBOW / PentestGPT / PentAGI / OWASP Nettacker) — **Sprint mythos-exploitation-foundation, task 13 of 15**
+Picker becomes real agent — Bash / file / web_search / web_fetch / code_exec / subagent tools (Claude-Code-equivalent) — **Sprint mythos-exploitation-foundation, task 14 of 15**
 
 ## Goal
 
-Per Codex Layer 5 + 'zonder metriek geen beter'. Formal release-gate die AegisPT (post-foundation sprint) evalueert tegen XBOW score, PentestGPT capabilities (publieke benchmarks), PentAGI features (backlog-418 report), OWASP Nettacker scanner coverage. Deliverable: gate-decision report + GO/NO-GO voor parity sprint.
+Close de "AegisPT picker IS Mythos" capability gap. Currently picker heeft tool-pick-from-list affordances. Give the picker dezelfde agentic toolset die Claude in interactive sessies heeft: Bash exec (sandboxed via backlog-409 sandbox_runner), file r/w (scope-bounded via backlog-409 GovernanceControlPlane), web_search + web_fetch (read-only), code execution (Python sandbox), subagent spawn (via backlog-415 MetaCoordinator).
+
+Per user: "R&D budget van Mythos heb jij al in je — jij bent Mythos. Same model, different scaffolding."
 
 ## Sprint context
 
-Task 13 van 15. Alle foundation modules zijn nu in production (407-417). De 25-challenge XBOW batch is geland — empirische score in. Tijd om dit formeel als release gate te toetsen.
+Task 14 van 15. Release gate (backlog-419) DONE met empirisch 0/25 baseline; foundation infrastructure is in maar de picker zelf heeft nog steeds beperkte agentic affordances. Deze task geeft de picker de Claude-Code-equivalente toolset zodat de model-capacity die hij heeft echt benut wordt.
 
 ## Delta-doelstelling
 
-> Deze task levert `docs/validation/release-gate-mythos-exploitation-foundation.md` met: actuele XBOW score, exec_plan_successful avg, chain_findings avg, verified-exploited count, vergelijking tegen XBOW 84.6% target, PentestGPT/PentAGI/Nettacker feature-coverage tabel, en een expliciete GO / NO-GO beslissing met named gap-items.
+> Deze task levert `api/app/agents/agent_tools/` met 6 nieuwe tool-use schemas die de picker via de Anthropic Messages API kan aanroepen: BashTool, FileReadTool, FileWriteTool, WebSearchTool, WebFetchTool (uitgebreid t.o.v. bestaande http_fetch), CodeExecTool (Python sandbox), SubagentSpawnTool (delegeert naar MetaCoordinator). Elke tool routes door `GovernanceControlPlane.authorize_*` (Layer 0) + `sandbox_runner` (waar applicable) + emit OTEL spans. Delta-metric: ≥3 XBOW challenges solved via agentic tools (Bash/web/code) — measured by post-417-prompt-population re-baseline.
 
 ## Scope
 
-(1) Lees `/tmp/xbow-baseline-final/xbow-2026-05-21-baseline.{md,json}` (geland van de in-flight batch).
-(2) Bereken metrics: solved/N, exec_plan ok/total avg, tools/run avg, findings/run avg, verified-exploited (validator verdict) count.
-(3) Compare tegen public benchmarks (XBOW 84.6% on cleaned challenges; PentestGPT ~26-40% on various; Shannon Lite 96.15% on cleaned XBOW).
-(4) Compare AegisPT module coverage tegen PentAGI specialist set (per backlog-418 report) + Nettacker scanner modules.
-(5) Write report met GO/NO-GO + gap-items.
+(1) `api/app/agents/agent_tools/`:
+- `__init__.py` exports tool registry
+- `bash.py`: `BashTool` — wraps `sandbox_runner.run_step_in_sandbox` with a curl-style image; passes through Layer 0 `authorize_external_network` for any network egress.
+- `file_io.py`: `FileReadTool` + `FileWriteTool` — scope-bounded under `AEGISPT_MEMORY_ROOT` (matches benchmark-isolation rule from backlog-408).
+- `web.py`: `WebSearchTool` (delegates to backlog-416 external_knowledge lookups) + `WebFetchTool` (uses existing http_fetch_backend, extends to JS-rendered pages via playwright_web).
+- `code_exec.py`: `CodeExecTool` — Python sandbox via `sandbox_runner` with `python:3.12-slim` image, network=none, 60s timeout.
+- `subagent.py`: `SubagentSpawnTool` — wraps `MetaCoordinator.delegate(specialist, ...)`.
+- Anthropic tool-use schemas exported as `ALL_TOOL_SCHEMAS` list.
 
-NO code changes — investigation + report only.
+(2) Wire-in `_claude_select_next_action`: pass `ALL_TOOL_SCHEMAS` in `tools=` to the Messages API. Per Layer 0: every tool invocation MUST call `control_plane.authorize_dispatch` (already done for runner dispatch; extend to these agent tools).
+
+(3) Tests `api/tests/test_agent_tools.py`: tool-schema shape validation, Layer 0 enforcement on each tool (deny outside scope), sandbox isolation for Bash/CodeExec.
+
+(4) Picker prompt section explaining the new tools.
 
 ## Constraints (per ANTI_DRIFT.md)
 
-- Per Rule 1: this IS the user-value metric ritual. Verdict moet expliciet GO of NO-GO zeggen, niet "we made progress".
-- Per Rule 4: numbers come from the live `/tmp/xbow-baseline-final/` report, not retrofitted estimates.
+- Per Rule 1: capability task. Delta-metric = ≥3 XBOW challenges solved via agentic tools (with PoC artifacts) after this lands + 415-slice-2 + 414-wire-in.
+- Per Rule 2: tools called from picker hot path in same commit.
+- Per Rule 4: live verification via XBOW re-baseline — ≥1 XBEN run uses Bash/web_fetch tool live + reaches a verified-exploited finding.
+- Per `no_runtime_self_modification`: SubagentSpawnTool delegates to existing MetaCoordinator; no new agent-self-rewrite path.
+- Per `feedback_no_prescriptive_recipes`: tools are general-purpose primitives, no per-app exploit logic seeded in the tool wrapper.
 
 ## Source Package
 
-`codex/tasks/backlog-419-release-gate-cross-system-compare.json`
+`codex/tasks/backlog-422-picker-as-real-agent-claude-code-equivalent.json`

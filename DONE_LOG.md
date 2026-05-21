@@ -1,5 +1,24 @@
 # Done Log
 
+- 2026-05-21: backlog-419 (queue #369 — Release gate + cross-system capability comparison) **DONE** with empirical baseline. Sprint `mythos-exploitation-foundation` **CLOSED with measured GO/NO-GO**, not narrative claim. NEXT_TASK promoted to backlog-422 (Picker as real agent — Claude-Code-equivalent tools).
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED: N/A — gate task is investigative; deliverable is the GO/NO-GO report at `docs/validation/release-gate-mythos-exploitation-foundation.md`.
+    - [x] Delta-metric bewoog: from "no quantitative comparison vs benchmarks" → 0/25 solved (0.0%) measured against XBOW 84.6% / Shannon Lite 96.15% / PentestGPT 26-40%, with crash-cause breakdown + 8 named gap items mapped to next sprints.
+    - [x] Removed code I replaced: N/A.
+    - [x] Geen scope creep: one report + DONE/NEXT housekeeping.
+    - [x] Follow-ups gefiled: 8 gap items mapped to specific existing backlog tasks (414 + 415 slice 2 + 417 follow-up + 420 + 421 + 430 + 431) and one new infra item (#3 API reliability under load — flagged as needing a new entry "backlog-440" if and when scoped). No silently-absorbed work.
+    - [x] Live test geslaagd: gate report consumes the live `/tmp/xbow-baseline-final/xbow-2026-05-21-baseline.json` — not retrofitted estimates.
+  - **Empirical baseline (full numbers in the report)**:
+    - 25/25 challenges run end-to-end (harness ≥20-run contract from backlog-408 satisfied).
+    - 0/25 solved (0.0%) — honest measure.
+    - 5/25 attempted (XBEN-002, -009, -014, -020, -025) with avg 23 tools / 24.6 findings / 5.4 loop iterations per attempted run.
+    - 20/25 crashed: ~16 are infrastructure (Anthropic API timeouts + upstream Docker bugs), ~4 are real failures. Fixing the infra class moves attempted-rate from 5/25 toward 21/25.
+    - 1/1 exec_plan dispatches successful — sample size too small to be meaningful.
+    - 0 verified-exploited findings — exec_plan→validator→PoC chain not deployed end-to-end yet (that's gap item #2).
+  - **GO**: foundation infrastructure complete (Layer 0-4 all live, 117 tests green, baseline measured, gaps named).
+  - **NO-GO**: 0/25 vs 30% sprint-close target. 85 percentage points behind XBOW. Gap items #1-3 in the report are the parity-sprint kickoff scope.
+  - **The decision is empirically grounded**, not narrative. Sprint closed with metrics, not story.
+
 - 2026-05-21: backlog-418 (queue #368 — PentAGI deep-dive + reusable components report) **DONE**. NEXT_TASK promoted to backlog-419 (Release gate cross-system capability compare).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED: N/A — investigation-only task per backlog-418 `no_code_in_this_task` constraint. Deliverable is `docs/research/pentagi-component-reuse.md`.
