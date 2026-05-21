@@ -1893,6 +1893,8 @@ function LiveEventsFeed({ runId }: { runId: string }) {
     tasks: Map<string, { status: string; tool: string; target: string }>;
     foothold?: string;
     iterationCount?: number;
+    stopReason?: string | null;
+    lastPickKey?: string;
   } | null>(null);
   const announcedConnectedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -1935,10 +1937,17 @@ function LiveEventsFeed({ runId }: { runId: string }) {
             target: String(t.target_id ?? '?'),
           });
         }
-        const cfg = (snap.configuration_json ?? {}) as Record<string, unknown>;
-        const loop = (cfg?.ai_assessment_loop ?? {}) as Record<string, unknown>;
+        // Backend embeds an `assessment_loop` summary in the snapshot
+        // (added 2026-05-21). Falls back to configuration_json for runs
+        // created before that change.
+        const loop = (snap.assessment_loop
+          ?? (snap.configuration_json as Record<string, unknown> | undefined)?.ai_assessment_loop
+          ?? {}) as Record<string, unknown>;
         const foothold = String(loop?.foothold_state ?? '');
         const iterCount = Number(loop?.iteration_count ?? 0);
+        const stopReason = loop?.stop_reason ? String(loop.stop_reason) : null;
+        const lastPick = loop?.last_pick as { tool?: string; target?: string; tier?: string; iteration?: number } | undefined;
+        const lastPickKey = lastPick ? `${lastPick.iteration}|${lastPick.tool}|${lastPick.target}` : '';
         const runStatus = String(snap.status ?? '?');
         const isTerminal = TERMINAL_RUN_STATUSES.has(runStatus);
 
@@ -1953,10 +1962,7 @@ function LiveEventsFeed({ runId }: { runId: string }) {
               : `tracking run ${String(snap.run_id).slice(0, 8)} (${taskMap.size} tasks, status=${runStatus})`;
             append('CONNECTED', label, 'text-cyan-400');
           }
-          prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount };
-          // If the run is ALREADY terminal at first connect, the server will
-          // immediately close — beat it to the close, don't retry, and tell
-          // the operator the feed is parked.
+          prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount, stopReason, lastPickKey };
           if (isTerminal) {
             closeFeed(`run is ${runStatus} — no further events expected`, 'text-amber-300/70 italic');
           }
@@ -1964,7 +1970,7 @@ function LiveEventsFeed({ runId }: { runId: string }) {
         }
         const prev = prevSnapshotRef.current;
         if (!prev) {
-          prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount };
+          prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount, stopReason, lastPickKey };
           return;
         }
 
@@ -1990,12 +1996,22 @@ function LiveEventsFeed({ runId }: { runId: string }) {
         if (iterCount > (prev.iterationCount ?? 0)) {
           append('ITER', `picker iter ${prev.iterationCount ?? 0} → ${iterCount}`, 'text-cyan-300');
         }
+        // Picker's last decision changed — the picker emitted a new pick.
+        // Source-of-truth is loop_state.iterations[-1].next_action.
+        if (lastPickKey && lastPickKey !== prev.lastPickKey && lastPick) {
+          const tier = lastPick.tier ? ` [${lastPick.tier}]` : '';
+          append('PICK', `${lastPick.tool} → ${lastPick.target}${tier}`, 'text-cyan-400 font-semibold');
+        }
+        // Stop reason newly appeared — picker just said STOP.
+        if (stopReason && stopReason !== prev.stopReason) {
+          append('STOP', `picker stop_reason=${stopReason}`, 'text-amber-300 font-semibold');
+        }
         if (runStatus !== prev.status) {
           append('RUN', `status ${prev.status} → ${runStatus}`,
             isTerminal ? 'text-amber-300 font-semibold' : 'text-cyan-400');
         }
 
-        prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount };
+        prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount, stopReason, lastPickKey };
 
         // Run just went terminal — stop the EventSource so the browser doesn't
         // start its reconnect loop on the server's clean close.

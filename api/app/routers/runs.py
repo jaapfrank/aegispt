@@ -423,6 +423,37 @@ def _run_stream_snapshot(run: Run) -> dict[str, Any]:
             }
         )
 
+    # Embed a compact assessment_loop summary so the UI LiveEventsFeed can
+    # diff iteration / foothold / stop_reason transitions without having to
+    # pull the full configuration_json. Without this, the UI feed had
+    # iteration_count = 0 and foothold = '' on every snapshot because the
+    # raw configuration_json is not part of the SSE payload. Added 2026-05-21
+    # per operator request for an in-browser "tail -f" equivalent.
+    cfg = run.configuration_json or {}
+    loop_state = cfg.get("ai_assessment_loop") if isinstance(cfg, dict) else None
+    loop_summary: dict[str, Any] | None = None
+    if isinstance(loop_state, dict):
+        iterations_list = loop_state.get("iterations") if isinstance(loop_state.get("iterations"), list) else []
+        last_iter = iterations_list[-1] if iterations_list else None
+        last_pick = None
+        if isinstance(last_iter, dict):
+            action = last_iter.get("next_action")
+            if isinstance(action, dict):
+                last_pick = {
+                    "tool": str(action.get("tool") or ""),
+                    "target": str(action.get("target") or ""),
+                    "tier": str(action.get("tier") or ""),
+                    "iteration": int(last_iter.get("iteration") or 0),
+                }
+        loop_summary = {
+            "status": loop_state.get("status"),
+            "iteration_count": int(loop_state.get("iteration_count") or 0),
+            "foothold_state": str(loop_state.get("foothold_state") or ""),
+            "stop_reason": loop_state.get("stop_reason"),
+            "no_new_signal_iterations": int(loop_state.get("no_new_signal_iterations") or 0),
+            "last_pick": last_pick,
+        }
+
     return {
         "run_id": str(run.id),
         "engagement_id": str(run.engagement_id),
@@ -434,10 +465,23 @@ def _run_stream_snapshot(run: Run) -> dict[str, Any]:
         "task_counts": task_counts,
         "tasks": task_payloads,
         "assessment_chain": build_assessment_chain_summary(run.assessment_chain),
+        "assessment_loop": loop_summary,
     }
 
 
 def _run_stream_fingerprint(snapshot: dict[str, Any]) -> str:
+    # Include the loop summary so the SSE generator emits a new event when
+    # iteration_count / foothold_state / stop_reason / last_pick change —
+    # even if no task added/changed (e.g. picker emitted STOP without
+    # dispatching a new task). Without these fields the LiveEventsFeed
+    # never sees ITER / FOOTHOLD / picker-decision transitions.
+    loop = snapshot.get("assessment_loop") or {}
+    loop_fp = {
+        "iter": loop.get("iteration_count"),
+        "foothold": loop.get("foothold_state"),
+        "stop_reason": loop.get("stop_reason"),
+        "last_pick": loop.get("last_pick"),
+    } if isinstance(loop, dict) else None
     return json.dumps(
         {
             "status": snapshot.get("status"),
@@ -451,6 +495,7 @@ def _run_stream_fingerprint(snapshot: dict[str, Any]) -> str:
                 for task in snapshot.get("tasks", [])
                 if isinstance(task, dict)
             ],
+            "loop": loop_fp,
         },
         sort_keys=True,
     )
