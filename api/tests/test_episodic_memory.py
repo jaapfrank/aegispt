@@ -209,12 +209,22 @@ def test_benchmark_write_isolated_from_production_recall(db_session) -> None:
     assert ep.is_benchmark is True
 
     # Default recall (production) must NOT return this episode.
-    prod_hits = recall_similar(db_session, query="benchmark_attempt synthetic", k=10)
+    prod_hits = recall_similar(
+        db_session,
+        query="benchmark_attempt synthetic",
+        k=10,
+        filter_run_id=run_id,  # scope to this run so other batch noise doesn't mask the assertion
+    )
     assert all(h.id != ep.id for h in prod_hits)
 
-    # Opt-in recall returns it.
+    # Opt-in recall returns it (still scoped to this run so a polluted DB
+    # of prior benchmark episodes doesn't push our episode past k).
     bench_hits = recall_similar(
-        db_session, query="benchmark_attempt synthetic", k=10, include_benchmark=True,
+        db_session,
+        query="benchmark_attempt synthetic",
+        k=10,
+        include_benchmark=True,
+        filter_run_id=run_id,
     )
     assert any(h.id == ep.id for h in bench_hits)
 

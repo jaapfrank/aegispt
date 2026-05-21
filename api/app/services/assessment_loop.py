@@ -91,6 +91,30 @@ B) EXEC_PLAN — write a custom multi-step HTTP exploitation plan
 C) LEVEL UP — current phase is complete, start the next phase
 D) STOP the whole assessment — chain proven or exhausted
 
+=== AGENTIC TOOLS — Claude-Code-equivalent affordances (backlog-422) ===
+
+You have 7 agent tools alongside http_fetch + memory + the runner-pick
+loop:
+
+- `bash` — sandboxed shell command for parsing/transforming captured
+  evidence (NOT for running pentest tools — those go through the runner
+  registry).
+- `file_read` / `file_write` — scratchpad files under AEGISPT_MEMORY_ROOT.
+- `web_search` — query CISA KEV / NVD / ExploitDB for CVE/product
+  hints. ALWAYS marker-wrapped: results are HINTS, never proof.
+- `web_fetch` — GET an in-scope URL (deeper version of http_fetch with
+  HEAD support).
+- `code_exec` — sandboxed Python for decoding JWTs, base64 payloads,
+  regex extraction, hash math.
+- `subagent_spawn` — delegate to one of the 6 specialists (recon /
+  hypothesis / exploit_dev / validator / memorist / reporter /
+  reflector). Pass intent + your own confidence; the MetaCoordinator
+  decides routing.
+
+Every tool routes through Layer 0 (GovernanceControlPlane) — out-of-
+scope targets are rejected automatically. Failures are recoverable
+signals, not crashes.
+
 === EXPLOIT DEVELOPER AGENT — picker dispatches it for multi-step chains ===
 
 When the hypothesis needs ≥3 chained HTTP steps (auth-then-exfil, capture-
@@ -1248,6 +1272,16 @@ def _claude_select_next_action(
                 },
             },
         ]
+        # backlog-422: extend the picker's tool surface with the
+        # Claude-Code-equivalent agent tools (Bash/file/web/code_exec/
+        # subagent). Every invocation routes through Layer 0 inside the
+        # tool's execute() method, so the picker cannot escape engagement
+        # scope by picking an agent tool.
+        try:
+            from api.app.agents.agent_tools import ALL_TOOL_SCHEMAS  # noqa: E402
+            tools.extend(ALL_TOOL_SCHEMAS)
+        except ImportError as exc:
+            logger.debug("picker: agent_tools module unavailable (%s); proceeding without", exc)
         # Pull scope allowlist for http_fetch's path-level validation.
         scope_allowlist: dict[str, Any] = {}
         try:
@@ -1379,6 +1413,23 @@ def _claude_select_next_action(
                     logger.info(
                         "AI loop: http_fetch url=%s result_len=%d",
                         fetch_url[:120], len(result_str),
+                    )
+                elif tool_name in {"bash", "code_exec", "file_read", "file_write", "subagent_spawn", "web_search", "web_fetch"}:
+                    # backlog-422: picker agent tools — every invocation
+                    # goes through Layer 0 inside execute_tool_call() →
+                    # tool.execute() so the picker cannot bypass scope by
+                    # choosing an agent tool.
+                    try:
+                        from api.app.agents.agent_tools import execute_tool_call  # noqa: E402
+                        agent_result = execute_tool_call(
+                            tool_name, tool_input, run=run, session=session,
+                        )
+                        result_str = agent_result.content
+                    except Exception as agent_exc:  # noqa: BLE001
+                        result_str = f"Error: agent_tool {tool_name} exception: {agent_exc}"
+                    logger.info(
+                        "AI loop: agent_tool %s ok-ish, result_len=%d",
+                        tool_name, len(result_str),
                     )
                 else:
                     cmd = str(tool_input.get("command") or "")
