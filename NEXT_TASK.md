@@ -6,64 +6,69 @@
 
 ## Title
 
-Exploit Developer agent + meta-tooling (runtime custom script generation) — **Sprint mythos-exploitation-foundation, task 8 of 15**
+Multi-agent coordinator (Layer 4) — meta-agent + 6 specialists + confidence-gated delegation + versioned prompt proposals — **Sprint mythos-exploitation-foundation, task 9 of 15**
 
 ## Goal
 
-Per Codex 6-layer architectuur Layer 4: a dedicated agent (separate prompt from the picker) whose ONLY job is to compose multi-step exploit recipes (Python-style or exec_plan JSON) when the picker hits a hypothesis that no generic runner covers. The agent owns the recipe + expected_markers pair so backlog-413's deterministic validator can verify the result and backlog-413's PoC artifact generator can emit a runnable script.
+Per Codex Layer 4 + Cyber-AutoAgent meta-everything pattern: ONE meta-agent decides, delegates to specialists (Recon, Hypothesis, ExploitDev, Validator, Memorist, Reporter, Reflector) on confidence < 70%. Per Codex 'no runtime self-modification': prompt/meta-prompt changes are VERSIONED proposals with operator approval, not agent-self-rewrite. Per OpenClaw: per-agent tool allow/deny ACL.
 
 ## Sprint context
 
-Task 8 van 15 in sprint `mythos-exploitation-foundation`. backlog-413 DONE — validator + PoC ready; foothold transitions gated on validator verdict. The bottleneck for flag capture has consistently been: picker recognizes "I should exploit this" but exec_plan is one-shot and doesn't compose multi-step payload chains. backlog-414 adds the dedicated exploit-developer agent that builds those chains end-to-end with `expected_markers` so validator can verify.
+Task 9 van 15 in sprint `mythos-exploitation-foundation`. backlog-414 DONE — exploit-developer-agent registered and dispatchable. Tijd om alle specialists onder één coordinator te zetten: Recon, Hypothesis, ExploitDev (414), Validator (413), Memorist (410), Reporter, Reflector. Picker wordt de Meta-Coordinator die delegeert; specialists hebben elk eigen tool-ACL.
 
 ## Delta-doelstelling (verplicht per SESSION_PROMPT §1)
 
-> Deze task levert `api/app/services/exploit_developer.py` met `compose_exploit_recipe(finding, target_context)` die een multi-step recipe genereert met `expected_markers`. Een nieuwe `exploit-developer-agent` runner-tool (`workers/runners/exploit_developer_agent/`) zodat de picker hem expliciet kan picken. Delta-metric: ≥1 XBOW challenge produceert een verified-exploited finding via een door dit agent gegenereerd recipe — gevalideerd door backlog-413's `validate_exploit`.
+> Deze task levert `api/app/agents/coordinator.py` met `MetaCoordinator` class + 6 specialist roles + per-agent tool ACL + `prompts/proposals/` directory voor versioned prompt changes met `approve_prompt_change()`. Delta-metric: ≥2 specialist agents leveren aantoonbaar betere chain-findings dan single picker op dezelfde XBOW subset.
 
 ## Scope
 
-(1) `api/app/services/exploit_developer.py`:
-- `compose_exploit_recipe(finding, target_context, hypothesis)` — calls a Claude-Opus-4.7 prompt SPECIFIC to multi-step exploit composition (separate system prompt from the picker; tighter scope).
-- Output structure: `{steps: [...], expected_markers: [...], target: "...", rationale: "..."}`. Same shape `validate_exploit` consumes.
-- The agent has access ONLY to the captured context (request/response history, target URL, finding title/severity) — no arbitrary http_fetch (that's the picker's tool).
+(1) `api/app/agents/coordinator.py`:
+- `MetaCoordinator` met KNOW→THINK→TEST→VALIDATE loop.
+- `delegate(specialist, context, hypothesis)` → routes to one of: Recon/Hypothesis/ExploitDev/Validator/Memorist/Reporter/Reflector.
+- Per-specialist `SpecialistACL` met `tools_allow` / `tools_deny` (OpenClaw pattern).
+- Confidence gating: `coordinator_confidence < 0.70` triggers delegation to the appropriate specialist instead of direct action.
 
-(2) New runner `workers/runners/exploit_developer_agent/runner.py`:
-- Wraps `compose_exploit_recipe` in the standard `RunnerExecution` contract.
-- Dispatches the produced recipe through the existing `exec_plan` runner so the validator can verify.
-- Emits a finding with `replay_recipe_json` populated so backlog-413 can verify + build_executable_poc.
+(2) `api/app/agents/specialists/`:
+- 6 module files (recon.py / hypothesis.py / exploit_dev.py / validator.py / memorist.py / reporter.py / reflector.py).
+- Each specialist has its own prompt scope + tool ACL.
+- ExploitDev specialist wraps backlog-414's composer; Validator wraps backlog-413; Memorist wraps backlog-410.
 
-(3) Picker prompt gains an explicit recommendation: when the picker reaches a hypothesis that needs ≥3 chained steps, pick `exploit-developer-agent` instead of writing inline exec_plan JSON.
+(3) `prompts/proposals/` directory:
+- New file format: `prompts/proposals/{date}-{specialist}-rev{N}.md`.
+- `approve_prompt_change(proposal_file, approver)` API endpoint — moves the proposal into `prompts/active/{specialist}.md` after operator approval.
+- Runtime self-modification by agents FORBIDDEN — every prompt update goes through this gate.
 
-(4) Tests `api/tests/test_exploit_developer.py`:
-- Schema validation of generated recipes.
-- Roundtrip: developer-agent recipe → validator verdict (mocked transport).
-- Picker prompt grep-sentinel that the new tool name appears in the system prompt.
+(4) Tests `api/tests/test_coordinator.py`:
+- Confidence-gated delegation routes to the expected specialist.
+- Per-agent ACL blocks tools outside the allowlist.
+- Versioned prompt proposal flow (write → review → approve → activate).
+- Multi-agent vs single-picker on a synthetic chain (smoke).
 
 ## Constraints (per ANTI_DRIFT.md)
 
-- Per Rule 1: capability task. Delta-metric = "≥1 verified-exploited finding emitted via exploit-developer-agent during a live XBOW run".
-- Per Rule 2: runner registered + dispatchable; picker prompt invites it.
-- Per Rule 3: where the picker previously inlined multi-step exec_plan, those calls move to the new agent. Cite diff.
-- Per Rule 4: live verification via XBOW — ≥1 verified-exploited finding traced end-to-end.
-- Per `feedback_no_prescriptive_recipes`: the agent generates recipes emergently from observed context, not from pre-seeded per-app templates.
+- Per Rule 1: capability task. Delta-metric = ≥2 specialist agents produce demonstrably better chain-findings than single picker on the same XBOW subset.
+- Per Rule 2: coordinator dispatched from `_claude_select_next_action` (or replaces it) in the same commit.
+- Per Rule 3: where the picker previously did Recon+Hypothesis+ExploitDev inline, those paths route to specialists; cite diff.
+- Per Rule 4: live verification via XBOW run with ≥1 coordinator-orchestrated chain.
+- `no_runtime_self_modification`: agents NEVER overwrite their own prompts at runtime. All prompt changes go through `prompts/proposals/` + operator approval.
 
 ## Source Package
 
-`codex/tasks/backlog-414-exploit-developer-agent-meta-tooling.json`
+`codex/tasks/backlog-415-multi-agent-coordinator-versioned-prompts.json`
 
 ## Validation (ANTI_DRIFT.md pre-commit checklist)
 
-- [ ] Code INVOKED: exploit-developer-agent dispatch in live XBOW advance
-- [ ] Delta-metric: ≥1 verified-exploited finding (validator verdict) via this agent
-- [ ] Removed code: cite inline multi-step exec_plan paths that moved to agent
-- [ ] Geen scope creep: developer agent + runner + 1 picker-prompt section + tests
+- [ ] Code INVOKED: coordinator dispatched on live picker advance
+- [ ] Delta-metric: ≥2 specialists produce better chain-findings than single picker (cite test or trace)
+- [ ] Removed code: cite picker inline paths that moved to specialists
+- [ ] Geen scope creep: coordinator + 6 specialist modules + proposals dir + tests
 - [ ] Follow-ups gefiled: <refs OR "none">
-- [ ] Live test geslaagd: link/trace to verified-exploited finding
+- [ ] Live test geslaagd: trace evidence link
 
 Plus required checks:
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_exploit_developer.py`
-- `python3 -m compileall -q api workers`
-- `.venv/bin/ruff check api/app/services/exploit_developer.py workers/runners/exploit_developer_agent/runner.py`
+- `.venv/bin/pytest api/tests/test_coordinator.py`
+- `python3 -m compileall -q api`
+- `.venv/bin/ruff check api/app/agents/`
 - `git diff --check`
-- Live: XBOW run produces ≥1 verified-exploited finding via exploit-developer-agent.
+- Live: ≥1 XBOW challenge run uses ≥2 specialists end-to-end.
