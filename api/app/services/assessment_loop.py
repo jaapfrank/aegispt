@@ -407,12 +407,16 @@ phase advances AND the exec-plan runs in the new phase. Use this for moves
 like "now I have a session token, level up to authenticated-admin-escalation
 and run this 4-step chain that injects is_admin=True into the snippet form".
 
-STRUCTURED OUTPUT NOTE (#330): your final decision is constrained by a JSON
-schema enforced server-side. For exec_plan and for level_up actions that
-include a plan, the `plan` field MUST be a JSON-encoded STRING of the plan
-body — not a nested object. Example: `"plan": "{\"name\":\"slug\",\"steps\":[...]}"`.
-The client decodes this back to an object before execution. All other
-fields are plain JSON values (strings, numbers, arrays, enums).
+STRUCTURED OUTPUT NOTE (updated 2026-05-21): the picker schema now accepts
+the `plan` field as a proper nested OBJECT (not a JSON-encoded string).
+You no longer need to escape-quote the plan body. Example:
+  "plan": {"name": "slug", "steps": [{"name": "probe", "method": "GET",
+    "url": "${target}/foo", "expect": {"status": 200}}, ...]}
+The schema enforces per-step shape: required name + url, method enum
+[GET,POST,PUT,PATCH,DELETE], optional headers/data/json/cookies/expect/
+capture/on_success. Anthropic's structured-output validator rejects any
+malformed step before it reaches the picker, so half-formed plans are
+caught at the API boundary instead of mid-execution.
 
 CHAIN REASONING ON RECENT_CAPTURES (#334 + #343):
 The graph projection includes a RECENT_CAPTURES section listing the most-recent
@@ -521,7 +525,8 @@ def _picker_variant_level_up(*, with_plan: bool, available_tools: list[str] | No
         base_properties["tool"] = {"type": "string", "const": "exec-plan"}
         base_properties["tier"] = {"type": "string", "enum": _PICKER_ACTIVE_INTRUSIVE}
         base_properties["plan_name"] = {"type": "string"}
-        # Same proper-object plan schema as _picker_variant_exec_plan.
+        # Same proper-object plan schema as _picker_variant_exec_plan
+        # (HTTP-step grammar, matching exec_plan runner's actual contract).
         base_properties["plan"] = {
             "type": "object",
             "additionalProperties": False,
@@ -531,16 +536,7 @@ def _picker_variant_level_up(*, with_plan: bool, available_tools: list[str] | No
                 "steps": {
                     "type": "array",
                     "minItems": 1,
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "required": ["tool"],
-                        "properties": {
-                            "tool": {"type": "string", "enum": list(_AGENT_TOOL_NAMES)},
-                            "args": {"type": "object", "additionalProperties": True},
-                            "description": {"type": "string"},
-                        },
-                    },
+                    "items": _exec_plan_step_schema(),
                 },
             },
         }
@@ -567,9 +563,48 @@ def _picker_variant_stop() -> dict[str, Any]:
 
 
 _AGENT_TOOL_NAMES = (
+    # Reserved for future tools= API use; the exec-plan runner does NOT
+    # consume agent_tool steps — it consumes HTTP-step plans. Removed from
+    # the schema in the same commit as this comment because forcing
+    # steps[].tool to an agent_tool enum made every plan invalid against
+    # the actual runner contract (which uses method/url/expect/capture).
     "bash", "code_exec", "web_fetch", "web_search",
     "file_read", "file_write", "subagent_spawn",
 )
+
+
+def _exec_plan_step_schema() -> dict[str, Any]:
+    """JSON schema for ONE exec-plan step matching the actual runner
+    contract in workers/runners/exec_plan/runner.py:
+
+      name, method (GET/POST/PUT/PATCH/DELETE), url
+      headers, data, json, params, cookies, cookies_from
+      expect (status / body_contains / body_regex / body_not_contains)
+      capture (var_name → {from: cookie|header|body_regex|status|...})
+      on_success.create_finding {severity, title, summary}
+    """
+    return {
+        "type": "object",
+        "additionalProperties": True,
+        "required": ["name", "url"],
+        "properties": {
+            "name": {"type": "string"},
+            "method": {
+                "type": "string",
+                "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+            },
+            "url": {"type": "string"},
+            "headers": {"type": "object", "additionalProperties": True},
+            "params": {"type": "object", "additionalProperties": True},
+            "data": {},  # may be string or object — runner accepts both
+            "json": {},
+            "cookies": {"type": "object", "additionalProperties": True},
+            "cookies_from": {"type": "string"},
+            "expect": {"type": "object", "additionalProperties": True},
+            "capture": {"type": "object", "additionalProperties": True},
+            "on_success": {"type": "object", "additionalProperties": True},
+        },
+    }
 
 
 # ---------------- Prompt-injection sentinel (OWASP LLM01) ----------------
@@ -661,13 +696,12 @@ def _picker_variant_exec_plan() -> dict[str, Any]:
             "reasoning": {"type": "string"},
             "confidence": {"type": "number"},
             # Proper object schema for `plan` (replaces the pre-2026-05-21
-            # JSON-encoded-string-in-JSON gymnastics that empirically made
-            # Claude produce malformed responses — most exec_plan attempts
-            # failed validation per the "exec_plan rejected — empty or
-            # malformed plan body" path). The decoder _decode_picker_plan
-            # already handles both string AND dict shapes, so this change
-            # is backwards-compatible. Each step names ONE agent_tool from
-            # _AGENT_TOOL_NAMES; args is free-form (tool-specific).
+            # JSON-encoded-string-in-JSON gymnastics). The decoder
+            # _decode_picker_plan handles both string and dict shapes so
+            # this is backwards-compatible. Each step matches the actual
+            # exec-plan runner contract: HTTP method/url/expect/capture,
+            # NOT agent_tool dispatch (that was an incorrect schema in
+            # bf9940d — the runner doesn't consume agent_tool steps).
             "plan": {
                 "type": "object",
                 "additionalProperties": False,
@@ -677,16 +711,7 @@ def _picker_variant_exec_plan() -> dict[str, Any]:
                     "steps": {
                         "type": "array",
                         "minItems": 1,
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "required": ["tool"],
-                            "properties": {
-                                "tool": {"type": "string", "enum": list(_AGENT_TOOL_NAMES)},
-                                "args": {"type": "object", "additionalProperties": True},
-                                "description": {"type": "string"},
-                            },
-                        },
+                        "items": _exec_plan_step_schema(),
                     },
                 },
             },
