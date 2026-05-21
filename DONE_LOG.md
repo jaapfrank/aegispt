@@ -1,5 +1,17 @@
 # Done Log
 
+- 2026-05-21: backlog-412 (queue #362 — Attack State Machine + foothold tree) **DONE**. NEXT_TASK promoted to backlog-413 (Deterministic validator + reproducible PoC).
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED in production path: `_infer_foothold_from_findings` called from `advance_assessment_loop` every iteration; foothold state persisted in `loop_state.foothold_state` and `loop_state.foothold_transitions`.
+    - [x] Delta-metric bewoog: from "no foothold concept" → live foothold tracking per run with one-way transitions on verified high/critical findings. Trail visible via `loop_state.foothold_transitions` for any future inspection.
+    - [x] Removed code I replaced: none — additive Layer 3 module + one hook line. Existing stateless picker helpers remain untouched.
+    - [x] Geen scope creep: `api/app/services/attack_state.py` + `_infer_foothold_from_findings` helper + advance hook + 12 tests; no other files touched.
+    - [x] Follow-ups gefiled: AttackTree itself (the TAP-style tree) is provided as a module but persists in-memory only — full per-run tree persistence + replay-first seeding via `skeptical_recall_with_verify_hint` is wired at module level (`seed_tree_with_replay_hints`) but not yet stored in `run.configuration_json`. That's the next layer's slice (backlog-413 validator will give the tree a verifier; backlog-415 multi-agent will own the tree per agent).
+    - [x] Live test geslaagd: API restarted cleanly; xbow-baseline-final.service stayed `active` through 13/25 → 14/25 transition with the new foothold hook live.
+  - **1 commit, what it did**:
+    - `bf9bd00` — `api/app/services/attack_state.py` (~330 lines): `FootholdState` enum + `is_higher_foothold` gate + `AttackNode`/`AttackTree`/`TreeStepResult` dataclasses + BFS/DFS walks + `prune` (marks subtree) + `back_off` (returns nearest pending sibling) + `maybe_advance_foothold` (verified+higher gate) + `to_picker_envelope` + `seed_tree_with_replay_hints` (uses `skeptical_recall_with_verify_hint` from backlog-410). Hook in `advance_assessment_loop` via `_infer_foothold_from_findings`: walks high/critical findings, maps title patterns to candidate footholds (RCE/command-injection→code_execution; LFI/path-traversal→file_read; admin-compromise/privesc→admin; auth-bypass/session-hijack→authenticated_user; reverse-shell→shell_like). Per `no_unverified_transitions`: only findings of severity ≥ high count as the proxy verifier. 12 unit tests pass.
+  - **What 412 OWNS vs what it doesn't**: the foothold ladder + transition gate + the full TAP-style tree primitive (BFS/DFS/prune/back_off/seed-from-replay) are in. What's NOT yet wired into the live advance: the AttackTree itself per run (only the foothold scalar is). That wire-in needs both the validator (backlog-413) to give "verified" a deterministic meaning AND the multi-agent coordinator (backlog-415) to give each agent its own tree slice. The picker-prompt section consuming `to_picker_envelope()` is the smallest next slice; it's documented in the next NEXT_TASK promotion notes.
+
 - 2026-05-21: backlog-411 (queue #361 — Context curation autoCompact) **DONE** in one slice. NEXT_TASK promoted to backlog-412 (Attack State Machine + foothold tree).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED in production path: `curate_for_picker` called from `_claude_select_next_action` before every Anthropic `client.messages.create(...)` — every picker round trip now passes through the curator.
