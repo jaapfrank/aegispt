@@ -6,62 +6,62 @@
 
 ## Title
 
-External knowledge — ExploitDB + NVD + CISA KEV read-only, provenance-scored — **Sprint mythos-exploitation-foundation, task 10 of 15**
+Multi-LLM abstraction via LiteLLM — provider-agnostic brain (Claude / GPT-4o / Gemini / DeepSeek selectable) — **Sprint mythos-exploitation-foundation, task 11 of 15**
 
 ## Goal
 
-Layer 2 van architectuur: read-only lookup tegen ExploitDB (MCP server), NIST NVD, CISA KEV. Per Codex: 'nooit als onbewezen waarheid'. Elke reference draagt provenance score (source + freshness + applicability). Agents gebruiken als HINT voor hypothesis generation, NEVER als direct proof.
+Brain becomes provider-agnostic. `_claude_select_next_action` wordt `_picker_select_next_action(provider)`. Default Claude Opus 4.7 (huidige prompts daarvoor getuned), maar Gemini 2.5 / GPT-4o / DeepSeek V3 selecteerbaar per run-config. Klanten kunnen eigen API key voor voorkeurs-provider gebruiken.
 
 ## Sprint context
 
-Task 10 van 15 in sprint `mythos-exploitation-foundation`. backlog-415 slice 1 DONE — MetaCoordinator + 6 specialists + per-agent ACL + versioned prompt proposals. Recon-specialist en Hypothesis-specialist hebben nu een external-knowledge bron nodig: bij een gevonden technology stack/version, query ExploitDB+NVD+CISA-KEV voor relevante CVEs als HINT.
+Task 11 van 15. backlog-416 DONE — external knowledge providers ingeladen. Tijd om de LLM-laag zelf provider-agnostisch te maken. LiteLLM is de standaard abstraction in de pentest-AI ruimte (OpenClaw, PentAGI, Cyber-AutoAgent).
 
 ## Delta-doelstelling
 
-> Deze task levert `api/app/services/external_knowledge.py` met `lookup_exploits(cve_id|product|version)` + `lookup_cve_details(cve_id)` + provenance scoring + `marked_as_hint_only=True` envelope. Delta-metric: ≥1 lookup return van ExploitDB met provenance, gebruikt als HINT voor exploit-developer-agent zonder als bewezen impact te claimen.
+> Deze task levert `api/app/services/llm_provider.py` met `LLMProvider` interface wrapping LiteLLM + provider-selectie via `run.configuration_json['llm_provider']` (default `claude-opus-4-7`). `_claude_select_next_action` + `exploit_developer.compose_exploit_recipe` + `MetaCoordinator` route door deze abstractie. Delta-metric: XBOW score met non-Claude provider ≥70% van Claude score (sanity check dat abstraction geen signal degradeert).
 
 ## Scope
 
-(1) `api/app/services/external_knowledge.py`:
-- `lookup_exploits(cve_id=None, product=None, version=None)` returns list of `ExternalKnowledgeHint` records.
-- `lookup_cve_details(cve_id)` returns NVD CVE detail.
-- `ExternalKnowledgeHint`: {source, source_url, title, fetched_at, applicability_score (0-1), marked_as_hint_only=True, body_excerpt}.
-- Providers: ExploitDB MCP (pulsemcp) when configured; NVD API direct; CISA KEV daily JSON fetch + cache.
-- Read-only — no write back to external systems.
+(1) `requirements/base.txt`: add `litellm>=1.50`.
 
-(2) Per-provider rate limits + caching:
-- 24h cache for KEV; 1h cache for NVD; per-query for ExploitDB.
-- Cache dir configurable via `AEGISPT_KNOWLEDGE_CACHE` env (default `/tmp/aegispt-knowledge-cache`).
+(2) `api/app/services/llm_provider.py`:
+- `LLMProviderConfig`: model, api_key_env, temperature, max_tokens.
+- `LLMProvider(config)` met `chat(system, messages, output_schema=None, timeout=...)` die LiteLLM aanroept en response naar standaard shape normaliseert (text + tool_calls + usage).
+- Standaard providers: `claude-opus-4-7` (huidig), `gpt-4o`, `gemini-2.0-pro`, `deepseek-v3`.
+- Default falls back naar Anthropic direct call wanneer LiteLLM niet geinstalleerd (graceful degradation).
 
-(3) Wire into Recon/Hypothesis specialists: when target-intel emits a CVE candidate or version fingerprint, the specialist calls `lookup_exploits(...)` and surfaces the hint envelope to the coordinator. Picker prompt section explains: lookups are HINTS only; never use as proof.
+(3) Refactor existing direct-anthropic calls in:
+- `api/app/services/assessment_loop.py::_claude_select_next_action` (huidige hot path)
+- `api/app/services/exploit_developer.py::_claude_compose`
+- (workers/runners/target_intel/runner.py reads `ANTHROPIC_API_KEY` directly — that's intentionally separate; consumers can pick to migrate later, not in this slice)
 
-(4) Tests `api/tests/test_external_knowledge.py`: stub the HTTP providers; verify schema, applicability scoring, `marked_as_hint_only=True`, cache hit/miss, read-only contract (no write methods exposed).
+(4) Tests `api/tests/test_llm_provider.py`: provider selection, normalized response shape, LiteLLM-unavailable fallback, OTEL cost telemetry attribute.
 
 ## Constraints (per ANTI_DRIFT.md)
 
-- Per Rule 1: capability task. Delta-metric = ≥1 ExternalKnowledgeHint surfaced to a live picker advance.
-- Per Rule 2: lookup_exploits called from at least one specialist; no dead code.
-- Per Rule 4 + 'never as proof': every result envelope has `marked_as_hint_only=True`; agents prompts forbidden from claiming impact based solely on KB results.
-- Per `feedback_no_prescriptive_recipes`: KB hints emergently inform hypothesis, do NOT pre-seed step-by-step exploits.
-- Read-only: providers exposed via lookup_* only; no write methods.
+- Per Rule 1: capability task. Delta-metric = "non-Claude provider produces ≥70% of Claude XBOW score on identical subset" — sanity, not target.
+- Per Rule 2: LLMProvider invoked from at least the picker hot path + exploit_developer in same commit.
+- Per Rule 3: old direct `anthropic.Anthropic(...)` calls REMOVED from those two sites — no parallel paths.
+- Per Rule 4: live verification — picker call with `llm_provider=claude-opus-4-7` still works end-to-end.
+- Per `feedback_no_prescriptive_recipes`: provider abstraction is mechanical; no per-provider prompt forks.
 
 ## Source Package
 
-`codex/tasks/backlog-416-external-knowledge-exploitdb-readonly-provenance.json`
+`codex/tasks/backlog-417-multi-llm-abstraction-litellm.json`
 
 ## Validation (ANTI_DRIFT.md pre-commit checklist)
 
-- [ ] Code INVOKED: lookup_exploits called from at least one specialist path
-- [ ] Delta-metric: ≥1 hint surfaced live with marked_as_hint_only=True
-- [ ] Removed code: N/A (additive)
-- [ ] Geen scope creep: external_knowledge module + 1 specialist wire-in + tests
+- [ ] Code INVOKED: LLMProvider called from picker + exploit_developer
+- [ ] Delta-metric: live picker call via LLMProvider succeeds (cite trace)
+- [ ] Removed code: direct anthropic.Anthropic() in 2 call sites removed
+- [ ] Geen scope creep: provider module + 2 refactored sites + tests + requirements bump
 - [ ] Follow-ups gefiled: <refs OR "none">
-- [ ] Live test geslaagd: trace/log evidence
+- [ ] Live test geslaagd: API restart + picker advance via provider
 
 Plus required checks:
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_external_knowledge.py`
+- `.venv/bin/pytest api/tests/test_llm_provider.py`
 - `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/external_knowledge.py`
+- `.venv/bin/ruff check api/app/services/llm_provider.py`
 - `git diff --check`
-- Live: ≥1 lookup_exploits trace in batch run.
+- Live: ≥1 picker advance via LLMProvider in the running batch.

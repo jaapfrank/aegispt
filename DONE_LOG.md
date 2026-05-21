@@ -1,5 +1,15 @@
 # Done Log
 
+- 2026-05-21: backlog-416 (queue #366 — External knowledge integration: ExploitDB + NVD + CISA KEV read-only, provenance-scored) **DONE**. NEXT_TASK promoted to backlog-417 (Multi-LLM abstraction via LiteLLM).
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED: `lookup_exploits` + `lookup_cve_details` reachable from production via the standard `from api.app.services.external_knowledge import ...` path. Specialist wire-in lands as part of backlog-415's specialist `run(...)` slice — module is the building block, not the orchestration.
+    - [x] Delta-metric bewoog: from "no external KB lookup" → 3 providers (CISA KEV, NVD, ExploitDB via optional MCP) with provenance scoring + 24h/1h caching + always-on hint-only envelope.
+    - [x] Removed code I replaced: none — additive Layer 2 module. No existing KB lookup to remove.
+    - [x] Geen scope creep: `external_knowledge.py` + 14 tests. No prompt edits, no model layer changes; the read-only sentinel guards against future drift.
+    - [x] Follow-ups gefiled: none — wiring into specialist `run(...)` is a backlog-415 slice (already documented in that DONE entry's "what 415 slice 1 OWNS vs slice 2" section).
+    - [x] Live test geslaagd: API restarted cleanly; xbow-baseline-final.service stayed `active` through 19/25 → 20/25; 14/14 module tests + all 103 cross-module tests green.
+  - **What 416 OWNS vs what doesn't**: providers + cache + score + hint envelope + read-only sentinel are in. Hint-into-prompt integration belongs to specialist run() (415) and to the picker prompt that already forbids claiming impact from KB results alone. Per `feedback_no_prescriptive_recipes`: KB hints inform hypothesis emergently — no per-app exploit recipes seeded.
+
 - 2026-05-21: backlog-415 (queue #365 — Multi-agent coordinator + 6 specialists + versioned prompts) **DONE in slice 1**. NEXT_TASK promoted to backlog-416 (External knowledge — ExploitDB/NVD/CISA KEV read-only).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED: `MetaCoordinator.decide` + `SpecialistACL.allows` + `approve_prompt_change` all reachable from the public package surface (`from api.app.agents import ...`). API restarted to load.
