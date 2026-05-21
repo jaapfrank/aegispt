@@ -572,6 +572,83 @@ _AGENT_TOOL_NAMES = (
 )
 
 
+# ---------------- Prompt-injection sentinel (OWASP LLM01) ----------------
+#
+# AegisPT's picker reads HTTP response bodies / stderr from the target. A
+# malicious target can stuff prompt-injection into a 404 page, a JSON error,
+# or even HTML comments, then have Claude exfiltrate, exit, or emit a
+# false "admin_compromise_proven" stop — without any actual exploit. This
+# scanner runs on every stdout/stderr excerpt BEFORE it reaches the picker
+# prompt. Detected payloads are redacted (replaced with a tag) and audit-
+# logged so the operator can see what the target tried to do.
+
+_PROMPT_INJECTION_PATTERNS = [
+    # Instruction overrides
+    (r"\bignore\s+(?:the\s+)?(?:above|previous|prior|preceding|earlier|all)\s+(?:instructions?|prompts?|rules?|context)\b", "instruction_override"),
+    (r"\bdisregard\s+(?:the\s+)?(?:above|previous|prior|preceding|earlier|all)\b", "instruction_override"),
+    (r"\b(?:from\s+now\s+on|starting\s+now)[,:\s]+you\s+(?:are|must|will|should)\b", "role_override"),
+    (r"\byou\s+are\s+now\b", "role_override"),
+    (r"\bnew\s+(?:instructions?|task|role|persona|system\s+prompt)[\s:.\-]+", "instruction_override"),
+    # Chat-format markers (Claude / GPT)
+    (r"<\|im_(?:start|end)\|>", "chat_marker"),
+    (r"\[/?INST\]", "chat_marker"),
+    (r"<\|(?:system|user|assistant)\|>", "chat_marker"),
+    (r"</?\s*system\s*>", "chat_marker"),
+    # Picker-action injection — most dangerous because it mirrors our own schema
+    (r"\bemit\s+action\s*[=:]\s*[\"']?(?:stop|exec_plan|pick|level_up)\b", "picker_action_injection"),
+    (r"\baction\s*[=:]\s*[\"']?stop[\"']?\b.*\bstop_reason\s*[=:]", "picker_action_injection"),
+    (r"\bstop_reason\s*[=:]\s*[\"']?admin_compromise_proven\b", "picker_action_injection"),
+    (r"\bset\s+stop_reason\s+to\b", "picker_action_injection"),
+    # "Pretend that" / role-play takeover
+    (r"\bpretend\s+(?:that\s+)?you\s+(?:are|have)\b", "role_override"),
+    (r"\bact\s+as\s+(?:if\s+)?you\s+(?:are|have)\b", "role_override"),
+]
+
+_PROMPT_INJECTION_REDACTION = "[REDACTED_PROMPT_INJECTION:{tag}]"
+
+
+def _scan_for_prompt_injection(text: str) -> tuple[str, list[str]]:
+    """Scan target-derived text for prompt-injection patterns. Returns
+    (sanitized_text, list_of_detected_tags). When patterns are detected,
+    the matching span is replaced with a redaction marker so the picker
+    sees only sanitized text. Empty list = clean."""
+    if not text:
+        return text, []
+    import re
+    detected: list[str] = []
+    sanitized = text
+    for pattern, tag in _PROMPT_INJECTION_PATTERNS:
+        match = re.search(pattern, sanitized, flags=re.IGNORECASE)
+        if not match:
+            continue
+        detected.append(tag)
+        sanitized = re.sub(
+            pattern,
+            _PROMPT_INJECTION_REDACTION.format(tag=tag),
+            sanitized,
+            flags=re.IGNORECASE,
+        )
+    return sanitized, detected
+
+
+def _sanitize_target_text_for_picker(text: str, *, source: str, run_id: str | None = None) -> str:
+    """Wrapper that scans + redacts AND emits an audit log line per
+    detection so the operator can see what the target tried. ``source`` is
+    a short tag like "task_stdout" / "task_stderr" so the audit trail says
+    where the injection landed."""
+    if not text:
+        return text
+    sanitized, detected = _scan_for_prompt_injection(text)
+    if detected:
+        logger.warning(
+            "prompt_injection_sentinel: redacted %s from %s (run=%s) — target appears to be injecting picker instructions",
+            sorted(set(detected)),
+            source,
+            (str(run_id)[:8] if run_id else "?"),
+        )
+    return sanitized
+
+
 def _picker_variant_exec_plan() -> dict[str, Any]:
     return {
         "type": "object",
@@ -722,6 +799,12 @@ def _collect_recent_failures(run: Run, limit: int = 8) -> list[dict[str, Any]]:
             stderr = str(exe.stderr_text or "")[:400]
             exit_code = exe.exit_code
             break  # first one is enough
+        # Sentinel: target may inject picker-control text via stderr
+        # (e.g. WAF that echoes the requested URL back into the error
+        # body). Scan + redact before exposing to Claude.
+        stderr = _sanitize_target_text_for_picker(
+            stderr, source="task_stderr", run_id=str(task.run_id) if task.run_id else None,
+        )
         failures.append({
             "tool": str(task.tool or ""),
             "target": str(task.target_id or "")[:120],
@@ -760,6 +843,11 @@ def _collect_task_outcomes(run: Run, limit: int = 12) -> list[dict[str, Any]]:
             stdout_excerpt = str(exe.stdout_text or "")[:280]
             exit_code = exe.exit_code
             break
+        # Sentinel: target HTTP body lands in stdout_text. Sanitize before
+        # the picker sees it (OWASP LLM01 prompt-injection defense).
+        stdout_excerpt = _sanitize_target_text_for_picker(
+            stdout_excerpt, source="task_stdout", run_id=str(task.run_id) if task.run_id else None,
+        )
         outcomes.append({
             "tool": str(task.tool or ""),
             "target": str(task.target_id or "")[:120],
