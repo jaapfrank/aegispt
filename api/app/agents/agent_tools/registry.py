@@ -13,8 +13,11 @@ author cannot accidentally skip the gate.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -119,14 +122,36 @@ def execute_tool_call(
     run: Any,
     session: Any | None = None,
 ) -> ToolResult:
-    """Picker-side dispatch: looks up the tool by name and routes the call."""
+    """Picker-side dispatch: looks up the tool by name and routes the call.
+
+    Emits a `agent_tool execute_tool_call: <tool_name>` log line so the
+    aegispt-validator sentinel canary (which greps for
+    `execute_tool_call|agent_tool|tool_use`) increments. Without this
+    log line every backlog-422 wire-in pathway was invisible to the
+    validator and the canary stayed at 0 even when the tools fired.
+    """
+    run_id = str(getattr(run, "id", "?"))[:8] if run is not None else "?"
     tool = resolve_tool(tool_name)
     if tool is None:
+        logger.warning(
+            "agent_tool execute_tool_call: unknown tool=%s run=%s — rejected",
+            tool_name, run_id,
+        )
         return ToolResult.error(f"unknown tool {tool_name!r}")
+    logger.info(
+        "agent_tool execute_tool_call: dispatch tool=%s run=%s args_keys=%s",
+        tool_name, run_id, sorted(list((arguments or {}).keys()))[:8],
+    )
     try:
-        return tool.execute(arguments, run=run, session=session)
+        result = tool.execute(arguments, run=run, session=session)
     except Exception as exc:  # noqa: BLE001
+        logger.warning("agent_tool execute_tool_call: tool=%s raised: %s", tool_name, exc)
         return ToolResult.error(f"tool {tool_name!r} raised: {exc}")
+    logger.info(
+        "agent_tool execute_tool_call: complete tool=%s run=%s ok=%s",
+        tool_name, run_id, getattr(result, "ok", False),
+    )
+    return result
 
 
 __all__ = [

@@ -408,10 +408,30 @@ def execute_exec_plan(
                             "status_code": response.status_code,
                             "response_excerpt": response.text[:RESPONSE_EXCERPT_LIMIT].replace("\n", " ").strip(),
                         },
+                        # backlog-413 validator: needs an actually-runnable
+                        # recipe to replay the exploit and validate the verdict.
+                        # The original stub ({tool, plan_name, step}) was not
+                        # replayable → validator.validate_exploit always
+                        # returned inconclusive → foothold never advanced.
+                        # Now we ship the SAME step body that triggered the
+                        # finding, in the runner-compatible single-step plan
+                        # shape, with the expect clauses that originally
+                        # passed. validate_exploit re-runs it and compares.
                         "replay_recipe": {
                             "tool": "exec-plan",
-                            "plan_name": plan_name,
-                            "step": name,
+                            "plan_name": f"replay::{plan_name}::{name}",
+                            "steps": [{
+                                "name": name,
+                                "method": method,
+                                "url": url,
+                                "headers": step.get("headers") or {},
+                                "params": step.get("params") or {},
+                                "data": step.get("data"),
+                                "json": step.get("json"),
+                                "cookies": step.get("cookies") or {},
+                                "cookies_from": step.get("cookies_from"),
+                                "expect": expectations,
+                            }],
                         },
                     })
 
