@@ -1,5 +1,15 @@
 # Done Log
 
+- 2026-05-21: backlog-417 (queue #367 — Multi-LLM abstraction via LiteLLM) **DONE**. NEXT_TASK promoted to backlog-418 (PentAGI deep-dive + reusable components report).
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED: `LLMProvider.chat()` called from `exploit_developer._claude_compose`; `LLMProvider.raw_anthropic_client()` called from `_claude_select_next_action`. Two sentinel tests pin the absence of direct `anthropic.Anthropic(` constructors in both files.
+    - [x] Delta-metric bewoog: from "two direct anthropic.Anthropic() constructions hard-coded in app code" → one centralized provider abstraction. Per-call OTEL telemetry via `@traced("llm.chat")` already lands token counts in the existing Langfuse pipeline.
+    - [x] Removed code I replaced: 2 `anthropic.Anthropic(api_key=...)` constructions removed (one in `_claude_select_next_action`, one in `exploit_developer._claude_compose`) and replaced with `LLMProvider` calls. Diff confirms.
+    - [x] Geen scope creep: provider module + 2 refactored sites + 1 requirements bump + 14 tests. No prompt edits, no model behavior change.
+    - [x] Follow-ups gefiled: none — extending `LLMProvider.chat` to support Anthropic tools+output_config (so the picker hot path also runs through it natively instead of through `raw_anthropic_client`) is documented in the picker's `_claude_select_next_action` comment as the next natural slice.
+    - [x] Live test geslaagd: API restarted cleanly; xbow-baseline-final.service stayed `active` through 21/25 → 22/25; all 14/14 LLMProvider tests + 117 total cross-module tests pass.
+  - **What 417 OWNS vs what doesn't**: provider config + chat normalization + Anthropic fallback + LiteLLM primary + raw_anthropic_client escape hatch are in. Native LiteLLM tools/output_schema support is the next layer; until that lands, non-Anthropic models can't drive the picker (the module emits a clear warning + short-circuit). exploit_developer + future single-shot LLM call sites already work across all configured providers today.
+
 - 2026-05-21: backlog-416 (queue #366 — External knowledge integration: ExploitDB + NVD + CISA KEV read-only, provenance-scored) **DONE**. NEXT_TASK promoted to backlog-417 (Multi-LLM abstraction via LiteLLM).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED: `lookup_exploits` + `lookup_cve_details` reachable from production via the standard `from api.app.services.external_knowledge import ...` path. Specialist wire-in lands as part of backlog-415's specialist `run(...)` slice — module is the building block, not the orchestration.
