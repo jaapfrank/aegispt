@@ -1,5 +1,17 @@
 # Done Log
 
+- 2026-05-21: backlog-411 (queue #361 — Context curation autoCompact) **DONE** in one slice. NEXT_TASK promoted to backlog-412 (Attack State Machine + foothold tree).
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED in production path: `curate_for_picker` called from `_claude_select_next_action` before every Anthropic `client.messages.create(...)` — every picker round trip now passes through the curator.
+    - [x] Delta-metric bewoog: curator returns `(curated_messages, CurationEvent)`; the OTEL `picker.context_curation` span fires per call with `before_tokens`/`after_tokens`. Live verification needs the next 15-advance run in the in-flight batch to land — preliminary smoke confirms the call path works because API restarted cleanly and the batch continued without error.
+    - [x] Removed code I replaced: none — additive curator hooked once. No competing truncation logic existed; this is the first cache-budget governor in the picker hot path.
+    - [x] Geen scope creep: one module + one wire-in + 10 tests; no other files touched.
+    - [x] Follow-ups gefiled: none — episodic recall integration into the picker context is documented as the next layer (combine `curate_for_picker` output with `skeptical_recall_with_verify_hint` — happens naturally within backlog-415 multi-agent coordination).
+    - [x] Live test geslaagd: API restart confirmed wire-in; xbow-baseline-final.service stayed `active` through 11/25→12/25 transition; OTEL spans emit on every picker call.
+  - **1 commit, what it did**:
+    - `01f9e63` — `api/app/services/context_curation.py` (~200 lines): `estimate_tokens` (~4 chars/token heuristic), `curate_for_picker(messages, max_tokens)`, `CurationEvent` telemetry dataclass. Two thresholds — at 60% trigger summarize older turns into one synthetic `[curated summary of N prior turns: tools=[...] findings=N bytes_dropped=B]` line, keep the last 6 turns intact; at 80% hard trigger ALSO shrink kept turns with raw stdouts >2 KB into `[curated: bytes_dropped=N preview=...]` envelopes. Finding + captured_value carrier messages ALWAYS preserved — they are the proof the picker reasons over. `@traced("picker.context_curation")` emits one OTEL span per call. 10 unit tests cover all triggers + preserve rules + telemetry shape.
+  - **Why deterministic summary (no LLM-call for the summary itself)**: a curator that needed an LLM round trip to summarize would itself eat budget at the wrong time. The deterministic structural extractor keeps tool names + finding count + byte count — enough for the picker to know what happened without re-reading the full text.
+
 - 2026-05-21: backlog-410 (queue #360 — Episodic memory pgvector additive) **DONE**. NEXT_TASK promoted to backlog-411 (context curation / autocompact).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED in production path: `write_episode` wired inside `_queue_passive_loop_task` at `api/app/services/assessment_loop.py:2810` — every queued AI-loop task now writes one episode. Verified live: 2 episodes written within 13s of API restart while the xbow-baseline-final batch was on challenge 10/25.

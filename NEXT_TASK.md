@@ -6,59 +6,61 @@
 
 ## Title
 
-Context curation (Claude Code autoCompact-style) — evidence-preserving summarization at budget thresholds — **Sprint mythos-exploitation-foundation, task 5 of 15**
+Attack State Machine — foothold model + TAP-style attack tree per hypothesis — **Sprint mythos-exploitation-foundation, task 6 of 15**
 
 ## Goal
 
-Implement context-window curation per Claude Code's autoCompact pattern. At 60% / 80% budget thresholds, summarize older conversational turns into dense representations, DROP verbose raw tool outputs (large nuclei JSON, full HTML bodies), PRESERVE outcomes + captured_value entities + finding records. Prevents context starvation during long-running advance loops where the picker currently degrades around iteration 10.
+Layer 3 van de nieuwe architectuur: `foothold_state` per run ∈ {anonymous, authenticated_user, admin, file_read, code_execution, shell_like}. Attack tree per finding. TAP-style breadth-first + depth-first + pruning. Recursion + back-to-root per exhausted branch. Replay-first on previously-proven paths (uses backlog-410 episodic memory).
 
 ## Sprint context
 
-Task 5 van 15 in sprint `mythos-exploitation-foundation`. backlog-410 (episodic memory) DONE — `agent_episodic_memory` populates per advance. Context curation now closes the loop: at compact time the picker consults `skeptical_recall_with_verify_hint(...)` for cross-run hints and the curator drops verbose raw outputs but PRESERVES the structured outcome records that produced those episodes.
+Task 6 van 15 in sprint `mythos-exploitation-foundation`. backlog-411 (context curation) DONE — picker context-budget governed. Tijd voor stateful attack-tree zodat de picker niet stateless per advance maar via een foothold-graph werkt. Replay-first leverage'd `skeptical_recall_with_verify_hint` uit backlog-410 voor proven-path bias.
 
 ## Delta-doelstelling (verplicht per SESSION_PROMPT §1)
 
-> Deze task levert `api/app/services/context_curation.py` met `curate_for_picker(messages, budget_pct, *, preserve_findings, preserve_captured_values)` die de berichtenlijst inkort bij 60% / 80% budget triggers. Hook in `_claude_select_next_action`. OTEL trace per curation event met before/after token count. Delta-metric: picker advance ≥15 succeeds without context-window error on a single XBOW run (currently degrades ~10 advances).
+> Deze task levert `api/app/services/attack_state.py` met `FootholdState` dataclass + `AttackTree` (LangGraph-style stateful graph) + `attack_tree_step(run, current_foothold) -> next_hypothesis | back_off | exhausted`. Picker prompt krijgt huidige foothold + tree_state geïnjecteerd. Delta-metric: ≥1 run toont foothold transition van `anonymous` → `authenticated_user` na verified exploit OF tree_depth ≥3 op één XBOW challenge.
 
 ## Scope
 
-(1) New `api/app/services/context_curation.py`:
-- `estimate_tokens(messages) -> int` (heuristic, ~4 chars/token)
-- `curate_for_picker(messages, *, max_tokens, preserve_finding_ids, preserve_captured_value_ids)` — returns a new (curated_messages, curation_event) tuple.
-- Preserve rules: structured `finding` records ALWAYS preserved; `captured_value` entities NEVER dropped; raw tool stdouts >2 KB get summarized into one-line `[curated: tool=X status=Y size_dropped=N bytes]` envelopes.
-- Older conversational turns (older than the last 6) get summarized via a dedicated small Claude call OR via a deterministic structural extractor (default — keep the curator deterministic so it doesn't itself need a budget).
+(1) New `api/app/services/attack_state.py`:
+- `FootholdState` Enum: anonymous / authenticated_user / admin / file_read / code_execution / shell_like.
+- `AttackNode` dataclass: `id`, `hypothesis`, `tool_chain`, `parent_id`, `status` ∈ {pending, attempted, succeeded, failed, exhausted}.
+- `AttackTree`: in-memory tree per run with `add_node`, `expand`, `prune`, `next_hypothesis_breadth_first`, `next_hypothesis_depth_first`, `back_to_root_when_exhausted`.
+- `attack_tree_step(run, current_foothold)` returns the next hypothesis to try OR `back_off` (exhausted branch, go back to parent) OR `exhausted` (whole tree exhausted).
 
-(2) Hook into `_claude_select_next_action` (`api/app/services/assessment_loop.py`): right before `client.messages.create(...)`, call `curate_for_picker(messages, max_tokens=120_000)` and emit an OTEL span `picker.context_curation` with attributes `before_tokens`, `after_tokens`, `dropped_count`, `preserved_finding_count`.
+(2) State transitions: foothold ONLY changes when a validator-verified exploit lands. For this slice, treat `task.status==completed AND finding.severity in {critical, high}` as the verification signal (until backlog-413 lands the deterministic validator).
 
-(3) Optional integration with episodic_memory: after curation, append a single synthetic message holding `skeptical_recall_with_verify_hint(query=summary_of_current_phase, k=3)` so the picker has a HINT panel of similar past episodes. The hint envelope already has the verify-before-use marker.
+(3) Picker prompt injection: extend `_AI_PICKER_SYSTEM_PROMPT` with a `=== ATTACK STATE ===` section that lists `current_foothold`, `tree_depth`, `available_hypotheses` (top 3 from tree).
 
-(4) Unit tests: `api/tests/test_context_curation.py` — preserve-rules respected (findings + captured_values survive), large raw stdouts summarized, token estimate roughly matches expected.
+(4) Replay-first: at run-start, `skeptical_recall_with_verify_hint(query="similar target type")` from backlog-410. Convert top hint into an initial AttackNode that the picker can try BEFORE blind recon.
+
+(5) Tests: `api/tests/test_attack_state.py` — tree expand/prune, foothold transitions on verified exploit, BFS+DFS ordering, back-to-root on exhausted, replay-first injection from episodic recall.
 
 ## Constraints (per ANTI_DRIFT.md)
 
-- Per Rule 1: capability task. Delta-metric = "picker successfully completes ≥15 advances on a single XBOW run without context-window errors (currently degrades ~10)".
-- Per Rule 2: `curate_for_picker` MOET aangeroepen worden vanuit `_claude_select_next_action` in dezelfde commit als de module — geen dead code.
-- Per Rule 3 (geen backward-compat creep): when the curator runs, the OLD message list is REPLACED, not parallel-kept. Verify via picker prompt size delta after a 15-advance run.
-- Per Rule 4 (geen mocked-live): live verification via 15+ advances on XBEN-002 — pre-curation context size + post-curation context size both logged.
-- Per Rule 5: preserve-rules can't be sluipweg used to keep XBOW-specific hints in non-benchmark runs (episodic_memory already isolates benchmark/production; the curator just respects the recall result it gets).
+- Per Rule 1: capability task. Delta-metric = "≥1 foothold transition observed live OR tree_depth ≥3 in one XBOW challenge run".
+- Per Rule 2: `attack_tree_step` MOET aangeroepen worden vanuit `advance_assessment_loop` in dezelfde commit; geen dead code.
+- Per Rule 3: oude stateless picker-helpers die door tree worden vervangen MOET removed/wrapped — cite line count.
+- Per Rule 4: live verification via XBOW run — foothold-transition trace OR tree-depth ≥3 logged.
+- Per Rule 5: `no_unverified_transitions` — foothold transitions ONLY on validator-verified evidence; no claim-based transitions. Until backlog-413 lands, finding-severity ≥ high is the proxy verifier.
 
 ## Source Package
 
-`codex/tasks/backlog-411-context-curation-autocompact.json`
+`codex/tasks/backlog-412-attack-state-machine-foothold-tree.json`
 
 ## Validation (ANTI_DRIFT.md pre-commit checklist)
 
-- [ ] Code INVOKED in production path: `curate_for_picker` called from `_claude_select_next_action` before every Anthropic API call
-- [ ] Delta-metric bewoog: picker advance ≥15 succeeds without context-window error (cite trace id)
-- [ ] Removed code I replaced: none (additive) OR cite specific old context-truncation code that's superseded
-- [ ] Geen scope creep: context_curation module + 1 hook in `_claude_select_next_action` + tests
+- [ ] Code INVOKED: `attack_tree_step` called from `advance_assessment_loop` every advance
+- [ ] Delta-metric: foothold transition OR tree_depth ≥3 logged in one XBOW run
+- [ ] Removed code: cite N lines of stateless picker code superseded by tree
+- [ ] Geen scope creep: attack_state.py + 1 hook + prompt section + tests only
 - [ ] Follow-ups gefiled: <refs OR "none">
-- [ ] Live test geslaagd: <link to OTEL trace OR token-count log from 15-advance run>
+- [ ] Live test geslaagd: link/trace evidence
 
 Plus required checks:
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_context_curation.py`
+- `.venv/bin/pytest api/tests/test_attack_state.py`
 - `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/context_curation.py`
+- `.venv/bin/ruff check api/app/services/attack_state.py`
 - `git diff --check`
-- Live: an XBOW challenge run produces ≥1 OTEL `picker.context_curation` span with before>after token counts.
+- Live: XBOW run produces ≥1 foothold transition OR tree_depth ≥3.
