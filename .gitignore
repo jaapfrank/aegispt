@@ -37,3 +37,4 @@ scripts/_*.txt
 codex/results/*
 !codex/results/README.md
 !codex/results/validation-matrix-latest.json
+validation-status.md
