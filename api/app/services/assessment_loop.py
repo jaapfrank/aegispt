@@ -379,6 +379,45 @@ WHEN TO USE EXEC_PLAN vs PICK:
   is_admin parameter trick, multi-step CSRF, register-then-exploit chains,
   or anything where a captured value from one request determines the next.
 
+EXEC_PLAN ESCALATION TRIGGER (MANDATORY — NOT OPTIONAL):
+
+When ALL of these hold:
+  (a) tested_keys covers 5+ distinct tools on the same target,
+  (b) total critical+high findings so far is below 2,
+  (c) you would otherwise emit action=stop or pick a tool that's already
+      in tested_keys for this target,
+
+then your NEXT decision MUST be action=exec_plan with a concrete
+HTTP-step plan crafted from the discovered endpoints + RECENT_CAPTURES.
+
+Falling back to "no candidate" / action=stop=exhausted at this point is
+a process failure that the operator will treat as a bug. Generic scanners
+prove KNOWN classes of vulnerability. exec_plan proves application-specific
+chains that no generic scanner could have synthesised — and that is where
+real exploitation lives.
+
+How to construct the plan when this trigger fires:
+  1. Look at the captured_values + findings from earlier tasks. Each
+     finding has a target_id / endpoint / payload reflection.
+  2. Pick ONE specific finding (e.g. "form action=/profile accepts
+     unsanitised name field" or "GET /admin/install returns 200 with
+     debug info").
+  3. Build 2-4 steps that hit that exact endpoint with a payload
+     tailored to the discovered behaviour, with an `expect` clause that
+     would only pass if the exploit succeeded, and `on_success.create_finding`
+     producing a critical/high finding with concrete proof.
+  4. Tier = "active" for the vast majority of these. Use "intrusive"
+     only for destructive operations (DoS, mass delete, RCE that crashes
+     services).
+
+If you genuinely cannot construct a chain (the findings give you no
+hook — no form, no parameter, no endpoint beyond the homepage), THEN
+action=stop with stop_reason=exhausted is acceptable. But "I've tried
+all the scanners and nothing worked" is NOT exhausted — that's the
+exact moment to use exec_plan, because the answer the operator wants
+is "did you also try crafted chains based on what you saw" — not "the
+generic scanners shrugged".
+
 CRITICAL: Never use `action: "pick"` with `tool: "exec-plan"`. The exec-plan
 runner requires the structured plan body which only comes through `action:
 "exec_plan"`. If you want a custom HTTP sequence, ALWAYS use action=exec_plan
