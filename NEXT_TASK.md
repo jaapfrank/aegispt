@@ -6,69 +6,59 @@
 
 ## Title
 
-Episodic memory layer — PostgreSQL + pgvector ADDITIVE (memory_backend stays as short-term scratchpad) — **Sprint mythos-exploitation-foundation, task 4 of 15**
+Context curation (Claude Code autoCompact-style) — evidence-preserving summarization at budget thresholds — **Sprint mythos-exploitation-foundation, task 5 of 15**
 
 ## Goal
 
-Add an episodic memory layer for (action, context, outcome, success_marker) tuples queryable via vector similarity. Per Codex refinement: ADDITIVE, NOT a replacement of `api/app/services/memory_backend.py`. File-backed memory_backend stays as short-term scratchpad; pgvector layer is for cross-advance and cross-run retrieval. Memory remains skeptical per Claude Code lessons — every retrieval is a HINT, evidence must still be verified.
+Implement context-window curation per Claude Code's autoCompact pattern. At 60% / 80% budget thresholds, summarize older conversational turns into dense representations, DROP verbose raw tool outputs (large nuclei JSON, full HTML bodies), PRESERVE outcomes + captured_value entities + finding records. Prevents context starvation during long-running advance loops where the picker currently degrades around iteration 10.
 
 ## Sprint context
 
-Task 4 van 15 in sprint `mythos-exploitation-foundation`. backlog-409 (Layer 0 Governance Control Plane + sandbox_runner) DONE in 4 slices — 3 dispatch-authorization call sites now route through `GovernanceControlPlane`, sandbox_runner module ready voor wire-in door 414. Met Layer 0 in place is het veilig om aan de memory layer te bouwen omdat episodic recalls nu via één authorize-pad lopen.
+Task 5 van 15 in sprint `mythos-exploitation-foundation`. backlog-410 (episodic memory) DONE — `agent_episodic_memory` populates per advance. Context curation now closes the loop: at compact time the picker consults `skeptical_recall_with_verify_hint(...)` for cross-run hints and the curator drops verbose raw outputs but PRESERVES the structured outcome records that produced those episodes.
 
 ## Delta-doelstelling (verplicht per SESSION_PROMPT §1)
 
-> Deze task levert `api/app/services/episodic_memory.py` met `write_episode(action, context, outcome)` + `recall_similar(query, k=5)` + `skeptical_recall_with_verify_hint()`. Database table `agent_episodic_memory` via Alembic migratie. Embeddings via configurable provider. Per Codex contamination guard: benchmark writes tagged `is_benchmark=True`, NEVER teruggegeven aan non-benchmark recalls. `memory_backend.py` blijft ongewijzigd — file-memory als short-term scratchpad behouden.
+> Deze task levert `api/app/services/context_curation.py` met `curate_for_picker(messages, budget_pct, *, preserve_findings, preserve_captured_values)` die de berichtenlijst inkort bij 60% / 80% budget triggers. Hook in `_claude_select_next_action`. OTEL trace per curation event met before/after token count. Delta-metric: picker advance ≥15 succeeds without context-window error on a single XBOW run (currently degrades ~10 advances).
 
 ## Scope
 
-(1) Alembic migration `migrations/versions/{date}_agent_episodic_memory.py` — new table:
-- `id` UUID, `run_id` UUID, `engagement_id` UUID
-- `action_type` str (e.g. "exec_plan", "runner_dispatch")
-- `action_context_jsonb` JSONB, `outcome_jsonb` JSONB
-- `success_marker` str (e.g. "flag_captured", "finding_critical", "no_progress")
-- `embedding vector(1536)` (pgvector)
-- `created_at` timestamptz, `is_benchmark` bool
+(1) New `api/app/services/context_curation.py`:
+- `estimate_tokens(messages) -> int` (heuristic, ~4 chars/token)
+- `curate_for_picker(messages, *, max_tokens, preserve_finding_ids, preserve_captured_value_ids)` — returns a new (curated_messages, curation_event) tuple.
+- Preserve rules: structured `finding` records ALWAYS preserved; `captured_value` entities NEVER dropped; raw tool stdouts >2 KB get summarized into one-line `[curated: tool=X status=Y size_dropped=N bytes]` envelopes.
+- Older conversational turns (older than the last 6) get summarized via a dedicated small Claude call OR via a deterministic structural extractor (default — keep the curator deterministic so it doesn't itself need a budget).
 
-(2) New `api/app/services/episodic_memory.py`:
-- `write_episode(session, *, run, action_type, context, outcome, success_marker)` — embeds context+outcome, persists row, tags `is_benchmark` based on engagement config.
-- `recall_similar(session, *, query, k=5, filter_run_id=None, include_benchmark=False)` — vector similarity query, default excludes benchmark rows.
-- `skeptical_recall_with_verify_hint(session, *, query, k=5)` — wraps recall_similar and prepends `[HINT, VERIFY BEFORE USE]` marker on every result.
+(2) Hook into `_claude_select_next_action` (`api/app/services/assessment_loop.py`): right before `client.messages.create(...)`, call `curate_for_picker(messages, max_tokens=120_000)` and emit an OTEL span `picker.context_curation` with attributes `before_tokens`, `after_tokens`, `dropped_count`, `preserved_finding_count`.
 
-(3) Embeddings provider abstraction: `_embed(text)` reads `EPISODIC_EMBED_PROVIDER` env (default `openai`, fallback `local_hash` for tests). LiteLLM-based provider lands when backlog-417 unifies LLM access — keep the abstraction so the swap is one line.
+(3) Optional integration with episodic_memory: after curation, append a single synthetic message holding `skeptical_recall_with_verify_hint(query=summary_of_current_phase, k=3)` so the picker has a HINT panel of similar past episodes. The hint envelope already has the verify-before-use marker.
 
-(4) `memory_backend.py` UNTOUCHED — file-memory blijft als short-term scratchpad per Codex refinement #3.
-
-(5) Unit tests `api/tests/test_episodic_memory.py`: write+read round-trip, is_benchmark isolation (benchmark write NOT returned in production recall), skeptical-hint marker present, fallback to local_hash when no provider configured.
+(4) Unit tests: `api/tests/test_context_curation.py` — preserve-rules respected (findings + captured_values survive), large raw stdouts summarized, token estimate roughly matches expected.
 
 ## Constraints (per ANTI_DRIFT.md)
 
-- Per Rule 1: capability task. Delta-metric = "≥1 recall_similar call from a live picker.advance returns ≥1 episode written by a previous advance in the same run (verified via OTEL trace + DB query)".
-- Per Rule 2: `episodic_memory.write_episode` MOET aangeroepen worden vanuit `advance_assessment_loop` per advance; geen dead code.
-- Per Rule 3 (geen backward-compat creep): `memory_backend.py` stays — additive layer. Mark this explicitly in commit message ("memory_backend untouched; new layer is queryable + cross-run").
-- Per Rule 4 (geen mocked-live): live verification via XBOW harness — `recall_similar` returns ≥1 row after 3+ advances on the same run.
-- Per Rule 5: contamination guard — write_episode during benchmark engagements tagged `is_benchmark=True`; recall_similar default excludes those rows.
+- Per Rule 1: capability task. Delta-metric = "picker successfully completes ≥15 advances on a single XBOW run without context-window errors (currently degrades ~10)".
+- Per Rule 2: `curate_for_picker` MOET aangeroepen worden vanuit `_claude_select_next_action` in dezelfde commit als de module — geen dead code.
+- Per Rule 3 (geen backward-compat creep): when the curator runs, the OLD message list is REPLACED, not parallel-kept. Verify via picker prompt size delta after a 15-advance run.
+- Per Rule 4 (geen mocked-live): live verification via 15+ advances on XBEN-002 — pre-curation context size + post-curation context size both logged.
+- Per Rule 5: preserve-rules can't be sluipweg used to keep XBOW-specific hints in non-benchmark runs (episodic_memory already isolates benchmark/production; the curator just respects the recall result it gets).
 
 ## Source Package
 
-`codex/tasks/backlog-410-episodic-memory-pgvector-additive.json`
+`codex/tasks/backlog-411-context-curation-autocompact.json`
 
 ## Validation (ANTI_DRIFT.md pre-commit checklist)
 
-```
-- [ ] Code INVOKED in production path: episodic_memory.write_episode called from advance_assessment_loop on every advance
-- [ ] Delta-metric bewoog: recall_similar returns >=1 episode after 3+ advances on same run (cite OTEL trace ids)
-- [ ] Removed code I replaced: N/A (additive; memory_backend untouched — confirm in commit)
-- [ ] Geen scope creep: episodic_memory module + migration + tests + 1 advance_assessment_loop call site only
+- [ ] Code INVOKED in production path: `curate_for_picker` called from `_claude_select_next_action` before every Anthropic API call
+- [ ] Delta-metric bewoog: picker advance ≥15 succeeds without context-window error (cite trace id)
+- [ ] Removed code I replaced: none (additive) OR cite specific old context-truncation code that's superseded
+- [ ] Geen scope creep: context_curation module + 1 hook in `_claude_select_next_action` + tests
 - [ ] Follow-ups gefiled: <refs OR "none">
-- [ ] Live test geslaagd: <link to live trace OR DB query of agent_episodic_memory rows>
-```
+- [ ] Live test geslaagd: <link to OTEL trace OR token-count log from 15-advance run>
 
 Plus required checks:
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_episodic_memory.py`
+- `.venv/bin/pytest api/tests/test_context_curation.py`
 - `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/episodic_memory.py`
-- `alembic upgrade head && alembic downgrade -1 && alembic upgrade head`
+- `.venv/bin/ruff check api/app/services/context_curation.py`
 - `git diff --check`
-- Live: ≥1 XBOW challenge run produces ≥3 agent_episodic_memory rows + recall_similar returns prior episode hint to the next advance.
+- Live: an XBOW challenge run produces ≥1 OTEL `picker.context_curation` span with before>after token counts.
