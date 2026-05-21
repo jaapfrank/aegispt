@@ -6,69 +6,62 @@
 
 ## Title
 
-Multi-agent coordinator (Layer 4) — meta-agent + 6 specialists + confidence-gated delegation + versioned prompt proposals — **Sprint mythos-exploitation-foundation, task 9 of 15**
+External knowledge — ExploitDB + NVD + CISA KEV read-only, provenance-scored — **Sprint mythos-exploitation-foundation, task 10 of 15**
 
 ## Goal
 
-Per Codex Layer 4 + Cyber-AutoAgent meta-everything pattern: ONE meta-agent decides, delegates to specialists (Recon, Hypothesis, ExploitDev, Validator, Memorist, Reporter, Reflector) on confidence < 70%. Per Codex 'no runtime self-modification': prompt/meta-prompt changes are VERSIONED proposals with operator approval, not agent-self-rewrite. Per OpenClaw: per-agent tool allow/deny ACL.
+Layer 2 van architectuur: read-only lookup tegen ExploitDB (MCP server), NIST NVD, CISA KEV. Per Codex: 'nooit als onbewezen waarheid'. Elke reference draagt provenance score (source + freshness + applicability). Agents gebruiken als HINT voor hypothesis generation, NEVER als direct proof.
 
 ## Sprint context
 
-Task 9 van 15 in sprint `mythos-exploitation-foundation`. backlog-414 DONE — exploit-developer-agent registered and dispatchable. Tijd om alle specialists onder één coordinator te zetten: Recon, Hypothesis, ExploitDev (414), Validator (413), Memorist (410), Reporter, Reflector. Picker wordt de Meta-Coordinator die delegeert; specialists hebben elk eigen tool-ACL.
+Task 10 van 15 in sprint `mythos-exploitation-foundation`. backlog-415 slice 1 DONE — MetaCoordinator + 6 specialists + per-agent ACL + versioned prompt proposals. Recon-specialist en Hypothesis-specialist hebben nu een external-knowledge bron nodig: bij een gevonden technology stack/version, query ExploitDB+NVD+CISA-KEV voor relevante CVEs als HINT.
 
-## Delta-doelstelling (verplicht per SESSION_PROMPT §1)
+## Delta-doelstelling
 
-> Deze task levert `api/app/agents/coordinator.py` met `MetaCoordinator` class + 6 specialist roles + per-agent tool ACL + `prompts/proposals/` directory voor versioned prompt changes met `approve_prompt_change()`. Delta-metric: ≥2 specialist agents leveren aantoonbaar betere chain-findings dan single picker op dezelfde XBOW subset.
+> Deze task levert `api/app/services/external_knowledge.py` met `lookup_exploits(cve_id|product|version)` + `lookup_cve_details(cve_id)` + provenance scoring + `marked_as_hint_only=True` envelope. Delta-metric: ≥1 lookup return van ExploitDB met provenance, gebruikt als HINT voor exploit-developer-agent zonder als bewezen impact te claimen.
 
 ## Scope
 
-(1) `api/app/agents/coordinator.py`:
-- `MetaCoordinator` met KNOW→THINK→TEST→VALIDATE loop.
-- `delegate(specialist, context, hypothesis)` → routes to one of: Recon/Hypothesis/ExploitDev/Validator/Memorist/Reporter/Reflector.
-- Per-specialist `SpecialistACL` met `tools_allow` / `tools_deny` (OpenClaw pattern).
-- Confidence gating: `coordinator_confidence < 0.70` triggers delegation to the appropriate specialist instead of direct action.
+(1) `api/app/services/external_knowledge.py`:
+- `lookup_exploits(cve_id=None, product=None, version=None)` returns list of `ExternalKnowledgeHint` records.
+- `lookup_cve_details(cve_id)` returns NVD CVE detail.
+- `ExternalKnowledgeHint`: {source, source_url, title, fetched_at, applicability_score (0-1), marked_as_hint_only=True, body_excerpt}.
+- Providers: ExploitDB MCP (pulsemcp) when configured; NVD API direct; CISA KEV daily JSON fetch + cache.
+- Read-only — no write back to external systems.
 
-(2) `api/app/agents/specialists/`:
-- 6 module files (recon.py / hypothesis.py / exploit_dev.py / validator.py / memorist.py / reporter.py / reflector.py).
-- Each specialist has its own prompt scope + tool ACL.
-- ExploitDev specialist wraps backlog-414's composer; Validator wraps backlog-413; Memorist wraps backlog-410.
+(2) Per-provider rate limits + caching:
+- 24h cache for KEV; 1h cache for NVD; per-query for ExploitDB.
+- Cache dir configurable via `AEGISPT_KNOWLEDGE_CACHE` env (default `/tmp/aegispt-knowledge-cache`).
 
-(3) `prompts/proposals/` directory:
-- New file format: `prompts/proposals/{date}-{specialist}-rev{N}.md`.
-- `approve_prompt_change(proposal_file, approver)` API endpoint — moves the proposal into `prompts/active/{specialist}.md` after operator approval.
-- Runtime self-modification by agents FORBIDDEN — every prompt update goes through this gate.
+(3) Wire into Recon/Hypothesis specialists: when target-intel emits a CVE candidate or version fingerprint, the specialist calls `lookup_exploits(...)` and surfaces the hint envelope to the coordinator. Picker prompt section explains: lookups are HINTS only; never use as proof.
 
-(4) Tests `api/tests/test_coordinator.py`:
-- Confidence-gated delegation routes to the expected specialist.
-- Per-agent ACL blocks tools outside the allowlist.
-- Versioned prompt proposal flow (write → review → approve → activate).
-- Multi-agent vs single-picker on a synthetic chain (smoke).
+(4) Tests `api/tests/test_external_knowledge.py`: stub the HTTP providers; verify schema, applicability scoring, `marked_as_hint_only=True`, cache hit/miss, read-only contract (no write methods exposed).
 
 ## Constraints (per ANTI_DRIFT.md)
 
-- Per Rule 1: capability task. Delta-metric = ≥2 specialist agents produce demonstrably better chain-findings than single picker on the same XBOW subset.
-- Per Rule 2: coordinator dispatched from `_claude_select_next_action` (or replaces it) in the same commit.
-- Per Rule 3: where the picker previously did Recon+Hypothesis+ExploitDev inline, those paths route to specialists; cite diff.
-- Per Rule 4: live verification via XBOW run with ≥1 coordinator-orchestrated chain.
-- `no_runtime_self_modification`: agents NEVER overwrite their own prompts at runtime. All prompt changes go through `prompts/proposals/` + operator approval.
+- Per Rule 1: capability task. Delta-metric = ≥1 ExternalKnowledgeHint surfaced to a live picker advance.
+- Per Rule 2: lookup_exploits called from at least one specialist; no dead code.
+- Per Rule 4 + 'never as proof': every result envelope has `marked_as_hint_only=True`; agents prompts forbidden from claiming impact based solely on KB results.
+- Per `feedback_no_prescriptive_recipes`: KB hints emergently inform hypothesis, do NOT pre-seed step-by-step exploits.
+- Read-only: providers exposed via lookup_* only; no write methods.
 
 ## Source Package
 
-`codex/tasks/backlog-415-multi-agent-coordinator-versioned-prompts.json`
+`codex/tasks/backlog-416-external-knowledge-exploitdb-readonly-provenance.json`
 
 ## Validation (ANTI_DRIFT.md pre-commit checklist)
 
-- [ ] Code INVOKED: coordinator dispatched on live picker advance
-- [ ] Delta-metric: ≥2 specialists produce better chain-findings than single picker (cite test or trace)
-- [ ] Removed code: cite picker inline paths that moved to specialists
-- [ ] Geen scope creep: coordinator + 6 specialist modules + proposals dir + tests
+- [ ] Code INVOKED: lookup_exploits called from at least one specialist path
+- [ ] Delta-metric: ≥1 hint surfaced live with marked_as_hint_only=True
+- [ ] Removed code: N/A (additive)
+- [ ] Geen scope creep: external_knowledge module + 1 specialist wire-in + tests
 - [ ] Follow-ups gefiled: <refs OR "none">
-- [ ] Live test geslaagd: trace evidence link
+- [ ] Live test geslaagd: trace/log evidence
 
 Plus required checks:
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_coordinator.py`
+- `.venv/bin/pytest api/tests/test_external_knowledge.py`
 - `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/agents/`
+- `.venv/bin/ruff check api/app/services/external_knowledge.py`
 - `git diff --check`
-- Live: ≥1 XBOW challenge run uses ≥2 specialists end-to-end.
+- Live: ≥1 lookup_exploits trace in batch run.

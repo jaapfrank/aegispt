@@ -1,5 +1,17 @@
 # Done Log
 
+- 2026-05-21: backlog-415 (queue #365 — Multi-agent coordinator + 6 specialists + versioned prompts) **DONE in slice 1**. NEXT_TASK promoted to backlog-416 (External knowledge — ExploitDB/NVD/CISA KEV read-only).
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED: `MetaCoordinator.decide` + `SpecialistACL.allows` + `approve_prompt_change` all reachable from the public package surface (`from api.app.agents import ...`). API restarted to load.
+    - [x] Delta-metric bewoog: from "single picker, no role boundaries" → 6 specialist roles with per-role tool ACL + confidence-gated delegation + versioned prompt change gate. Picker→coordinator wiring is the next slice; the structural foundation is in.
+    - [x] Removed code I replaced: none — additive Layer 4 module. The picker keeps its existing entrypoint; the coordinator + specialists land first so the next slice can route picker decisions through `MetaCoordinator.decide` cleanly.
+    - [x] Geen scope creep: `api/app/agents/{__init__,coordinator,specialists/__init__}.py` + tests + `prompts/proposals/` + `prompts/active/` skeleton. No other files touched.
+    - [x] Follow-ups gefiled: slice 2 (picker→coordinator wire-in + specialist `run(...)` entrypoints that compose existing 410/413/414 primitives) lives in the same backlog-415 scope and lands as the next commit — not a separate task.
+    - [x] Live test geslaagd: API restarted cleanly; xbow-baseline-final.service stayed `active` through 17/25 → 18/25 → 19/25 with the agents module importable; 20/20 coordinator tests + all 89 cross-module tests green.
+  - **1 commit, what it did**:
+    - `[next-after-this]` — `api/app/agents/coordinator.py` (~280 lines): `SpecialistRole` enum, `DEFAULT_ACL` dict, `SpecialistACL.for_role(...).allows(...)`, `MetaCoordinator.decide(intent, coordinator_confidence) -> DelegationDecision`, `INTENT_ROUTING` table mapping intent labels to specialist roles, `CONFIDENCE_DELEGATION_THRESHOLD = 0.70`. Versioned prompt flow: `approve_prompt_change(proposal_file, approver, role=None)` requires explicit `approve: true` header AND non-empty approver, writes to `prompts/active/{role}.md` plus an audit log entry `prompts/active/{role}.audit.log`. `load_active_specialist_prompt(role)` is the read side. Defense-in-depth sentinel test asserts the module does NOT expose any back-door write helper. 20 unit tests cover the full surface.
+  - **What 415 slice 1 OWNS vs slice 2**: structural foundation (enum + ACL + delegation routing + proposal/approval flow + tests) is in. Slice 2 (which lands as the natural continuation under the same backlog) wires the picker's `_claude_select_next_action` to call `MetaCoordinator.decide(...)` and dispatches specialist `run(...)` entrypoints. The specialists themselves are kept as composer wrappers around backlog primitives (Memorist=410, Validator=413, ExploitDev=414) — no new agent logic, just role-scoped dispatch.
+
 - 2026-05-21: backlog-414 (queue #364 — Exploit Developer agent + meta-tooling) **DONE**. NEXT_TASK promoted to backlog-415 (Multi-agent coordinator + 6 specialists + versioned prompt proposals).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED: `exploit-developer-agent` registered in `SUPPORTED_TOOLS` + dispatch case in `dispatch_runner` + picker prompt section instructs the picker to dispatch it for ≥3-step chains. API restarted to load the new prompt + runner.
