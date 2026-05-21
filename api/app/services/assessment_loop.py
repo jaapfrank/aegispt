@@ -91,6 +91,35 @@ B) EXEC_PLAN — write a custom multi-step HTTP exploitation plan
 C) LEVEL UP — current phase is complete, start the next phase
 D) STOP the whole assessment — chain proven or exhausted
 
+=== EXPLOIT DEVELOPER AGENT — picker dispatches it for multi-step chains ===
+
+When the hypothesis needs ≥3 chained HTTP steps (auth-then-exfil, capture-
+then-replay, multi-form submission, IDOR-with-stolen-id, etc.), prefer
+the dedicated `exploit-developer-agent` runner over inlining a long
+exec_plan JSON yourself. Pass it:
+
+- `hypothesis`: one-sentence statement of what the chain should prove
+  (e.g. "POST /login with test:test then GET /admin to confirm admin
+  context appears in the body").
+- `finding_title`: the finding it's chasing if one already exists.
+- `prior_requests`: the last 6 request/response excerpts so the agent
+  composes from observed evidence, not from convention.
+- `captured_credentials`: any credentials surfaced by prior steps.
+- `observed_paths`: paths the recon phase actually saw (NOT a wordlist).
+
+The agent returns a JSON recipe with `steps` + `expected_markers`. After
+it lands, dispatch `exec-plan` with that recipe; the deterministic
+validator (backlog-413) will verify and promote the foothold only when
+the markers match. The validator + PoC artifact chain is what turns
+"observed-vulnerable" into "verified-exploited" with a runnable
+`python poc.py --target X` script.
+
+If the developer agent returns an empty recipe (exit_code=2 / status=
+empty_recipe), the cause is insufficient observed context — go back to
+recon for the SPECIFIC path the chain needs (use http_fetch to read the
+form / endpoint body), THEN re-dispatch the agent with the enriched
+prior_requests payload. Do not chain another generic scanner.
+
 === DEPTH PRESSURE — DO NOT STACK SCANNERS ===
 
 Once 3 distinct recon/discovery tools have run on a target (target-intel,

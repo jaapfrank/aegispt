@@ -315,6 +315,7 @@ SUPPORTED_TOOLS = {
     "xxe-probe",
     "zap",
     "exec-plan",
+    "exploit-developer-agent",
 }
 
 
@@ -1981,6 +1982,20 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
         return execute_target_intel(
             targets=request.targets,
             timeout_seconds=max(timeout_seconds, 20.0),
+        )
+    if request.tool == "exploit-developer-agent":
+        from workers.runners.exploit_developer_agent.runner import (  # noqa: E402
+            execute_exploit_developer_agent,
+        )
+        params = request.params or {}
+        return execute_exploit_developer_agent(
+            targets=request.targets,
+            hypothesis=str(params.get("hypothesis") or ""),
+            finding_title=str(params.get("finding_title") or ""),
+            prior_requests=params.get("prior_requests") if isinstance(params.get("prior_requests"), list) else None,
+            captured_credentials=params.get("captured_credentials") if isinstance(params.get("captured_credentials"), list) else None,
+            observed_paths=params.get("observed_paths") if isinstance(params.get("observed_paths"), list) else None,
+            timeout_seconds=max(timeout_seconds, 60.0),
         )
     if request.tool == "lan-intel":
         nmap_raw = request.params.get("nmap_stdout") or ""
