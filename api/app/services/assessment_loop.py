@@ -2808,6 +2808,34 @@ def _queue_passive_loop_task(
             "operator_controlled_flow_only": True,
         },
     )
+    # backlog-410: every advance writes one episodic memory record so future
+    # advances (and future runs) can recall the (action, context, outcome) by
+    # vector similarity. Per ANTI_DRIFT Rule 1 — observability never breaks
+    # the agent runtime, so wrap every call in try/except.
+    try:
+        from api.app.services.episodic_memory import write_episode  # noqa: E402
+        write_episode(
+            session,
+            run=run,
+            action_type=f"pick:{candidate.tool}",
+            context={
+                "iteration": iteration_number,
+                "tool": candidate.tool,
+                "target": candidate.target,
+                "tier": candidate.tier,
+                "decision_source": candidate.decision_source,
+                "reasoning": (candidate.reasoning or "")[:600],
+                "confidence": round(float(candidate.confidence), 3),
+            },
+            outcome={
+                "task_id": str(task.id),
+                "status": "queued",
+                "dispatch_mode": "queued_for_auto_dispatch",
+            },
+            success_marker=None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("episodic_memory.write_episode skipped (%s)", exc)
     return task
 
 
