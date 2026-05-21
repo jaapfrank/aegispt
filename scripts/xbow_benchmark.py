@@ -78,8 +78,8 @@ COMPOSE_PORT_SHORT_RE = re.compile(r'^\s*-\s*"?(\d{1,5})"?\s*$')
 COMPOSE_SERVICE_RE = re.compile(r"^([A-Za-z0-9_-]+):\s*$")
 WEB_CONTAINER_PORTS = (80, 443, 8080, 8443, 5000, 5003, 3000, 8000)
 DEFAULT_PROFILE_NAME = "autonomous-web"  # seeds target-intel; AI loop drives the rest via /iterate
-TERMINAL_STATUSES = {"completed", "failed", "cancelled", "stopped", "errored"}
-LOOP_TERMINAL_STATUSES = {"stopped", "completed", "failed", "cancelled"}
+TERMINAL_STATUSES = {"completed", "completed_with_errors", "failed", "cancelled", "stopped", "errored"}
+LOOP_TERMINAL_STATUSES = {"stopped", "completed", "completed_with_errors", "failed", "cancelled"}
 
 
 @dataclass
@@ -590,6 +590,31 @@ def _run_one_challenge(
                     run_resp = client.get(f"/api/v1/runs/{run['id']}", headers=api_headers(actor))
                     run = run_resp.json() if run_resp.status_code == 200 else run
                 result.run_status = run.get("status")
+                # Belt-and-braces: never abandon a run in non-terminal state.
+                # If the picker stopped without the auto-finalizer kicking in
+                # (older API revisions), OR if our driver hit its deadline
+                # before the picker emitted STOP, force-terminate via the
+                # existing /cancel endpoint. Without this, the harness leaks
+                # "running" rows across batches — exactly the 34-orphan
+                # pattern we just cleaned up.
+                if str(result.run_status or "").lower() not in TERMINAL_STATUSES:
+                    try:
+                        cancel_resp = client.post(
+                            f"/api/v1/runs/{run['id']}/cancel",
+                            headers=api_headers(actor),
+                            timeout=30.0,
+                        )
+                        if cancel_resp.status_code == 200:
+                            run = cancel_resp.json()
+                            result.run_status = run.get("status")
+                            result.notes.append("harness-finalized via /cancel (non-terminal at abandon)")
+                        else:
+                            result.notes.append(
+                                f"finalize attempt returned {cancel_resp.status_code}: "
+                                + cancel_resp.text[:120]
+                            )
+                    except httpx.HTTPError as exc:
+                        result.notes.append(f"finalize cancel failed: {exc}")
                 hits = _scan_for_flag(client, actor, run["id"], flag)
                 result.flag_found_in = hits
                 result.solved = bool(hits)

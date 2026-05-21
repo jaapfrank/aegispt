@@ -440,6 +440,18 @@ def test_assessment_loop_stuck_detection_stops_after_three_no_signal_iterations(
         assert audit is not None
         assert audit.metadata_json["reason"] == "stuck_no_new_signals"
 
+    # Auto-finalizer: the picker stopping the loop must propagate to the
+    # run.status — without this the row stays "running" forever even
+    # though the picker is done. This is the bug that left 34 orphan
+    # runs (XBEN/validation runs from May 15–21) stuck in `running`
+    # despite picker having emitted STOP days earlier.
+    with client.app.state.session_factory() as session:
+        run = session.get(Run, UUID(run_id))
+        assert run is not None
+        assert run.status in {"completed", "completed_with_errors", "failed"}, (
+            f"picker STOP must transition run.status to terminal, got: {run.status}"
+        )
+
 
 def test_assessment_loop_enforces_max_twenty_iterations(client) -> None:
     engagement_id = _create_engagement_and_scope(client, {"domains": ["example.test"]})

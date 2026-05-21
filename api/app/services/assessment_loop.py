@@ -3071,6 +3071,42 @@ def _store_next_action_proposal(
     return proposal
 
 
+_RUN_TERMINAL_STATUSES = {"completed", "completed_with_errors", "failed", "cancelled", "rejected"}
+
+
+def _finalize_run_after_loop_stop(run: Run, *, stop_reason: str) -> None:
+    """Transition ``run.status`` to a terminal value when the picker emits a
+    STOP. Without this hook the picker would set ``loop_state.status=stopped``
+    but ``run.status`` would stay ``running`` forever — exactly the orphan
+    pattern we found on 34 historical runs whose picker had already given
+    up days earlier. Picks the terminal value based on observed task
+    outcomes; the stop_reason is recorded in loop_state already so we
+    don't duplicate it here."""
+    if str(run.status or "").lower() in _RUN_TERMINAL_STATUSES:
+        return
+    tasks = list(run.tasks or [])
+    statuses = [str(t.status or "").lower() for t in tasks]
+    has_failed = any(s == "failed" for s in statuses)
+    has_completed = any(s == "completed" for s in statuses)
+    if not tasks:
+        run.status = "failed"
+    elif has_completed and not has_failed:
+        run.status = "completed"
+    elif has_completed and has_failed:
+        run.status = "completed_with_errors"
+    else:
+        run.status = "failed"
+    if getattr(run, "completed_at", None) is None:
+        run.completed_at = datetime.now(tz=UTC)
+    logger.info(
+        "assessment_loop: finalized run=%s status=%s stop_reason=%s "
+        "(tasks: %d completed, %d failed)",
+        str(run.id)[:8], run.status, stop_reason,
+        sum(1 for s in statuses if s == "completed"),
+        sum(1 for s in statuses if s == "failed"),
+    )
+
+
 def build_assessment_loop_state(session: Session, *, run: Run, scope: Scope) -> dict[str, Any]:
     configuration = _as_dict(run.configuration_json)
     loop_state = _loop_state(configuration)
@@ -3371,6 +3407,7 @@ def advance_assessment_loop(
         loop_state["stop_reason"] = "max_iterations_reached"
         _store_loop_state(configuration, loop_state)
         run.configuration_json = configuration
+        _finalize_run_after_loop_stop(run, stop_reason="max_iterations_reached")
         clear_run_credential_vault_if_terminal(
             session,
             run=run,
@@ -3391,6 +3428,7 @@ def advance_assessment_loop(
         loop_state["stop_reason"] = "stuck_no_new_signals"
         _store_loop_state(configuration, loop_state)
         run.configuration_json = configuration
+        _finalize_run_after_loop_stop(run, stop_reason="stuck_no_new_signals")
         clear_run_credential_vault_if_terminal(
             session,
             run=run,
@@ -3784,6 +3822,7 @@ def advance_assessment_loop(
             loop_state["current_phase"] = {}
         _store_loop_state(configuration, loop_state)
         run.configuration_json = configuration
+        _finalize_run_after_loop_stop(run, stop_reason=str(loop_state["stop_reason"]))
         clear_run_credential_vault_if_terminal(
             session,
             run=run,
@@ -3890,6 +3929,7 @@ def advance_assessment_loop(
         loop_state["stop_reason"] = stop_reason_value
         _store_loop_state(configuration, loop_state)
         run.configuration_json = configuration
+        _finalize_run_after_loop_stop(run, stop_reason=stop_reason_value)
         clear_run_credential_vault_if_terminal(
             session,
             run=run,
