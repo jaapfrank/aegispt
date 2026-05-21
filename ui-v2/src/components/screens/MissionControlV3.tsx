@@ -4,6 +4,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { AgentProposal, Finding, Run, Task } from '../../api/types';
 import { getRunProposals, getTaskDetail, reviewAgentProposal } from '../../api/client';
+import { useI18n } from '../../i18n';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -14,7 +15,6 @@ function cn(...inputs: ClassValue[]) {
    ========================================================================= */
 
 const SEV_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
-const SEV_WEIGHT: Record<string, number> = { critical: 25, high: 6, medium: 2, low: 0.5, info: 0.1 };
 
 function countSeverity(findings: Finding[]) {
   const c = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
@@ -185,6 +185,7 @@ function StatusHero({
   onKill,
   onCinema,
   canKill,
+  cinemaDisabled,
 }: {
   run: Run;
   findings: Finding[];
@@ -192,6 +193,7 @@ function StatusHero({
   onKill: () => void;
   onCinema: () => void;
   canKill: boolean;
+  cinemaDisabled: boolean;
 }) {
   useTicker(1000);
   const state = useMemo(() => deriveMissionState(run, findings), [run, findings]);
@@ -367,7 +369,8 @@ function StatusHero({
             <button
               type="button"
               onClick={onCinema}
-              className="rounded border border-line bg-surface-2 px-3 py-1.5 text-[0.85rem] font-medium text-soft hover:text-text transition-colors"
+              disabled={cinemaDisabled}
+              className="rounded border border-line bg-surface-2 px-3 py-1.5 text-[0.85rem] font-medium text-soft hover:text-text transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <MonitorPlay size={13} className="inline -mt-0.5 mr-1" /> Cinema
             </button>
@@ -544,7 +547,7 @@ function Heartbeat({ tasks }: { tasks: Task[] }) {
    DETAILS DRAWER — everything else, behind a toggle
    ========================================================================= */
 
-function DetailsDrawer({ run, findings, tasks }: { run: Run; findings: Finding[]; tasks: Task[] }) {
+function DetailsDrawer({ findings, tasks }: { findings: Finding[]; tasks: Task[] }) {
   const [open, setOpen] = useState(false);
   const counts = countSeverity(findings);
   const byClass = useMemo(() => {
@@ -1112,6 +1115,7 @@ function ComicStrip({ panels }: { panels: NarratorPanel[] }) {
 }
 
 function StoryView({ run, findings, tasks }: { run: Run; findings: Finding[]; tasks: Task[] }) {
+  const { t } = useI18n();
   useTicker(2000);
   const beats = useMemo(() => buildStoryBeats(run, findings, tasks), [run, findings, tasks]);
   const state = useMemo(() => deriveMissionState(run, findings), [run, findings]);
@@ -1187,7 +1191,7 @@ function StoryView({ run, findings, tasks }: { run: Run; findings: Finding[]; ta
             <span className="text-4xl leading-none">{state.emoji}</span>
             <div>
               <div className={cn('font-mono text-[0.78rem] font-bold tracking-widest', state.tone)}>{state.label}</div>
-              <div className="font-mono text-[0.7rem] text-muted">{run.name || 'Mission'}</div>
+              <div className="font-mono text-[0.7rem] text-muted">{run.profile?.name || t('mission.defaultName')}</div>
             </div>
             <div className="ml-auto font-mono text-[0.9rem] tabular-nums text-amber">{formatUptime(run.started_at)}</div>
           </div>
@@ -1579,7 +1583,9 @@ function colorizeLine(text: string, isErrStream: boolean): React.ReactNode {
   push(EXIT_CODE_RE, 'text-red-400 font-semibold');
   push(ERROR_KW_RE, 'text-red-400 font-semibold');
 
-  if (segments.length === 0) return text;
+  if (segments.length === 0) {
+    return isErrStream ? <span className="text-red-300">{text}</span> : text;
+  }
   // Resolve overlaps: keep the LAST pushed segment at each position (higher
   // priority since we pushed in order).
   segments.sort((a, b) => a.start - b.start || b.end - a.end);
@@ -2119,6 +2125,150 @@ function LiveEventsFeed({ runId }: { runId: string }) {
 }
 
 
+/* =========================================================================
+   LIVE API LOG TAIL — raw `tail -f /tmp/aegispt-api.log` inside the browser.
+   Operator 2026-05-21: "is deze CLI wel te zien in de website? aangezien
+   dat juist belangrijk is. Anders moet ik meerdere schermen openen."
+   Backfill of last ~200 lines on connect, then append every new line as
+   the API logs it. Survives log rotation (api-log.rotated event).
+   ========================================================================= */
+
+function LiveApiLogTail({ defaultOpen = false }: { defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [lines, setLines] = useState<{ text: string; phase: string; ts: number }[]>([]);
+  const [connected, setConnected] = useState(false);
+  const [filter, setFilter] = useState<string>('');
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    setLines([]);
+    setConnected(false);
+    const es = new EventSource('/api/v1/system/api-log/stream');
+    let live = true;
+    es.addEventListener('api-log.line', (e) => {
+      if (!live) return;
+      setConnected(true);
+      try {
+        const d = JSON.parse((e as MessageEvent).data);
+        setLines((prev) => {
+          const next = [...prev, { text: String(d.text || ''), phase: String(d.phase || 'tail'), ts: Date.now() }];
+          // Cap at 1000 lines so memory stays bounded.
+          return next.length > 1000 ? next.slice(next.length - 1000) : next;
+        });
+      } catch {
+        // ignore
+      }
+    });
+    es.addEventListener('api-log.rotated', () => {
+      if (!live) return;
+      setLines((prev) => [...prev, { text: '── log rotated, re-following ──', phase: 'meta', ts: Date.now() }]);
+    });
+    es.addEventListener('api-log.missing', (e) => {
+      if (!live) return;
+      try {
+        const d = JSON.parse((e as MessageEvent).data);
+        setLines((prev) => [...prev, { text: `(api log unavailable: ${d.error})`, phase: 'meta', ts: Date.now() }]);
+      } catch {
+        // ignore
+      }
+    });
+    es.onerror = () => {
+      if (es.readyState === EventSource.CLOSED) {
+        setConnected(false);
+      }
+    };
+    return () => {
+      live = false;
+      es.close();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [lines]);
+
+  const filtered = filter.trim()
+    ? lines.filter((l) => l.text.toLowerCase().includes(filter.toLowerCase()))
+    : lines;
+
+  if (!open) {
+    return (
+      <div className="px-6 pt-4">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="font-mono text-[0.7rem] uppercase tracking-widest text-green-300/70 hover:text-green-300 border border-green-700/40 rounded px-3 py-1.5 bg-[#0b0f13]"
+          title="Open the live API log tail (equivalent to `tail -f /tmp/aegispt-api.log` in a terminal)"
+        >
+          ▶ open live api log tail
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-6 pt-4">
+      <div className="rounded border border-line-soft overflow-hidden bg-[#0b0f13]">
+        <div className="px-3 py-1.5 bg-[#1a1f26] border-b border-line-soft flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-red-500/70" />
+            <span className="h-2 w-2 rounded-full bg-yellow-500/70" />
+            <span className="h-2 w-2 rounded-full bg-green-500/70" />
+          </div>
+          <span className={cn('h-1.5 w-1.5 rounded-full ml-2', connected ? 'bg-green-400 animate-pulse' : 'bg-amber-400 animate-pulse')} />
+          <span className="font-mono text-[0.7rem] uppercase tracking-widest text-green-300">tail -f /tmp/aegispt-api.log</span>
+          <input
+            type="text"
+            placeholder="filter…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="ml-2 font-mono text-[0.7rem] bg-[#0b0f13] text-green-300 border border-green-700/40 rounded px-2 py-0.5 w-40"
+          />
+          <span className="ml-auto font-mono text-[0.6rem] text-green-300/60 tabular-nums">
+            {filtered.length}/{lines.length} lines
+          </span>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="font-mono text-[0.6rem] text-amber underline ml-2"
+          >
+            close
+          </button>
+        </div>
+        <div
+          ref={scrollRef}
+          className="px-3 py-2 font-mono text-[0.74rem] leading-tight bg-[#0b0f13] h-[20rem] overflow-y-auto whitespace-pre-wrap break-words"
+        >
+          {!connected && lines.length === 0 && (
+            <span className="text-green-300/40">(connecting to /api/v1/system/api-log/stream …)</span>
+          )}
+          {filtered.map((l, idx) => {
+            const isErr = /\bERROR\b|Traceback|Exception|FAIL/i.test(l.text);
+            const isWarn = /\bWARN(ING)?\b|Skip|REJECT/i.test(l.text);
+            const isMeta = l.phase === 'meta';
+            const baseCls = isErr
+              ? 'text-red-400'
+              : isWarn
+                ? 'text-amber-300'
+                : isMeta
+                  ? 'text-green-300/50 italic'
+                  : l.phase === 'backfill'
+                    ? 'text-green-200/60'
+                    : 'text-green-200';
+            return (
+              <div key={`${l.ts}-${idx}`} className={baseCls}>
+                {colorizeLine(l.text, isErr)}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function TechnicalView({
   run,
   findings,
@@ -2126,6 +2276,7 @@ function TechnicalView({
   onKill,
   onCinema,
   canKill,
+  cinemaDisabled,
 }: {
   run: Run;
   findings: Finding[];
@@ -2133,6 +2284,7 @@ function TechnicalView({
   onKill: () => void;
   onCinema: () => void;
   canKill: boolean;
+  cinemaDisabled: boolean;
 }) {
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-y-auto">
@@ -2143,6 +2295,7 @@ function TechnicalView({
         onKill={onKill}
         onCinema={onCinema}
         canKill={canKill}
+        cinemaDisabled={cinemaDisabled}
       />
       {/* Row 1: Risk trajectory + Tool chain */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-4 px-6 pt-4">
@@ -2158,6 +2311,10 @@ function TechnicalView({
       <div className="px-6 pt-4">
         <LiveTaskDrillDown tasks={tasks} />
       </div>
+      {/* Row 2.5: Raw API log tail. Collapsed by default to keep the page
+                    compact; click to open for `tail -f` in the browser. */}
+      <LiveApiLogTail />
+
       {/* Row 3: Proof + Now playing summary */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 px-6 pt-4">
         <ProofPanel findings={findings} />
@@ -2166,7 +2323,7 @@ function TechnicalView({
           <Heartbeat tasks={tasks} />
         </div>
       </div>
-      <DetailsDrawer run={run} findings={findings} tasks={tasks} />
+      <DetailsDrawer findings={findings} tasks={tasks} />
     </div>
   );
 }
@@ -2179,11 +2336,11 @@ export default function MissionControlV3({
   run,
   tasks,
   findings,
-  proposals: _proposals,
+  proposals,
   onKill,
   onCinema,
   canKill,
-  cinemaDisabled: _cinemaDisabled,
+  cinemaDisabled,
 }: {
   run: Run;
   tasks: Task[];
@@ -2194,7 +2351,9 @@ export default function MissionControlV3({
   canKill: boolean;
   cinemaDisabled: boolean;
 }) {
+  const { t } = useI18n();
   const [view, setView] = useState<'story' | 'technical'>('story');
+  const pendingProposalCount = proposals.filter((proposal) => (proposal.status || '').toLowerCase() === 'pending').length;
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
@@ -2211,7 +2370,7 @@ export default function MissionControlV3({
               : 'border border-transparent text-muted hover:text-text',
           )}
         >
-          📖 Story
+          {t('mission.view.story')}
         </button>
         <button
           type="button"
@@ -2223,10 +2382,11 @@ export default function MissionControlV3({
               : 'border border-transparent text-muted hover:text-text',
           )}
         >
-          🔧 Technical
+          {t('mission.view.technical')}
         </button>
         <span className="ml-auto font-mono text-[0.65rem] text-muted">
-          {view === 'story' ? 'Narrative — what happened, in plain language' : 'Status board — proof + heartbeat'}
+          {view === 'story' ? t('mission.storyDetail') : t('mission.technicalDetail')}
+          {pendingProposalCount > 0 ? ` · ${pendingProposalCount} pending` : ''}
         </span>
       </div>
 
@@ -2240,6 +2400,7 @@ export default function MissionControlV3({
           onKill={onKill}
           onCinema={onCinema}
           canKill={canKill}
+          cinemaDisabled={cinemaDisabled}
         />
       )}
     </div>

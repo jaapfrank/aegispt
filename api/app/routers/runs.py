@@ -227,6 +227,94 @@ def list_runner_capabilities(
     _actor: str = Depends(require_roles("operator", "admin")),
 ) -> dict[str, Any]:
     return runner_capability_registry()
+
+
+# Live API log tail (browser-side `tail -f /tmp/aegispt-api.log`). Lets the
+# operator see the raw API log inside the UI without opening a separate
+# terminal — addresses the 2026-05-21 feedback: "multiple screens open is
+# annoying, want this in the website".
+_API_LOG_PATH = "/tmp/aegispt-api.log"
+_API_LOG_MAX_BACKFILL_LINES = 200
+_API_LOG_POLL_INTERVAL = 0.4
+
+
+@router.get("/system/api-log/stream")
+async def stream_api_log(
+    request: Request,
+    _actor: str = Depends(require_roles("operator", "admin")),
+) -> StreamingResponse:
+    """SSE that tails the API log file. Sends a backfill of the last 200
+    lines on connect, then streams new lines as the file grows. Restarts
+    cleanly across log rotations (re-opens when inode changes)."""
+    import os as _os
+    log_path = _os.environ.get("AEGISPT_API_LOG_PATH", _API_LOG_PATH)
+
+    async def gen():
+        # Initial backfill so the operator sees recent context, not a blank
+        # screen until something new is logged.
+        backfill: list[str] = []
+        try:
+            with open(log_path, "r", encoding="utf-8", errors="replace") as fh:
+                fh.seek(0, 2)  # end
+                size = fh.tell()
+                # Read up to ~64KB from the tail for the backfill window
+                backfill_window = min(size, 64 * 1024)
+                fh.seek(size - backfill_window)
+                tail_block = fh.read()
+                backfill = tail_block.splitlines()[-_API_LOG_MAX_BACKFILL_LINES:]
+        except (FileNotFoundError, PermissionError) as exc:
+            yield _format_sse_event("api-log.missing", {"error": str(exc)})
+            return
+
+        for line in backfill:
+            yield _format_sse_event("api-log.line", {"text": line, "phase": "backfill"})
+
+        try:
+            inode_at_open = _os.stat(log_path).st_ino
+        except OSError:
+            inode_at_open = None
+
+        # Now follow the file (tail -f semantics)
+        try:
+            fh = open(log_path, "r", encoding="utf-8", errors="replace")
+            fh.seek(0, 2)
+        except (FileNotFoundError, PermissionError) as exc:
+            yield _format_sse_event("api-log.missing", {"error": str(exc)})
+            return
+
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                line = fh.readline()
+                if line:
+                    yield _format_sse_event("api-log.line", {"text": line.rstrip(), "phase": "tail"})
+                    continue
+                # No new bytes — check if file rotated, otherwise back off.
+                try:
+                    current_inode = _os.stat(log_path).st_ino
+                    if inode_at_open is not None and current_inode != inode_at_open:
+                        # Rotation — reopen.
+                        fh.close()
+                        fh = open(log_path, "r", encoding="utf-8", errors="replace")
+                        fh.seek(0, 2)
+                        inode_at_open = current_inode
+                        yield _format_sse_event("api-log.rotated", {})
+                        continue
+                except OSError:
+                    pass
+                await asyncio.sleep(_API_LOG_POLL_INTERVAL)
+        finally:
+            try:
+                fh.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 LAUNCH_AUTO_DISPATCH_WEB_TOOLS = {
     "biz-logic-probe",
     "burp",
