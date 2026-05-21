@@ -1881,23 +1881,40 @@ type FeedEvent = {
   cls: string; // tailwind text-* class
 };
 
+const TERMINAL_RUN_STATUSES = new Set([
+  'completed', 'completed_with_errors', 'failed', 'cancelled', 'canceled', 'rejected',
+]);
+
 function LiveEventsFeed({ runId }: { runId: string }) {
   const [events, setEvents] = useState<FeedEvent[]>([]);
+  const [feedClosed, setFeedClosed] = useState(false);
   const prevSnapshotRef = useRef<{
     status?: string;
     tasks: Map<string, { status: string; tool: string; target: string }>;
     foothold?: string;
     iterationCount?: number;
   } | null>(null);
+  const announcedConnectedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!runId) return undefined;
     setEvents([]);
+    setFeedClosed(false);
     prevSnapshotRef.current = null;
-    const url = `/api/v1/runs/${runId}/events`;
-    const es = new EventSource(url);
+    announcedConnectedRef.current = false;
+    let es: EventSource | null = new EventSource(`/api/v1/runs/${runId}/events`);
     let live = true;
+
+    const closeFeed = (reason: string, cls: string) => {
+      if (!live) return;
+      if (es) {
+        es.close();
+        es = null;
+      }
+      setEvents((prev) => [...prev, { ts: Date.now(), tag: 'FEED', text: reason, cls }]);
+      setFeedClosed(true);
+    };
 
     const append = (tag: string, text: string, cls: string) => {
       if (!live) return;
@@ -1910,7 +1927,6 @@ function LiveEventsFeed({ runId }: { runId: string }) {
     const onSnapshot = (e: MessageEvent, isInitial: boolean) => {
       try {
         const snap = JSON.parse(e.data);
-        // Build current state for diffing
         const taskMap = new Map<string, { status: string; tool: string; target: string }>();
         for (const t of snap.tasks ?? []) {
           taskMap.set(String(t.id), {
@@ -1924,10 +1940,26 @@ function LiveEventsFeed({ runId }: { runId: string }) {
         const foothold = String(loop?.foothold_state ?? '');
         const iterCount = Number(loop?.iteration_count ?? 0);
         const runStatus = String(snap.status ?? '?');
+        const isTerminal = TERMINAL_RUN_STATUSES.has(runStatus);
 
         if (isInitial) {
-          append('CONNECTED', `tracking run ${String(snap.run_id).slice(0, 8)} (${taskMap.size} tasks, status=${runStatus})`, 'text-cyan-400');
+          // Only announce CONNECTED once — the API's SSE endpoint sends a fresh
+          // run.snapshot on every reconnect, but the operator already knows we're
+          // connected. Repeating it on every retry is noise.
+          if (!announcedConnectedRef.current) {
+            announcedConnectedRef.current = true;
+            const label = isTerminal
+              ? `tracking run ${String(snap.run_id).slice(0, 8)} (${taskMap.size} tasks, terminal: ${runStatus} — feed closing)`
+              : `tracking run ${String(snap.run_id).slice(0, 8)} (${taskMap.size} tasks, status=${runStatus})`;
+            append('CONNECTED', label, 'text-cyan-400');
+          }
           prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount };
+          // If the run is ALREADY terminal at first connect, the server will
+          // immediately close — beat it to the close, don't retry, and tell
+          // the operator the feed is parked.
+          if (isTerminal) {
+            closeFeed(`run is ${runStatus} — no further events expected`, 'text-amber-300/70 italic');
+          }
           return;
         }
         const prev = prevSnapshotRef.current;
@@ -1952,22 +1984,24 @@ function LiveEventsFeed({ runId }: { runId: string }) {
             append(t.status.toUpperCase(), `${t.tool} -> ${t.target}`, cls);
           }
         }
-        // Diff: foothold transition
         if (foothold && foothold !== prev.foothold) {
           append('FOOTHOLD', `${prev.foothold || 'anonymous'} → ${foothold}`, 'text-fuchsia-300 font-semibold');
         }
-        // Diff: iteration count went up
         if (iterCount > (prev.iterationCount ?? 0)) {
           append('ITER', `picker iter ${prev.iterationCount ?? 0} → ${iterCount}`, 'text-cyan-300');
         }
-        // Diff: run status change
         if (runStatus !== prev.status) {
-          const terminal = ['completed', 'completed_with_errors', 'failed', 'cancelled', 'rejected'].includes(runStatus);
           append('RUN', `status ${prev.status} → ${runStatus}`,
-            terminal ? 'text-amber-300 font-semibold' : 'text-cyan-400');
+            isTerminal ? 'text-amber-300 font-semibold' : 'text-cyan-400');
         }
 
         prevSnapshotRef.current = { status: runStatus, tasks: taskMap, foothold, iterationCount: iterCount };
+
+        // Run just went terminal — stop the EventSource so the browser doesn't
+        // start its reconnect loop on the server's clean close.
+        if (isTerminal && !TERMINAL_RUN_STATUSES.has(prev.status ?? '')) {
+          closeFeed(`run terminal — feed parked`, 'text-amber-300/70 italic');
+        }
       } catch {
         // ignore malformed
       }
@@ -1989,13 +2023,29 @@ function LiveEventsFeed({ runId }: { runId: string }) {
       }
     });
     es.addEventListener('run.missing', () => {
-      append('LOST', 'run no longer queryable', 'text-red-400');
+      closeFeed('run no longer queryable', 'text-red-400');
     });
-    es.onerror = () => append('RECONNECTING', '(SSE error — browser will retry automatically)', 'text-amber-300');
+    es.onerror = () => {
+      // EventSource fires 'error' both on transient network failures AND on
+      // clean server close (readyState=CLOSED). For terminal runs the server
+      // closes deliberately; the browser would otherwise loop-retry every
+      // ~3s. Treat readyState=CLOSED as a clean stop, NOT as a "reconnecting"
+      // spam line.
+      if (es && es.readyState === EventSource.CLOSED) {
+        if (!announcedConnectedRef.current) {
+          // Never got a snapshot — pure failure.
+          append('FEED', 'SSE connection closed before any snapshot — backend unreachable?', 'text-red-400');
+        }
+        setFeedClosed(true);
+        es = null;
+        return;
+      }
+      append('RECONNECTING', '(transient SSE error — browser will retry)', 'text-amber-300/70');
+    };
 
     return () => {
       live = false;
-      es.close();
+      if (es) es.close();
     };
   }, [runId]);
 
@@ -2021,9 +2071,14 @@ function LiveEventsFeed({ runId }: { runId: string }) {
         </span>
         <span className="ml-auto font-mono text-[0.6rem] text-green-300/60 tabular-nums">{events.length} events</span>
       </div>
+      {/* Fixed-height scrollback. Without this the panel grows down the page
+          as events accumulate — operator screenshot 2026-05-21. h-[18rem]
+          gives ~25 events visible at default font size; older events scroll
+          off the top, new ones append at the bottom (overflow-y-auto +
+          auto-scroll-to-bottom effect above). */}
       <div
         ref={scrollRef}
-        className="px-3 py-2 font-mono text-[0.78rem] leading-snug bg-[#0b0f13] max-h-[24rem] min-h-[10rem] overflow-y-auto whitespace-pre-wrap break-all"
+        className="px-3 py-2 font-mono text-[0.78rem] leading-snug bg-[#0b0f13] h-[18rem] overflow-y-auto whitespace-pre-wrap break-words"
       >
         {events.length === 0 && (
           <span className="text-green-300/40">(connecting to /runs/{runId.slice(0, 8)}/events …)</span>
@@ -2032,13 +2087,16 @@ function LiveEventsFeed({ runId }: { runId: string }) {
           const time = new Date(ev.ts).toLocaleTimeString('en-GB', { hour12: false }) + '.'
             + String(ev.ts % 1000).padStart(3, '0');
           return (
-            <div key={`${ev.ts}-${idx}`} className="grid grid-cols-[7rem_5.5rem_1fr] gap-2">
+            <div key={`${ev.ts}-${idx}`} className="grid grid-cols-[7rem_5.5rem_1fr] gap-2 leading-tight">
               <span className="text-green-300/40">{time}</span>
               <span className={cn('font-semibold', ev.cls)}>{ev.tag}</span>
               <span className={ev.cls}>{colorizeLine(ev.text, false)}</span>
             </div>
           );
         })}
+        {feedClosed && (
+          <div className="mt-1 text-green-300/40 italic">— end of feed (run terminal or backend unreachable) —</div>
+        )}
       </div>
     </div>
   );
