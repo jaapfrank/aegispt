@@ -468,16 +468,16 @@ def _picker_variant_pick() -> dict[str, Any]:
         ],
         "properties": {
             "action": {"type": "string", "const": "pick"},
-            # Schema-level exclusion of "exec-plan": Claude was consistently
-            # emitting action=pick + tool=exec-plan (no plan body), which the
-            # code rejected at runtime — too late, the picker call had already
-            # returned. Forcing the schema to disallow tool=exec-plan in pick
-            # makes Anthropic's structured-output validator reject the
-            # malformed response BEFORE it reaches us, so Claude must either
-            # pick a different tool OR switch to action=exec_plan with a
-            # proper plan body. Empirically observed 2026-05-21 12:09 on
-            # XBEN-002-24: "Claude PICK tool=exec-plan rejected".
-            "tool": {"type": "string", "not": {"const": "exec-plan"}},
+            # P0 REGRESSION FIX 2026-05-21: was {"type":"string","not":{"const":"exec-plan"}}
+            # but Anthropic's structured-output validator rejects the JSON-Schema
+            # `not` keyword: "Schema keyword 'not' is not supported" → every
+            # picker call returned HTTP 400 → picker_retry_exhausted became the
+            # dominant stop_reason → no agent_tool dispatches → all canaries dead.
+            # Reverted to generic string + runtime rejection at
+            # _claude_candidate_to_loop_candidate (line ~1547 / 1604) which
+            # still catches action=pick + tool=exec-plan and re-prompts Claude
+            # via the rejection_sink mechanism.
+            "tool": {"type": "string"},
             "target": {"type": "string"},
             "tier": {"type": "string", "enum": _PICKER_TIER_ENUM},
             "reasoning": {"type": "string"},
@@ -497,11 +497,11 @@ def _picker_variant_level_up(*, with_plan: bool) -> dict[str, Any]:
         "action": {"type": "string", "const": "level_up"},
         "previous_phase_summary": {"type": "string"},
         "new_phase_label": {"type": "string"},
-        # Same reasoning as _picker_variant_pick: exclude "exec-plan" here so
-        # level_up with a regular tool can't accidentally land at our rejection
-        # path. level_up WITH plan (the next branch) DOES require tool=exec-plan
-        # via const, so the exec-plan path is forced through there.
-        "tool": {"type": "string", "not": {"const": "exec-plan"}},
+        # P0 REGRESSION FIX 2026-05-21: same as _picker_variant_pick — reverted
+        # from {"not":{"const":"exec-plan"}} because Anthropic rejects `not`.
+        # Runtime rejection at _claude_candidate_to_loop_candidate handles
+        # action=level_up + tool=exec-plan without a plan body.
+        "tool": {"type": "string"},
         "target": {"type": "string"},
         "tier": {"type": "string", "enum": _PICKER_TIER_ENUM},
         "reasoning": {"type": "string"},

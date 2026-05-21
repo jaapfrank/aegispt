@@ -4761,7 +4761,15 @@ def _maybe_run_post_task_ai_analysis(session, task: Task):
 
 
 def _maybe_advance_assessment_loop_after_task(session, task: Task) -> dict[str, object] | None:
-    if task.id is None or task.status not in ("completed", "failed"):
+    # "skipped" added 2026-05-21: runners returning exit_code=78 (EX_CONFIG,
+    # see RUNNER_EXIT_CODE_SKIPPED) now map to task.status="skipped" instead
+    # of "failed". Without including it here the post-task advance hook never
+    # fires for runs where every dispatched tool is unconfigured (e.g. all
+    # auth-flow / session-security dispatches skip on a fresh deployment),
+    # leaving the loop in waiting_for_execution and the run.status in
+    # "running" forever. Operator-reported 2026-05-21: 4 runs stuck in
+    # waiting_for_execution, oldest since 08:48.
+    if task.id is None or task.status not in ("completed", "failed", "skipped"):
         return None
     if is_validation_task(task):
         return None
