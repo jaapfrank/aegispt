@@ -57,6 +57,8 @@ import {
 import type { Run } from './api/types';
 import { useAegisStore } from './store';
 import ErrorBoundary from './components/ErrorBoundary';
+import { I18nProvider, useI18n, type TFunction } from './i18n';
+import LanguageSelector from './i18n/LanguageSelector';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -64,14 +66,14 @@ function cn(...inputs: ClassValue[]) {
 
 type NavEntry = {
   to: string;
-  label: string;
+  labelKey: Parameters<TFunction>[0];
   icon: typeof Activity;
   pulse?: boolean;
   badgeKey?: 'findings';
 };
 
 type NavSection = {
-  label: string;
+  labelKey: Parameters<TFunction>[0];
   items: NavEntry[];
 };
 
@@ -96,58 +98,61 @@ type ToastNotice = {
 
 const navSections: NavSection[] = [
   {
-    label: 'Operate',
+    labelKey: 'nav.operate',
     items: [
-      { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/intake', label: 'Intake', icon: Crosshair },
-      { to: '/mission-control', label: 'Mission Control', icon: Activity, pulse: true },
+      { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+      { to: '/intake', labelKey: 'nav.intake', icon: Crosshair },
+      { to: '/mission-control', labelKey: 'nav.missionControl', icon: Activity, pulse: true },
     ],
   },
   {
-    label: 'Analyze',
+    labelKey: 'nav.analyze',
     items: [
-      { to: '/surface-map', label: 'Surface Map', icon: Map },
-      { to: '/evidence', label: 'Evidence Replay', icon: Archive },
-      { to: '/findings', label: 'Findings', icon: ShieldAlert, badgeKey: 'findings' },
-      { to: '/reports', label: 'Reports', icon: FileText },
-      { to: '/history', label: 'History', icon: History },
-      { to: '/problems', label: 'Problems', icon: BadgeAlert },
+      { to: '/surface-map', labelKey: 'nav.surfaceMap', icon: Map },
+      { to: '/evidence', labelKey: 'nav.evidenceReplay', icon: Archive },
+      { to: '/findings', labelKey: 'nav.findings', icon: ShieldAlert, badgeKey: 'findings' },
+      { to: '/reports', labelKey: 'nav.reports', icon: FileText },
+      { to: '/history', labelKey: 'nav.history', icon: History },
+      { to: '/problems', labelKey: 'nav.problems', icon: BadgeAlert },
     ],
   },
   {
-    label: 'Build',
+    labelKey: 'nav.build',
     items: [
-      { to: '/packs', label: 'Packs', icon: Box },
-      { to: '/cve-library', label: 'CVE Library', icon: Database },
-      { to: '/research', label: 'Research', icon: FlaskConical },
+      { to: '/packs', labelKey: 'nav.packs', icon: Box },
+      { to: '/cve-library', labelKey: 'nav.cveLibrary', icon: Database },
+      { to: '/research', labelKey: 'nav.research', icon: FlaskConical },
     ],
   },
 ];
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<AppShell />}>
-        <Route index element={<DashboardScreen />} />
-        <Route path="intake" element={<IntakeScreen />} />
-        <Route path="mission-control" element={<MissionControl />} />
-        <Route path="surface-map" element={<SurfaceMap />} />
-        <Route path="evidence" element={<EvidenceReplay />} />
-        <Route path="findings" element={<FindingsTheater />} />
-        <Route path="reports" element={<ReportCenter />} />
-        <Route path="history" element={<HistoryScreen />} />
-        <Route path="problems" element={<ProblemsCenter />} />
-        <Route path="packs" element={<PacksScreen />} />
-        <Route path="cve-library" element={<CustomCVELibrary />} />
-        <Route path="research" element={<ResearchScreen />} />
-        <Route path="settings" element={<SettingsScreen />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+    <I18nProvider>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route index element={<DashboardScreen />} />
+          <Route path="intake" element={<IntakeScreen />} />
+          <Route path="mission-control" element={<MissionControl />} />
+          <Route path="surface-map" element={<SurfaceMap />} />
+          <Route path="evidence" element={<EvidenceReplay />} />
+          <Route path="findings" element={<FindingsTheater />} />
+          <Route path="reports" element={<ReportCenter />} />
+          <Route path="history" element={<HistoryScreen />} />
+          <Route path="problems" element={<ProblemsCenter />} />
+          <Route path="packs" element={<PacksScreen />} />
+          <Route path="cve-library" element={<CustomCVELibrary />} />
+          <Route path="research" element={<ResearchScreen />} />
+          <Route path="settings" element={<SettingsScreen />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </I18nProvider>
   );
 }
 
 function AppShell() {
+  const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
   const engagements = useAegisStore((state) => state.engagements);
@@ -310,8 +315,8 @@ function AppShell() {
   const criticalFindingCount = findings.filter((finding) => finding.severity.toLowerCase() === 'critical').length;
   const previousCriticalCountRef = useRef(criticalFindingCount);
   const [criticalPulseVisible, setCriticalPulseVisible] = useState(false);
-  const runActivityLabel = `${runningRunCount} running`;
-  const engagementLabel = selectedEngagement?.name ?? (loading.bootstrap ? 'Loading engagements' : 'No engagement selected');
+  const runActivityLabel = t('shell.runningRuns', { count: runningRunCount });
+  const engagementLabel = selectedEngagement?.name ?? (loading.bootstrap ? t('shell.loadingEngagements') : t('shell.noEngagement'));
   const commandItems = useMemo(
     () =>
       buildCommandPaletteItems({
@@ -321,8 +326,9 @@ function AppShell() {
         selectEngagement,
         selectRun,
         selectFinding,
+        t,
       }),
-    [engagements, findings, runs, selectEngagement, selectFinding, selectRun],
+    [engagements, findings, runs, selectEngagement, selectFinding, selectRun, t],
   );
 
   useEffect(() => {
@@ -339,8 +345,8 @@ function AppShell() {
   useEffect(() => {
     if (!error || lastErrorToastRef.current === error) return;
     lastErrorToastRef.current = error;
-    pushToast('error', 'Request failed', error);
-  }, [error, pushToast]);
+    pushToast('error', t('shell.requestFailed'), error);
+  }, [error, pushToast, t]);
 
   useEffect(() => {
     function handleGlobalKeyDown(event: KeyboardEvent) {
@@ -366,7 +372,7 @@ function AppShell() {
             </Link>
 
             <select
-              aria-label="Selected engagement"
+              aria-label={t('shell.selectedEngagement')}
               value={selectedEngagementId ?? ''}
               onChange={(event) => selectEngagement(event.target.value || null)}
               className="max-w-[280px] truncate bg-transparent text-[1rem] font-medium text-text outline-none hover:text-cyan transition-colors"
@@ -396,11 +402,12 @@ function AppShell() {
             )}
 
             <div className="flex h-full items-center gap-4 pl-4 border-l border-border">
+              <LanguageSelector />
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
                 className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-surface/60 text-muted transition-colors hover:border-cyan/40 hover:text-cyan hover:shadow-[0_0_1rem_rgba(94,207,255,0.12)]"
-                aria-label="Open command palette"
+                aria-label={t('shell.openCommandPalette')}
               >
                 <Command size={15} />
               </button>
@@ -410,9 +417,9 @@ function AppShell() {
                 data-testid="switch-to-classic-ui"
               >
                 <ExternalLink size={13} />
-                Classic UI
+                {t('shell.classicUi')}
               </a>
-              <NavLink to="/settings" className="text-muted hover:text-text transition-colors" aria-label="Settings">
+              <NavLink to="/settings" className="text-muted hover:text-text transition-colors" aria-label={t('nav.settings')}>
                 <Settings size={16} />
               </NavLink>
               <button className="flex items-center gap-2 text-[1rem] font-medium text-text hover:text-cyan transition-colors">
@@ -428,22 +435,22 @@ function AppShell() {
             <div className="px-3 mb-6">
               <Link className="flex w-full items-center justify-center gap-2 rounded-md border border-cyan/30 bg-cyan/5 py-2 text-[1rem] font-semibold text-cyan shadow-[0_0_1rem_rgba(94,207,255,0.08)] transition-all hover:border-cyan/50 hover:bg-cyan/10 hover:shadow-[0_0_1.25rem_rgba(94,207,255,0.18)]" to="/intake">
                 <Plus size={16} />
-                New Mission
+                {t('shell.newMission')}
               </Link>
             </div>
 
             <nav className="flex flex-col gap-6 px-3">
               {navSections.map((section) => (
-                <div key={section.label} className="flex flex-col gap-1">
+                <div key={section.labelKey} className="flex flex-col gap-1">
                   <span className="px-2 text-[0.77rem] font-bold uppercase tracking-wider text-muted mb-1">
-                    {section.label}
+                    {t(section.labelKey)}
                   </span>
                   {section.items.map((item) => (
                     <NavItem
                       key={item.to}
                       to={item.to}
                       icon={<item.icon size={15} />}
-                      label={item.label}
+                      label={t(item.labelKey)}
                       badge={item.badgeKey === 'findings' && findings.length > 0 ? String(findings.length) : undefined}
                       criticalBadge={item.badgeKey === 'findings' && criticalPulseVisible}
                       showLivingPulse={Boolean(item.pulse && runningRunCount > 0)}
@@ -556,8 +563,9 @@ function NavItem({
 }
 
 function WorkspaceSkeleton() {
+  const { t } = useI18n();
   return (
-    <section className="flex h-full min-h-0 flex-col" aria-label="Loading workspace">
+    <section className="flex h-full min-h-0 flex-col" aria-label={t('shell.loadingWorkspace')}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-[18rem] flex-1">
           <div className="skeleton-glow mb-3 h-4 w-28 rounded-full" />
@@ -607,6 +615,7 @@ function CommandPalette({
   onNavigate: (target: string) => void;
   onNotify: (tone: ToastTone, title: string, detail: string) => void;
 }) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -659,7 +668,7 @@ function CommandPalette({
         className="command-palette"
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t('command.palette')}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
@@ -670,8 +679,8 @@ function CommandPalette({
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}
             className="h-10 min-w-0 flex-1 bg-transparent text-[1rem] text-text outline-none placeholder:text-muted"
-            placeholder="Search navigation, engagements, findings"
-            aria-label="Command search"
+            placeholder={t('command.searchPlaceholder')}
+            aria-label={t('command.searchLabel')}
           />
           <button
             type="button"
@@ -685,8 +694,8 @@ function CommandPalette({
         <div className="max-h-[min(34rem,70vh)] overflow-y-auto p-2">
           {filteredItems.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-bg/35 p-6 text-center">
-              <p className="text-[1rem] font-semibold text-text">No command found</p>
-              <p className="mt-1 text-[0.925rem] text-muted">Try a screen, engagement, finding, or safe quick action.</p>
+              <p className="text-[1rem] font-semibold text-text">{t('command.noCommand')}</p>
+              <p className="mt-1 text-[0.925rem] text-muted">{t('command.noCommandHint')}</p>
             </div>
           ) : (
             <div className="space-y-1">
@@ -722,6 +731,7 @@ function CommandPalette({
 }
 
 function ToastViewport({ toasts, onDismiss }: { toasts: ToastNotice[]; onDismiss: (toastId: number) => void }) {
+  const { t } = useI18n();
   if (toasts.length === 0) return null;
   return (
     <div className="toast-viewport" aria-live="polite" aria-atomic="false">
@@ -736,7 +746,7 @@ function ToastViewport({ toasts, onDismiss }: { toasts: ToastNotice[]; onDismiss
             type="button"
             onClick={() => onDismiss(toast.id)}
             className="shrink-0 rounded-md p-1 text-muted transition-colors hover:bg-surface hover:text-text"
-            aria-label={`Dismiss ${toast.title}`}
+            aria-label={t('shell.dismissToast', { title: toast.title })}
           >
             <X size={14} />
           </button>
@@ -753,6 +763,7 @@ function buildCommandPaletteItems({
   selectEngagement,
   selectRun,
   selectFinding,
+  t,
 }: {
   engagements: ReturnType<typeof useAegisStore.getState>['engagements'];
   runs: ReturnType<typeof useAegisStore.getState>['runs'];
@@ -760,31 +771,32 @@ function buildCommandPaletteItems({
   selectEngagement: ReturnType<typeof useAegisStore.getState>['selectEngagement'];
   selectRun: ReturnType<typeof useAegisStore.getState>['selectRun'];
   selectFinding: ReturnType<typeof useAegisStore.getState>['selectFinding'];
+  t: TFunction;
 }): CommandPaletteItem[] {
   const navigationItems = [
     ...navSections.flatMap((section) =>
       section.items.map((item) => ({
         id: `nav-${item.to}`,
-        group: section.label,
-        label: item.label,
-        detail: `Open ${item.label}`,
-        keywords: `${section.label} ${item.label} ${item.to}`,
+        group: t(section.labelKey),
+        label: t(item.labelKey),
+        detail: t('command.openScreen', { label: t(item.labelKey) }),
+        keywords: `${t(section.labelKey)} ${t(item.labelKey)} ${item.to}`,
         to: item.to,
       })),
     ),
     {
       id: 'nav-settings',
-      group: 'Operate',
-      label: 'Settings',
-      detail: 'Open operator settings',
+      group: t('nav.operate'),
+      label: t('nav.settings'),
+      detail: t('command.openSettings'),
       keywords: 'settings operator tools identity integrations',
       to: '/settings',
     },
     {
       id: 'quick-new-mission',
-      group: 'Quick',
-      label: 'New Mission',
-      detail: 'Open scoped mission intake',
+      group: t('command.group.quick'),
+      label: t('shell.newMission'),
+      detail: t('command.newMissionDetail'),
       keywords: 'new mission intake create launch scope',
       to: '/intake',
     },
@@ -792,7 +804,7 @@ function buildCommandPaletteItems({
 
   const engagementItems = engagements.map((engagement) => ({
     id: `engagement-${engagement.id}`,
-    group: 'Engagement',
+    group: t('command.group.engagement'),
     label: engagement.name,
     detail: engagement.client ? `${engagement.client} · ${engagement.status}` : engagement.status,
     keywords: `${engagement.name} ${engagement.client ?? ''} ${engagement.status}`,
@@ -802,7 +814,7 @@ function buildCommandPaletteItems({
 
   const runItems = runs.slice(0, 8).map((run) => ({
     id: `run-${run.id}`,
-    group: 'Run',
+    group: t('command.group.run'),
     label: run.profile.name,
     detail: `${run.status} · ${compactId(run.id)}`,
     keywords: `${run.profile.name} ${run.status} ${run.id}`,
@@ -812,7 +824,7 @@ function buildCommandPaletteItems({
 
   const findingItems = findings.slice(0, 12).map((finding) => ({
     id: `finding-${finding.id}`,
-    group: 'Finding',
+    group: t('command.group.finding'),
     label: finding.title,
     detail: `${finding.severity} · ${finding.status} · ${finding.target_id}`,
     keywords: `${finding.title} ${finding.severity} ${finding.status} ${finding.target_id} ${finding.evidence_ref}`,
@@ -854,11 +866,12 @@ function toastIcon(tone: ToastTone): ReactNode {
 }
 
 function IntakeScreen() {
+  const { t } = useI18n();
   return (
     <div className="h-full w-full flex flex-col">
       <div className="shrink-0 mb-4">
-        <h1 className="text-2xl font-semibold">New Mission</h1>
-        <p className="text-muted text-[1rem] mt-1">Configure target, scope, and execution depth before launching.</p>
+        <h1 className="text-2xl font-semibold">{t('intake.title')}</h1>
+        <p className="text-muted text-[1rem] mt-1">{t('intake.subtitle')}</p>
       </div>
       <div className="flex-1 min-h-0">
         <Intake />

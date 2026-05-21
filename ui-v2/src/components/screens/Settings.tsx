@@ -53,6 +53,7 @@ import type {
   UUID,
 } from '../../api/types';
 import { ACTOR_STORAGE_KEY, V2_ACTOR_STORAGE_KEY, useAegisStore } from '../../store';
+import { useI18n, type TFunction } from '../../i18n';
 
 type SettingsTab = 'ai' | 'runtime' | 'integrations' | 'data' | 'identity' | 'deception';
 type SaveScope = 'ai' | 'runtime' | 'integrations' | 'data' | 'identity' | 'deception';
@@ -68,13 +69,13 @@ type PendingAction =
   | 'deception-refresh'
   | null;
 
-const tabs: Array<{ id: SettingsTab; label: string; icon: typeof Bot }> = [
-  { id: 'ai', label: 'AI & Provider', icon: Bot },
-  { id: 'runtime', label: 'Tools & Runtime', icon: ServerCog },
-  { id: 'integrations', label: 'Integrations', icon: PlugZap },
-  { id: 'data', label: 'Data & Security', icon: Lock },
-  { id: 'deception', label: 'Deception', icon: Shield },
-  { id: 'identity', label: 'Identity & Users', icon: UserRound },
+const tabs: Array<{ id: SettingsTab; labelKey: Parameters<TFunction>[0]; icon: typeof Bot }> = [
+  { id: 'ai', labelKey: 'settings.tab.ai', icon: Bot },
+  { id: 'runtime', labelKey: 'settings.tab.runtime', icon: ServerCog },
+  { id: 'integrations', labelKey: 'settings.tab.integrations', icon: PlugZap },
+  { id: 'data', labelKey: 'settings.tab.data', icon: Lock },
+  { id: 'deception', labelKey: 'settings.tab.deception', icon: Shield },
+  { id: 'identity', labelKey: 'settings.tab.identity', icon: UserRound },
 ];
 
 const tabSettingKeys: Record<SaveScope, string[]> = {
@@ -134,6 +135,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export default function SettingsScreen() {
+  const { t } = useI18n();
   const selectedEngagement = useAegisStore((state) => state.selectedEngagement);
   const selectedEngagementId = useAegisStore((state) => state.selectedEngagementId);
   const actor = useAegisStore((state) => state.actor);
@@ -166,8 +168,8 @@ export default function SettingsScreen() {
   const settingByKey = useMemo(() => indexSettings(settingsEnvelope), [settingsEnvelope]);
   const modelSetting = settingByKey.get('ai.chatgpt_model');
   const providerSetting = settingByKey.get('ai.provider');
-  const tenantLabel = settings?.tenant_id ?? selectedEngagement?.tenant_id ?? 'default';
-  const modelLabel = String(readSettingValue(modelSetting, draftValues) || 'not configured');
+  const tenantLabel = settings?.tenant_id ?? selectedEngagement?.tenant_id ?? t('settings.defaultTenant');
+  const modelLabel = String(readSettingValue(modelSetting, draftValues) || t('settings.notConfigured'));
 
   useEffect(() => {
     const storedActor =
@@ -209,7 +211,7 @@ export default function SettingsScreen() {
       const payload = await getSettings();
       setSettings(payload);
       await refreshSupplementalData();
-      setToast('Settings refreshed from backend.');
+      setToast(t('settings.refreshed'));
     } catch (error) {
       setToast(errorMessage(error));
       setError(errorMessage(error));
@@ -223,14 +225,14 @@ export default function SettingsScreen() {
     try {
       const payload = await getChatGptOAuthStatus(engagementId);
       setChatgptStatus(payload);
-      if (notify) setToast('ChatGPT OAuth status refreshed.');
+      if (notify) setToast(t('settings.refreshed'));
     } catch (error) {
       setChatgptStatus({ status: 'unavailable', failure_reason: errorMessage(error) });
       if (notify) setToast(errorMessage(error));
     } finally {
       if (notify) setPending(null);
     }
-  }, []);
+  }, [t]);
 
   const loadApiKeys = useCallback(async () => {
     try {
@@ -290,7 +292,7 @@ export default function SettingsScreen() {
 
   async function handleConnectChatGpt() {
     if (!selectedEngagementId) {
-      setToast('Select an engagement before connecting ChatGPT.');
+      setToast(t('settings.noEngagement'));
       return;
     }
     setPending('chatgpt-connect');
@@ -337,7 +339,7 @@ export default function SettingsScreen() {
         Object.keys(patch).forEach((key) => next.delete(key));
         return next;
       });
-      setToast('Settings saved.');
+      setToast(t('settings.saved'));
     } catch (error) {
       setToast(errorMessage(error));
       setError(errorMessage(error));
@@ -481,10 +483,8 @@ export default function SettingsScreen() {
     <section className="flex h-full min-h-0 flex-col">
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-text">Settings</h1>
-          <p className="mt-1 text-[1rem] text-muted">
-            Governed configuration. Saving settings does not install tools, run checks, or bypass approval gates.
-          </p>
+          <h1 className="text-2xl font-semibold text-text">{t('settings.title')}</h1>
+          <p className="mt-1 text-[1rem] text-muted">{t('settings.subtitle')}</p>
         </div>
         <button
           type="button"
@@ -493,15 +493,15 @@ export default function SettingsScreen() {
           className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50"
         >
           {pending === 'runtime' ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          Refresh
+          {t('settings.refresh')}
         </button>
       </header>
 
       <div className="mb-5 grid gap-3 md:grid-cols-4">
-        <SummaryChip label="Tenant" value={tenantLabel} icon={<Shield size={14} />} />
-        <SummaryChip label="Engagement" value={selectedEngagement?.name ?? 'No engagement selected'} icon={<Database size={14} />} />
-        <SummaryChip label="Model" value={modelLabel} icon={<Bot size={14} />} />
-        <SummaryChip label="Role" value={actor.role} icon={<UserRound size={14} />} />
+        <SummaryChip label={t('settings.summary.tenant')} value={tenantLabel} icon={<Shield size={14} />} />
+        <SummaryChip label={t('settings.summary.engagement')} value={selectedEngagement?.name ?? t('settings.noEngagement')} icon={<Database size={14} />} />
+        <SummaryChip label={t('settings.summary.model')} value={modelLabel} icon={<Bot size={14} />} />
+        <SummaryChip label={t('settings.summary.role')} value={actor.role} icon={<UserRound size={14} />} />
       </div>
 
       <div className="mb-5 flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface/55 p-1">
@@ -512,7 +512,7 @@ export default function SettingsScreen() {
             icon={<tab.icon size={14} />}
             onClick={() => setActiveTab(tab.id)}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </TabButton>
         ))}
       </div>
@@ -626,7 +626,7 @@ export default function SettingsScreen() {
           className="ml-auto inline-flex items-center gap-2 rounded-md border border-green/30 bg-green/10 px-4 py-2 text-[1rem] font-semibold text-green disabled:opacity-50"
         >
           {pending === activeSaveScope ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-          Save Settings
+          {t('settings.save')}
         </button>
       </footer>
     </section>
@@ -660,6 +660,7 @@ function AiProviderTab({
   refreshStatus: (engagementId: UUID, notify?: boolean) => Promise<void>;
   connectChatGpt: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const status = normalizeStatus(String(chatgptStatus?.status ?? (chatgptStatus?.connected ? 'connected' : 'unavailable')));
   const providerSummary = providerSetting ? `${providerSetting.label}: ${readSettingValue(providerSetting, draftValues)}` : 'Provider setting unavailable';
 
@@ -667,14 +668,14 @@ function AiProviderTab({
     <div className="space-y-3">
       <SettingsDisclosure
         id="chatgpt"
-        title="ChatGPT OAuth"
+        title={t('settings.chatgptOAuth')}
         summary={chatgptSummary(chatgptStatus, selectedEngagementId)}
         openSections={openSections}
         toggleSection={toggleSection}
       >
         <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
           <div>
-            <StatusLine status={status} title="Connection" detail={chatgptDetail(chatgptStatus, selectedEngagementId)} />
+            <StatusLine status={status} title={t('settings.connection')} detail={chatgptDetail(chatgptStatus, selectedEngagementId)} />
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <MiniMetric label="Provider" value={String(chatgptStatus?.provider ?? 'chatgpt_oauth')} />
               <MiniMetric label="Model" value={String(chatgptStatus?.model ?? readSettingValue(findSetting(settings, 'ai.chatgpt_model'), draftValues) ?? 'not configured')} />
@@ -689,7 +690,7 @@ function AiProviderTab({
               className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50"
             >
               {pending === 'chatgpt-status' ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              Refresh Status
+              {t('settings.refreshStatus')}
             </button>
             <button
               type="button"
@@ -698,7 +699,7 @@ function AiProviderTab({
               className="inline-flex items-center gap-2 rounded-md border border-green/30 bg-green/10 px-3 py-2 text-[1rem] font-semibold text-green disabled:opacity-50"
             >
               {pending === 'chatgpt-connect' ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-              Connect ChatGPT
+              {t('settings.connect')}
             </button>
           </div>
         </div>

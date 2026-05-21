@@ -1,5 +1,15 @@
 # Current State
 
+## Latest Continuation — backlog-435 ui-v2 internationalization implemented (2026-05-21)
+
+Operator promoted backlog-435 for implementation. `ui-v2` now has static repo-backed i18n resources for `en`, `nl`, `de`, and `fr`, a top-bar language selector persisted in `localStorage`, English fallback behavior, translated core shell/navigation, Intake entrypoint, Settings entrypoints, command palette shell copy, and Mission Control entrypoints. The old dead `MissionControl.tsx` wrapper was reduced to a compact shell around `MissionControlV3`, which removed pre-existing TypeScript/lint failures from unused legacy UI code while preserving the V3 operator surface.
+
+Evidence is recorded in `codex/results/backlog-435-ui-v2-i18n-20260521.md`. Validation passed with `cd ui-v2 && npm run lint`, `cd ui-v2 && npm run build`, `cd ui-v2 && npm run test -- --run i18n`, `python3 scripts/validate_backlog_tasks.py`, and `git diff --check` on scoped files. The non-blocking existing Vite/PostCSS warning about `@import` ordering in `ui-v2/src/index.css` still appears during build/test server startup. No backend behavior, assessment logic, runner behavior, prompts, findings schema, approval gate, scope/ROE behavior, credential flow, kill switch behavior, live target action, or runtime translation service was changed.
+
+## Latest Continuation — Queued backlog-435 for ui-v2 internationalization (2026-05-21)
+
+Operator requested a backlog task, placed at the back of the queue, so `ui-v2` also supports Dutch, German, and French. Added `codex/tasks/backlog-435-ui-v2-internationalization-nl-de-fr.json` and appended it to `TASK_QUEUE.md` as queue item #385. The task is scoped as UI-only product readiness: static repo-backed locale files for `en/nl/de/fr`, persistent language selector, English fallback, core shell/navigation + Settings + Mission Control + findings/status/common states translated, locale key parity tests, and browser proof across desktop/mobile. No implementation was performed and `NEXT_TASK.md` was not changed; active work remains the live re-verification housekeeping task. Validation passed: `python3 scripts/validate_backlog_tasks.py` reports 385 queued task packages mapped one-to-one and exactly one active task.
+
 ## Latest Continuation — Live Gruyere validation of #336/#337/#338 + #339 backlog-401 follow-up filed (2026-05-19)
 
 Operator pushback "Dus je weet gewoon niet of het daadwerkelijk werkt? Hoe kun je dan zeggen dat het af is?" was correct — I ran the live re-test myself per `feedback_self_validation`. Three restart iterations needed (v1 missed worker env, v2 missed `DATABASE_URL`, v3 booted clean on `ac3a147`). Live run `3e2cfa5b` against `https://google-gruyere.appspot.com/<instance>/` produced **20 findings (1 critical + 8 high + 3 medium + 8 info)** in 8 completed tasks — vs the May-18 baseline run `9f951a0f` which had only 1 high. **2/14 known Gruyere classes now detected** (snippet stored-XSS + path traversal) including the critical "Session Cookie Theft via XSS".

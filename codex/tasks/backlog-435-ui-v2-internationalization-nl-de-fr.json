@@ -1,0 +1,116 @@
+{
+  "id": "backlog-435-ui-v2-internationalization-nl-de-fr",
+  "task_file": "codex/tasks/backlog-435-ui-v2-internationalization-nl-de-fr.json",
+  "task_type": "ui",
+  "title": "React ui-v2 internationalization — add Nederlands, Deutsch, and Francais",
+  "goal": "Make the React ui-v2 operator interface available in Dutch, German, and French, while keeping the existing English copy as the default/fallback. Operators must be able to switch language from the UI, have the preference persist, and see core screens rendered without mixed-language navigation or untranslated placeholders.",
+  "scope": "(1) Add a deterministic i18n layer to ui-v2 using either an existing project dependency or a minimal local translation helper if no dependency exists. (2) Add locale files for en, nl, de, and fr. (3) Translate the primary operator shell, navigation, Settings, Mission Control / active run surfaces, findings/status labels, common buttons, loading/error/empty states, and safety/approval copy. (4) Add a visible language selector in ui-v2 that persists the selected locale in localStorage and falls back to English when a key is missing. (5) Add tests and browser proof for Dutch, German, and French at desktop and mobile widths.",
+  "status": "queued",
+  "generated_by": "operator-request-2026-05-21-ui-v2-i18n",
+  "generation_reason": "Operator asked: 'Kun jij een taak aanmaken voor je ui en deze achteraan zetten en zorgen dat de ui-v2 ook in het nederlands, duits en frans is.' This task is queued at the end and does not change the active NEXT_TASK.",
+  "source_context": {
+    "queue_index": 385,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_v2_product_readiness",
+    "key_files": [
+      "ui-v2/src/",
+      "ui-v2/src/api/types.ts",
+      "ui-v2/src/components/",
+      "ui-v2/src/components/screens/",
+      "ui-v2/tests/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md AND ANTI_DRIFT.md + SESSION_PROMPT.md have been loaded.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "UI internationalization only. Do not change backend behavior, assessment logic, runner behavior, prompts, findings schema, or security decisions.",
+    "no_runtime_translation_service": "All translations must be static repo-backed locale resources. No external translation API call at runtime.",
+    "fallback_language": "English remains the default and fallback language when a translation key is missing.",
+    "operator_safety_copy": "Approval, scope, kill-switch, credential, destructive-action, and evidence warnings must be translated carefully and remain semantically equivalent across all locales."
+  },
+  "success_criteria": [
+    "Metric: ui-v2 supports four locales: en, nl, de, fr.",
+    "Metric: language selection persists across reloads via localStorage and defaults to English on first visit.",
+    "Metric: core shell/navigation, Settings, Mission Control, findings/status labels, common controls, loading/error/empty states, and approval/safety copy render in Dutch, German, and French without obvious English fallback on the tested paths.",
+    "Metric: i18n coverage test fails when required locale files are missing keys present in English.",
+    "Browser: Playwright screenshots or assertions prove Dutch, German, and French on desktop and mobile widths.",
+    "Build: ui-v2 production build passes.",
+    "Lint/typecheck: ui-v2 lint/typecheck pass or any pre-existing unrelated failures are explicitly separated from this task's changes."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/i18n/index.ts",
+    "ui-v2/src/i18n/locales/en.json",
+    "ui-v2/src/i18n/locales/nl.json",
+    "ui-v2/src/i18n/locales/de.json",
+    "ui-v2/src/i18n/locales/fr.json",
+    "ui-v2/src/App.tsx",
+    "ui-v2/src/components/**/*.tsx",
+    "ui-v2/src/components/screens/**/*.tsx",
+    "ui-v2/tests/i18n.spec.ts",
+    "codex/results/backlog-435-ui-v2-i18n-*.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/assessment_loop.py",
+    "_AI_PICKER_SYSTEM_PROMPT",
+    "workers/runners/",
+    "workers/orchestration/",
+    "api/app/models/control.py finding schema",
+    "Capability pack registry / validation / approval / runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run lint",
+      "cd ui-v2 && npm run test -- --run i18n",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Live/browser: language selector switches to Nederlands, Deutsch, and Francais without full-page errors.",
+      "Live/browser: selected language survives reload and route changes.",
+      "Live/browser: screenshots or Playwright assertions cover at least Mission Control and Settings in nl/de/fr at desktop and mobile widths.",
+      "Coverage: locale key parity test proves nl/de/fr contain all required keys present in en.",
+      "Documentation/result file records intentionally untranslated product names, acronyms, API identifiers, and security terms."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "ANTI_DRIFT.md and SESSION_PROMPT.md must be loaded.",
+      "Existing ui-v2 build/lint baseline must be captured so unrelated pre-existing failures are not hidden by this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with build/lint/test results, browser proof links, and the i18n coverage summary.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next queued package into NEXT_TASK.md or leave operator-directed promotion note if this was the last queued task."
+    ]
+  },
+  "out_of_scope": [
+    "Backend API localization",
+    "Report/PDF localization",
+    "Runtime AI prompt translation",
+    "Machine translation at runtime",
+    "Changing assessment, runner, approval, scope, or evidence behavior",
+    "Full legal localization review"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

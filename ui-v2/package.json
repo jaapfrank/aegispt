@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "node scripts/run-tests.mjs",
+    "test:i18n": "node scripts/check-i18n.mjs && playwright test tests/i18n.spec.ts",
     "test:e2e": "playwright test",
     "preview": "vite preview"
   },

@@ -1,5 +1,54 @@
 # Done Log
 
+- 2026-05-21: backlog-435 (queue #385 — React ui-v2 internationalization: Nederlands, Deutsch, Francais) **DONE**. There is no queued task after #385, so `NEXT_TASK.md` now holds an operator-selection placeholder until the next approved task is chosen.
+  - rationale:
+    - operator asked to execute the newly-created UI task, verify it, and commit it cleanly
+    - implementation stays UI-only: static locale resources, local language preference, translated core UI entrypoints, and browser proof; no backend, runner, prompt, finding schema, approval, scope, credential, kill-switch, or runtime translation-service behavior changed
+    - the old `MissionControl.tsx` wrapper contained pre-existing dead legacy UI code that broke `noUnusedLocals`; it was reduced to a compact shell around `MissionControlV3`, preserving the active V3 surface and removing the stale build/lint path
+  - files:
+    - `ui-v2/src/i18n/locales/{en,nl,de,fr}.json`
+    - `ui-v2/src/i18n/index.tsx`
+    - `ui-v2/src/i18n/LanguageSelector.tsx`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/components/screens/Settings.tsx`
+    - `ui-v2/src/components/screens/MissionControl.tsx`
+    - `ui-v2/src/components/screens/MissionControlV3.tsx`
+    - `ui-v2/scripts/check-i18n.mjs`
+    - `ui-v2/scripts/run-tests.mjs`
+    - `ui-v2/tests/i18n.spec.ts`
+    - `ui-v2/package.json`
+    - `ui-v2/tsconfig.app.json`
+    - `codex/results/backlog-435-ui-v2-i18n-20260521.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `cd ui-v2 && npm run lint` passed
+    - `cd ui-v2 && npm run build` passed (existing non-blocking Vite/PostCSS `@import` ordering warning remains)
+    - `cd ui-v2 && npm run test -- --run i18n` passed: 2 Playwright tests, locale key parity OK for 80 keys across `en/nl/de/fr`
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `git diff --check` passed on scoped files
+  - remaining risks:
+    - deeper page-specific content outside the tested core entrypoints is still partly English; this task establishes the i18n layer and core paths, not full copy coverage of every dashboard/report/research string
+    - Vite still reports the pre-existing `src/index.css` `@import` ordering warning during build and Playwright web-server startup
+
+- 2026-05-21: queued backlog-435 `React ui-v2 internationalization — add Nederlands, Deutsch, and Francais` at the end of `TASK_QUEUE.md` as queue item #385.
+  - rationale:
+    - operator asked to create a UI task at the back of the queue so `ui-v2` also supports Dutch, German, and French
+    - this is a queued task package only; no ui-v2 implementation, locale file, route, component, or active `NEXT_TASK.md` behavior was changed
+    - the task explicitly keeps English as default/fallback, requires static repo-backed locale files, a persistent language selector, locale key parity tests, and browser proof for Mission Control + Settings in nl/de/fr
+  - files:
+    - `codex/tasks/backlog-435-ui-v2-internationalization-nl-de-fr.json`
+    - `TASK_QUEUE.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed: 385 queued task packages mapped one-to-one, and `NEXT_TASK.md` contains exactly one active task
+  - remaining risks:
+    - implementation is not done; this only creates the governed backlog item at the operator-requested queue position
+    - current `NEXT_TASK.md` remains the live re-verification housekeeping task and was not promoted to backlog-435
+
 - 2026-05-21: **CORRECTION — sprint `mythos-exploitation-foundation` is NOT CLOSED.** I claimed 15/15 below; the claim is false. Live verification on real targets (post-422 XBOW re-baseline + Gruyere smoke) was NOT done. Unit tests + API restart ≠ system actually works on a target. Per ANTI_DRIFT Rule 4 + feedback_live_proof_before_done + feedback_live_proof_must_be_diverse_real_targets: every capability task in 413/414/415/416/422/423 needs a live re-run that shows the user-value metric moved (or didn't), before the sprint can close. Re-running now.
 
 - 2026-05-21: backlog-423 (queue #371 — Score-climbing automation loop) **CODE LANDED, live cycle pending**. Sprint stays open until 413..423 stack is empirically re-baselined on XBOW + at least one second target.

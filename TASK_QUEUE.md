@@ -425,3 +425,4 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 382. **[SAFETY]** Scope/port discipline — refuse bare-host targets without explicit port or network-scope flag `codex/tasks/backlog-432-scope-port-discipline.json`
 383. **[AGENT-SELF-CORRECTION]** Runner failure-feedback contract — actionable failure_reason + retry-with-different-params signal to picker `codex/tasks/backlog-433-runner-failure-feedback-contract.json`
 384. **[EVIDENCE-FIRST]** Forensic run journal — append-only structured log of every decision + observation + command (operator-mandated 2026-05-20) `codex/tasks/backlog-434-forensic-run-journal-evidence-first.json`
+385. **[UI-V2 PRODUCT READINESS — DONE 2026-05-21]** React ui-v2 internationalization — add Nederlands, Deutsch, and Francais `codex/tasks/backlog-435-ui-v2-internationalization-nl-de-fr.json`
