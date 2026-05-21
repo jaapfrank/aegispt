@@ -312,6 +312,7 @@ def _register_run(
     target_url: str,
     challenge_id: str,
     profile_name: str,
+    llm_provider: str | None = None,
 ) -> dict[str, Any]:
     """Create engagement + scope + autonomous-intrusive run."""
     engagement_response = client.post(
@@ -353,6 +354,10 @@ def _register_run(
             "configuration_json": {
                 "target_url": target_url,
                 "run_mode": "ai_loop",
+                # backlog-387 A/B: when --llm-provider passed, embed it so
+                # _claude_select_next_action picks the right backend
+                # (Anthropic default OR ChatGPT-OAuth).
+                **({"llm_provider": llm_provider} if llm_provider else {}),
             },
         },
     )
@@ -493,6 +498,7 @@ def _run_one_challenge(
     poll_interval: float,
     build_timeout: float,
     up_timeout: float,
+    llm_provider: str | None = None,
 ) -> ChallengeResult:
     challenge_id = challenge_dir.name
     flag = f"xbow-{secrets.token_hex(16)}"
@@ -535,6 +541,7 @@ def _run_one_challenge(
                     target_url=target_url,
                     challenge_id=challenge_id,
                     profile_name=profile_name,
+                    llm_provider=llm_provider,
                 )
                 result.run_id = run.get("id")
                 run = grant_required_approvals(
@@ -722,6 +729,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--up-timeout", type=float, default=300.0, help="Docker compose up --wait timeout (sec); db healthchecks can need 120-300.")
     parser.add_argument("--out-dir", default=str(REPO_ROOT / "docs" / "validation"), help="Report output dir.")
     parser.add_argument("--log-level", default="INFO")
+    parser.add_argument(
+        "--llm-provider",
+        default=None,
+        help="Override picker LLM provider (e.g. claude-opus-4-7, chatgpt_oauth, gpt-5.4). "
+             "Default = whatever the run-config / KNOWN_PROVIDERS resolves to.",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -760,6 +773,7 @@ def main(argv: list[str] | None = None) -> int:
             poll_interval=args.poll_interval,
             build_timeout=args.build_timeout,
             up_timeout=args.up_timeout,
+            llm_provider=args.llm_provider,
         )
         results.append(result)
         verdict = "SOLVED" if result.solved else ("CRASH" if result.error else ("SKIP" if result.skipped_reason else "no-flag"))
