@@ -5091,24 +5091,40 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
         scope = _scope_for_run(session, task.run)
         if scope is None:
             raise ValueError(f"scope missing for run {task.run_id}")
+        # backlog-409 — every dispatch authorization now routes through the
+        # Layer 0 Governance Control Plane. The legacy inline call was
+        # `target_is_allowed(scope, target)` on its own; the plane composes
+        # scope + ROE + intrusive-tier in one verdict. Per ANTI_DRIFT Rule 3
+        # the old inline call is REMOVED — there is no parallel pathway.
+        # Local import keeps the worker→api boundary import-light at module load.
+        from api.app.governance import GovernanceControlPlane  # noqa: E402
+        plane = GovernanceControlPlane(session)
+        tier = str(task.params_json.get("run_class") or "").strip() if isinstance(task.params_json, dict) else ""
         for task_target in task_targets:
-            if not target_is_allowed(scope, task_target):
-                # Don't raise — mark task as failed gracefully so the loop
-                # continues and Claude sees a rejection_sink entry rather
-                # than a 500 from the dispatch chain. Out-of-scope targets
-                # typically come from Claude hallucinations (typos in domain)
-                # that should be a recoverable error, not a crash.
+            verdict = plane.authorize_dispatch(
+                run=task.run,
+                runner=str(task.tool or ""),
+                target=task_target,
+                tier=tier,
+            )
+            if not verdict.allow:
                 logger.warning(
-                    "post-task: rejecting task %s — target %s out of scope (graceful fail)",
-                    str(task.id)[:8], task_target[:80],
+                    "post-task: rejecting task %s — %s (graceful fail)",
+                    str(task.id)[:8], verdict.deny_reason or "denied by control plane",
                 )
                 task.status = "failed"
                 mark_task_stdout_unavailable(
                     task.id,
-                    f"Task rejected: target outside scope: {task_target}",
+                    f"Task rejected by Layer 0: {verdict.deny_reason or 'denied'}",
                 )
                 session.commit()
-                return {"task_id": task_id, "status": "failed", "reason": "out_of_scope"}
+                return {
+                    "task_id": task_id,
+                    "status": "failed",
+                    "reason": "out_of_scope" if not verdict.needs_approval else "needs_approval",
+                    "deny_reason": verdict.deny_reason,
+                    "needs_approval": verdict.needs_approval,
+                }
 
         task.status = "running"
         task.run.status = "running"
