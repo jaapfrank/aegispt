@@ -521,12 +521,28 @@ def _picker_variant_level_up(*, with_plan: bool, available_tools: list[str] | No
         base_properties["tool"] = {"type": "string", "const": "exec-plan"}
         base_properties["tier"] = {"type": "string", "enum": _PICKER_ACTIVE_INTRUSIVE}
         base_properties["plan_name"] = {"type": "string"}
+        # Same proper-object plan schema as _picker_variant_exec_plan.
         base_properties["plan"] = {
-            "type": "string",
-            "description": (
-                "JSON-encoded plan body. The string must json.loads() to an "
-                "object with `name` and `steps` keys."
-            ),
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["name", "steps"],
+            "properties": {
+                "name": {"type": "string"},
+                "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["tool"],
+                        "properties": {
+                            "tool": {"type": "string", "enum": list(_AGENT_TOOL_NAMES)},
+                            "args": {"type": "object", "additionalProperties": True},
+                            "description": {"type": "string"},
+                        },
+                    },
+                },
+            },
         }
     return {
         "type": "object",
@@ -550,6 +566,12 @@ def _picker_variant_stop() -> dict[str, Any]:
     }
 
 
+_AGENT_TOOL_NAMES = (
+    "bash", "code_exec", "web_fetch", "web_search",
+    "file_read", "file_write", "subagent_spawn",
+)
+
+
 def _picker_variant_exec_plan() -> dict[str, Any]:
     return {
         "type": "object",
@@ -561,12 +583,35 @@ def _picker_variant_exec_plan() -> dict[str, Any]:
             "tier": {"type": "string", "enum": _PICKER_ACTIVE_INTRUSIVE},
             "reasoning": {"type": "string"},
             "confidence": {"type": "number"},
+            # Proper object schema for `plan` (replaces the pre-2026-05-21
+            # JSON-encoded-string-in-JSON gymnastics that empirically made
+            # Claude produce malformed responses — most exec_plan attempts
+            # failed validation per the "exec_plan rejected — empty or
+            # malformed plan body" path). The decoder _decode_picker_plan
+            # already handles both string AND dict shapes, so this change
+            # is backwards-compatible. Each step names ONE agent_tool from
+            # _AGENT_TOOL_NAMES; args is free-form (tool-specific).
             "plan": {
-                "type": "string",
-                "description": (
-                    "JSON-encoded plan body. The string must json.loads() to "
-                    "an object with `name` and `steps` keys."
-                ),
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["name", "steps"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "steps": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["tool"],
+                            "properties": {
+                                "tool": {"type": "string", "enum": list(_AGENT_TOOL_NAMES)},
+                                "args": {"type": "object", "additionalProperties": True},
+                                "description": {"type": "string"},
+                            },
+                        },
+                    },
+                },
             },
         },
     }
