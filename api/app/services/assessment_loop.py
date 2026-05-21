@@ -758,12 +758,35 @@ def _picker_variant_exec_plan() -> dict[str, Any]:
     }
 
 
-def _picker_output_schema(available_tools: list[str] | None = None) -> dict[str, Any]:
-    """Discriminated schema for the 4 picker action shapes (#330). When
-    ``available_tools`` is provided, the pick + level_up-without-plan
-    variants constrain ``tool`` to that enum so Claude cannot hallucinate
-    tool names like ``memory`` / ``http_fetch``. level_up-with-plan and
-    exec_plan are unaffected (they force tool=exec-plan via const)."""
+def _picker_output_schema(
+    available_tools: list[str] | None = None,
+    *,
+    force_exec_plan: bool = False,
+) -> dict[str, Any]:
+    """Discriminated schema for the picker action shapes.
+
+    Two modes:
+      - Default: full 5-variant anyOf (pick / level_up / level_up+plan /
+        stop / exec_plan). Claude chooses.
+      - ``force_exec_plan=True``: only exec_plan + level_up-with-plan +
+        stop are accepted. The prompt-side forcing rule (added 078e9b9)
+        ASKED Claude to pivot to exec_plan after catalog exhaustion;
+        empirically Claude ignored it. With force_exec_plan the schema
+        REJECTS any action=pick or action=level_up-without-plan at the
+        Anthropic API boundary, so Claude cannot avoid pivoting.
+
+    When ``available_tools`` is provided AND force_exec_plan is False,
+    the pick + level_up-without-plan variants get an enum-constrained
+    ``tool`` field.
+    """
+    if force_exec_plan:
+        return {
+            "anyOf": [
+                _picker_variant_level_up(with_plan=True),
+                _picker_variant_stop(),
+                _picker_variant_exec_plan(),
+            ],
+        }
     return {
         "anyOf": [
             _picker_variant_pick(available_tools),
@@ -1551,16 +1574,31 @@ def _claude_select_next_action(
             # per call with before/after token counts.
             from api.app.services.context_curation import curate_for_picker  # noqa: E402
             messages, _curation_event = curate_for_picker(messages, max_tokens=120_000)
-            # Build a per-call schema with the actual `available_tools` list
-            # baked into the pick / level_up variants as an enum constraint.
-            # Anthropic's structured-output validator then refuses any
-            # ``tool`` value Claude tries to invent (e.g. the built-in
-            # ``memory`` / ``http_fetch`` names empirically observed
-            # 2026-05-21 14:11). Falls back to the static schema when the
-            # available_tools list is empty.
+            # Evaluate the EXEC_PLAN forcing trigger added 2026-05-21:
+            #   (a) tested_keys covers 5+ distinct tools on the same target
+            #   (b) critical+high findings count is below 2
+            # When both hold, build a schema that ONLY accepts exec_plan /
+            # level_up-with-plan / stop. The prompt-side MANDATORY rule
+            # (078e9b9) was empirically ignored by Claude — the schema
+            # forcing makes the API boundary refuse any action=pick or
+            # action=level_up-without-plan in this state, so Claude must
+            # actually produce an exec_plan or admit defeat with stop.
+            distinct_tested_tools = {k.split("|", 1)[0] for k in tested_keys}
+            crit_high_count = sum(
+                1 for f in (run.findings or [])
+                if str(getattr(f, "severity", "") or "").lower() in {"critical", "high"}
+            )
+            force_exec_plan = (
+                len(distinct_tested_tools) >= 5 and crit_high_count < 2
+            )
+            if force_exec_plan:
+                logger.info(
+                    "picker: forcing exec_plan schema variant — tested_tools=%d crit_high=%d run=%s",
+                    len(distinct_tested_tools), crit_high_count, str(run.id)[:8],
+                )
             picker_schema = (
-                _picker_output_schema(list(available_tools))
-                if available_tools else _PICKER_OUTPUT_SCHEMA
+                _picker_output_schema(list(available_tools), force_exec_plan=force_exec_plan)
+                if available_tools else _picker_output_schema(force_exec_plan=force_exec_plan)
             )
             msg = client.messages.create(
                 model="claude-opus-4-7",
