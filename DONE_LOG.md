@@ -1,5 +1,17 @@
 # Done Log
 
+- 2026-05-21: backlog-413 (queue #363 — Deterministic validator + reproducible PoC artifact) **DONE**. NEXT_TASK promoted to backlog-414 (Exploit Developer agent + meta-tooling).
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Code INVOKED: `validate_exploit` called from `_infer_foothold_from_findings`; foothold transitions now gated on verdict=="verified". `build_executable_poc` callable on any finding with a replay_recipe_json; the live PoC-from-finding wiring is the next slice within backlog-414's capability scope (when the exploit-developer agent emits a verified exploit, it writes the PoC alongside).
+    - [x] Delta-metric bewoog: foothold-inference moved from severity-only heuristic to deterministic validator gate. The proxy version from backlog-412 is REPLACED per ANTI_DRIFT Rule 3.
+    - [x] Removed code I replaced: the severity-heuristic foothold inference in `_infer_foothold_from_findings` was rewritten to require validator verification. Diff confirms: old function bodies replaced, not parallel-kept.
+    - [x] Geen scope creep: `exploit_validator.py` + `poc_artifact.py` + foothold-inference wire-in + 14 tests; no other files touched.
+    - [x] Follow-ups gefiled: none — wiring `build_executable_poc` into the per-finding artifact emit happens in backlog-414's exploit developer agent (where the verified exploit comes from).
+    - [x] Live test geslaagd: API restarted cleanly; xbow-baseline-final.service stayed `active` through 15/25 → 16/25 with the new validator gate live; 14/14 validator+PoC tests + all 52 cross-module tests pass.
+  - **1 commit, what it did**:
+    - `[next-after-this]` — `api/app/services/exploit_validator.py` (~180 lines): `ValidationResult` dataclass (verdict + evidence_hash + replay_script + duration + notes), `validate_exploit(finding, replay_artifact)` that re-issues the captured chain via httpx (no LLM), asserts response markers, strips Host-header overrides, and returns deterministic verdict. `api/app/services/poc_artifact.py` (~130 lines): `build_executable_poc(finding)` returns a `PoCArtifact` with a standalone Python script runnable via `python poc.py --target X`, httpx-only dep, exit codes 0/1/2/3 for reproduced/network-error/missing-markers/missing-httpx. `_infer_foothold_from_findings` now gates each candidate foothold transition behind `validate_exploit(...).verdict == "verified"` — replacing the 412 severity heuristic. Per `feedback_no_prescriptive_recipes`: validator/PoC are universal HTTP-replay primitives, not per-app recipes.
+  - **What 413 owns vs what it doesn't**: the validator + PoC primitives + the foothold gate are in. The actual UPSTREAM creation of `replay_recipe_json` with `expected_markers` on findings is the exec_plan runner's job — already partially in place via #334 captured_value observation flow. The exploit-developer agent in backlog-414 generates the multi-step recipes that the validator then proves; that's where end-to-end "verified-exploited" findings actually originate.
+
 - 2026-05-21: backlog-412 (queue #362 — Attack State Machine + foothold tree) **DONE**. NEXT_TASK promoted to backlog-413 (Deterministic validator + reproducible PoC).
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED in production path: `_infer_foothold_from_findings` called from `advance_assessment_loop` every iteration; foothold state persisted in `loop_state.foothold_state` and `loop_state.foothold_transitions`.

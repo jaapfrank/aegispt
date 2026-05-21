@@ -6,69 +6,64 @@
 
 ## Title
 
-Deterministic validator + reproducible PoC artifact engine — **Sprint mythos-exploitation-foundation, task 7 of 15**
+Exploit Developer agent + meta-tooling (runtime custom script generation) — **Sprint mythos-exploitation-foundation, task 8 of 15**
 
 ## Goal
 
-Per Codex 6-layer architectuur Layer 1: deterministic validator engine that re-executes any claimed exploit in isolated context and produces a reproducible PoC artifact (executable script + expected output). Every finding categorized as: `verified-exploited` | `observed-vulnerable` | `hypothesis`. Per XBOW pattern: findings only accepted when exploitability confirmed through controlled validation. Backlog-412 attack state machine consumes this verdict to gate foothold transitions deterministically.
+Per Codex 6-layer architectuur Layer 4: a dedicated agent (separate prompt from the picker) whose ONLY job is to compose multi-step exploit recipes (Python-style or exec_plan JSON) when the picker hits a hypothesis that no generic runner covers. The agent owns the recipe + expected_markers pair so backlog-413's deterministic validator can verify the result and backlog-413's PoC artifact generator can emit a runnable script.
 
 ## Sprint context
 
-Task 7 van 15 in sprint `mythos-exploitation-foundation`. backlog-412 (Attack State Machine) DONE — foothold ladder + advancement gate live but using finding.severity ≥ high as the proxy verifier. backlog-413 replaces the proxy with a real deterministic validator: re-run the captured exec_plan chain in a fresh container, assert response markers, emit ValidationResult. Then `_infer_foothold_from_findings` in `advance_assessment_loop` switches to consult validator verdicts instead of severity heuristics.
+Task 8 van 15 in sprint `mythos-exploitation-foundation`. backlog-413 DONE — validator + PoC ready; foothold transitions gated on validator verdict. The bottleneck for flag capture has consistently been: picker recognizes "I should exploit this" but exec_plan is one-shot and doesn't compose multi-step payload chains. backlog-414 adds the dedicated exploit-developer agent that builds those chains end-to-end with `expected_markers` so validator can verify.
 
 ## Delta-doelstelling (verplicht per SESSION_PROMPT §1)
 
-> Deze task levert `api/app/services/exploit_validator.py` met `validate_exploit(finding, replay_artifact) -> ValidationResult{verified|failed|inconclusive, evidence_hash, replay_script}` PLUS `api/app/services/poc_artifact.py` met `build_executable_poc(finding, captured_evidence)` die een standalone Python script genereert. Foothold transitions in `attack_state` switchen naar consult van validator-verdicts. Delta-metric: ≥1 reproducible PoC artifact gegenereerd EN ≥1 finding heeft `verified-exploited` classificatie na live XBOW run.
+> Deze task levert `api/app/services/exploit_developer.py` met `compose_exploit_recipe(finding, target_context)` die een multi-step recipe genereert met `expected_markers`. Een nieuwe `exploit-developer-agent` runner-tool (`workers/runners/exploit_developer_agent/`) zodat de picker hem expliciet kan picken. Delta-metric: ≥1 XBOW challenge produceert een verified-exploited finding via een door dit agent gegenereerd recipe — gevalideerd door backlog-413's `validate_exploit`.
 
 ## Scope
 
-(1) `api/app/services/exploit_validator.py`:
-- `ValidationResult` dataclass: `verdict` ∈ {verified, failed, inconclusive}, `evidence_hash`, `replay_script`, `expected_markers`, `observed_markers`, `notes`.
-- `validate_exploit(finding, replay_artifact)`: re-runs the captured request chain (via `workers/orchestration/sandbox_runner.py` from backlog-409 if Docker available, else inline httpx with strict timeout) and asserts the same response markers that the original exec_plan claimed. Pure deterministic — NO LLM call.
-- Constraint `deterministic_only`: no model calls inside the validator path.
+(1) `api/app/services/exploit_developer.py`:
+- `compose_exploit_recipe(finding, target_context, hypothesis)` — calls a Claude-Opus-4.7 prompt SPECIFIC to multi-step exploit composition (separate system prompt from the picker; tighter scope).
+- Output structure: `{steps: [...], expected_markers: [...], target: "...", rationale: "..."}`. Same shape `validate_exploit` consumes.
+- The agent has access ONLY to the captured context (request/response history, target URL, finding title/severity) — no arbitrary http_fetch (that's the picker's tool).
 
-(2) `api/app/services/poc_artifact.py`:
-- `build_executable_poc(finding, captured_evidence)` generates a standalone Python script with:
-  - `#!/usr/bin/env python3` shebang + docstring describing the vulnerability
-  - `--target URL` CLI arg + the captured request chain as `httpx.Client` calls
-  - response-marker assertions that match the original validator
-  - exit code 0 = reproduced, 2 = expected response markers absent
-- Artifact is stored alongside the finding's `evidence_ref` and surfaced in the run report.
+(2) New runner `workers/runners/exploit_developer_agent/runner.py`:
+- Wraps `compose_exploit_recipe` in the standard `RunnerExecution` contract.
+- Dispatches the produced recipe through the existing `exec_plan` runner so the validator can verify.
+- Emits a finding with `replay_recipe_json` populated so backlog-413 can verify + build_executable_poc.
 
-(3) Wire-in:
-- `_infer_foothold_from_findings` in `assessment_loop.py`: replace severity heuristic with `validator_verdict == "verified"` check.
-- New finding-classification column / field: `validation_status` ∈ {verified-exploited, observed-vulnerable, hypothesis} (the AegisPT finding model already has `validation_status` per backlog-385; reuse + extend).
+(3) Picker prompt gains an explicit recommendation: when the picker reaches a hypothesis that needs ≥3 chained steps, pick `exploit-developer-agent` instead of writing inline exec_plan JSON.
 
-(4) Tests `api/tests/test_exploit_validator.py` + `test_poc_artifact.py`:
-- Verifier deterministically replays a stored request chain and matches markers.
-- PoC artifact script is runnable (subprocess smoke).
-- Foothold transitions ONLY when validator verdict = "verified" (regression against 412's proxy heuristic).
+(4) Tests `api/tests/test_exploit_developer.py`:
+- Schema validation of generated recipes.
+- Roundtrip: developer-agent recipe → validator verdict (mocked transport).
+- Picker prompt grep-sentinel that the new tool name appears in the system prompt.
 
 ## Constraints (per ANTI_DRIFT.md)
 
-- Per Rule 1: capability task. Delta-metric = "≥1 verified-exploited finding emitted by validator OR ≥1 PoC artifact reproducible by human via `python poc.py --target X`".
-- Per Rule 2: validator called from finding-creation path AND from `_infer_foothold_from_findings`; no dead code.
-- Per Rule 3 (geen backward-compat creep): the proxy heuristic in `_infer_foothold_from_findings` is REPLACED, not parallel-kept.
-- Per Rule 4: validator is DETERMINISTIC (no LLM). Re-runs captured request chain, asserts markers.
-- Per `poc_replayable_by_human`: PoC script runnable standalone via `python poc.py --target X`.
+- Per Rule 1: capability task. Delta-metric = "≥1 verified-exploited finding emitted via exploit-developer-agent during a live XBOW run".
+- Per Rule 2: runner registered + dispatchable; picker prompt invites it.
+- Per Rule 3: where the picker previously inlined multi-step exec_plan, those calls move to the new agent. Cite diff.
+- Per Rule 4: live verification via XBOW — ≥1 verified-exploited finding traced end-to-end.
+- Per `feedback_no_prescriptive_recipes`: the agent generates recipes emergently from observed context, not from pre-seeded per-app templates.
 
 ## Source Package
 
-`codex/tasks/backlog-413-deterministic-validator-reproducible-poc.json`
+`codex/tasks/backlog-414-exploit-developer-agent-meta-tooling.json`
 
 ## Validation (ANTI_DRIFT.md pre-commit checklist)
 
-- [ ] Code INVOKED: validate_exploit called from finding-creation path; build_executable_poc called per verified finding
-- [ ] Delta-metric: ≥1 verified-exploited finding + ≥1 runnable PoC artifact (cite path)
-- [ ] Removed code: cite N lines of severity-heuristic foothold inference superseded by validator verdict
-- [ ] Geen scope creep: validator + PoC + finding-class wire-in only
+- [ ] Code INVOKED: exploit-developer-agent dispatch in live XBOW advance
+- [ ] Delta-metric: ≥1 verified-exploited finding (validator verdict) via this agent
+- [ ] Removed code: cite inline multi-step exec_plan paths that moved to agent
+- [ ] Geen scope creep: developer agent + runner + 1 picker-prompt section + tests
 - [ ] Follow-ups gefiled: <refs OR "none">
-- [ ] Live test geslaagd: XBOW run produces ≥1 verified-exploited finding OR PoC reproduces an exploit standalone
+- [ ] Live test geslaagd: link/trace to verified-exploited finding
 
 Plus required checks:
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_exploit_validator.py api/tests/test_poc_artifact.py`
-- `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/exploit_validator.py api/app/services/poc_artifact.py`
+- `.venv/bin/pytest api/tests/test_exploit_developer.py`
+- `python3 -m compileall -q api workers`
+- `.venv/bin/ruff check api/app/services/exploit_developer.py workers/runners/exploit_developer_agent/runner.py`
 - `git diff --check`
-- Live: ≥1 PoC script reproducible standalone.
+- Live: XBOW run produces ≥1 verified-exploited finding via exploit-developer-agent.
