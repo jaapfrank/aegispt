@@ -458,7 +458,28 @@ _PICKER_ACTIVE_INTRUSIVE = ["active", "intrusive"]
 _PICKER_STOP_REASONS = ["admin_compromise_proven", "exhausted", "scope_complete"]
 
 
-def _picker_variant_pick() -> dict[str, Any]:
+def _picker_tool_field(available_tools: list[str] | None) -> dict[str, Any]:
+    """Build the `tool` field constraint. When ``available_tools`` is provided
+    (per-call dynamic schema), emit an ``enum`` so Claude is hard-constrained
+    to that exact list — no more hallucinated tool names like ``memory`` or
+    ``http_fetch`` (Anthropic built-in tool names that Claude picked when
+    the field was just ``{"type":"string"}``). ``exec-plan`` is filtered
+    out: tool=exec-plan must go through action=exec_plan (or level_up with
+    plan body), not action=pick.
+
+    Anthropic accepts ``enum`` (unlike ``not``, which is rejected per
+    ced6030 regression). Empty list = fall back to generic string so the
+    schema is still valid in pathological "no tools" scenarios.
+    """
+    if available_tools is None:
+        return {"type": "string"}
+    filtered = [t for t in available_tools if t and t != "exec-plan"]
+    if not filtered:
+        return {"type": "string"}
+    return {"type": "string", "enum": sorted(set(filtered))}
+
+
+def _picker_variant_pick(available_tools: list[str] | None = None) -> dict[str, Any]:
     return {
         "type": "object",
         "additionalProperties": False,
@@ -468,16 +489,7 @@ def _picker_variant_pick() -> dict[str, Any]:
         ],
         "properties": {
             "action": {"type": "string", "const": "pick"},
-            # P0 REGRESSION FIX 2026-05-21: was {"type":"string","not":{"const":"exec-plan"}}
-            # but Anthropic's structured-output validator rejects the JSON-Schema
-            # `not` keyword: "Schema keyword 'not' is not supported" → every
-            # picker call returned HTTP 400 → picker_retry_exhausted became the
-            # dominant stop_reason → no agent_tool dispatches → all canaries dead.
-            # Reverted to generic string + runtime rejection at
-            # _claude_candidate_to_loop_candidate (line ~1547 / 1604) which
-            # still catches action=pick + tool=exec-plan and re-prompts Claude
-            # via the rejection_sink mechanism.
-            "tool": {"type": "string"},
+            "tool": _picker_tool_field(available_tools),
             "target": {"type": "string"},
             "tier": {"type": "string", "enum": _PICKER_TIER_ENUM},
             "reasoning": {"type": "string"},
@@ -487,7 +499,7 @@ def _picker_variant_pick() -> dict[str, Any]:
     }
 
 
-def _picker_variant_level_up(*, with_plan: bool) -> dict[str, Any]:
+def _picker_variant_level_up(*, with_plan: bool, available_tools: list[str] | None = None) -> dict[str, Any]:
     base_required = [
         "action", "previous_phase_summary", "new_phase_label",
         "tool", "target", "tier",
@@ -497,11 +509,7 @@ def _picker_variant_level_up(*, with_plan: bool) -> dict[str, Any]:
         "action": {"type": "string", "const": "level_up"},
         "previous_phase_summary": {"type": "string"},
         "new_phase_label": {"type": "string"},
-        # P0 REGRESSION FIX 2026-05-21: same as _picker_variant_pick — reverted
-        # from {"not":{"const":"exec-plan"}} because Anthropic rejects `not`.
-        # Runtime rejection at _claude_candidate_to_loop_candidate handles
-        # action=level_up + tool=exec-plan without a plan body.
-        "tool": {"type": "string"},
+        "tool": _picker_tool_field(available_tools),
         "target": {"type": "string"},
         "tier": {"type": "string", "enum": _PICKER_TIER_ENUM},
         "reasoning": {"type": "string"},
@@ -564,12 +572,16 @@ def _picker_variant_exec_plan() -> dict[str, Any]:
     }
 
 
-def _picker_output_schema() -> dict[str, Any]:
-    """Discriminated schema for the 4 picker action shapes (#330)."""
+def _picker_output_schema(available_tools: list[str] | None = None) -> dict[str, Any]:
+    """Discriminated schema for the 4 picker action shapes (#330). When
+    ``available_tools`` is provided, the pick + level_up-without-plan
+    variants constrain ``tool`` to that enum so Claude cannot hallucinate
+    tool names like ``memory`` / ``http_fetch``. level_up-with-plan and
+    exec_plan are unaffected (they force tool=exec-plan via const)."""
     return {
         "anyOf": [
-            _picker_variant_pick(),
-            _picker_variant_level_up(with_plan=False),
+            _picker_variant_pick(available_tools),
+            _picker_variant_level_up(with_plan=False, available_tools=available_tools),
             _picker_variant_level_up(with_plan=True),
             _picker_variant_stop(),
             _picker_variant_exec_plan(),
@@ -577,8 +589,9 @@ def _picker_output_schema() -> dict[str, Any]:
     }
 
 
-# Pre-built schema dict reused on every picker call (no dynamic content
-# so the messages.create call stays cache-friendly).
+# Static fallback used when no available_tools list is supplied. The dynamic
+# enum-constrained variant is built per-call at the messages.create site to
+# keep Claude on the actual runner registry.
 _PICKER_OUTPUT_SCHEMA: dict[str, Any] = _picker_output_schema()
 
 
@@ -1341,6 +1354,17 @@ def _claude_select_next_action(
             # per call with before/after token counts.
             from api.app.services.context_curation import curate_for_picker  # noqa: E402
             messages, _curation_event = curate_for_picker(messages, max_tokens=120_000)
+            # Build a per-call schema with the actual `available_tools` list
+            # baked into the pick / level_up variants as an enum constraint.
+            # Anthropic's structured-output validator then refuses any
+            # ``tool`` value Claude tries to invent (e.g. the built-in
+            # ``memory`` / ``http_fetch`` names empirically observed
+            # 2026-05-21 14:11). Falls back to the static schema when the
+            # available_tools list is empty.
+            picker_schema = (
+                _picker_output_schema(list(available_tools))
+                if available_tools else _PICKER_OUTPUT_SCHEMA
+            )
             msg = client.messages.create(
                 model="claude-opus-4-7",
                 max_tokens=PICKER_MAX_TOKENS,
@@ -1354,7 +1378,7 @@ def _claude_select_next_action(
                 output_config={
                     "format": {
                         "type": "json_schema",
-                        "schema": _PICKER_OUTPUT_SCHEMA,
+                        "schema": picker_schema,
                     },
                 },
                 timeout=90.0,
