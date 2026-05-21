@@ -6,47 +6,42 @@
 
 ## Title
 
-Picker becomes real agent — Bash / file / web_search / web_fetch / code_exec / subagent tools (Claude-Code-equivalent) — **Sprint mythos-exploitation-foundation, task 14 of 15**
+Score-climbing automation loop — benchmark run → failure analysis → versioned prompt proposal → operator approve → re-run — **Sprint mythos-exploitation-foundation, task 15 of 15 (LAST)**
 
 ## Goal
 
-Close de "AegisPT picker IS Mythos" capability gap. Currently picker heeft tool-pick-from-list affordances. Give the picker dezelfde agentic toolset die Claude in interactive sessies heeft: Bash exec (sandboxed via backlog-409 sandbox_runner), file r/w (scope-bounded via backlog-409 GovernanceControlPlane), web_search + web_fetch (read-only), code execution (Python sandbox), subagent spawn (via backlog-415 MetaCoordinator).
-
-Per user: "R&D budget van Mythos heb jij al in je — jij bent Mythos. Same model, different scaffolding."
+De motor die AegisPT van 0% → 80% XBOW score drijft. Geautomatiseerde iteratie: na elke benchmark run, analyzeer failed challenges, identificeer patterns (prompt gap / state-machine gap / tool gap), genereer VERSIONED prompt proposals (no runtime self-modify per Codex), operator approves, re-run, vergelijk delta. Permanent improvement infrastructure die de continuous-improvement sprint kan voeden.
 
 ## Sprint context
 
-Task 14 van 15. Release gate (backlog-419) DONE met empirisch 0/25 baseline; foundation infrastructure is in maar de picker zelf heeft nog steeds beperkte agentic affordances. Deze task geeft de picker de Claude-Code-equivalente toolset zodat de model-capacity die hij heeft echt benut wordt.
+Task 15 of 15 — afsluitende task van `mythos-exploitation-foundation`. Release gate (419) toonde 0/25 baseline + 8 named gap items. Foundation tasks 408-422 zijn DONE. Tijd voor de motor die de gaps systematisch dichtfietst over meerdere iteratie-cycli (`mythos-continuous-improvement` sprint = backlog-431).
 
 ## Delta-doelstelling
 
-> Deze task levert `api/app/agents/agent_tools/` met 6 nieuwe tool-use schemas die de picker via de Anthropic Messages API kan aanroepen: BashTool, FileReadTool, FileWriteTool, WebSearchTool, WebFetchTool (uitgebreid t.o.v. bestaande http_fetch), CodeExecTool (Python sandbox), SubagentSpawnTool (delegeert naar MetaCoordinator). Elke tool routes door `GovernanceControlPlane.authorize_*` (Layer 0) + `sandbox_runner` (waar applicable) + emit OTEL spans. Delta-metric: ≥3 XBOW challenges solved via agentic tools (Bash/web/code) — measured by post-417-prompt-population re-baseline.
+> Deze task levert `scripts/xbow_score_climb.py` (orchestrator), `api/app/services/failure_analysis.py` (cluster failed challenges via Claude), proposal generation naar `prompts/proposals/{date}-{component}-revN.md`, CLI `aegispt promote-proposal {file}` (wraps `approve_prompt_change`), en delta-report na iteration. Delta-metric: één complete iteration cycle end-to-end op de bestaande 25-challenge baseline + delta-report uitgeschreven (initial cycle mag de score NIET verhogen — de infrastructuur is wat 423 levert).
 
 ## Scope
 
-(1) `api/app/agents/agent_tools/`:
-- `__init__.py` exports tool registry
-- `bash.py`: `BashTool` — wraps `sandbox_runner.run_step_in_sandbox` with a curl-style image; passes through Layer 0 `authorize_external_network` for any network egress.
-- `file_io.py`: `FileReadTool` + `FileWriteTool` — scope-bounded under `AEGISPT_MEMORY_ROOT` (matches benchmark-isolation rule from backlog-408).
-- `web.py`: `WebSearchTool` (delegates to backlog-416 external_knowledge lookups) + `WebFetchTool` (uses existing http_fetch_backend, extends to JS-rendered pages via playwright_web).
-- `code_exec.py`: `CodeExecTool` — Python sandbox via `sandbox_runner` with `python:3.12-slim` image, network=none, 60s timeout.
-- `subagent.py`: `SubagentSpawnTool` — wraps `MetaCoordinator.delegate(specialist, ...)`.
-- Anthropic tool-use schemas exported as `ALL_TOOL_SCHEMAS` list.
+(1) `api/app/services/failure_analysis.py`:
+- `cluster_failures(baseline_json_path) -> list[FailurePattern]` — leest een XBOW baseline JSON, groepeert crash/no-solve reasons, gebruikt Claude om per cluster een hypothesis te formuleren (prompt gap / state-machine gap / tool gap / infrastructure).
+- Output: list of `FailurePattern{cluster_name, affected_challenges, root_cause_hypothesis, proposed_change_kind ∈ {prompt|state_machine|tool|infra}, proposed_target_component, proposed_change_summary}`.
 
-(2) Wire-in `_claude_select_next_action`: pass `ALL_TOOL_SCHEMAS` in `tools=` to the Messages API. Per Layer 0: every tool invocation MUST call `control_plane.authorize_dispatch` (already done for runner dispatch; extend to these agent tools).
+(2) `api/app/services/proposal_generator.py`:
+- `generate_proposals(patterns) -> list[Path]` — per pattern, drafts a `prompts/proposals/{YYYY-MM-DD}-{component}-rev{N}.md` file with `approve: false` header (operator must flip to `approve: true` before promotion). Includes the failure pattern + proposed change + rationale.
 
-(3) Tests `api/tests/test_agent_tools.py`: tool-schema shape validation, Layer 0 enforcement on each tool (deny outside scope), sandbox isolation for Bash/CodeExec.
+(3) `scripts/xbow_score_climb.py`:
+- CLI: `python3 scripts/xbow_score_climb.py --baseline {path} --output-dir {dir}` — runs failure analysis + proposal generation, writes a delta-report markdown listing all generated proposals + the next-action checklist (review proposals → approve → re-run baseline → compare).
 
-(4) Picker prompt section explaining the new tools.
+(4) CLI helper `scripts/aegispt_promote_proposal.py` (wraps `api.app.agents.coordinator.approve_prompt_change`) — operator runs it after editing a proposal's `approve:` header to `true`.
+
+(5) Tests `api/tests/test_failure_analysis.py` + `api/tests/test_proposal_generator.py`.
 
 ## Constraints (per ANTI_DRIFT.md)
 
-- Per Rule 1: capability task. Delta-metric = ≥3 XBOW challenges solved via agentic tools (with PoC artifacts) after this lands + 415-slice-2 + 414-wire-in.
-- Per Rule 2: tools called from picker hot path in same commit.
-- Per Rule 4: live verification via XBOW re-baseline — ≥1 XBEN run uses Bash/web_fetch tool live + reaches a verified-exploited finding.
-- Per `no_runtime_self_modification`: SubagentSpawnTool delegates to existing MetaCoordinator; no new agent-self-rewrite path.
-- Per `feedback_no_prescriptive_recipes`: tools are general-purpose primitives, no per-app exploit logic seeded in the tool wrapper.
+- Per Rule 1: capability task. Delta-metric = "one complete iteration cycle end-to-end on the existing 25-challenge baseline + delta-report uitgeschreven". The first cycle is allowed to NOT raise the score — the deliverable is the loop infrastructure.
+- Per Rule 4: real failure clusters from the 2026-05-21 baseline JSON, not synthetic.
+- Per `no_runtime_self_modification`: proposals land with `approve: false`. Only `approve_prompt_change` (backlog-415) promotes them. The CLI just wraps that gate.
 
 ## Source Package
 
-`codex/tasks/backlog-422-picker-as-real-agent-claude-code-equivalent.json`
+`codex/tasks/backlog-423-score-climbing-automation-loop.json`
