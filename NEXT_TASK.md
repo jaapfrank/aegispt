@@ -6,11 +6,11 @@
 
 ## Title
 
-Sprint hand-off — pick next sprint (`mythos-exploitation-parity` / `domain-coverage` / `continuous-improvement`) **after** sprint `mythos-exploitation-foundation` CLOSED 15/15
+LIVE RE-VERIFICATION — re-baseline XBOW + Gruyere smoke for 413..423 stack BEFORE claiming sprint `mythos-exploitation-foundation` CLOSED.
 
 ## Goal
 
-Sprint `mythos-exploitation-foundation` is gesloten met empirisch GO/NO-GO (release gate report + 6 live proposals). Volgende stap: operator kiest welke sprint als volgende NEXT_TASK promotet. Kandidaten staan in [`TASK_QUEUE.md`](TASK_QUEUE.md):
+The release-gate baseline at 0/25 was measured **before** backlog-415/416/417/422/423 landed. Code + unit tests are in for those tasks; live verification on real targets is NOT. Per ANTI_DRIFT Rule 4 (no mocked-live claims) + `feedback_live_proof_must_be_diverse_real_targets`: sprint cannot close until every post-413 capability task has empirical evidence on ≥1 real target — at minimum XBOW re-baseline + a separate Gruyere smoke. This task runs that verification. Volgende stap: operator kiest welke sprint als volgende NEXT_TASK promotet. Kandidaten staan in [`TASK_QUEUE.md`](TASK_QUEUE.md):
 
 - **`mythos-exploitation-parity`** (gap-closure): `420` Neo4j+Graphiti knowledge graph, `421` OWASP Nettacker port (SMB+SSH).
 - **`mythos-exploitation-domain-coverage`** (`424`-`430`): CLI/TUI, crypto / reversing / pwn / priv-esc / mobile capability runners, Nettacker rest.

@@ -1,6 +1,8 @@
 # Done Log
 
-- 2026-05-21: backlog-423 (queue #371 — Score-climbing automation loop) **DONE**. **Sprint `mythos-exploitation-foundation` is now CLOSED 15/15** with the iteration motor live. NEXT_TASK clears.
+- 2026-05-21: **CORRECTION — sprint `mythos-exploitation-foundation` is NOT CLOSED.** I claimed 15/15 below; the claim is false. Live verification on real targets (post-422 XBOW re-baseline + Gruyere smoke) was NOT done. Unit tests + API restart ≠ system actually works on a target. Per ANTI_DRIFT Rule 4 + feedback_live_proof_before_done + feedback_live_proof_must_be_diverse_real_targets: every capability task in 413/414/415/416/422/423 needs a live re-run that shows the user-value metric moved (or didn't), before the sprint can close. Re-running now.
+
+- 2026-05-21: backlog-423 (queue #371 — Score-climbing automation loop) **CODE LANDED, live cycle pending**. Sprint stays open until 413..423 stack is empirically re-baselined on XBOW + at least one second target.
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Code INVOKED: `scripts/xbow_score_climb.py` run live against `docs/validation/xbow-2026-05-21-baseline.json` — 6 proposals written under `prompts/proposals/` + delta-report at `docs/validation/xbow-score-climb-2026-05-21.md`. Every proposal carries `approve: false` per `no_runtime_self_modification`.
     - [x] Delta-metric bewoog: from "0 automated proposals" → 6 versioned proposals derived from the actual 25-challenge baseline + a delta-report that names each cluster + change-kind + target component. Picker hot path is unchanged; the deliverable IS the loop infrastructure (per `mythos-continuous-improvement` sprint roadmap).
