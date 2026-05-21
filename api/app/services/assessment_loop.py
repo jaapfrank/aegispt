@@ -446,16 +446,33 @@ phase advances AND the exec-plan runs in the new phase. Use this for moves
 like "now I have a session token, level up to authenticated-admin-escalation
 and run this 4-step chain that injects is_admin=True into the snippet form".
 
-STRUCTURED OUTPUT NOTE (updated 2026-05-21): the picker schema now accepts
-the `plan` field as a proper nested OBJECT (not a JSON-encoded string).
-You no longer need to escape-quote the plan body. Example:
-  "plan": {"name": "slug", "steps": [{"name": "probe", "method": "GET",
-    "url": "${target}/foo", "expect": {"status": 200}}, ...]}
-The schema enforces per-step shape: required name + url, method enum
-[GET,POST,PUT,PATCH,DELETE], optional headers/data/json/cookies/expect/
-capture/on_success. Anthropic's structured-output validator rejects any
-malformed step before it reaches the picker, so half-formed plans are
-caught at the API boundary instead of mid-execution.
+STRUCTURED OUTPUT NOTE (final form, 2026-05-21):
+
+The picker schema is enforced by Anthropic's structured-outputs validator,
+which is strict: every object must have explicit closed properties +
+additionalProperties=false. Open-keyed objects (HTTP header dicts,
+query params, capture spec dicts) cannot be modelled directly — they
+arrive as JSON-encoded STRINGS that the server json.loads() before
+dispatch.
+
+Step shape:
+  required: name (string), url (string)
+  optional: method (enum GET/POST/PUT/PATCH/DELETE; default GET),
+            cookies_from (string)
+  optional STRINGIFIED fields (you JSON.stringify them in your output):
+    - headers      e.g. "{\"X-Foo\": \"bar\"}"
+    - params       e.g. "{\"q\": \"value\"}"
+    - data         e.g. "raw body" or "{\"k\": \"v\"}"
+    - json         e.g. "{\"k\": \"v\"}"
+    - cookies      e.g. "{\"sessionid\": \"abc\"}"
+    - expect       e.g. "{\"status\": 200, \"body_contains\": \"admin\"}"
+    - capture      e.g. "{\"token\": {\"from\": \"body_regex\", \"pattern\": \"csrf=([a-f0-9]+)\"}}"
+    - on_success   e.g. "{\"create_finding\": {\"severity\": \"high\", \"title\": \"...\", \"summary\": \"...\"}}"
+
+Yes, JSON-in-JSON for those nested fields. The server unwraps them.
+This is the only Anthropic-strict-mode-compatible form for open-keyed
+objects (confirmed empirically 2026-05-21 against three 400-rejection
+patterns: not-keyword, additionalProperties-true, empty-schema).
 
 CHAIN REASONING ON RECENT_CAPTURES (#334 + #343):
 The graph projection includes a RECENT_CAPTURES section listing the most-recent
@@ -613,14 +630,22 @@ _AGENT_TOOL_NAMES = (
 
 
 def _exec_plan_step_schema() -> dict[str, Any]:
-    """JSON schema for ONE exec-plan step matching the actual runner
-    contract in workers/runners/exec_plan/runner.py:
+    """JSON schema for ONE exec-plan step. Confirmed against the Anthropic
+    structured-outputs reference 2026-05-21:
+      - additionalProperties MUST be false on every object (no other value
+        accepted: true, empty schema, missing all return 400)
+      - empty schemas ``{}`` are not supported as property types
+      - so we cannot model headers/params/etc. as objects with arbitrary
+        keys: HTTP header names are open-ended but the schema cannot say so
 
-      name, method (GET/POST/PUT/PATCH/DELETE), url
-      headers, data, json, params, cookies, cookies_from
-      expect (status / body_contains / body_regex / body_not_contains)
-      capture (var_name → {from: cookie|header|body_regex|status|...})
-      on_success.create_finding {severity, title, summary}
+    Pragmatic concession: the OPTIONAL fields with dynamic keys are
+    represented as JSON-encoded STRINGS. The runner doesn't see them as
+    strings — _decode_picker_plan unwraps strings into dicts before
+    dispatch (it's been doing this since the pre-bf9940d format).
+    Claude has to escape JSON-in-JSON for these, but it's the only
+    Anthropic-acceptable form for open-keyed objects.
+
+    Mandatory fields (name + url + method) get proper typed schemas.
     """
     return {
         "type": "object",
@@ -633,24 +658,17 @@ def _exec_plan_step_schema() -> dict[str, Any]:
                 "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
             },
             "url": {"type": "string"},
-            # Anthropic strict mode requires `additionalProperties: false`
-            # on every declared `type: object`. But these fields need
-            # arbitrary keys (header names, param names, capture var names
-            # etc.) — closing the schema breaks the runner. Workaround:
-            # OMIT the type annotation entirely (use `{}` empty schema =
-            # "any value"). Anthropic's object-type check only fires when
-            # type=object is declared; without it, arbitrary nested values
-            # are accepted. Confirmed empirically against the 16:22
-            # rejections.
-            "headers": {},
-            "params": {},
-            "data": {},
-            "json": {},
-            "cookies": {},
-            "cookies_from": {"type": "string"},
-            "expect": {},
-            "capture": {},
-            "on_success": {},
+            # Open-keyed nested values arrive as JSON-encoded strings;
+            # _decode_picker_plan json.loads them server-side.
+            "headers": {"type": "string", "description": "JSON-encoded dict of {header-name: header-value}, e.g. '{\"X-Foo\": \"bar\"}'"},
+            "params": {"type": "string", "description": "JSON-encoded dict of query parameters"},
+            "data": {"type": "string", "description": "Request body (raw string OR JSON-encoded object)"},
+            "json": {"type": "string", "description": "JSON-encoded request body"},
+            "cookies": {"type": "string", "description": "JSON-encoded dict of {cookie-name: value}"},
+            "cookies_from": {"type": "string", "description": "Name of an earlier step to inherit cookies from"},
+            "expect": {"type": "string", "description": "JSON-encoded {status?: int|[int...], body_contains?: str, body_regex?: str, body_not_contains?: str}"},
+            "capture": {"type": "string", "description": "JSON-encoded {var_name: {from: cookie|header|body_regex|status|redirect_path, key?: name, pattern?: regex}}"},
+            "on_success": {"type": "string", "description": "JSON-encoded {create_finding: {severity: low|medium|high|critical, title: str, summary: str}}"},
         },
     }
 
@@ -813,30 +831,73 @@ def _picker_output_schema(
 _PICKER_OUTPUT_SCHEMA: dict[str, Any] = _picker_output_schema()
 
 
+# Step fields whose values arrive as JSON-encoded strings per the
+# Anthropic-strict-mode schema. _decode_picker_plan unwraps them into
+# the dicts the runner expects (matches workers/runners/exec_plan/runner.py).
+_STEP_STRINGIFIED_FIELDS = (
+    "headers", "params", "data", "json",
+    "cookies", "expect", "capture", "on_success",
+)
+
+
+def _decode_step_stringified_fields(step: dict[str, Any]) -> dict[str, Any]:
+    """Unwrap headers/params/expect/capture/on_success/etc. that arrived
+    as JSON-encoded strings (Anthropic strict-mode workaround) back into
+    dicts. ``data`` and ``json`` may legitimately be plain strings — only
+    parse if they look like JSON (start with { or [)."""
+    if not isinstance(step, dict):
+        return step
+    for field in _STEP_STRINGIFIED_FIELDS:
+        value = step.get(field)
+        if not isinstance(value, str):
+            continue
+        stripped = value.strip()
+        if not stripped:
+            continue
+        # data + json can be raw strings; only JSON-parse when shape suggests it.
+        if field in ("data", "json") and not stripped.startswith(("{", "[")):
+            continue
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        step[field] = parsed
+    return step
+
+
 def _decode_picker_plan(decision: dict[str, Any]) -> dict[str, Any]:
     """If the decision is an exec_plan (or level_up + plan) variant, the
     `plan` field arrives as a JSON-encoded string (per the schema). Decode
     it in place so downstream consumers see the same dict shape they used
-    to before #330. No-op for actions without a `plan` field.
+    to before #330. ALSO unwraps each step's stringified nested fields
+    (headers/params/expect/capture/etc.) added 2026-05-21 as Anthropic
+    strict-mode workaround. No-op for actions without a `plan` field.
 
     Returns the (possibly mutated) decision dict for chaining.
     """
     if not isinstance(decision, dict):
         return decision
     plan = decision.get("plan")
-    if not isinstance(plan, str) or not plan:
-        return decision
-    try:
-        decoded = json.loads(plan)
-    except json.JSONDecodeError as exc:
-        logger.warning(
-            "AI loop: picker plan field was not valid JSON despite schema "
-            "constraint — raw=%r (%s)",
-            plan[:240], exc,
-        )
-        return decision
-    if isinstance(decoded, dict):
-        decision["plan"] = decoded
+    if isinstance(plan, str) and plan:
+        try:
+            decoded = json.loads(plan)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "AI loop: picker plan field was not valid JSON despite schema "
+                "constraint — raw=%r (%s)",
+                plan[:240], exc,
+            )
+            return decision
+        if isinstance(decoded, dict):
+            decision["plan"] = decoded
+        plan = decision.get("plan")
+    # Unwrap stringified nested fields in each step
+    if isinstance(plan, dict):
+        steps = plan.get("steps")
+        if isinstance(steps, list):
+            for i, step in enumerate(steps):
+                if isinstance(step, dict):
+                    steps[i] = _decode_step_stringified_fields(step)
     return decision
 
 
