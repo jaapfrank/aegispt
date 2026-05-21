@@ -1,5 +1,41 @@
 # Done Log
 
+- 2026-05-21: backlog-436 (queue #386 — Wire ChatGPT-OAuth as a picker provider) **DONE**. NEXT_TASK promoted to backlog-437 (queue #387 — Picker A/B comparison harness).
+  - **Pre-commit drift check (per ANTI_DRIFT.md)**:
+    - [x] Mijn code is INVOKED in production path: `_claude_select_next_action` now resolves `LLMProvider.for_run(...)` and dispatches ChatGPT-OAuth configured runs to `_chatgpt_oauth_select_next_action`.
+    - [x] Delta-metric bewoog: ChatGPT-OAuth configured picker calls no longer return `None` solely because the provider is non-Anthropic; the focused test proves the OAuth streaming JSON helper is called.
+    - [x] Removed code I replaced: the duplicated exec-plan forcing schema calculation inside the Anthropic loop was replaced by `_picker_schema_for_current_state`, shared by both provider branches.
+    - [x] Geen scope creep: no runner, approval, scope, finding schema, capability pack, deployment, runtime binding, or UI behavior changed.
+    - [x] Follow-ups gefiled voor blocked items: backlog-437 remains the next task for measured Claude vs ChatGPT-OAuth comparison before any winner claim.
+    - [x] Live test geslaagd: mocked provider-path tests passed; no live target/provider superiority is claimed.
+  - rationale:
+    - operator asked to continue after confirming another AI is working in separate areas
+    - active task required enabling the existing ChatGPT OAuth backend as a picker provider while preserving Anthropic behavior
+    - the implementation uses the existing governed `send_chatgpt_backend_streaming_json_request` helper and records that the OAuth branch lacks the Anthropic in-turn tool-use loop
+  - files:
+    - `api/app/services/assessment_loop.py`
+    - `api/app/services/llm_provider.py`
+    - `api/tests/test_assessment_loop_picker_chatgpt_oauth.py`
+    - `api/tests/test_llm_provider.py`
+    - `docs/design/picker-on-chatgpt-tradeoff.md`
+    - `docs/validation/backlog-436-picker-chatgpt-oauth-provider-20260521.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed: 388 queued task packages mapped one-to-one, exactly one active task
+    - `python3 -m compileall -q api` passed
+    - `python3 -m compileall -q api/app/services/assessment_loop.py api/app/services/llm_provider.py` passed
+    - `.venv/bin/ruff check api/app/services/assessment_loop.py api/app/services/chatgpt_oauth.py api/app/services/llm_provider.py api/tests/test_assessment_loop_picker_chatgpt_oauth.py api/tests/test_llm_provider.py` passed
+    - `.venv/bin/ruff check api/app/services/assessment_loop.py api/app/services/chatgpt_oauth.py` passed
+    - `.venv/bin/pytest api/tests/test_assessment_loop_picker_chatgpt_oauth.py api/tests/test_llm_provider.py -q` passed with 17 tests
+    - `git diff --check` passed
+  - remaining risks:
+    - this is structural provider-path evidence only; it does not prove ChatGPT-OAuth makes better picker decisions
+    - the OAuth branch returns one structured decision directly and does not yet expose Anthropic-equivalent in-turn model tool calls
+    - backlog-437 must provide the measured A/B report before changing defaults or making capability claims
+
 - 2026-05-21: backlog-438 (queue #388 — React ui-v2 fuller static phrase translation coverage) **DONE**. NEXT_TASK promoted to backlog-436 (queue #386 — ChatGPT-OAuth picker provider) because #386/#387 were already operator-added queue items ahead of #388.
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Mijn code is INVOKED in production path: `I18nProvider` in `ui-v2/src/i18n/index.tsx` now calls `applyPhraseCatalog(locale)` and observes UI mutations; `App` already wraps the whole React app in `I18nProvider`.

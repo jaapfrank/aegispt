@@ -834,6 +834,41 @@ def _picker_output_schema(
 _PICKER_OUTPUT_SCHEMA: dict[str, Any] = _picker_output_schema()
 
 
+def _provider_is_chatgpt_oauth(provider: Any) -> bool:
+    config = getattr(provider, "config", None)
+    model = str(getattr(config, "model", "") or "").strip().lower()
+    api_key_env = str(getattr(config, "api_key_env", "") or "").strip().upper()
+    return api_key_env.startswith("CHATGPT_OAUTH") or model in {"chatgpt_oauth", "gpt-5.4"}
+
+
+def _provider_is_anthropic(provider: Any) -> bool:
+    config = getattr(provider, "config", None)
+    return str(getattr(config, "api_key_env", "") or "").strip().upper().startswith("ANTHROPIC")
+
+
+def _picker_schema_for_current_state(
+    *,
+    run: Run,
+    tested_keys: set[str],
+    available_tools: list[str],
+) -> dict[str, Any]:
+    distinct_tested_tools = {k.split("|", 1)[0] for k in tested_keys}
+    crit_high_count = sum(
+        1 for f in (run.findings or [])
+        if str(getattr(f, "severity", "") or "").lower() in {"critical", "high"}
+    )
+    force_exec_plan = len(distinct_tested_tools) >= 5 and crit_high_count < 2
+    if force_exec_plan:
+        logger.info(
+            "picker: forcing exec_plan schema variant — tested_tools=%d crit_high=%d run=%s",
+            len(distinct_tested_tools), crit_high_count, str(run.id)[:8],
+        )
+    return (
+        _picker_output_schema(list(available_tools), force_exec_plan=force_exec_plan)
+        if available_tools else _picker_output_schema(force_exec_plan=force_exec_plan)
+    )
+
+
 # Step fields whose values arrive as JSON-encoded strings per the
 # Anthropic-strict-mode + grammar-complexity budget. _decode_picker_plan
 # unwraps them into the dicts the runner expects.
@@ -943,6 +978,72 @@ def _collect_discovered_targets(run: Run, limit: int = 15) -> list[str]:
             if len(paths) >= limit:
                 return paths
     return paths
+
+
+def _chatgpt_oauth_select_next_action(
+    *,
+    run: Run,
+    session: Any,
+    user_content: str,
+    tested_keys: set[str],
+    available_tools: list[str],
+) -> dict[str, Any] | None:
+    engagement_id = getattr(run, "engagement_id", None)
+    if engagement_id is None:
+        engagement = getattr(run, "engagement", None)
+        engagement_id = getattr(engagement, "id", None)
+    if session is None or engagement_id is None:
+        logger.warning(
+            "picker: ChatGPT OAuth provider requires database session and engagement_id; "
+            "skipping picker call."
+        )
+        return None
+
+    try:
+        from api.app.config import get_settings  # noqa: E402
+        from api.app.services.chatgpt_oauth import (  # noqa: E402
+            send_chatgpt_backend_streaming_json_request,
+        )
+
+        settings = get_settings()
+        picker_schema = _picker_schema_for_current_state(
+            run=run,
+            tested_keys=tested_keys,
+            available_tools=available_tools,
+        )
+        instructions = (
+            _AI_PICKER_SYSTEM_PROMPT
+            + "\n\n=== CHATGPT OAUTH PICKER MODE ===\n"
+            "This provider branch does not expose assistant tool-calls inside the model "
+            "turn. Return the final picker decision directly. If more evidence is needed, "
+            "choose an allowed runner action, level up to a better phase, or stop only when "
+            "the evidence-first stop rules are satisfied.\n\n"
+            "Return ONLY one JSON object matching this picker JSON Schema. Do not wrap it "
+            "in markdown and do not include prose outside JSON:\n"
+            + json.dumps(picker_schema, separators=(",", ":"))
+        )
+        payload = send_chatgpt_backend_streaming_json_request(
+            session=session,
+            engagement_id=engagement_id,
+            settings=settings,
+            model=str(settings.chatgpt_oauth_model or "gpt-5.4"),
+            instructions=instructions,
+            input_items=[
+                {
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": user_content}],
+                }
+            ],
+        )
+        if isinstance(payload.get("decision"), dict):
+            payload = payload["decision"]
+        if not isinstance(payload, dict):
+            logger.warning("picker: ChatGPT OAuth response was not a JSON object")
+            return None
+        return _decode_picker_plan(payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("picker: ChatGPT OAuth next-action call failed: %s", exc)
+        return None
 
 
 def _collect_recent_failures(run: Run, limit: int = 8) -> list[dict[str, Any]]:
@@ -1308,31 +1409,32 @@ def _claude_select_next_action(
     to feed in-this-advance rejection notes (e.g. "your previous exec_plan
     had empty steps; revise") without persisting them to run config first.
     """
-    # backlog-417: route the LLM round trip through LLMProvider so the model
-    # is selectable per run-config (default claude-opus-4-7). The picker
-    # uses Anthropic-specific tool-use features (tools=, output_config) that
-    # LiteLLM does not yet proxy — until that lands, we still use the raw
-    # Anthropic client, but obtain it via LLMProvider.raw_anthropic_client()
-    # so api-key lookup + future swap-in stay centralized in one place.
+    # backlog-417/backlog-436: route the LLM round trip through LLMProvider so
+    # the model is selectable per run-config. Anthropic keeps the tool-use
+    # branch below; ChatGPT OAuth uses the existing governed streaming JSON
+    # helper and the same picker schema, without changing runner execution.
     from api.app.services.llm_provider import LLMProvider  # noqa: E402
     provider = LLMProvider.for_run(getattr(run, "configuration_json", None))
-    if not provider.config.api_key_env.upper().startswith("ANTHROPIC"):
+    provider_is_anthropic = _provider_is_anthropic(provider)
+    provider_is_chatgpt_oauth = _provider_is_chatgpt_oauth(provider)
+    if not provider_is_anthropic and not provider_is_chatgpt_oauth:
         logger.warning(
             "picker: configured model %s is non-Anthropic; tool-use features unsupported "
-            "until LLMProvider.chat gains tools+output_schema. Skipping picker call.",
+            "and no governed picker branch exists for this provider. Skipping picker call.",
             provider.config.model,
         )
-        return None
-    api_key = os.environ.get(provider.config.api_key_env, "").strip()
-    if not api_key:
         return None
     if not tested_keys:
         # First iteration: let target-intel heuristic handle the seed step
         return None
-    try:
-        import anthropic  # noqa: F401 — exception module needed even when client comes from provider
-    except ImportError:
-        return None
+    if provider_is_anthropic:
+        api_key = os.environ.get(provider.config.api_key_env, "").strip()
+        if not api_key:
+            return None
+        try:
+            import anthropic  # noqa: F401 — exception module needed even when client comes from provider
+        except ImportError:
+            return None
 
     findings = _summarize_findings_for_ai(run)
     _ = _tested_tools_summary(tested_keys)  # invoked for side effects/logging; result unused
@@ -1563,6 +1665,15 @@ def _claude_select_next_action(
         "- Broad scanners (already covered above as ONE-SHOT) use the primary target ONCE."
     )
 
+    if provider_is_chatgpt_oauth:
+        return _chatgpt_oauth_select_next_action(
+            run=run,
+            session=session,
+            user_content=user_content,
+            tested_keys=tested_keys,
+            available_tools=available_tools,
+        )
+
     try:
         from api.app.services import http_fetch_backend, memory_backend
         # backlog-417: api key + client construction now sourced from
@@ -1662,22 +1773,10 @@ def _claude_select_next_action(
             # forcing makes the API boundary refuse any action=pick or
             # action=level_up-without-plan in this state, so Claude must
             # actually produce an exec_plan or admit defeat with stop.
-            distinct_tested_tools = {k.split("|", 1)[0] for k in tested_keys}
-            crit_high_count = sum(
-                1 for f in (run.findings or [])
-                if str(getattr(f, "severity", "") or "").lower() in {"critical", "high"}
-            )
-            force_exec_plan = (
-                len(distinct_tested_tools) >= 5 and crit_high_count < 2
-            )
-            if force_exec_plan:
-                logger.info(
-                    "picker: forcing exec_plan schema variant — tested_tools=%d crit_high=%d run=%s",
-                    len(distinct_tested_tools), crit_high_count, str(run.id)[:8],
-                )
-            picker_schema = (
-                _picker_output_schema(list(available_tools), force_exec_plan=force_exec_plan)
-                if available_tools else _picker_output_schema(force_exec_plan=force_exec_plan)
+            picker_schema = _picker_schema_for_current_state(
+                run=run,
+                tested_keys=tested_keys,
+                available_tools=available_tools,
             )
             msg = client.messages.create(
                 model="claude-opus-4-7",

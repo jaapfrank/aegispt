@@ -6,37 +6,40 @@
 
 ## Title
 
-Wire ChatGPT-OAuth as a picker provider
+Picker A/B comparison harness — Claude vs ChatGPT-OAuth
 
 ## Goal
 
-Extend the picker provider path so a run configured for the existing ChatGPT OAuth backend can request structured picker decisions through the already-governed OAuth streaming JSON helper instead of silently skipping non-Anthropic providers.
+Build an evidence-first harness that compares Claude and ChatGPT-OAuth picker decisions on the same target, same evidence, and same safety constraints, then emits a side-by-side report.
 
 ## Delta-doelstelling
 
-Picker provider coverage moves from Anthropic-only decision calls to Anthropic plus ChatGPT-OAuth configured runs. The measurable metric is that ChatGPT-OAuth configured picker calls no longer return `None` solely because the provider is non-Anthropic, while Anthropic picker behavior remains unchanged.
+The provider-path work from backlog-436 is now structurally enabled. This task measures whether the two picker providers make different decisions on matched evidence. The metric is a generated comparison report with matched picker decision logs, finding counts, canary/proof deltas, and explicit failure reasons. No winner may be claimed without measured comparable results.
 
 ## Scope
 
-- Add a provider branch in the picker decision path for ChatGPT-OAuth configured runs.
-- Reuse the existing `send_chatgpt_backend_streaming_json_request` helper and the same picker schema/safety boundaries.
-- Preserve Anthropic behavior.
-- Keep approval, scope, runner, capability pack, finding schema, and runtime binding behavior unchanged.
+- Create a controlled validation script that provisions or simulates two comparable runs.
+- Configure one run for the Anthropic picker and one run for ChatGPT-OAuth.
+- Drive both through the same benchmark, authorized target harness, or dry-run fixture.
+- Collect matched picker decision logs, finding counts, canary/proof deltas, and failure reasons.
+- Emit a side-by-side report.
 
 ## Constraints
 
-- Do not implement until explicitly requested.
-- No runner behavior, approval gate, scope gate, finding schema, or capability pack flow changes.
-- No claim that ChatGPT-OAuth makes better picker decisions; that belongs to the A/B harness task after this one.
+- Validation harness only.
+- Do not change production picker decision logic.
+- Do not change runner behavior, approval gates, scope gates, finding schema, prompt foundations, capability pack registry, approval flow, deployment flow, or runtime binding.
+- Dry-run or fixture mode must be available so report generation can be tested without live target access.
+- State limitations explicitly; do not infer model superiority from structure-only checks.
 
 ## Source Package
 
-`codex/tasks/backlog-436-picker-chatgpt-oauth-provider.json`
+`codex/tasks/backlog-437-picker-ab-claude-vs-chatgpt-oauth.json`
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/assessment_loop.py api/app/services/chatgpt_oauth.py`
-- `.venv/bin/pytest <focused picker/chatgpt oauth tests>`
+- `python3 -m compileall -q api scripts`
+- `.venv/bin/ruff check scripts/picker_ab.py`
+- `.venv/bin/pytest <focused picker A/B tests>`
 - `git diff --check`

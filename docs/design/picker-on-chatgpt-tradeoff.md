@@ -5,10 +5,11 @@ Aangezien ik deze het liefste op chatgpt heb die nu al is aangemaakt in het
 systeem. Dus niet via de api maar via mijn abonnement. Dat wil ik misschien
 straks ook veranderen voor de ai die de nieuwe taken enzo kiest."
 
-This document captures what would be involved in moving the picker (and
-optionally the subagents) from the Anthropic API to a ChatGPT-subscription
-OAuth path. **Not built today — captured here so the trade-offs are clear
-when the decision is made.**
+This document captures what is involved in moving the picker (and optionally
+the subagents) from the Anthropic API to a ChatGPT-subscription OAuth path.
+**Status 2026-05-21:** the picker now has a ChatGPT-OAuth provider branch
+for configured runs. This only enables the governed provider path; it does
+not prove ChatGPT makes better decisions.
 
 ## Two distinct surfaces
 
@@ -28,8 +29,10 @@ separate build.
 ### 2. The AegisPT picker (the AI that decides what the robot does next)
 
 This is the high-value path. The picker lives in
-`api/app/services/assessment_loop.py:_claude_select_next_action` and is
-currently hard-coupled to `client.messages.create(model="claude-opus-4-7", ...)`.
+`api/app/services/assessment_loop.py:_claude_select_next_action`. Anthropic
+runs still use `client.messages.create(model="claude-opus-4-7", ...)`;
+ChatGPT-OAuth configured runs now route through
+`send_chatgpt_backend_streaming_json_request`.
 
 The infrastructure for ChatGPT-via-subscription already exists:
 - `api/app/services/chatgpt_oauth.py` — OAuth flow against ChatGPT,
@@ -52,7 +55,7 @@ written.
 
 | Anthropic now | ChatGPT-via-OAuth (corrected) |
 |---|---|
-| Native structured outputs via `output_config.format.json_schema` | Equivalent via `send_chatgpt_backend_streaming_json_request` — GPT-5.x supports JSON schemas |
+| Native structured outputs via `output_config.format.json_schema` | Existing OAuth helper parses streamed JSON text; backlog-436 embeds the same picker schema into the instructions and decodes the returned JSON object |
 | Cached system prompt at ephemeral cache for cost reduction | Subscription is a flat fee, so per-call caching is less critical |
 | `tools=` parameter for agent_tools (bash, code_exec, web_fetch) at the Anthropic API surface | OpenAI's "tool calling" surface is equivalent BUT the existing backend wrapper doesn't yet expose it — would need wrapper extension |
 | Stable model identifier (`claude-opus-4-7`) under our control | Subscription model can change but it's the model the operator already chose |
@@ -74,25 +77,21 @@ written.
   HTTP-step grammar (which we have now after d9477b3), so we don't depend
   on the Anthropic `tools=` surface for the picker's reasoning side-channel.
 
-## Concrete migration steps when ready
+## Concrete migration steps
 
-1. Replace `client.messages.create(...)` in `_claude_select_next_action`
-   with a `LLMProvider.chat(...)` call where the underlying provider is
-   ChatGPT-OAuth.
-2. Replace structured-output enforcement with: prompt asks Claude to emit
-   strict JSON, server parses + validates, retries N times on parse failure.
-3. Add a parse-failure metric to validation-status.md so degradation is
-   visible.
-4. Run a 5-challenge XBOW canary in parallel (one batch on Claude, one on
-   ChatGPT) to compare findings/iters/picker_retry_exhausted rates.
+1. Done in backlog-436: add a ChatGPT-OAuth branch in
+   `_claude_select_next_action` while preserving the Anthropic branch.
+2. Still open: add parse-failure/retry metrics if the OAuth branch proves
+   noisy in live validation.
+3. Next: run the backlog-437 A/B harness in parallel (one batch on Claude,
+   one on ChatGPT-OAuth) to compare picker decisions, findings, canary deltas,
+   and failure reasons.
 
 ## Recommendation (Claude opus 4.7, today)
 
-**Don't switch yet.** The system has just landed schema-enum binding
-(03e0612), proper exec_plan schema (d9477b3), and the picker forcing
-rule (078e9b9). These all rely on Anthropic's structured-output
-guarantees. Removing that safety net before the chain is end-to-end
-working empirically would set us back. Once the agent_tool / foothold /
-validator canaries are reliably moving off 0 — and once we have a robust
-plain-text parser that can replicate the schema-enum semantics — the
-switch becomes a cost-optimisation move with a known capability cost.
+**Do not switch the default yet.** The branch exists so we can test it
+honestly, not so we can assume it is better. Anthropic still has native
+tool-use and `output_config` enforcement in this code path. ChatGPT-OAuth now
+has a governed JSON decision path, but it still lacks the picker's in-turn
+tool-call loop. The next decision should come from the backlog-437 A/B report,
+not preference.

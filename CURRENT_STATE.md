@@ -1,5 +1,15 @@
 # Current State
 
+## Latest Continuation — backlog-436 ChatGPT-OAuth picker provider path (2026-05-21)
+
+Operator asked to continue while another AI is also programming on other tasks. I kept the work scoped to the picker provider path and did not touch the existing unrelated dirty files (`api/app/services/narrator.py`, `api/app/services/scheduled_runs.py`, `docs/validation/sprint-2026-mythos-foundation-2026-05-20-smoke.md`, or untracked diagnostic/task artifacts).
+
+Backlog-436 is implemented: `LLMProvider` now recognizes `chatgpt_oauth` and `gpt-5.4` as the ChatGPT OAuth picker provider, including run configs that set `ai_provider=chatgpt_oauth`. `_claude_select_next_action` now branches configured ChatGPT-OAuth runs to the existing governed `send_chatgpt_backend_streaming_json_request` helper instead of returning `None` solely because the provider is non-Anthropic. Anthropic behavior remains on the existing `messages.create` path with `tools=` and `output_config.format.type = "json_schema"`.
+
+The picker schema forcing logic is now shared by both branches through `_picker_schema_for_current_state`. The ChatGPT-OAuth branch embeds the same dynamic picker schema in the structured-output instructions and decodes the streamed JSON object through the existing helper path. This is structural provider-path enablement only; it does not prove ChatGPT-OAuth makes better decisions and it does not add Anthropic-equivalent in-turn model tool calls.
+
+Evidence is recorded in `docs/validation/backlog-436-picker-chatgpt-oauth-provider-20260521.md`. Validation passed: `python3 scripts/validate_backlog_tasks.py`, `python3 -m compileall -q api`, `python3 -m compileall -q api/app/services/assessment_loop.py api/app/services/llm_provider.py`, `.venv/bin/ruff check api/app/services/assessment_loop.py api/app/services/chatgpt_oauth.py`, expanded scoped ruff over the touched service/test files, `.venv/bin/pytest api/tests/test_assessment_loop_picker_chatgpt_oauth.py api/tests/test_llm_provider.py -q` with 17 tests, and `git diff --check`. `NEXT_TASK.md` now promotes backlog-437, the Claude vs ChatGPT-OAuth picker A/B comparison harness.
+
 ## Latest Continuation — backlog-438 broader ui-v2 static phrase translation coverage (2026-05-21)
 
 Operator asked to continue after backlog-435 and avoid runtime Google Translate. Added backlog-438 as the active UI follow-up and implemented a deterministic static phrase catalog in `ui-v2/src/i18n/phraseCatalog.ts`, applied from the existing i18n provider. The catalog broadens translation coverage beyond shell/Settings/Mission Control into high-visibility screen chrome for Dashboard, Problems, History, Evidence Replay, Surface Map, Packs, Research, CVE Library, Findings, Reports, Intake, and Autopilot labels.

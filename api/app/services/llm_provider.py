@@ -71,6 +71,16 @@ KNOWN_PROVIDERS: dict[str, dict[str, Any]] = {
         "litellm_model": "deepseek/deepseek-chat",
         "api_key_env": "DEEPSEEK_API_KEY",
     },
+    "chatgpt_oauth": {
+        "model": "gpt-5.4",
+        "litellm_model": None,
+        "api_key_env": "CHATGPT_OAUTH_TOKEN",
+    },
+    "gpt-5.4": {
+        "model": "gpt-5.4",
+        "litellm_model": None,
+        "api_key_env": "CHATGPT_OAUTH_TOKEN",
+    },
 }
 
 
@@ -246,7 +256,10 @@ class LLMProvider:
     @classmethod
     def for_run(cls, run_configuration: dict[str, Any] | None) -> "LLMProvider":
         cfg = run_configuration or {}
-        model = str(cfg.get("llm_provider") or cfg.get("llm_model") or DEFAULT_MODEL)
+        model = str(cfg.get("llm_provider") or cfg.get("llm_model") or "")
+        if not model and str(cfg.get("ai_provider") or "").strip().lower() == "chatgpt_oauth":
+            model = "chatgpt_oauth"
+        model = model or DEFAULT_MODEL
         return cls(LLMProviderConfig.for_model(model))
 
     def raw_anthropic_client(self) -> Any:

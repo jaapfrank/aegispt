@@ -28,7 +28,15 @@ def test_unknown_model_falls_back_to_default() -> None:
 
 
 def test_known_providers_include_all_required() -> None:
-    expected = {"claude-opus-4-7", "claude-sonnet-4-6", "gpt-4o", "gemini-2.0-pro", "deepseek-v3"}
+    expected = {
+        "claude-opus-4-7",
+        "claude-sonnet-4-6",
+        "gpt-4o",
+        "gemini-2.0-pro",
+        "deepseek-v3",
+        "chatgpt_oauth",
+        "gpt-5.4",
+    }
     assert expected.issubset(set(KNOWN_PROVIDERS))
 
 
@@ -50,6 +58,16 @@ def test_for_run_picks_config_from_run_configuration() -> None:
     assert provider.config.model == DEFAULT_MODEL
     provider = LLMProvider.for_run(None)
     assert provider.config.model == DEFAULT_MODEL
+
+
+def test_for_run_picks_chatgpt_oauth_provider_from_run_configuration() -> None:
+    provider = LLMProvider.for_run({"llm_provider": "chatgpt_oauth"})
+    assert provider.config.model == "gpt-5.4"
+    assert provider.config.api_key_env == "CHATGPT_OAUTH_TOKEN"
+
+    provider = LLMProvider.for_run({"ai_provider": "chatgpt_oauth"})
+    assert provider.config.model == "gpt-5.4"
+    assert provider.config.api_key_env == "CHATGPT_OAUTH_TOKEN"
 
 
 # --- Response shape ----------------------------------------------------
