@@ -2571,11 +2571,54 @@ def _infer_foothold_from_findings(run: Run, current: str) -> str:
         # treat as observed-vulnerable, no transition.
         recipe = getattr(finding, "replay_recipe_json", None) or getattr(finding, "replay_recipe", None)
         if not isinstance(recipe, dict) or not recipe.get("steps"):
+            # Findings from regular runners don't populate replay_recipe.
+            # Invoke compose_exploit_recipe (exploit_developer) to construct
+            # one from the finding's context. This wires the
+            # observed-vulnerable → composed-recipe → validator → foothold
+            # chain end-to-end. Guarded by a per-finding flag so we don't
+            # re-spend LLM tokens on the same finding every advance.
+            if bool(getattr(finding, "_exploit_dev_tried", False)):
+                logger.info(
+                    "attack_state: candidate foothold %s skipped — finding %s "
+                    "exploit_developer already attempted, no chain produced",
+                    candidate.value, str(getattr(finding, "id", ""))[:8],
+                )
+                continue
             logger.info(
-                "attack_state: candidate foothold %s skipped — finding %s has no replay recipe (observed-vulnerable, not verified)",
-                candidate.value, str(getattr(finding, "id", ""))[:8],
+                "attack_state: invoking compose_exploit_recipe for finding %s — "
+                "no recipe yet, candidate foothold=%s",
+                str(getattr(finding, "id", ""))[:8], candidate.value,
             )
-            continue
+            try:
+                from api.app.services.exploit_developer import compose_exploit_recipe  # noqa: E402
+                target_url = str(getattr(finding, "target_id", "") or "")
+                hypothesis = str(getattr(finding, "title", "") or "")
+                composed = compose_exploit_recipe(
+                    target_context={"target": target_url, "target_url": target_url, "finding_title": hypothesis},
+                    hypothesis=hypothesis,
+                )
+                payload = composed.to_runnable_payload() if hasattr(composed, "to_runnable_payload") else None
+                if isinstance(payload, dict) and payload.get("steps"):
+                    finding.replay_recipe_json = payload  # type: ignore[attr-defined]
+                    recipe = payload
+                    logger.info(
+                        "compose_exploit_recipe: composed %d-step recipe for finding %s",
+                        len(payload["steps"]), str(getattr(finding, "id", ""))[:8],
+                    )
+                else:
+                    setattr(finding, "_exploit_dev_tried", True)
+                    logger.info(
+                        "compose_exploit_recipe: empty recipe for finding %s — no chain produced",
+                        str(getattr(finding, "id", ""))[:8],
+                    )
+                    continue
+            except Exception as exc:  # noqa: BLE001
+                setattr(finding, "_exploit_dev_tried", True)
+                logger.warning(
+                    "compose_exploit_recipe: raised on finding %s: %s",
+                    str(getattr(finding, "id", ""))[:8], exc,
+                )
+                continue
         try:
             verdict = validate_exploit(finding, recipe)
         except Exception as exc:  # noqa: BLE001
