@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://aegispt:aegispt_dev_pw@127.0.0.1:5432/aegispt"
+      ]
+    }
+  }
+}
