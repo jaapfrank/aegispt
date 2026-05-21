@@ -959,14 +959,29 @@ def _claude_select_next_action(
     to feed in-this-advance rejection notes (e.g. "your previous exec_plan
     had empty steps; revise") without persisting them to run config first.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    # backlog-417: route the LLM round trip through LLMProvider so the model
+    # is selectable per run-config (default claude-opus-4-7). The picker
+    # uses Anthropic-specific tool-use features (tools=, output_config) that
+    # LiteLLM does not yet proxy — until that lands, we still use the raw
+    # Anthropic client, but obtain it via LLMProvider.raw_anthropic_client()
+    # so api-key lookup + future swap-in stay centralized in one place.
+    from api.app.services.llm_provider import LLMProvider  # noqa: E402
+    provider = LLMProvider.for_run(getattr(run, "configuration_json", None))
+    if not provider.config.api_key_env.upper().startswith("ANTHROPIC"):
+        logger.warning(
+            "picker: configured model %s is non-Anthropic; tool-use features unsupported "
+            "until LLMProvider.chat gains tools+output_schema. Skipping picker call.",
+            provider.config.model,
+        )
+        return None
+    api_key = os.environ.get(provider.config.api_key_env, "").strip()
     if not api_key:
         return None
     if not tested_keys:
         # First iteration: let target-intel heuristic handle the seed step
         return None
     try:
-        import anthropic
+        import anthropic  # noqa: F401 — exception module needed even when client comes from provider
     except ImportError:
         return None
 
@@ -1201,7 +1216,9 @@ def _claude_select_next_action(
 
     try:
         from api.app.services import http_fetch_backend, memory_backend
-        client = anthropic.Anthropic(api_key=api_key)
+        # backlog-417: api key + client construction now sourced from
+        # LLMProvider so the model is run-config-selectable.
+        client = provider.raw_anthropic_client()
         tools: list[dict[str, Any]] = [
             {"type": "memory_20250818", "name": "memory"},
             # Custom client-side http_fetch — locked to the run's scope
