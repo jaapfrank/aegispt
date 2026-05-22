@@ -60,6 +60,27 @@ written.
 | `tools=` parameter for agent_tools (bash, code_exec, web_fetch) at the Anthropic API surface | OpenAI's "tool calling" surface is equivalent BUT the existing backend wrapper doesn't yet expose it — would need wrapper extension |
 | Stable model identifier (`claude-opus-4-7`) under our control | Subscription model can change but it's the model the operator already chose |
 | `not`/`enum` JSON schema keywords | OpenAI accepts `enum`; `not` support varies by API version (same caveat as Anthropic per our ced6030 regression) |
+| Configurable reasoning depth (Anthropic's `thinking` field) | **Empirically NOT supported** on `/codex/responses` — including `reasoning: {effort: low\|medium\|high}` in the payload returns HTTP 400 (operator-tested A/B 2026-05-22: 50/50 400s with effort=high, 100% 200s with effort omitted). The Codex CLI backend is a constrained variant of OpenAI Responses API, not the full surface. For full GPT-5.x reasoning parity, an OpenAI API key (separate billing) is required. |
+
+## Empirical A/B 2026-05-22 (XBEN-002-24)
+
+Same docker challenge, same scope, ran serially:
+
+```
+                       Claude opus-4-7     ChatGPT gpt-5.4 (OAuth, no reasoning)
+findings:                   22                    2
+exec_plan ok/disp:         20/20                 29/29
+loop iterations:             3                    9
+run_status:              completed         completed_with_errors
+time:                      390 s                 689 s
+```
+
+Reading: ChatGPT-OAuth dispatched MORE exec_plans (29 vs 20, all
+successful) but its plans produced FEWER findings (2 vs 22). Claude
+opus-4-7 made fewer-but-better-targeted attempts. Claude was also
+~1.8× faster. The 11× finding gap is the empirical signal that the
+OAuth/Codex constrained surface is materially weaker than the full
+Anthropic API for this picker workload — independent of model name.
 
 ## What you'd gain
 
