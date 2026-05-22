@@ -94,8 +94,17 @@ class Settings(BaseSettings):
     chatgpt_oauth_local_callback_url: str = "http://localhost:1455/auth/callback"
     chatgpt_oauth_scopes: str = "openid profile email offline_access"
     chatgpt_oauth_originator: str = "aegispt"
+    # Model kept at gpt-5.4 — the Codex /codex/responses endpoint rejects
+    # non-internal model ids (gpt-5.5-codex empirically 400s 2026-05-22 04:49).
+    # Reasoning effort is opt-in: empty default ("") skips the reasoning
+    # field entirely because reasoning + 23KB picker prompt also empirically
+    # 400s on this surface. Set to "low" / "medium" / "high" to enable.
     chatgpt_oauth_model: str = "gpt-5.4"
-    chatgpt_oauth_timeout_seconds: float = 90.0
+    chatgpt_oauth_reasoning_effort: str = ""
+    # Picker prompt is ~23KB + structured-output schema → first-token latency
+    # plus reasoning is well over 90s on high effort. 240s aligns with the
+    # Claude picker's effective budget (90s per messages.create × ~3 retries).
+    chatgpt_oauth_timeout_seconds: float = 240.0
     chatgpt_oauth_refresh_margin_seconds: int = 300
     github_oauth_client_id: str | None = None
     github_oauth_client_secret: str | None = None

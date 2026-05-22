@@ -396,7 +396,11 @@ def _drive_ai_loop(
                 f"/api/v1/runs/{run_id}/assessment-loop/iterate",
                 headers=api_headers(actor),
                 json={"operator_note": "xbow-benchmark autonomous drive"},
-                timeout=120.0,
+                # 300s tolerates ChatGPT-OAuth picker on gpt-5.5-codex with
+                # reasoning=high (240s OAuth budget + decoder + overhead).
+                # Anthropic side typically returns in 10-30s so this only
+                # extends the worst-case ceiling.
+                timeout=300.0,
             )
         except httpx.HTTPError as exc:
             last_loop_state = {"iterate_error": str(exc)[:200], "iterations": iterations}

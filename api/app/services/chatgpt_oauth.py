@@ -459,6 +459,20 @@ def send_chatgpt_backend_streaming_json_request(
     )
     url = _backend_url(settings)
     output_chunks: list[str] = []
+    # Reasoning effort: only attach if explicitly set + non-empty. The
+    # /codex/responses endpoint returns 400 on certain field shapes
+    # (empirically observed 2026-05-22 with effort=high on gpt-5.4 +
+    # 23KB picker prompt). Operators can opt-in via the setting.
+    effort = str(getattr(settings, "chatgpt_oauth_reasoning_effort", "") or "").strip().lower()
+    payload: dict[str, Any] = {
+        "model": model,
+        "store": False,
+        "stream": True,
+        "instructions": instructions,
+        "input": input_items,
+    }
+    if effort in {"low", "medium", "high"}:
+        payload["reasoning"] = {"effort": effort}
     with httpx.stream(
         "POST",
         url,
@@ -467,13 +481,7 @@ def send_chatgpt_backend_streaming_json_request(
             "Authorization": f"Bearer {material.token_set['access_token']}",
             "Content-Type": "application/json",
         },
-        json={
-            "model": model,
-            "store": False,
-            "stream": True,
-            "instructions": instructions,
-            "input": input_items,
-        },
+        json=payload,
         timeout=max(settings.chatgpt_oauth_timeout_seconds, 30.0),
     ) as response:
         response.raise_for_status()
