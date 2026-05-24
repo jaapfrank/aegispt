@@ -5495,22 +5495,20 @@ def advance_assessment_loop(
     if run.profile is not None and pending_approvals(run, run.profile) > 0:
         raise ValueError("assessment loop cannot advance while the selected run still has pending approvals")
 
-    # Idempotent terminal guard: if the run is already in a terminal status
-    # OR loop_state.stop_reason is the early-stop flag, just rebuild the
-    # state and return. Post-task worker hooks fire after every completed
-    # task, and without this guard they re-enter the picker after the
-    # early-stop has already finalized the run, overwriting stop_reason
-    # with "no_registered_runner_candidate".
-    _existing_loop_state = _loop_state(_as_dict(run.configuration_json))
-    _existing_stop_reason = str(_existing_loop_state.get("stop_reason") or "").lower()
-    if str(run.status or "").lower() in _RUN_TERMINAL_STATUSES or _existing_stop_reason == "flag_extracted":
-        logger.info(
-            "PROOF_EXEC_ADVANCE_SKIPPED_TERMINAL_2026052410 run=%s status=%s stop_reason=%s",
-            str(getattr(run, "id", "?"))[:8],
-            str(run.status or "").lower(),
-            _existing_stop_reason or "-",
-        )
-        return build_assessment_loop_state(session, run=run, scope=scope)
+    # O4 step 2: terminal-idempotent guard now lives in
+    # assessment_loop_internals.guards.check_terminal_idempotent.
+    from api.app.services.assessment_loop_internals.guards import (  # noqa: E402
+        check_terminal_idempotent as _check_terminal_idempotent,
+    )
+    _terminal_short_circuit = _check_terminal_idempotent(
+        run=run,
+        loop_state_reader=lambda: _loop_state(_as_dict(run.configuration_json)),
+        build_state=build_assessment_loop_state,
+        session=session,
+        scope=scope,
+    )
+    if _terminal_short_circuit is not None:
+        return _terminal_short_circuit
 
     # Refresh run.tasks from DB before reading. The same advance call is
     # invoked right after _maybe_queue_next_step_hints adds new tasks in this
@@ -5538,141 +5536,36 @@ def advance_assessment_loop(
     loop_state["no_new_signal_iterations"] = no_new_signal_iterations
     loop_state["latest_evidence_fingerprint"] = evidence_fingerprint
 
-    # Early-stop on solve: when ANY persisted finding has severity=critical
-    # AND its evidence references a flag-pattern literal (xbow-..., flag{...}),
-    # the engagement has yielded a confirmed exploit. Continuing the loop
-    # only burns LLM tokens for no incremental value. Mark the run finalized.
-    try:
-        import re as _re_solve  # noqa: E402
-        flag_re = _re_solve.compile(
-            r"(flag\{[^}\r\n]{1,200}\}|xbow-[a-f0-9]{16,128}|ctf\{[^}\r\n]{1,200}\})",
-            _re_solve.IGNORECASE,
-        )
-        for finding in (getattr(run, "findings", None) or []):
-            sev = str(getattr(finding, "severity", "") or "").lower()
-            if sev not in {"critical", "high"}:
-                continue
-            haystack = " ".join([
-                str(getattr(finding, "title", "") or ""),
-                str(getattr(finding, "summary", "") or ""),
-                str(getattr(finding, "target_id", "") or ""),
-            ])
-            if flag_re.search(haystack):
-                logger.info(
-                    "PROOF_EXEC_SOLVE_EARLY_STOP_2026052408 run=%s finding=%s severity=%s",
-                    str(getattr(run, "id", "?"))[:8],
-                    str(getattr(finding, "id", "?"))[:8],
-                    sev,
-                )
-                loop_state["status"] = "stopped"
-                loop_state["stop_reason"] = "flag_extracted"
-                loop_state["ai_stop_summary"] = (
-                    f"Flag literal extracted in finding {str(getattr(finding, 'id', '?'))[:8]} — early-stop."
-                )
-                _store_loop_state(configuration, loop_state)
-                run.configuration_json = configuration
-                try:
-                    from sqlalchemy.orm.attributes import flag_modified as _flag_modified_es  # noqa: E402
-                    _flag_modified_es(run, "configuration_json")
-                except Exception:  # noqa: BLE001
-                    pass
-                try:
-                    run.status = "completed"
-                except Exception:  # noqa: BLE001
-                    pass
-                # M5 success-marker writeback: tag every episode this run
-                # produced so future cross-run recall can surface them as
-                # SOLVED examples. Without this, recall_similar returns the
-                # episodes with success_marker=NULL and the picker filter
-                # drops them silently.
-                try:
-                    from sqlalchemy import text as _text_sm  # noqa: E402
-                    res = session.execute(
-                        _text_sm(
-                            "UPDATE agent_episodic_memory "
-                            "SET success_marker = 'flag_extracted' "
-                            "WHERE run_id = :rid "
-                            "AND (success_marker IS NULL OR success_marker = '')"
-                        ),
-                        {"rid": run.id},
-                    )
-                    logger.info(
-                        "PROOF_EXEC_SUCCESS_MARKER_WRITE_2026052411 run=%s tagged_rows=%s marker=flag_extracted",
-                        str(run.id)[:8],
-                        getattr(res, "rowcount", "?"),
-                    )
-                except Exception as _sm_exc:  # noqa: BLE001
-                    logger.warning("success_marker writeback failed: %s", _sm_exc)
-                session.flush()
-                return build_assessment_loop_state(session, run=run, scope=scope)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("early-stop check failed: %s", exc)
+    # O4 step 2: early-stop + target-health guards now live in
+    # assessment_loop_internals.guards. Same markers, same loop_state writes,
+    # same SQLAlchemy flag_modified handling — no behaviour change.
+    from api.app.services.assessment_loop_internals.guards import (  # noqa: E402
+        check_early_stop_on_flag as _check_early_stop_on_flag,
+        check_target_unreachable as _check_target_unreachable,
+    )
+    _early_stop_short_circuit = _check_early_stop_on_flag(
+        run=run,
+        loop_state=loop_state,
+        configuration=configuration,
+        store_loop_state=_store_loop_state,
+        build_state=build_assessment_loop_state,
+        session=session,
+        scope=scope,
+    )
+    if _early_stop_short_circuit is not None:
+        return _early_stop_short_circuit
 
-    # Target-health guard: when the last 3 tool_executions on this run all
-    # failed with "Connection refused" / "ConnectError" against the SAME
-    # target, the target container is down (or never started). Continuing
-    # the loop burns LLM tokens dispatching scripts that cannot connect.
-    # Empirical signal only — no synthetic probing.
-    try:
-        from sqlalchemy import select as _select_th  # noqa: E402
-        from api.app.models import ToolExecution as _TE_th  # noqa: E402
-        recent_exec_rows = session.execute(
-            _select_th(_TE_th.exit_code, _TE_th.stderr_text, _TE_th.task_id)
-            .join(Task, Task.id == _TE_th.task_id)
-            .where(Task.run_id == run.id)
-            .order_by(_TE_th.created_at.desc())
-            .limit(3)
-        ).all()
-        if len(recent_exec_rows) >= 3 and all(
-            (row.exit_code or 0) != 0
-            and isinstance(row.stderr_text, str)
-            and ("Connection refused" in row.stderr_text or "ConnectError" in row.stderr_text)
-            for row in recent_exec_rows
-        ):
-            logger.info(
-                "PROOF_EXEC_TARGET_UNREACHABLE_2026052409 run=%s consecutive_connect_refused=%d",
-                str(getattr(run, "id", "?"))[:8],
-                len(recent_exec_rows),
-            )
-            loop_state["status"] = "stopped"
-            loop_state["stop_reason"] = "target_unreachable"
-            loop_state["ai_stop_summary"] = (
-                "Last 3 tool executions all failed with Connection refused — target appears down. "
-                "Restart the target container and re-launch the engagement."
-            )
-            _store_loop_state(configuration, loop_state)
-            run.configuration_json = configuration
-            try:
-                from sqlalchemy.orm.attributes import flag_modified as _flag_modified_th  # noqa: E402
-                _flag_modified_th(run, "configuration_json")
-            except Exception:  # noqa: BLE001
-                pass
-            try:
-                run.status = "completed_with_errors"
-            except Exception:  # noqa: BLE001
-                pass
-            try:
-                from sqlalchemy import text as _text_sm_th  # noqa: E402
-                res_th = session.execute(
-                    _text_sm_th(
-                        "UPDATE agent_episodic_memory "
-                        "SET success_marker = 'target_unreachable' "
-                        "WHERE run_id = :rid "
-                        "AND (success_marker IS NULL OR success_marker = '')"
-                    ),
-                    {"rid": run.id},
-                )
-                logger.info(
-                    "PROOF_EXEC_SUCCESS_MARKER_WRITE_2026052411 run=%s tagged_rows=%s marker=target_unreachable",
-                    str(run.id)[:8],
-                    getattr(res_th, "rowcount", "?"),
-                )
-            except Exception as _sm_th_exc:  # noqa: BLE001
-                logger.warning("success_marker writeback (target_unreachable) failed: %s", _sm_th_exc)
-            session.flush()
-            return build_assessment_loop_state(session, run=run, scope=scope)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("target-health guard check failed: %s", exc)
+    _target_unreachable_short_circuit = _check_target_unreachable(
+        run=run,
+        loop_state=loop_state,
+        configuration=configuration,
+        store_loop_state=_store_loop_state,
+        build_state=build_assessment_loop_state,
+        session=session,
+        scope=scope,
+    )
+    if _target_unreachable_short_circuit is not None:
+        return _target_unreachable_short_circuit
 
     # backlog-412 — Layer 3 Attack State: foothold tracking + heuristic
     # advancement from this advance's findings. The full TAP-style AttackTree
