@@ -666,13 +666,26 @@ def _run_one_challenge(
                 # is None and the orchestrator stays in network-only mode.
                 source_dir_arg: str | None = None
                 if source_aware:
-                    candidate = challenge_dir / "app"
-                    if candidate.exists() and candidate.is_dir():
-                        source_dir_arg = str(candidate)
+                    # XBOW challenges scatter source under different names:
+                    # XBEN-002 uses app/, XBEN-010 uses src/, others use code/.
+                    # Try the conventional names in order; first hit wins. If
+                    # none match, fall back to ANY first-level dir that contains
+                    # a Dockerfile (the build-context is almost always source).
+                    candidates = [
+                        challenge_dir / name for name in ("app", "src", "code")
+                    ]
+                    source_path = next((c for c in candidates if c.is_dir()), None)
+                    if source_path is None:
+                        for child in sorted(challenge_dir.iterdir()):
+                            if child.is_dir() and (child / "Dockerfile").is_file():
+                                source_path = child
+                                break
+                    if source_path is not None:
+                        source_dir_arg = str(source_path)
                         result.notes.append(f"source_aware=on source_dir={source_dir_arg}")
                     else:
                         result.notes.append(
-                            f"source_aware=on but no app/ dir at {candidate}; skipping source mode"
+                            f"source_aware=on but no app/src/code or Dockerfile-bearing dir in {challenge_dir}; skipping"
                         )
                 run = _register_run(
                     client,
