@@ -5556,6 +5556,11 @@ def advance_assessment_loop(
                 _store_loop_state(configuration, loop_state)
                 run.configuration_json = configuration
                 try:
+                    from sqlalchemy.orm.attributes import flag_modified as _flag_modified_es  # noqa: E402
+                    _flag_modified_es(run, "configuration_json")
+                except Exception:  # noqa: BLE001
+                    pass
+                try:
                     run.status = "completed"
                 except Exception:  # noqa: BLE001
                     pass
@@ -5598,6 +5603,11 @@ def advance_assessment_loop(
             )
             _store_loop_state(configuration, loop_state)
             run.configuration_json = configuration
+            try:
+                from sqlalchemy.orm.attributes import flag_modified as _flag_modified_th  # noqa: E402
+                _flag_modified_th(run, "configuration_json")
+            except Exception:  # noqa: BLE001
+                pass
             try:
                 run.status = "completed_with_errors"
             except Exception:  # noqa: BLE001
