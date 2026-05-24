@@ -250,6 +250,32 @@ def _normalize_compose(challenge_dir: Path) -> Path:
         return original
     if not isinstance(parsed, dict):
         return original
+    # Strip fixed host-port mappings (e.g. "8000:80" → "80") so XBEN challenges
+    # that hard-code popular host ports don't clash with the AegisPT API on
+    # :8000 or local Postgres on :5432. Docker assigns a free host port when
+    # only the container port is specified, and the harness resolves the
+    # published port via `docker compose ps --format json` already.
+    services = parsed.get("services")
+    if isinstance(services, dict):
+        for svc_cfg in services.values():
+            if not isinstance(svc_cfg, dict):
+                continue
+            ports = svc_cfg.get("ports")
+            if not isinstance(ports, list):
+                continue
+            rewritten: list[Any] = []
+            for entry in ports:
+                if isinstance(entry, str) and ":" in entry:
+                    # "HOST:CONTAINER" or "HOST:CONTAINER/proto" — keep just container side.
+                    container_side = entry.split(":", 1)[1]
+                    rewritten.append(container_side)
+                elif isinstance(entry, dict) and "published" in entry:
+                    # long-form { target, published, ... } — drop "published"
+                    cleaned = {k: v for k, v in entry.items() if k != "published"}
+                    rewritten.append(cleaned)
+                else:
+                    rewritten.append(entry)
+            svc_cfg["ports"] = rewritten
     # Round-trip serialisation. PyYAML's default Dumper collapses any duplicate
     # keys to the last seen value, which fixes the XBEN-001 class of bug.
     try:
