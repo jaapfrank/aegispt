@@ -386,6 +386,7 @@ def _sweep_dispatch_worker(task_ids: list[UUID], settings: Settings) -> None:
     time with retry on SQLite lock contention so a single locked task does
     not block the rest."""
     from time import sleep
+
     from api.app.services.task_dispatch import dispatch_task_batch
 
     task_id_strs = [str(tid) for tid in task_ids]
@@ -471,6 +472,43 @@ def sweep_stuck_queued_tasks(app: Any, settings: Settings) -> int:
         return len(task_ids)
 
 
+def finalize_zombie_runs_tick(app: Any, settings: Settings) -> int:
+    """Sweep stale running/queued runs whose `started_at` is older than 5 min.
+
+    Equivalent to running ``scripts/finalize_zombie_runs.py`` on a cron, but
+    in-process so it always fires when the API is up. Without this the
+    operator has to manually run the script (we accumulated 16 zombies over
+    ~5 days before noticing on 2026-05-24).
+    """
+    session_factory: sessionmaker[Session] | None = getattr(app.state, "session_factory", None)
+    if session_factory is None:
+        return 0
+    from sqlalchemy import text as _text_zombie  # noqa: E402
+    with session_factory() as session:
+        try:
+            res = session.execute(
+                _text_zombie(
+                    "UPDATE runs SET status='completed_with_errors', updated_at=NOW() "
+                    "WHERE status IN ('running','queued') "
+                    "AND started_at < NOW() - INTERVAL '5 minutes' "
+                    "RETURNING id"
+                )
+            )
+            rows = res.fetchall()
+            session.commit()
+            n = len(rows)
+            if n:
+                logger.info(
+                    "zombie-sweeper: finalized %d stale run(s) status=completed_with_errors",
+                    n,
+                )
+            return n
+        except Exception as exc:  # noqa: BLE001
+            session.rollback()
+            logger.warning("zombie-sweeper: tick failed: %s", exc)
+            return 0
+
+
 def run_scheduled_scan_tick(app: Any, settings: Settings) -> list[ScheduledRunDispatchResult]:
     session_factory: sessionmaker[Session] | None = getattr(app.state, "session_factory", None)
     if session_factory is None:
@@ -511,9 +549,23 @@ def start_scheduled_run_scheduler(app: Any, settings: Settings) -> dict[str, Any
         max_instances=1,
         coalesce=True,
     )
+    scheduler.add_job(
+        finalize_zombie_runs_tick,
+        trigger=IntervalTrigger(minutes=5),
+        args=[app, settings],
+        id="aegispt-zombie-sweeper",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
     scheduler.start()
     app.state.scheduled_run_scheduler = scheduler
-    status = {"enabled": True, "interval": "1 minute", "sweeper_interval": "5 seconds"}
+    status = {
+        "enabled": True,
+        "interval": "1 minute",
+        "sweeper_interval": "5 seconds",
+        "zombie_sweeper_interval": "5 minutes",
+    }
     app.state.scheduled_run_scheduler_status = status
     return status
 
