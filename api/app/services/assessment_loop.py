@@ -2996,6 +2996,56 @@ def _claude_select_next_action(
             + "\n\n"
         )
 
+    # M5 cross-run memory: pull top-3 episodes from PRIOR runs whose action
+    # context matches the current evidence shape, and only surface those that
+    # already carry a success_marker (flag_extracted / target_unreachable).
+    # Benchmark runs see other benchmark runs; production runs see only
+    # production episodes (Codex contamination guard).
+    prior_episodes_block = ""
+    if session is not None:
+        try:
+            from api.app.services.episodic_memory import recall_similar  # noqa: E402
+            eng_name = str(
+                getattr(getattr(run, "engagement", None), "name", "") or ""
+            ).lower()
+            is_bench = eng_name.startswith("xbow-bench") or "benchmark" in eng_name
+            query = (
+                f"phase={phase_label} "
+                f"target={primary_target} "
+                f"findings={json.dumps(findings, default=str)[:600]}"
+            )
+            episodes = recall_similar(
+                session,
+                query=query,
+                k=6,
+                include_benchmark=is_bench,
+            )
+            actionable = [
+                e for e in episodes
+                if e.success_marker and str(e.run_id) != str(run.id)
+            ][:3]
+            if actionable:
+                lines: list[str] = []
+                for ep in actionable:
+                    marker = ep.success_marker or ""
+                    outcome = "SOLVED" if marker == "flag_extracted" else marker.upper()
+                    tool = ep.action_type.split(":", 1)[1] if ":" in ep.action_type else ep.action_type
+                    ctx = ep.action_context if isinstance(ep.action_context, dict) else {}
+                    tgt = str(ctx.get("target") or "?")
+                    rsn = str(ctx.get("reasoning") or "")[:120].replace("\n", " ")
+                    sim = ep.similarity or 0.0
+                    lines.append(f"  [{outcome}, sim={sim:.2f}] {tool} -> {tgt} | {rsn}")
+                prior_episodes_block = (
+                    "=== PRIOR EPISODES (cross-run memory — HINTS, verify before reuse) ===\n"
+                    "Past picks on similar evidence + their outcome marker. SOLVED = the pick\n"
+                    "preceded a flag-extraction in that run. Use as a hint, not authoritative —\n"
+                    "the prior target may have differed in details that matter here.\n"
+                    + "\n".join(lines)
+                    + "\n\n"
+                )
+        except Exception as _ep_exc:  # noqa: BLE001
+            logger.debug("AI loop: prior episodes recall skipped: %s", _ep_exc)
+
     # Normalized evidence graph projection (backlog-373). Compact text view of
     # first-class entities the picker should reason over. Falls back to empty
     # string when graph is sparse / unavailable, so picker behavior on runs
@@ -3022,6 +3072,7 @@ def _claude_select_next_action(
         + failures_block
         + rejections_block
         + outcomes_block
+        + prior_episodes_block
         + graph_block
         + "=== TARGET-INTEL RECOMMENDED TEST PLAN (from AI analysis of the actual site) ===\n"
         + (("\n".join(plan_recommendations) + "\n\n") if plan_recommendations else "(no test plan available)\n\n")
@@ -5564,6 +5615,29 @@ def advance_assessment_loop(
                     run.status = "completed"
                 except Exception:  # noqa: BLE001
                     pass
+                # M5 success-marker writeback: tag every episode this run
+                # produced so future cross-run recall can surface them as
+                # SOLVED examples. Without this, recall_similar returns the
+                # episodes with success_marker=NULL and the picker filter
+                # drops them silently.
+                try:
+                    from sqlalchemy import text as _text_sm  # noqa: E402
+                    res = session.execute(
+                        _text_sm(
+                            "UPDATE agent_episodic_memory "
+                            "SET success_marker = 'flag_extracted' "
+                            "WHERE run_id = :rid "
+                            "AND (success_marker IS NULL OR success_marker = '')"
+                        ),
+                        {"rid": run.id},
+                    )
+                    logger.info(
+                        "PROOF_EXEC_SUCCESS_MARKER_WRITE_2026052411 run=%s tagged_rows=%s marker=flag_extracted",
+                        str(run.id)[:8],
+                        getattr(res, "rowcount", "?"),
+                    )
+                except Exception as _sm_exc:  # noqa: BLE001
+                    logger.warning("success_marker writeback failed: %s", _sm_exc)
                 session.flush()
                 return build_assessment_loop_state(session, run=run, scope=scope)
     except Exception as exc:  # noqa: BLE001
@@ -5612,6 +5686,24 @@ def advance_assessment_loop(
                 run.status = "completed_with_errors"
             except Exception:  # noqa: BLE001
                 pass
+            try:
+                from sqlalchemy import text as _text_sm_th  # noqa: E402
+                res_th = session.execute(
+                    _text_sm_th(
+                        "UPDATE agent_episodic_memory "
+                        "SET success_marker = 'target_unreachable' "
+                        "WHERE run_id = :rid "
+                        "AND (success_marker IS NULL OR success_marker = '')"
+                    ),
+                    {"rid": run.id},
+                )
+                logger.info(
+                    "PROOF_EXEC_SUCCESS_MARKER_WRITE_2026052411 run=%s tagged_rows=%s marker=target_unreachable",
+                    str(run.id)[:8],
+                    getattr(res_th, "rowcount", "?"),
+                )
+            except Exception as _sm_th_exc:  # noqa: BLE001
+                logger.warning("success_marker writeback (target_unreachable) failed: %s", _sm_th_exc)
             session.flush()
             return build_assessment_loop_state(session, run=run, scope=scope)
     except Exception as exc:  # noqa: BLE001
