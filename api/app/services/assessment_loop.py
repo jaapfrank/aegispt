@@ -2639,11 +2639,71 @@ def _specialists_select_next_action(
         new_queue_skip_fanout = False
 
     if not new_queue_skip_fanout:
+        # M5 cross-run memory hint (S1 follow-up). The Claude fallback path
+        # already injects this via `_claude_select_next_action`; specialists
+        # is the PRIMARY path so it has to land here too. Same recall_similar
+        # contract: top-3 SOLVED/marked episodes from OTHER runs only, with
+        # the engagement's benchmark-flag honoured.
+        prior_episodes_block_for_specialists = ""
+        if session is not None:
+            try:
+                from api.app.services.episodic_memory import recall_similar as _recall_sp  # noqa: E402
+                _primary_target_sp = ""
+                for _t in (targets or []):
+                    _primary_target_sp = str(_t.get("value") or _t.get("url") or "")
+                    if _primary_target_sp:
+                        break
+                _eng_name_sp = str(
+                    getattr(getattr(run, "engagement", None), "name", "") or ""
+                ).lower()
+                _is_bench_sp = _eng_name_sp.startswith("xbow-bench") or "benchmark" in _eng_name_sp
+                _query_sp = (
+                    f"target={_primary_target_sp} "
+                    f"findings={prior_findings_summary[:400]}"
+                )
+                _episodes_sp = _recall_sp(
+                    session,
+                    query=_query_sp,
+                    k=6,
+                    include_benchmark=_is_bench_sp,
+                )
+                _actionable_sp = [
+                    e for e in _episodes_sp
+                    if e.success_marker and str(e.run_id) != str(run.id)
+                ][:3]
+                if _actionable_sp:
+                    _lines_sp: list[str] = []
+                    for _ep in _actionable_sp:
+                        _marker = _ep.success_marker or ""
+                        _outcome = "SOLVED" if _marker == "flag_extracted" else _marker.upper()
+                        _tool = _ep.action_type.split(":", 1)[1] if ":" in _ep.action_type else _ep.action_type
+                        _ctx = _ep.action_context if isinstance(_ep.action_context, dict) else {}
+                        _tgt = str(_ctx.get("target") or "?")
+                        _rsn = str(_ctx.get("reasoning") or "")[:120].replace("\n", " ")
+                        _sim = _ep.similarity or 0.0
+                        _lines_sp.append(f"  [{_outcome}, sim={_sim:.2f}] {_tool} -> {_tgt} | {_rsn}")
+                    prior_episodes_block_for_specialists = (
+                        "=== PRIOR EPISODES (cross-run memory — HINTS, verify before reuse) ===\n"
+                        "Past picks on similar evidence + their outcome marker. SOLVED = the\n"
+                        "pick preceded a flag-extraction in that run. Use as a hint, not\n"
+                        "authoritative — the prior target may differ in details that matter.\n"
+                        + "\n".join(_lines_sp)
+                    )
+                    logger.info(
+                        "PROOF_EXEC_M5_SPECIALISTS_RECALL_2026052412 run=%s episodes=%d primary_target=%s",
+                        str(run.id)[:8],
+                        len(_actionable_sp),
+                        _primary_target_sp[:60],
+                    )
+            except Exception as _ep_exc_sp:  # noqa: BLE001
+                logger.debug("specialists: prior episodes recall skipped: %s", _ep_exc_sp)
+
         result = run_specialists_parallel(
             call_specialist=_call,
             recon_deliverable=recon_deliverable,
             available_tools=available_tools,
             prior_findings_summary=prior_findings_summary,
+            prior_episodes_block=prior_episodes_block_for_specialists,
         )
 
         new_hypotheses = assign_ids_to_hypotheses(result.get("hypothesis_queue") or [])

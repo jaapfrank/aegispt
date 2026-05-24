@@ -63,10 +63,17 @@ def _build_user_content_for_specialist(
     recon_deliverable: str,
     available_tools: list[str],
     prior_findings_summary: str,
+    prior_episodes_block: str = "",
 ) -> str:
     """Same user-content envelope for every specialist; only the
     instructions (system prompt) differ. Keeps the orchestrator simple
-    and lets the specialist's schema enforce its category boundary."""
+    and lets the specialist's schema enforce its category boundary.
+
+    ``prior_episodes_block`` is the M5 cross-run memory hint string —
+    when present it's inserted between the in-run findings and the
+    instruction so specialists can prefer historically successful picks.
+    Empty string disables the section (no header rendered)."""
+    episodes_section = (prior_episodes_block + "\n") if prior_episodes_block else ""
     return (
         "=== RECON DELIVERABLE ===\n"
         f"{recon_deliverable}\n\n"
@@ -74,6 +81,7 @@ def _build_user_content_for_specialist(
         f"{', '.join(sorted(available_tools)) or '(none)'}\n\n"
         "=== PRIOR FINDINGS (this run) ===\n"
         f"{prior_findings_summary or '(none yet)'}\n\n"
+        f"{episodes_section}"
         "Now produce your ranked hypothesis list per your category's schema."
     )
 
@@ -84,6 +92,7 @@ def run_specialists_parallel(
     recon_deliverable: str,
     available_tools: list[str],
     prior_findings_summary: str,
+    prior_episodes_block: str = "",
     max_workers: int = 5,
     per_specialist_timeout_s: float = 120.0,
 ) -> dict[str, Any]:
@@ -105,6 +114,7 @@ def run_specialists_parallel(
         recon_deliverable=recon_deliverable,
         available_tools=available_tools,
         prior_findings_summary=prior_findings_summary,
+        prior_episodes_block=prior_episodes_block,
     )
 
     results: list[dict[str, Any]] = []
