@@ -346,6 +346,17 @@ class RunRead(BaseModel):
     stale_recovery: dict[str, Any] = Field(default_factory=dict)
 
 
+class PortfolioRunRead(RunRead):
+    """RunRead + engagement summary fields for the Mission Control list view.
+
+    The old fan-out fetched engagements then issued one runs-call per
+    engagement (1 + N). This shape lets the new GET /portfolio/runs return
+    everything in one query.
+    """
+    engagement_name: str
+    engagement_client: str | None = None
+
+
 class AssessmentPlanQueueRead(BaseModel):
     run: RunRead
     assessment_plan: dict[str, Any] = Field(default_factory=dict)

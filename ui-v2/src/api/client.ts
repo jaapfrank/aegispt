@@ -186,6 +186,16 @@ export async function getRunsForEngagement(engagementId: UUID): Promise<Run[]> {
 }
 
 export async function getPortfolioRuns(): Promise<PortfolioRun[]> {
+  // Backend-bulk path: one round-trip via GET /api/v1/portfolio/runs which
+  // returns Run rows with engagement_name+client already inlined. Replaces
+  // the previous 1+N fan-out (one engagements call + one per-engagement
+  // runs call). Falls through to the legacy fan-out if the new endpoint
+  // is not yet available — kept for transition / older deployments.
+  try {
+    return await api<PortfolioRun[]>('/api/v1/portfolio/runs');
+  } catch (err) {
+    // Legacy fan-out (kept for transition; remove once 410 horizon is set).
+  }
   const engagements = await getEngagements();
   const runGroups = await Promise.all(
     engagements.map(async (engagement) => {

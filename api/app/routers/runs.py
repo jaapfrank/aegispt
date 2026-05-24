@@ -727,6 +727,58 @@ def interpret_intake_answer(
     return RunIntakeInterpretationRead.model_validate(interpretation)
 
 
+from api.app.schemas.runs import PortfolioRunRead  # noqa: E402
+from api.app.models import Engagement as _PortfolioEngagement  # noqa: E402
+
+
+@router.get("/portfolio/runs", response_model=list[PortfolioRunRead])
+def list_portfolio_runs(
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> list[PortfolioRunRead]:
+    """Single-shot list of runs across all tenant-visible engagements with
+    engagement summary inlined. Replaces the prior Mission Control fan-out
+    pattern (1 engagements call + N per-engagement run calls = 1+N) with
+    a single round-trip the UI can poll cheaply.
+    """
+    eng_rows = session.scalars(
+        select(_PortfolioEngagement).where(
+            _PortfolioEngagement.deleted_at.is_(None),
+            (_PortfolioEngagement.tenant_id == tenant_id) if tenant_id is not None else True,
+        )
+    ).all()
+    eng_lookup = {str(e.id): e for e in eng_rows}
+    if not eng_lookup:
+        return []
+
+    run_rows = session.scalars(
+        select(Run)
+        .where(
+            Run.engagement_id.in_(list(eng_lookup.keys())),
+            Run.deleted_at.is_(None),
+        )
+        .order_by(Run.created_at.desc(), Run.id.desc())
+    ).all()
+    hydrated = [load_run(session, r.id) for r in run_rows]
+
+    out: list[PortfolioRunRead] = []
+    for run in hydrated:
+        if run is None or run.profile is None:
+            continue
+        base = serialize_run(run, session=session, include_kill_chain_progress=False)
+        eng = eng_lookup.get(str(run.engagement_id))
+        if eng is None:
+            continue
+        out.append(
+            PortfolioRunRead(
+                **base.model_dump(),
+                engagement_name=str(getattr(eng, "name", "") or ""),
+                engagement_client=getattr(eng, "client", None),
+            )
+        )
+    return out
+
+
 @router.get("/engagements/{engagement_id}/runs", response_model=list[RunRead])
 def list_engagement_runs(
     engagement_id: UUID,
@@ -743,7 +795,7 @@ def list_engagement_runs(
     return [
         serialize_run(run, session=session, include_kill_chain_progress=False)
         for run in hydrated_runs
-        if run is not None
+        if run is not None and run.profile is not None
     ]
 
 
