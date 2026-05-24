@@ -2639,64 +2639,30 @@ def _specialists_select_next_action(
         new_queue_skip_fanout = False
 
     if not new_queue_skip_fanout:
-        # M5 cross-run memory hint (S1 follow-up). The Claude fallback path
-        # already injects this via `_claude_select_next_action`; specialists
-        # is the PRIMARY path so it has to land here too. Same recall_similar
-        # contract: top-3 SOLVED/marked episodes from OTHER runs only, with
-        # the engagement's benchmark-flag honoured.
-        prior_episodes_block_for_specialists = ""
-        if session is not None:
-            try:
-                from api.app.services.episodic_memory import recall_similar as _recall_sp  # noqa: E402
-                _primary_target_sp = ""
-                for _t in (targets or []):
-                    _primary_target_sp = str(_t.get("value") or _t.get("url") or "")
-                    if _primary_target_sp:
-                        break
-                _eng_name_sp = str(
-                    getattr(getattr(run, "engagement", None), "name", "") or ""
-                ).lower()
-                _is_bench_sp = _eng_name_sp.startswith("xbow-bench") or "benchmark" in _eng_name_sp
-                _query_sp = (
-                    f"target={_primary_target_sp} "
-                    f"findings={prior_findings_summary[:400]}"
-                )
-                _episodes_sp = _recall_sp(
-                    session,
-                    query=_query_sp,
-                    k=6,
-                    include_benchmark=_is_bench_sp,
-                )
-                _actionable_sp = [
-                    e for e in _episodes_sp
-                    if e.success_marker and str(e.run_id) != str(run.id)
-                ][:3]
-                if _actionable_sp:
-                    _lines_sp: list[str] = []
-                    for _ep in _actionable_sp:
-                        _marker = _ep.success_marker or ""
-                        _outcome = "SOLVED" if _marker == "flag_extracted" else _marker.upper()
-                        _tool = _ep.action_type.split(":", 1)[1] if ":" in _ep.action_type else _ep.action_type
-                        _ctx = _ep.action_context if isinstance(_ep.action_context, dict) else {}
-                        _tgt = str(_ctx.get("target") or "?")
-                        _rsn = str(_ctx.get("reasoning") or "")[:120].replace("\n", " ")
-                        _sim = _ep.similarity or 0.0
-                        _lines_sp.append(f"  [{_outcome}, sim={_sim:.2f}] {_tool} -> {_tgt} | {_rsn}")
-                    prior_episodes_block_for_specialists = (
-                        "=== PRIOR EPISODES (cross-run memory — HINTS, verify before reuse) ===\n"
-                        "Past picks on similar evidence + their outcome marker. SOLVED = the\n"
-                        "pick preceded a flag-extraction in that run. Use as a hint, not\n"
-                        "authoritative — the prior target may differ in details that matter.\n"
-                        + "\n".join(_lines_sp)
-                    )
-                    logger.info(
-                        "PROOF_EXEC_M5_SPECIALISTS_RECALL_2026052412 run=%s episodes=%d primary_target=%s",
-                        str(run.id)[:8],
-                        len(_actionable_sp),
-                        _primary_target_sp[:60],
-                    )
-            except Exception as _ep_exc_sp:  # noqa: BLE001
-                logger.debug("specialists: prior episodes recall skipped: %s", _ep_exc_sp)
+        # O4 step 3: shared M5 recall builder. Same contract as before —
+        # top-3 SOLVED/marked episodes from OTHER runs, benchmark-flag
+        # honoured via engagement-name detection inside the helper.
+        from api.app.services.assessment_loop_internals.recall import (  # noqa: E402
+            build_prior_episodes_block as _build_prior_episodes_block,
+        )
+        _primary_target_sp = ""
+        for _t in (targets or []):
+            _primary_target_sp = str(_t.get("value") or _t.get("url") or "")
+            if _primary_target_sp:
+                break
+        prior_episodes_block_for_specialists, _ep_count_sp = _build_prior_episodes_block(
+            session=session,
+            run=run,
+            primary_target=_primary_target_sp,
+            prior_findings_summary=prior_findings_summary,
+        )
+        if _ep_count_sp > 0:
+            logger.info(
+                "PROOF_EXEC_M5_SPECIALISTS_RECALL_2026052412 run=%s episodes=%d primary_target=%s",
+                str(run.id)[:8],
+                _ep_count_sp,
+                _primary_target_sp[:60],
+            )
 
         result = run_specialists_parallel(
             call_specialist=_call,
@@ -3040,55 +3006,20 @@ def _claude_select_next_action(
             + "\n\n"
         )
 
-    # M5 cross-run memory: pull top-3 episodes from PRIOR runs whose action
-    # context matches the current evidence shape, and only surface those that
-    # already carry a success_marker (flag_extracted / target_unreachable).
-    # Benchmark runs see other benchmark runs; production runs see only
-    # production episodes (Codex contamination guard).
-    prior_episodes_block = ""
-    if session is not None:
-        try:
-            from api.app.services.episodic_memory import recall_similar  # noqa: E402
-            eng_name = str(
-                getattr(getattr(run, "engagement", None), "name", "") or ""
-            ).lower()
-            is_bench = eng_name.startswith("xbow-bench") or "benchmark" in eng_name
-            query = (
-                f"phase={phase_label} "
-                f"target={primary_target} "
-                f"findings={json.dumps(findings, default=str)[:600]}"
-            )
-            episodes = recall_similar(
-                session,
-                query=query,
-                k=6,
-                include_benchmark=is_bench,
-            )
-            actionable = [
-                e for e in episodes
-                if e.success_marker and str(e.run_id) != str(run.id)
-            ][:3]
-            if actionable:
-                lines: list[str] = []
-                for ep in actionable:
-                    marker = ep.success_marker or ""
-                    outcome = "SOLVED" if marker == "flag_extracted" else marker.upper()
-                    tool = ep.action_type.split(":", 1)[1] if ":" in ep.action_type else ep.action_type
-                    ctx = ep.action_context if isinstance(ep.action_context, dict) else {}
-                    tgt = str(ctx.get("target") or "?")
-                    rsn = str(ctx.get("reasoning") or "")[:120].replace("\n", " ")
-                    sim = ep.similarity or 0.0
-                    lines.append(f"  [{outcome}, sim={sim:.2f}] {tool} -> {tgt} | {rsn}")
-                prior_episodes_block = (
-                    "=== PRIOR EPISODES (cross-run memory — HINTS, verify before reuse) ===\n"
-                    "Past picks on similar evidence + their outcome marker. SOLVED = the pick\n"
-                    "preceded a flag-extraction in that run. Use as a hint, not authoritative —\n"
-                    "the prior target may have differed in details that matter here.\n"
-                    + "\n".join(lines)
-                    + "\n\n"
-                )
-        except Exception as _ep_exc:  # noqa: BLE001
-            logger.debug("AI loop: prior episodes recall skipped: %s", _ep_exc)
+    # O4 step 3: shared M5 recall builder. Same query shape as before
+    # (phase + target + JSON-encoded findings list), just deduplicated.
+    from api.app.services.assessment_loop_internals.recall import (  # noqa: E402
+        build_prior_episodes_block as _build_prior_episodes_block_claude,
+    )
+    _claude_block, _ = _build_prior_episodes_block_claude(
+        session=session,
+        run=run,
+        primary_target=primary_target,
+        prior_findings_summary="",
+        phase_label=phase_label,
+        findings_for_query=findings,
+    )
+    prior_episodes_block = (_claude_block + "\n\n") if _claude_block else ""
 
     # Normalized evidence graph projection (backlog-373). Compact text view of
     # first-class entities the picker should reason over. Falls back to empty
