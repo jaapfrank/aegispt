@@ -1153,22 +1153,6 @@ def _collect_task_outcomes(run: Run, limit: int = 12) -> list[dict[str, Any]]:
     return outcomes
 
 
-def _record_loop_rejection(loop_state: dict[str, Any], reason: str, detail: str) -> None:
-    """Append a rejection reason to the loop state so Claude sees it next iter.
-
-    The list is capped at 10 entries (FIFO) — older rejections drop off.
-    """
-    rejections = list(loop_state.get("recent_rejections") or [])
-    rejections.append({
-        "reason": reason[:80],
-        "detail": detail[:300],
-        "at": _now(),
-    })
-    if len(rejections) > 10:
-        rejections = rejections[-10:]
-    loop_state["recent_rejections"] = rejections
-
-
 def _extract_target_intel_test_plan(run: Run) -> list[dict[str, Any]]:
     """Read the target-intel tool's stdout from the most recent execution and
     pull out the AI-generated test_plan items. These are HIGH-VALUE hints
@@ -3633,41 +3617,6 @@ DEPTH_LEVEL_LABELS = {
     3: "Bevestiging & Exploitatie",
     4: "Escalatie",
 }
-
-# Signals that mark a transition to a new depth level
-_DEPTH_3_SIGNALS = {"xss_confirmed", "ssrf_confirmed", "path_traversal_confirmed",
-                    "sql_error_pattern", "csrf_vulnerable", "cookie_weakness"}
-_DEPTH_4_SIGNALS = {"authenticated_session", "session_obtained", "credential_obtained"}
-_DEPTH_2_SIGNALS = {"injectable_parameter", "login_form_found", "hidden_endpoint_found",
-                    "form_with_post_action", "registration_form_present"}
-
-
-def _compute_depth_level(findings: list[Any], signals: set[str]) -> int:
-    """Determine strategic depth based on what has been confirmed."""
-    finding_titles = [str(f.title if hasattr(f, "title") else (f.get("title") or "")).lower()
-                      for f in (findings or [])]
-
-    # Level 4: post-exploitation (session/credential material obtained)
-    if signals & _DEPTH_4_SIGNALS:
-        return 4
-    if any(kw in t for t in finding_titles for kw in ("session token", "credential", "authenticated", "privilege")):
-        return 4
-
-    # Level 3: vulnerability confirmed (XSS, CSRF, etc.)
-    if signals & _DEPTH_3_SIGNALS:
-        return 3
-    if any(kw in t for t in finding_titles for kw in ("xss", "csrf", "injection", "traversal", "ssrf", "forgery")):
-        return 3
-
-    # Level 2: attack surface identified (forms, parameters, login found)
-    if signals & _DEPTH_2_SIGNALS:
-        return 2
-    if any(kw in t for t in finding_titles for kw in ("hidden endpoint", "missing", "cookie", "header")):
-        return 2
-
-    # Level 1: only initial web target known
-    return 1
-
 
 @dataclass(frozen=True)
 class LoopCandidate:
