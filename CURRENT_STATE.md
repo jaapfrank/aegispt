@@ -1,5 +1,21 @@
 # Current State
 
+## Latest Continuation — Repo hygiene and open task audit (2026-05-24)
+
+Operator asked to inspect the system and open tasks because the repo feels like it contains a lot of old code and files. Added `docs/research/repo-hygiene-and-open-tasks-audit-2026-05-24.md` as an audit-only report. No cleanup or runtime changes were performed.
+
+Key finding: the repo is currently unhealthy as a build lane. `NEXT_TASK.md` says no queued task remains after #388, but `TASK_QUEUE.md` has open items #389/#390 without task-package JSON references. `python3 scripts/validate_backlog_tasks.py` fails. The largest issue is that `api/app/services/codex_tasks.py` currently writes normalized legacy task payloads back to disk while reading, and the worktree now has 390 modified tracked files under `codex/tasks/` with required backlog package fields stripped. Also, several tracked runtime files import untracked modules (`picker_specialists`, `m2_verdict_gate`, `code_exec_attack`, `pre_recon_*`, `recon_deliverable`), so a partial commit would break a clean checkout. Recommended next approved task: restore task-package integrity, remove runtime write-back of backlog JSON, and reconcile queue/status before starting more feature work.
+
+## Latest Continuation — AI-first pentest market/system gap analysis (2026-05-22)
+
+Operator asked for a full internet + local-system investigation toward making AegisPT the best AI-first pentesting system, with AI as primary responsible. Added `docs/research/ai-first-pentest-gap-analysis-2026-05-22.md` as a research/strategy artifact only. The report compares AegisPT against current public signals from XBOW, Shannon/Keygraph, Google Project Naptime, Anthropic Mythos, PentAGI, HexStrike, pentest-ai, PentestMCP, OpenAI EVMbench, and NIST benchmark-contamination guidance.
+
+Key conclusion: AegisPT is not currently best-in-market by evidence. The repo has the right direction (XBOW harness, anti-contamination guard, specialist/recon/validator work in the worktree, and backlog items 407-418/431/434), but the hard local scoreboard remains the 2026-05-21 XBOW baseline of `0/25`. The report recommends prioritizing benchmark reliability, recon deliverable v2, persistent specialist queues, category exploit agents, report-level no-exploit-no-report, source-aware mode, score-climbing automation, forensic journal, pgvector memory after verified examples, governed MCP sidecars, and a professional evidence cockpit UI. No runtime, picker, runner, approval, scope, finding schema, pack, UI, task queue, or `NEXT_TASK.md` behavior was changed.
+
+## Latest Continuation — SOUL.md goblin persona added (2026-05-22)
+
+Operator asked to review OpenClaw's SOUL.md guidance and write a `SOUL.md` where the agent speaks like a funny, slightly mischievous goblin while still working hard and never lying. Added root `SOUL.md` as a voice/personality file only. It keeps operating rules in `AGENTS.md`, states that safety/scope/evidence governance wins, and defines a direct goblin-flavored style with honesty, proof, small sharp edits, and public/high-stakes restraint. No runtime, picker, runner, approval, scope, finding schema, pack, UI, or task-queue behavior changed.
+
 ## Latest Continuation — backlog-437 picker A/B comparison harness (2026-05-21)
 
 Backlog-437 is implemented as a validation-only harness. Added `scripts/picker_ab.py`, which can emit a Claude vs ChatGPT-OAuth picker comparison report from either a safe dry-run fixture or a recorded two-run JSON input. The report records target, evidence fixture ID, provider configs, run IDs when available, matched picker decisions, finding counts, high/critical counts, canary/proof deltas, and failure reasons. It explicitly keeps `winner_claim` as `null` and states that dry-run output proves report generation/provider-shape only, not model capability.

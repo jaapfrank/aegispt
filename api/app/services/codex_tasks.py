@@ -116,7 +116,16 @@ def _load_task_from_path(path: Path) -> CodexTaskRead | None:
         logger.warning("Skipping incompatible legacy Codex task file at %s", path)
         return None
 
-    logger.info("Normalized legacy Codex task file at %s", path)
+    # IMPORTANT: do NOT write the normalized payload back to disk. Earlier
+    # versions of this function did so to "fast-path" subsequent reads, but
+    # the `CodexTaskRead` shape is NOT the same as the stricter backlog
+    # task-package schema enforced by scripts/validate_backlog_tasks.py.
+    # Writing the normalized view destroyed required fields (title, goal,
+    # success_criteria, likely_touched_files, must_not_touch, validation,
+    # promotion_requirements, out_of_scope) across hundreds of files
+    # whenever the API listed tasks. Source-of-truth must stay immutable
+    # from the read path. The log line is debug-level so it doesn't spam.
+    logger.debug("Normalized legacy Codex task file at %s (in-memory only)", path)
     return task
 
 

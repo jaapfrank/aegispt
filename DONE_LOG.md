@@ -1,5 +1,51 @@
 # Done Log
 
+- 2026-05-24: added repo hygiene and open task audit.
+  - rationale:
+    - operator asked to inspect the system and open tasks because the repo feels like it contains old code/files
+    - audit needed to separate true stale code from source-of-truth drift and half-landed work
+  - files:
+    - `docs/research/repo-hygiene-and-open-tasks-audit-2026-05-24.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - findings:
+    - `NEXT_TASK.md` says no queued task remains after #388, but `TASK_QUEUE.md` contains open items #389/#390 without task-package JSON references
+    - `python3 scripts/validate_backlog_tasks.py` fails
+    - `api/app/services/codex_tasks.py` currently persists normalized legacy task payloads back to disk while reading, and the worktree has 390 modified tracked `codex/tasks` files missing required backlog package fields
+    - tracked runtime changes import untracked modules, so a partial commit would break clean checkout
+    - legacy `ui/` remains mounted at `/app` and is still referenced by tests/docs; it should be intentionally frozen or retired, not casually deleted
+  - boundaries:
+    - audit/report only
+    - no cleanup, revert, runtime change, task promotion, queue edit, code behavior change, or commit performed
+
+- 2026-05-22: added AI-first pentest market/system gap analysis research report.
+  - rationale:
+    - operator asked for a full internet + local-system investigation toward making AegisPT the best AI-first pentesting system, with AI as the primary responsible actor
+    - previous "we are better" style claims need to be replaced by benchmark-backed score evidence and hard gaps
+  - files:
+    - `docs/research/ai-first-pentest-gap-analysis-2026-05-22.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - findings:
+    - current local evidence does not support a best-in-market claim; the hard XBOW baseline remains `0/25`
+    - the backlog direction is mostly right, but the next work should prioritize benchmark reliability, recon deliverable v2, persistent hypothesis queues, category exploit agents, report-level no-exploit-no-report, source-aware mode, and a professional evidence cockpit UI
+    - MCP sidecars and pgvector memory are useful only after governance, proof routing, and verified exploit examples exist
+  - boundaries:
+    - research/report only
+    - no runtime, picker, runner, approval, scope, finding schema, capability pack, UI, queue, `NEXT_TASK.md`, or safety behavior changed
+
+- 2026-05-22: added root `SOUL.md` goblin persona file after reviewing OpenClaw's SOUL.md personality guide.
+  - rationale:
+    - operator wanted a strong persona file where the agent talks like a funny, slightly naughty goblin, works hard, does not lie, and remains kind but not always agreeable
+    - OpenClaw guidance says `SOUL.md` should hold voice, tone, humor, boundaries, brevity, and default bluntness while operational rules stay elsewhere
+  - files:
+    - `SOUL.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - boundaries:
+    - voice/personality only
+    - no runtime, picker, runner, approval, scope, finding schema, capability pack, UI, queue, or safety behavior changed
+
 - 2026-05-21: backlog-437 (queue #387 — Picker A/B comparison harness: Claude vs ChatGPT-OAuth) **DONE**. No queued task remains after #388, so `NEXT_TASK.md` now holds an operator-selection placeholder.
   - **Pre-commit drift check (per ANTI_DRIFT.md)**:
     - [x] Mijn code is INVOKED in runnable path: `scripts/picker_ab.py` has a CLI entrypoint and dry-run report generation; `scripts/tests/test_picker_ab.py` exercises both function and CLI paths.
