@@ -266,10 +266,57 @@ def _normalize_compose(challenge_dir: Path) -> Path:
 
 @contextmanager
 def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, up_timeout: float):
-    """Bring up a single XBOW challenge; tear down unconditionally on exit."""
+    """Bring up a single XBOW challenge; tear down unconditionally on exit.
+
+    Pad-1 reliability fixes 2026-05-23:
+    - Compose pre-scan: refuse challenges that pin arm64 platform on
+      a non-arm64 host (was 100% failure in Phase A baseline). The
+      ChallengeResult upstream maps RuntimeError("PLATFORM_INCOMPATIBLE
+      …") to skipped_reason instead of crashed.
+    - Compose-up failure now distinguishes "platform-not-amd64" vs other
+      crash modes so the harness can classify reliability buckets.
+    """
+    import platform as _platform
+    host_arch = _platform.machine().lower()
+    compose_text = ""
+    for candidate in (challenge_dir / "docker-compose.normalized.yml",
+                      challenge_dir / "docker-compose.yml"):
+        if candidate.exists():
+            try:
+                compose_text = candidate.read_text(encoding="utf-8")
+                break
+            except OSError:
+                continue
+    if (
+        host_arch not in {"aarch64", "arm64"}
+        and "platform: linux/arm64" in compose_text
+        and "platform: linux/amd64" not in compose_text
+    ):
+        raise RuntimeError(
+            f"PLATFORM_INCOMPATIBLE — compose pins arm64 only; host is {host_arch}. "
+            "Install qemu-user-static + docker buildx to enable cross-arch emulation."
+        )
+
     env_overlay = {"FLAG": flag}
     compose_file = _normalize_compose(challenge_dir)
     compose_flags = ["-f", compose_file.name] if compose_file.name != "docker-compose.yml" else []
+
+    # FLAG is a per-run build-arg that gets baked into the image, so a
+    # cached image from a prior smoke embeds the PREVIOUS flag. Reusing it
+    # causes the AI to "solve" by extracting the stale flag from cache,
+    # which the harness then fails to recognize against its newly-injected
+    # one. ALWAYS rebuild when a flag is being injected. Image-cache layers
+    # for unchanged layers (pip deps etc.) still apply, so the rebuild is
+    # fast for the second-and-later runs.
+    cached_image_name = f"{challenge_dir.name.lower()}-trading_platform:latest"
+    try:
+        subprocess.run(
+            ["docker", "image", "rm", "-f", cached_image_name],
+            check=False, capture_output=True, text=True,
+        )
+    except Exception:
+        pass
+
     build = _run(
         ["docker", "compose", *compose_flags, "build", "--build-arg", f"flag={flag}"],
         cwd=challenge_dir,
@@ -277,9 +324,19 @@ def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, u
         env=env_overlay,
     )
     if build.returncode != 0:
+        err = (build.stderr or build.stdout)[:400]
+        if "buildx isn't installed" in err or "buildx" in err.lower():
+            raise RuntimeError(
+                f"BUILDX_MISSING — docker compose build needs buildx but it's not installed. "
+                f"Run: sudo apt-get install -y docker-buildx-plugin. Original error: {err}"
+            )
+        if "failed to resolve source metadata" in err or "registry-1.docker.io" in err:
+            raise RuntimeError(
+                f"REGISTRY_DNS — docker registry unreachable. Check WSL DNS / proxy. "
+                f"Original error: {err}"
+            )
         raise RuntimeError(
-            f"docker compose build failed (exit {build.returncode}): "
-            f"{(build.stderr or build.stdout)[:400]}"
+            f"docker compose build failed (exit {build.returncode}): {err}"
         )
     up = _run(
         ["docker", "compose", *compose_flags, "up", "-d", "--wait"],
@@ -313,6 +370,9 @@ def _register_run(
     challenge_id: str,
     profile_name: str,
     llm_provider: str | None = None,
+    source_dir: str | None = None,
+    m1_max_revisions: int = 1,
+    m6_cross_model_critic: bool = False,
 ) -> dict[str, Any]:
     """Create engagement + scope + autonomous-intrusive run."""
     engagement_response = client.post(
@@ -358,6 +418,20 @@ def _register_run(
                 # _claude_select_next_action picks the right backend
                 # (Anthropic default OR ChatGPT-OAuth).
                 **({"llm_provider": llm_provider} if llm_provider else {}),
+                # Phase 4 2026-05-22: source-aware mode opt-in. When set,
+                # orchestrator dispatches pre-recon-source FIRST and
+                # concatenates the white-box deliverable with network recon.
+                **({"source_dir": source_dir} if source_dir else {}),
+                # M4 multi-trajectory + M6 cross-model critic per-run config.
+                # Default {} keeps M1 baseline behavior.
+                **(
+                    {"ai_assessment_loop": {
+                        **({"m1_max_revisions_per_predecessor": m1_max_revisions} if m1_max_revisions and m1_max_revisions > 1 else {}),
+                        **({"m6_cross_model_critic": True} if m6_cross_model_critic else {}),
+                    }}
+                    if ((m1_max_revisions and m1_max_revisions > 1) or m6_cross_model_critic)
+                    else {}
+                ),
             },
         },
     )
@@ -396,11 +470,12 @@ def _drive_ai_loop(
                 f"/api/v1/runs/{run_id}/assessment-loop/iterate",
                 headers=api_headers(actor),
                 json={"operator_note": "xbow-benchmark autonomous drive"},
-                # 300s tolerates ChatGPT-OAuth picker on gpt-5.5-codex with
-                # reasoning=high (240s OAuth budget + decoder + overhead).
-                # Anthropic side typically returns in 10-30s so this only
-                # extends the worst-case ceiling.
-                timeout=300.0,
+                # 600s tolerates ChatGPT-OAuth picker on gpt-5.4 with
+                # reasoning=high — empirical 2026-05-22 v5 showed calls
+                # succeed (200 OK) but each takes 30-60s under reasoning,
+                # so single iterate (picker + maybe-tool-loop + persist)
+                # can exceed 5 minutes. Anthropic still returns in 10-30s.
+                timeout=600.0,
             )
         except httpx.HTTPError as exc:
             last_loop_state = {"iterate_error": str(exc)[:200], "iterations": iterations}
@@ -449,11 +524,22 @@ def _scan_for_flag(client: httpx.Client, actor: str, run_id: str, flag: str) -> 
         run_resp.raise_for_status()
         run_payload = run_resp.json()
         for task in run_payload.get("tasks") or []:
-            for exe in task.get("executions") or []:
+            # The run endpoint does not include execution stdout_text
+            # inline. Fetch per-task to get executions[].stdout_text.
+            tid = task.get("id")
+            if not tid:
+                continue
+            try:
+                task_resp = client.get(f"/api/v1/tasks/{tid}", headers=api_headers(actor))
+                task_resp.raise_for_status()
+                task_payload = task_resp.json()
+            except Exception:
+                continue
+            for exe in (task_payload.get("executions") or task.get("executions") or []):
                 stdout = str(exe.get("stdout_text") or "")
                 stderr = str(exe.get("stderr_text") or "")
                 if flag in stdout or flag in stderr:
-                    hits.append(f"task:{task.get('id','?')}:{task.get('tool','?')}")
+                    hits.append(f"task:{tid}:{task.get('tool','?')}")
                     break
     except Exception:
         pass
@@ -503,6 +589,9 @@ def _run_one_challenge(
     build_timeout: float,
     up_timeout: float,
     llm_provider: str | None = None,
+    source_aware: bool = False,
+    m1_max_revisions: int = 1,
+    m6_cross_model_critic: bool = False,
 ) -> ChallengeResult:
     challenge_id = challenge_dir.name
     flag = f"xbow-{secrets.token_hex(16)}"
@@ -538,7 +627,27 @@ def _run_one_challenge(
                 )
                 return result
             result.notes.append(f"target_url={target_url}")
-            with httpx.Client(base_url=base_url.rstrip("/"), timeout=180.0) as client:
+            # Default client timeout is 600s — matches the iterate-call override
+            # and tolerates slow ChatGPT-OAuth reasoning paths where ANY harness
+            # request can land while a sync picker call holds the worker thread.
+            # v6 crashed at 220s with iterations=0 because a default-timeout
+            # call (likely dispatch/register/grant) raised httpx.ReadTimeout
+            # while the picker was busy — bumped 2026-05-22 after v6 analysis.
+            with httpx.Client(base_url=base_url.rstrip("/"), timeout=600.0) as client:
+                # Phase 4: source-aware mode points the picker at the
+                # XBEN challenge's app/ folder (the running container's
+                # source). When --source-aware is OFF (default), source_dir
+                # is None and the orchestrator stays in network-only mode.
+                source_dir_arg: str | None = None
+                if source_aware:
+                    candidate = challenge_dir / "app"
+                    if candidate.exists() and candidate.is_dir():
+                        source_dir_arg = str(candidate)
+                        result.notes.append(f"source_aware=on source_dir={source_dir_arg}")
+                    else:
+                        result.notes.append(
+                            f"source_aware=on but no app/ dir at {candidate}; skipping source mode"
+                        )
                 run = _register_run(
                     client,
                     actor=actor,
@@ -546,6 +655,9 @@ def _run_one_challenge(
                     challenge_id=challenge_id,
                     profile_name=profile_name,
                     llm_provider=llm_provider,
+                    source_dir=source_dir_arg,
+                    m1_max_revisions=m1_max_revisions,
+                    m6_cross_model_critic=m6_cross_model_critic,
                 )
                 result.run_id = run.get("id")
                 run = grant_required_approvals(
@@ -638,7 +750,19 @@ def _run_one_challenge(
     except subprocess.TimeoutExpired as exc:
         result.error = f"subprocess timeout: {exc.cmd!r}"
     except RuntimeError as exc:
-        result.error = str(exc)[:600]
+        msg = str(exc)
+        # Pad-1 reliability classification: distinguish known
+        # infra-skip reasons from actual harness crashes. These
+        # challenges never reached the AI loop and should not
+        # weigh on the solve-rate denominator the same way crashes do.
+        if msg.startswith("PLATFORM_INCOMPATIBLE"):
+            result.skipped_reason = msg[:300]
+        elif msg.startswith("BUILDX_MISSING"):
+            result.skipped_reason = msg[:300]
+        elif msg.startswith("REGISTRY_DNS"):
+            result.skipped_reason = msg[:300]
+        else:
+            result.error = msg[:600]
     except httpx.HTTPError as exc:
         result.error = f"API call failed: {exc}"[:600]
     except Exception as exc:  # noqa: BLE001
@@ -739,6 +863,37 @@ def main(argv: list[str] | None = None) -> int:
         help="Override picker LLM provider (e.g. claude-opus-4-7, chatgpt_oauth, gpt-5.4). "
              "Default = whatever the run-config / KNOWN_PROVIDERS resolves to.",
     )
+    parser.add_argument(
+        "--source-aware",
+        action="store_true",
+        help=(
+            "Enable Shannon-style white-box source audit (Phase 4 2026-05-22). "
+            "Sets source_dir=<challenge_dir>/app in the run config so the picker "
+            "dispatches pre-recon-source BEFORE network recon. Use ONLY when the "
+            "engagement explicitly authorises source-aware testing — XBOW source-aware "
+            "score-board is measured separately from black-box."
+        ),
+    )
+    parser.add_argument(
+        "--m1-max-revisions",
+        type=int,
+        default=1,
+        help=(
+            "M4 multi-trajectory cap — max script_critic revisions per failed "
+            "code-exec-attack predecessor (default 1 = M1 baseline). At 3, the "
+            "critic gets to try 3 different revisions before giving up on a "
+            "predecessor."
+        ),
+    )
+    parser.add_argument(
+        "--m6-cross-model-critic",
+        action="store_true",
+        help=(
+            "M6 v1 — run the script_critic on the OPPOSITE provider from the "
+            "picker (e.g. picker=chatgpt-oauth → critic=Anthropic) when both "
+            "credentials are available. Adversarial cross-model review."
+        ),
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -778,6 +933,9 @@ def main(argv: list[str] | None = None) -> int:
             build_timeout=args.build_timeout,
             up_timeout=args.up_timeout,
             llm_provider=args.llm_provider,
+            source_aware=args.source_aware,
+            m1_max_revisions=args.m1_max_revisions,
+            m6_cross_model_critic=args.m6_cross_model_critic,
         )
         results.append(result)
         verdict = "SOLVED" if result.solved else ("CRASH" if result.error else ("SKIP" if result.skipped_reason else "no-flag"))

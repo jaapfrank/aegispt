@@ -382,12 +382,79 @@ def build_replay_recipe(
     }
 
 
+def extract_code_exec_attack_findings(
+    *,
+    target_id: str,
+    task: Task,
+    artifact: EvidenceArtifact,
+    artifact_record: EvidenceArtifactRecord,
+) -> list[NormalizedFinding]:
+    """Extract findings from the code-exec-attack runner's stdout artifact.
+
+    The runner writes its summary JSON envelope to the task's stdout_text
+    column directly (not as a `findings.json` artifact). The artifact
+    `code-exec-attack-stdout.txt` is the raw script-process stdout, which
+    contains the `AEGISPT_FINDING: {json}` markers the script emitted.
+
+    Per beat-shannon-pro-roadmap 2026-05-24: this extractor is what was
+    missing — without it, the IDOR/flag findings the AI-written script
+    emits via `aegispt_emit_finding(...)` never reach the findings table,
+    so the smoke harness reports `solved=no` even when the run extracted
+    the literal flag.
+    """
+    # Operate on the script's RAW stdout artifact, which contains the
+    # AEGISPT_FINDING markers + fallback flag-literal text.
+    if artifact.name != "code-exec-attack-stdout.txt":
+        return []
+
+    raw_stdout = artifact.data.decode("utf-8", errors="replace")
+    # Re-use the runner's own parser so the extraction logic stays
+    # in one place. Late-import to avoid pulling the entire runner
+    # at module load.
+    from workers.runners.code_exec_attack.runner import (  # noqa: E402
+        _parse_findings_from_stdout,
+    )
+    findings_dicts = _parse_findings_from_stdout(raw_stdout)
+
+    out: list[NormalizedFinding] = []
+    for d in findings_dicts:
+        # Merge evidence_excerpt into summary so the persisted finding
+        # carries the actual extracted data (e.g. the flag literal). The
+        # early-stop guard in assessment_loop only sees title+summary+target_id;
+        # without this merge, a successful flag extraction is invisible to it
+        # and the loop keeps spinning.
+        summary_raw = str(d.get("summary") or "")
+        excerpt_raw = str(d.get("evidence_excerpt") or "")
+        if excerpt_raw and excerpt_raw not in summary_raw:
+            merged_summary = (summary_raw + " " + excerpt_raw).strip() if summary_raw else excerpt_raw
+        else:
+            merged_summary = summary_raw
+        out.append(
+            NormalizedFinding(
+                title=str(d.get("title") or "code-exec-attack finding"),
+                severity=normalize_severity(d.get("severity")),
+                target_id=str(d.get("evidence_url") or target_id) or target_id,
+                evidence_ref=artifact_record.uri,
+                summary=merged_summary[:600],
+                methodology_tags=tuple(d.get("methodology_tags") or ("code_exec_attack",)),
+            )
+        )
+    return out
+
+
 def extract_findings(
     *,
     task: Task,
     artifact: EvidenceArtifact,
     artifact_record: EvidenceArtifactRecord,
 ) -> list[NormalizedFinding]:
+    if task.tool == "code-exec-attack":
+        return extract_code_exec_attack_findings(
+            target_id=task.target_id,
+            task=task,
+            artifact=artifact,
+            artifact_record=artifact_record,
+        )
     if task.tool == "nuclei":
         return extract_nuclei_findings(
             target_id=task.target_id,
@@ -2403,6 +2470,22 @@ def store_findings(
             _verifier_verdict = _verify_pre_persistence(
                 finding=created_finding, run=task.run,
             )
+            from api.app.services.m2_verdict_gate import (
+                evaluate_for_persistence as _m2_evaluate,
+                gate_enabled as _m2_gate_enabled,
+            )
+            _m2_decision = _m2_evaluate(
+                finding=created_finding, verifier_verdict=_verifier_verdict,
+            )
+            if _m2_gate_enabled() and _m2_decision.drop:
+                logger.info(
+                    "M2 gate: SKIPPING persistence title=%r severity=%s verdict=%s reason=%s",
+                    created_finding.title[:60],
+                    created_finding.severity,
+                    _m2_decision.verdict,
+                    _m2_decision.reason,
+                )
+                continue
             apply_finding_sla(session, created_finding, settings=get_settings())
             session.add(created_finding)
             session.flush()
