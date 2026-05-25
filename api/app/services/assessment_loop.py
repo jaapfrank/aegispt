@@ -2634,38 +2634,22 @@ from api.app.services.runs import (
 )
 from api.app.services.task_dispatch import supported_execution_tools
 
-LOOP_VERSION = "2026-05-07.1"
-LOOP_CONFIG_KEY = "ai_assessment_loop"
-GOAL_REASONING_KIND = "assessment_loop_goal_oriented_reasoning"
-LOOP_MAX_ITERATIONS = 35
-LOOP_STUCK_THRESHOLD = 3
-LOOP_ACTIVE_TASK_STATUSES = {"queued", "pending", "running", "dispatching", "in_progress", "started"}
-LOOP_TERMINAL_STATUSES = {"completed", "failed", "cancelled", "skipped"}
-LOOP_PROPOSAL_KIND = "assessment_loop_next_action"
-LOOP_SEED_TOOLS_BY_TARGET_KIND = {
-    # target-intel runs FIRST for web targets in ai_loop mode.
-    # It analyzes the site with Claude before any scanning tool runs,
-    # detects the technology stack, identifies applicable CVEs, and
-    # creates a targeted scan plan. httpx is the fallback for non-ai_loop runs.
-    "url": "target-intel",
-    "host": "nmap",
-    "cidr": "nmap",
-    "domain": "easm-discover",
-    "target": "target-intel",
-}
-LOOP_LOW_IMPACT_AUTO_TOOLS = {"httpx", "target-intel"}
-
-# Depth levels — each level represents a strategic decision point
-# Level 1: Discovery (surface mapping, no findings yet)
-# Level 2: Probing (attack surface identified, testing for weaknesses)
-# Level 3: Confirmation (vulnerability confirmed, exploiting)
-# Level 4: Post-exploitation (session/credential material obtained)
-DEPTH_LEVEL_LABELS = {
-    1: "Verkenning",
-    2: "Kwetsbaarheidstests",
-    3: "Bevestiging & Exploitatie",
-    4: "Escalatie",
-}
+# O4 step 8: LOOP_* constants now live in
+# api/app/services/assessment_loop_internals/loop_constants.py. Same names
+# re-imported so call sites stay put.
+from api.app.services.assessment_loop_internals.loop_constants import (  # noqa: E402, F401
+    DEPTH_LEVEL_LABELS,
+    GOAL_REASONING_KIND,
+    LOOP_ACTIVE_TASK_STATUSES,
+    LOOP_CONFIG_KEY,
+    LOOP_LOW_IMPACT_AUTO_TOOLS,
+    LOOP_MAX_ITERATIONS,
+    LOOP_PROPOSAL_KIND,
+    LOOP_SEED_TOOLS_BY_TARGET_KIND,
+    LOOP_STUCK_THRESHOLD,
+    LOOP_TERMINAL_STATUSES,
+    LOOP_VERSION,
+)
 
 @dataclass(frozen=True)
 class LoopCandidate:
