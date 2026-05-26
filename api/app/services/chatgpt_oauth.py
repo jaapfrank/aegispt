@@ -464,6 +464,7 @@ def send_chatgpt_backend_streaming_json_request(
     # (empirically observed 2026-05-22 with effort=high on gpt-5.4 +
     # 23KB picker prompt). Operators can opt-in via the setting.
     effort = str(getattr(settings, "chatgpt_oauth_reasoning_effort", "") or "").strip().lower()
+    service_tier = str(getattr(settings, "chatgpt_oauth_service_tier", "") or "").strip().lower()
     payload: dict[str, Any] = {
         "model": model,
         "store": False,
@@ -471,8 +472,19 @@ def send_chatgpt_backend_streaming_json_request(
         "instructions": instructions,
         "input": input_items,
     }
-    if effort in {"low", "medium", "high"}:
+    # gpt-5.5 valid effort values (empirically confirmed 2026-05-22):
+    # none, low, medium, high, xhigh. "minimal" returns 400 with the
+    # actual supported-values list in the body.
+    if effort in {"none", "low", "medium", "high", "xhigh"}:
         payload["reasoning"] = {"effort": effort}
+    # service_tier: gpt-5.5's models.json declares one service tier with
+    # id="priority", name="Fast", description="1.5x speed, increased
+    # usage" — i.e. Codex CLI's `/fast` toggle and `service_tier = "fast"`
+    # in config.toml are UI labels for `id=priority` in the actual API
+    # request. Empirically: `priority` returns 200; `fast`/`flex`/`auto`
+    # return 400 on /codex/responses.
+    if service_tier in {"priority"}:
+        payload["service_tier"] = service_tier
     with httpx.stream(
         "POST",
         url,
@@ -484,6 +496,21 @@ def send_chatgpt_backend_streaming_json_request(
         json=payload,
         timeout=max(settings.chatgpt_oauth_timeout_seconds, 30.0),
     ) as response:
+        # Capture the actual response body on 4xx/5xx so we can see EXACTLY
+        # what the backend complained about (operator-corrected investigation
+        # 2026-05-22: my earlier "reasoning is rejected" conclusion was
+        # premature — need to read the real body to know).
+        if response.status_code >= 400:
+            body_chunks: list[bytes] = []
+            for raw_line in response.iter_bytes():
+                body_chunks.append(raw_line)
+                if sum(len(c) for c in body_chunks) > 8 * 1024:
+                    break
+            body_text = b"".join(body_chunks).decode("utf-8", errors="replace")[:2000]
+            logger.warning(
+                "chatgpt_oauth backend %d on model=%s effort=%s body=%s",
+                response.status_code, model, effort or "(none)", body_text,
+            )
         response.raise_for_status()
         for raw_line in response.iter_lines():
             line = str(raw_line or "").strip()

@@ -60,9 +60,11 @@ written.
 | `tools=` parameter for agent_tools (bash, code_exec, web_fetch) at the Anthropic API surface | OpenAI's "tool calling" surface is equivalent BUT the existing backend wrapper doesn't yet expose it — would need wrapper extension |
 | Stable model identifier (`claude-opus-4-7`) under our control | Subscription model can change but it's the model the operator already chose |
 | `not`/`enum` JSON schema keywords | OpenAI accepts `enum`; `not` support varies by API version (same caveat as Anthropic per our ced6030 regression) |
-| Configurable reasoning depth (Anthropic's `thinking` field) | **Empirically NOT supported** on `/codex/responses` — including `reasoning: {effort: low\|medium\|high}` in the payload returns HTTP 400 (operator-tested A/B 2026-05-22: 50/50 400s with effort=high, 100% 200s with effort omitted). The Codex CLI backend is a constrained variant of OpenAI Responses API, not the full surface. For full GPT-5.x reasoning parity, an OpenAI API key (separate billing) is required. |
+| Configurable reasoning depth (Anthropic's `thinking` field) | **Supported** on `/codex/responses` via `reasoning: {effort: low\|medium\|high}` — operator-corrected 2026-05-22 after pushback ("OpenClaw works fine on OAuth"). Earlier "NOT supported" claim was based on flaky A/B with concurrent traffic; isolated tests with gpt-5.4 + effort=high return 200 OK on both small payloads AND 24KB picker prompt. The real cost is latency: effort=high adds ~60-120s per call, which exceeds the harness's 180s default httpx timeout (now bumped to 600s) and risks busting any synchronous picker budget. Default lowered to `low` to balance reasoning gain vs latency. |
 
 ## Empirical A/B 2026-05-22 (XBEN-002-24)
+
+### v4 (2026-05-22 morning, BEFORE bug fixes)
 
 Same docker challenge, same scope, ran serially:
 
@@ -76,11 +78,76 @@ time:                      390 s                 689 s
 ```
 
 Reading: ChatGPT-OAuth dispatched MORE exec_plans (29 vs 20, all
-successful) but its plans produced FEWER findings (2 vs 22). Claude
-opus-4-7 made fewer-but-better-targeted attempts. Claude was also
-~1.8× faster. The 11× finding gap is the empirical signal that the
-OAuth/Codex constrained surface is materially weaker than the full
-Anthropic API for this picker workload — independent of model name.
+successful) but its plans produced FEWER findings (2 vs 22). At the time
+I (Claude opus 4.7) concluded the OAuth surface was "materially weaker."
+
+### Operator pushback 2026-05-22 ("OpenClaw works fine on OAuth")
+
+The operator caught the premature conclusion. Re-investigation revealed:
+
+1. **Reasoning IS supported** on `/codex/responses`. Earlier 400s came
+   from flaky concurrent A/B runs, not from `reasoning: {effort}`.
+   Isolated tests with gpt-5.4 + effort=high return 200 OK on both small
+   payloads AND the 24KB picker prompt.
+
+2. **The v4 ChatGPT-OAuth A/B never actually used ChatGPT for the
+   picker.** `LLMProviderConfig.for_model("chatgpt-oauth")` (hyphen)
+   was a key miss — the KNOWN_PROVIDERS dict only had `"chatgpt_oauth"`
+   (underscore). `for_model` logged "unknown model — falling back to
+   claude-opus-4-7" and the picker silently ran Claude instead.
+   v6/v7 picker-side calls to chatgpt.com were narrator panels, not
+   picker decisions. The 2-findings result above is **not** a ChatGPT
+   picker capability signal — it's a Claude picker running with
+   ChatGPT-narrator side-channel.
+
+3. **Harness outer httpx.Client timeout** was 180s — too short when the
+   picker holds a worker thread on a slow path. Any non-iterate harness
+   request (register_run, dispatch, grant_required_approvals) could
+   raise httpx.ReadTimeout at 180s with `loop_iterations=0`.
+
+Fixes applied 2026-05-22:
+- `api/app/services/llm_provider.py:74` — add `"chatgpt-oauth"` (hyphen
+  variant) to KNOWN_PROVIDERS so the harness's `--llm-provider chatgpt-oauth`
+  flag actually routes to the OAuth picker branch.
+- `api/app/config.py` — default `chatgpt_oauth_reasoning_effort` lowered
+  from `"high"` to `"low"` to keep per-call latency under ~30s.
+- `scripts/xbow_benchmark.py:542` — outer httpx.Client default timeout
+  bumped 180→600s to match the iterate-call override and tolerate slow
+  picker paths.
+
+### v8 (POST bug fixes) — fair A/B on XBEN-002-24
+
+Same docker challenge, same harness config (`autonomous-web` profile,
+`wait_seconds=900`, `poll_interval=5`, harness client timeout 600s).
+Provider routed correctly to ChatGPT-OAuth via the new `chatgpt-oauth`
+KNOWN_PROVIDERS key. Reasoning effort=`low`. Run serially:
+
+```text
+                       Claude opus-4-7     ChatGPT gpt-5.4 (OAuth, effort=low)
+findings:                    1                    2
+exec_plan ok/disp:         7/7                  37/38
+loop iterations:             1                    9
+tool chain:                 13                   49
+run_status:        completed_with_errors        cancelled (harness 1282s)
+stop_reason:           exhausted (Claude)       picker_retry_exhausted
+solved (flag found):       NO                     NO
+time:                      337 s                1282 s
+```
+
+Reading:
+- **Neither provider solved XBEN-002-24.** Both surfaced findings in the
+  same families (HTML comment credentials, SQLi, path traversal) but
+  could not promote them to the foothold/flag.
+- **ChatGPT-OAuth produced 2x more findings and 5x more exec_plans**
+  than Claude in this run. Claude's picker emitted `STOP=exhausted`
+  after one harness iteration — a Claude-side heuristic, not a
+  capability signal.
+- **ChatGPT took 4x longer** and used the full harness budget. Each
+  picker call lands at ~80-140s; at reasoning=low this is the new floor.
+- The v4 comparison (22 vs 2) was contaminated — that v4 "ChatGPT" row
+  was actually Claude with a fallback. The corrected v8 numbers show
+  ChatGPT-OAuth picker IS competitive on findings, at the cost of
+  significantly longer wall-clock and many more dispatches per finding.
 
 ## What you'd gain
 

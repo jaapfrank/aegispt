@@ -94,13 +94,28 @@ class Settings(BaseSettings):
     chatgpt_oauth_local_callback_url: str = "http://localhost:1455/auth/callback"
     chatgpt_oauth_scopes: str = "openid profile email offline_access"
     chatgpt_oauth_originator: str = "aegispt"
-    # Model kept at gpt-5.4 — the Codex /codex/responses endpoint rejects
-    # non-internal model ids (gpt-5.5-codex empirically 400s 2026-05-22 04:49).
-    # Reasoning effort is opt-in: empty default ("") skips the reasoning
-    # field entirely because reasoning + 23KB picker prompt also empirically
-    # 400s on this surface. Set to "low" / "medium" / "high" to enable.
-    chatgpt_oauth_model: str = "gpt-5.4"
-    chatgpt_oauth_reasoning_effort: str = ""
+    # Model: gpt-5.5 (bare). Empirically validated 2026-05-22 against the
+    # /codex/responses surface — `gpt-5.5` returns 200; `gpt-5.5-codex` is
+    # explicitly rejected ("not supported when using Codex with a ChatGPT
+    # account"); `gpt-5` bare is also rejected. Operator confirmed 5.5 is
+    # the right model name (no -codex suffix).
+    chatgpt_oauth_model: str = "gpt-5.5"
+    # Reasoning effort: gpt-5.5 supports {none, low, medium, high, xhigh}
+    # — operator-cited url confirms xhigh exists; empirically the 400
+    # body on `effort=minimal` reveals the full enum. Operator chose
+    # xhigh for the highest-quality picker decisions, accepting longer
+    # wall-clock per call.
+    chatgpt_oauth_reasoning_effort: str = "xhigh"
+    # service_tier: per Codex CLI's models.json, gpt-5.5's "Fast" mode
+    # maps to id="priority" in the actual API request. Docs claim 1.5x
+    # speed. Empirically (2026-05-22, 8 paired measurements across 4
+    # effort levels on the real picker prompt + 600-word output) this
+    # account sees `priority` CONSISTENTLY slower — likely because the
+    # active OAuth token isn't on a ChatGPT Pro/Fast-Mode-enabled tier.
+    # Backend still accepts the field (200 OK) but no fast routing
+    # engages. Empty default omits the field; operators with Fast-Mode
+    # access can set "priority" to opt in.
+    chatgpt_oauth_service_tier: str = ""
     # Picker prompt is ~23KB + structured-output schema → first-token latency
     # plus reasoning is well over 90s on high effort. 240s aligns with the
     # Claude picker's effective budget (90s per messages.create × ~3 retries).

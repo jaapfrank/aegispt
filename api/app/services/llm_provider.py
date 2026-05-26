@@ -56,6 +56,11 @@ KNOWN_PROVIDERS: dict[str, dict[str, Any]] = {
         "litellm_model": "anthropic/claude-sonnet-4-6-20260201",
         "api_key_env": "ANTHROPIC_API_KEY",
     },
+    "claude-haiku-4-5": {
+        "model": "claude-haiku-4-5",
+        "litellm_model": "anthropic/claude-haiku-4-5-20251001",
+        "api_key_env": "ANTHROPIC_API_KEY",
+    },
     "gpt-4o": {
         "model": "gpt-4o",
         "litellm_model": "openai/gpt-4o",
@@ -72,7 +77,12 @@ KNOWN_PROVIDERS: dict[str, dict[str, Any]] = {
         "api_key_env": "DEEPSEEK_API_KEY",
     },
     "chatgpt_oauth": {
-        "model": "gpt-5.4",
+        "model": "gpt-5.5",
+        "litellm_model": None,
+        "api_key_env": "CHATGPT_OAUTH_TOKEN",
+    },
+    "chatgpt-oauth": {
+        "model": "gpt-5.5",
         "litellm_model": None,
         "api_key_env": "CHATGPT_OAUTH_TOKEN",
     },
@@ -80,6 +90,19 @@ KNOWN_PROVIDERS: dict[str, dict[str, Any]] = {
         "model": "gpt-5.4",
         "litellm_model": None,
         "api_key_env": "CHATGPT_OAUTH_TOKEN",
+    },
+    "gpt-5.5": {
+        "model": "gpt-5.5",
+        "litellm_model": None,
+        "api_key_env": "CHATGPT_OAUTH_TOKEN",
+    },
+    # Local Qwen via llama-cpp-python server on 127.0.0.1:8801 (OpenAI-compatible).
+    # No API key needed; the server accepts any string. Use this provider when
+    # ChatGPT-OAuth credits are exhausted OR the operator wants on-device only.
+    "local-qwen": {
+        "model": "local-qwen",
+        "litellm_model": "openai/Qwen3.6-27B-NEO-CODE",
+        "api_key_env": "LOCAL_QWEN_TOKEN",
     },
 }
 
