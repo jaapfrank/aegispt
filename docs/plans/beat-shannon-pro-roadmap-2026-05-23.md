@@ -260,3 +260,28 @@ Two new M-items derived (added to backlog, not yet started):
 ### Decision rule update
 
 Order after current capability work: M2 wire -> M5 measurement -> M7 (if not obviated) -> M10 -> M11 -> H-roadmap activation gate.
+
+
+## 7. M9 deep-read results -- PentestGPT (USENIX'24) (2026-05-26)
+
+Sources: [USENIX '24 paper](https://www.usenix.org/system/files/usenixsecurity24-deng.pdf), [project page](https://pentestgpt.com/paper.html), [GitHub greydgl/PentestGPT](https://github.com/GreyDGL/PentestGPT).
+
+PentestGPT's central design is a **3-module separation** (Reasoning + Generation + Parsing) to combat context-loss across a long pentest. They run a **Pentesting Task Tree (PTT)** as the lead-tester's working memory.
+
+Mapping to AegisPT (most concepts already present):
+
+| PentestGPT module | AegisPT equivalent | gap |
+|---|---|---|
+| Reasoning Module (lead-tester role, picks next sub-task) | picker (picker_specialists + claude_select_next_action) | covered, structurally identical |
+| Generation Module (operator role, writes commands/payloads) | runners + script_critic (LLM-emitted python_script) | covered |
+| Parsing Module (tester-assistant role, distils tool output) | evidence_ingest + findings parser (workers/orchestration/findings.py) | covered |
+| Pentesting Task Tree (PTT) | hypothesis_queue + attack_state.FootholdState (backlog-412 Layer 3) | covered, our version is flatter |
+| Chain-of-thought micro-steps | exec_plan step decomposition + script_critic revision loop | covered |
+| Context-loss mitigation via module isolation | O4 refactor (helpers / guards / recall / picker_schema / etc.) | substrate matches the pattern |
+
+No new M-item from this read. PentestGPT's lessons are already implicit in:
+
+- O4 (assessment_loop split) is functionally the same "context-loss mitigation" PentestGPT motivates with 3 modules.
+- attack_state.FootholdState IS our PTT, just less hierarchical (flat-state transitions vs tree). If solve-rate continues to plateau and the hypothesis_queue grows unmanageable, formalising the PTT shape would be the upgrade.
+
+Action: none today. Note becomes informative-only unless a future smoke shows hypothesis_queue management becoming the bottleneck.
