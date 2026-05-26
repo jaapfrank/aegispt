@@ -1231,11 +1231,13 @@ def _maybe_dispatch_cpg_seeded_cea(
         logger.warning("cpg_seeded_cea: force-provider failed: %s", exc)
     provider_kind = (
         "chatgpt_oauth" if run_cfg_provider in {"chatgpt_oauth", "chatgpt-oauth"}
+        else "gemini" if run_cfg_provider.startswith("gemini")
         else "local_qwen" if run_cfg_provider in {"local-qwen", "local_qwen"}
         else "claude" if have_anthropic
         else "local_qwen" if use_local_llm
         else "anthropic" if _provider_is_anthropic(provider)
         else "chatgpt_oauth" if _provider_is_chatgpt_oauth(provider)
+        else "gemini" if _provider_is_gemini(provider)
         else "unknown"
     )
     logger.info(
