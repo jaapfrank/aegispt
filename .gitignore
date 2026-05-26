@@ -38,3 +38,20 @@ codex/results/*
 !codex/results/README.md
 !codex/results/validation-matrix-latest.json
 validation-status.md
+
+# P4 hygiene 2026-05-26 — keep local-only runtime/scratch out of git.
+# Real production code that matches a pattern is negated by an explicit
+# `!path` line below, or promoted via `git add -f <path>`.
+.claude/
+.diag-*.py
+baseline.json
+workspace/
+
+# One-off / ad-hoc dev probe + verify scripts. They live next to real
+# scripts but they are NOT runtime dependencies — they exist to validate
+# a specific session's claim in isolation.
+scripts/test_*_directly.py
+scripts/probe_*.py
+scripts/drive_remote_target.py
+scripts/exploit_*.py
+scripts/verify_vault_persist_inject.py
