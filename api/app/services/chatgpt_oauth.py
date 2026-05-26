@@ -520,6 +520,16 @@ def send_chatgpt_backend_streaming_json_request(
                 response.status_code, model, effort or "(none)", body_text,
             )
         response.raise_for_status()
+        # gpt-5.5 with reasoning=xhigh emits MOST text via the `response.completed`
+        # final event rather than incremental `response.output_text.delta`
+        # deltas — empirical 2026-05-26 smoke 41: 200 OK + 0 delta events + 1
+        # response.completed event holding the full message in
+        # response.output[*].content[*].text. Earlier gpt-5.4 picker calls
+        # (smoke 33) DID emit deltas, so the parser had only ever needed the
+        # delta path until the model upgrade. Keep both: deltas accumulate
+        # when emitted, fallback extracts from response.completed otherwise.
+        completed_event: dict[str, Any] | None = None
+        event_type_counts: dict[str, int] = {}
         for raw_line in response.iter_lines():
             line = str(raw_line or "").strip()
             if not line or not line.startswith("data: "):
@@ -533,12 +543,48 @@ def send_chatgpt_backend_streaming_json_request(
                 continue
             if not isinstance(event, dict):
                 continue
-            if event.get("type") == "response.output_text.delta":
+            event_type = str(event.get("type") or "")
+            event_type_counts[event_type] = event_type_counts.get(event_type, 0) + 1
+            if event_type == "response.output_text.delta":
                 output_chunks.append(str(event.get("delta") or ""))
+            elif event_type == "response.completed":
+                completed_event = event
     output_text = "".join(output_chunks).strip()
+    if not output_text and completed_event is not None:
+        output_text = _extract_text_from_completed_event(completed_event).strip()
     if not output_text:
+        logger.warning(
+            "chatgpt_oauth: empty output on model=%s effort=%s event_counts=%s",
+            model, effort or "(none)", event_type_counts,
+        )
         raise ChatGPTOAuthError("ChatGPT streaming backend response did not contain output text")
     return _json_object_from_model_output(output_text)
+
+
+def _extract_text_from_completed_event(event: dict[str, Any]) -> str:
+    """Pull text out of a response.completed SSE event.
+
+    Shape (gpt-5.5 / Codex Responses API):
+      {"type": "response.completed",
+       "response": {
+         "output": [{"type": "message",
+                      "content": [{"type": "output_text", "text": "..."}, ...]},
+                     ...]}}
+    """
+    response_obj = event.get("response") or {}
+    output_items = response_obj.get("output") or []
+    chunks: list[str] = []
+    for item in output_items:
+        if not isinstance(item, dict):
+            continue
+        content = item.get("content") or []
+        for piece in content:
+            if not isinstance(piece, dict):
+                continue
+            text = piece.get("text")
+            if isinstance(text, str) and text:
+                chunks.append(text)
+    return "".join(chunks)
 
 
 def stream_chatgpt_backend_text_request(
