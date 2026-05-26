@@ -117,14 +117,19 @@ class Settings(BaseSettings):
     # access can set "priority" to opt in.
     chatgpt_oauth_service_tier: str = ""
     # text.verbosity: gpt-5.5 separates "thinking depth" (reasoning.effort)
-    # from "output expansiveness" (text.verbosity). For schema-strict JSON
-    # output the picker emits (one decision dict, no narrative), low
-    # verbosity matches the actual response shape — and the OpenAI cookbook
-    # explicitly recommends "high reasoning effort with low verbosity" for
-    # well-considered concise answers (hypothesis ranking maps cleanly).
-    # Empty string omits the field (legacy behaviour). Operators wanting
-    # narrative responses can override to medium/high.
-    chatgpt_oauth_verbosity: str = "low"
+    # from "output expansiveness" (text.verbosity).
+    #
+    # Empirical 2026-05-26 (smoke 33 vs 34 on XBEN-002 with otherwise
+    # identical config): default verbosity produced 2 completed exec_plans;
+    # verbosity=low produced 0. The cookbook recommendation "high reasoning
+    # + low verbosity for well-considered concise answers" does NOT
+    # generalise to multi-step exec-plan generation -- the model needs
+    # output budget to write out the chain-of-step plan body, even when
+    # the schema is strict.
+    #
+    # Default back to empty (omit the field, server-side default applies).
+    # Operators who want concise narrative output can override via env.
+    chatgpt_oauth_verbosity: str = ""
     # Picker prompt is ~23KB + structured-output schema → first-token latency
     # plus reasoning is well over 90s on high effort. 240s aligns with the
     # Claude picker's effective budget (90s per messages.create × ~3 retries).
