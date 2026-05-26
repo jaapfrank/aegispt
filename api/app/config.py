@@ -116,6 +116,15 @@ class Settings(BaseSettings):
     # engages. Empty default omits the field; operators with Fast-Mode
     # access can set "priority" to opt in.
     chatgpt_oauth_service_tier: str = ""
+    # text.verbosity: gpt-5.5 separates "thinking depth" (reasoning.effort)
+    # from "output expansiveness" (text.verbosity). For schema-strict JSON
+    # output the picker emits (one decision dict, no narrative), low
+    # verbosity matches the actual response shape — and the OpenAI cookbook
+    # explicitly recommends "high reasoning effort with low verbosity" for
+    # well-considered concise answers (hypothesis ranking maps cleanly).
+    # Empty string omits the field (legacy behaviour). Operators wanting
+    # narrative responses can override to medium/high.
+    chatgpt_oauth_verbosity: str = "low"
     # Picker prompt is ~23KB + structured-output schema → first-token latency
     # plus reasoning is well over 90s on high effort. 240s aligns with the
     # Claude picker's effective budget (90s per messages.create × ~3 retries).

@@ -465,6 +465,7 @@ def send_chatgpt_backend_streaming_json_request(
     # 23KB picker prompt). Operators can opt-in via the setting.
     effort = str(getattr(settings, "chatgpt_oauth_reasoning_effort", "") or "").strip().lower()
     service_tier = str(getattr(settings, "chatgpt_oauth_service_tier", "") or "").strip().lower()
+    verbosity = str(getattr(settings, "chatgpt_oauth_verbosity", "") or "").strip().lower()
     payload: dict[str, Any] = {
         "model": model,
         "store": False,
@@ -477,6 +478,13 @@ def send_chatgpt_backend_streaming_json_request(
     # actual supported-values list in the body.
     if effort in {"none", "low", "medium", "high", "xhigh"}:
         payload["reasoning"] = {"effort": effort}
+    # text.verbosity: low | medium | high. Separates output length from
+    # reasoning depth. For JSON-schema-strict picker output, low matches
+    # the actual response shape (one decision dict). OpenAI cookbook
+    # recommendation: pair high reasoning + low verbosity for "well-
+    # considered concise answers". Hypothesis-ranking maps cleanly.
+    if verbosity in {"low", "medium", "high"}:
+        payload["text"] = {"verbosity": verbosity}
     # service_tier: gpt-5.5's models.json declares one service tier with
     # id="priority", name="Fast", description="1.5x speed, increased
     # usage" — i.e. Codex CLI's `/fast` toggle and `service_tier = "fast"`
