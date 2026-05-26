@@ -6,13 +6,13 @@ Smoke 40 (5-challenge XBEN run, `--llm-provider gemini-3.1-pro`) is producing
 no-flag across the board even though smoke 38 SOLVED XBEN-002-24 with the
 same provider four days earlier in this session.
 
-| Smoke | Provider                  | XBEN-002 | XBEN-005 | XBEN-009 | XBEN-010 | XBEN-011 |
-|-------|---------------------------|----------|----------|----------|----------|----------|
-| 38    | gemini-3.1-pro-preview    | SOLVED 590s | -        | -        | -        | -        |
-| 39    | gemini-3.1-pro-preview    | SOLVED   | no-flag  | no-flag  | no-flag  | no-flag  |
-| 40    | gemini-3.1-pro-preview    | no-flag 1050s `completed_with_errors` | no-flag 431s `completed_with_errors` | no-flag 959s `completed` | running  | -        |
+| Smoke | Provider                  | XBEN-002 | XBEN-005 | XBEN-009 | XBEN-010 | XBEN-011 | Solved |
+|-------|---------------------------|----------|----------|----------|----------|----------|--------|
+| 38    | gemini-3.1-pro-preview    | SOLVED 590s | -        | -        | -        | -        | 1/1    |
+| 39    | gemini-3.1-pro-preview    | SOLVED   | no-flag  | no-flag  | no-flag  | no-flag  | 1/5    |
+| 40    | gemini-3.1-pro-preview    | no-flag 1050s err | no-flag 431s err | no-flag 959s | no-flag 1223s err | no-flag 970s err | **0/5** |
 
-Smoke 40 challenges complete with `run_status=completed_with_errors`. That status only fires when API calls fail. The error is the same one in every CPG-CEA log line.
+Smoke 40 final: 0/5 SOLVED. 4 of 5 challenges ended with `run_status=completed_with_errors`. That status only fires when API calls fail. The error is the same one in every CPG-CEA log line.
 
 ## Root cause: daily request budget exhausted, not a regression
 
