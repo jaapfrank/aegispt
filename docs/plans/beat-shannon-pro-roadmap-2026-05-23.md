@@ -285,3 +285,33 @@ No new M-item from this read. PentestGPT's lessons are already implicit in:
 - attack_state.FootholdState IS our PTT, just less hierarchical (flat-state transitions vs tree). If solve-rate continues to plateau and the hypothesis_queue grows unmanageable, formalising the PTT shape would be the upgrade.
 
 Action: none today. Note becomes informative-only unless a future smoke shows hypothesis_queue management becoming the bottleneck.
+
+
+## 8. M9 deep-read results -- HexStrike AI (2026-05-26)
+
+Sources: [github.com/0x4m4/hexstrike-ai](https://github.com/0x4m4/hexstrike-ai), [hexstrike.com](https://www.hexstrike.com/), [mcp directory](https://mcp.directory/servers/hexstrike-ai).
+
+HexStrike is an MCP server exposing 150+ (later 250+) cybersecurity tools to any LLM client (Claude, GPT, Copilot). Their pitch is breadth-by-MCP, not depth-by-specialist.
+
+### What we already cover
+
+Network: nmap, amass/subfinder (via easm-discover), ipv6-discovery. Web: nuclei, nikto, sqlmap, httpx, content-discovery (covers gobuster/dirsearch/feroxbuster). Mid: target-intel, auth-flow, session-security, headers-security, smart-web-probe, recon-deliverable. Source-aware: pre-recon-source, pre-recon-cpg. Exploit: code-exec-attack, exec-plan.
+
+### Concrete coverage gaps that map to XBOW vuln-classes we have already missed
+
+Listed by likely-ROI on the XBOW solve rate (not by HexStrike's own ordering):
+
+- **Commix** -- command-injection exploitation. Maps to RCE-class targets where the picker now writes ad-hoc code-exec-attack scripts. A dedicated runner with proven payload library would lift consistency.
+- **Dalfox** -- advanced XSS scanner with payload-class library + DOM context detection. Direct fit for XBEN-010/011/012 callback-XSS class we triaged (commit e33bc13 added the hypothesis but no specialised runner).
+- **Tplmap** -- SSTI exploitation. Backlog #228 already names it; this confirms the gap.
+- **NoSQLMap** -- MongoDB/CouchDB injection. Niche; only matters when a future XBOW target uses NoSQL.
+- **Arjun + ParamSpider** -- parameter discovery (find hidden parameters that recon misses). Cheaper than content-discovery for parameter-aware vulns.
+- **Wafw00f + TestSSL** -- fingerprint protections before exploit attempts (saves wasted exec_plan rounds).
+
+### Architecture lesson (not a new M-item, but worth recording)
+
+The MCP-server pattern means HexStrike does NOT integrate each tool's logic; it exposes a thin RPC wrapper. AegisPT runners today are MORE custom (auth, retries, scope-guarded httpx, AEGISPT_FINDING marker emit). Adopting MCP for HexStrike-style breadth would mean a new dispatch path that runs alongside our runners, not replacing them. Defer that architectural pivot until we have a concrete gap that ONLY MCP-breadth fixes.
+
+### Action
+
+No new M-item from HexStrike read. Treat as a backlog refinement: when triage classifies a miss as `missing_tool` (per docs/triage-method.md), the HexStrike tool list is the first place to check for an off-the-shelf candidate before designing a new AegisPT-native runner. Specifically: Dalfox is the strongest near-term candidate (3 XBOW challenges in our sample hit its category).
