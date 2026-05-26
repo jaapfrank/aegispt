@@ -315,3 +315,43 @@ The MCP-server pattern means HexStrike does NOT integrate each tool's logic; it 
 ### Action
 
 No new M-item from HexStrike read. Treat as a backlog refinement: when triage classifies a miss as `missing_tool` (per docs/triage-method.md), the HexStrike tool list is the first place to check for an off-the-shelf candidate before designing a new AegisPT-native runner. Specifically: Dalfox is the strongest near-term candidate (3 XBOW challenges in our sample hit its category).
+
+
+## 9. M9 deep-read results -- OpenAI Codex Plugins + Agents SDK (2026-05-26)
+
+Sources: [developers.openai.com/codex/plugins](https://developers.openai.com/codex/plugins), [developers.openai.com/codex/plugins/build](https://developers.openai.com/codex/plugins/build), [Agents SDK guide](https://developers.openai.com/api/docs/guides/agents), [openai/openai-agents-python](https://github.com/openai/openai-agents-python).
+
+### Codex Plugins -- distribution shell, not a capability lift
+
+Codex Plugins extend the Codex CLI itself. A plugin packages:
+- skills/ (SKILL.md per skill)
+- .mcp.json (MCP server map)
+- .app.json (app/connector integrations)
+- hooks/ (lifecycle hooks)
+
+Distribution: local marketplace, ~/.codex/plugins/, git-subdir source, workspace sharing, official directory (coming soon).
+
+Relevance to AegisPT: this is how to PUBLISH AegisPT-as-plugin into Codex (marketing/distribution channel) rather than how Codex talks to AegisPT. No capability lift; potential later go-to-market action. **Not in scope for this roadmap.**
+
+### Agents SDK -- we already hand-built this
+
+Primitives mapped to AegisPT (no new M-item):
+
+| Agents SDK primitive | AegisPT equivalent |
+|---|---|
+| Agents (LLM + instructions + tools + handoffs + guardrails + structured outputs) | picker_specialists/vuln_*.py |
+| Manager pattern (orchestrator invokes sub-agents as tools, keeps control) | _specialists_select_next_action |
+| Handoffs (peer transfer with full conversation history) | _maybe_dispatch_script_critic (informal handoff to critic specialist) |
+| Guardrails (input + output validation) | _scan_for_prompt_injection + M2 verdict gate |
+| Sessions (conversation history mgmt across runs) | loop_state.iterations + hypothesis_queue + M5 cross-run recall |
+| Tracing (built-in observability) | OTEL spans + PROOF_EXEC markers (handmade) |
+| Tools (function-call schema) | runner registry + picker schema variants |
+
+Trade-off analysis:
+
+- **PRO migration**: would replace ~2000 lines of hand-built specialist + orchestrator + handoff code with framework primitives. Less custom code = less to maintain + better observability via built-in tracing.
+- **CON migration**: Agents SDK is OpenAI-only. Adopting it would force every picker call through the OpenAI account; Claude + Gemini paths we just wired (commits 102497c through 59a5631) would have to be removed or kept as separate code paths. Multi-provider A/B testing becomes harder.
+
+Status: **defer, but watch**. Trigger to reconsider: when picker_specialists/ + the orchestrator + the handoff hooks together exceed ~3000 lines OR when the multi-provider A/B harness shows OpenAI as consistently the best provider (then SDK migration becomes net-positive).
+
+No new M-item from this read.
