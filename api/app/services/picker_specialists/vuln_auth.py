@@ -115,8 +115,6 @@ VULN_AUTH_HYPOTHESIS_SCHEMA = {
                 "properties": {
                     "rank": {
                         "type": "integer",
-                        "minimum": 1,
-                        "maximum": 100,
                         "description": "1=highest priority, 100=lowest. Use 1-10 for strong evidence, 11-30 for derivative.",
                     },
                     "title": {

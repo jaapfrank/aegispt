@@ -102,7 +102,7 @@ VULN_AUTHZ_HYPOTHESIS_SCHEMA = {
                     "estimated_severity",
                 ],
                 "properties": {
-                    "rank": {"type": "integer", "minimum": 1, "maximum": 100},
+                    "rank": {"type": "integer"},
                     "title": {"type": "string"},
                     "evidence_summary": {"type": "string"},
                     "tool": {

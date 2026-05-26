@@ -92,7 +92,7 @@ VULN_XSS_HYPOTHESIS_SCHEMA = {
                     "xss_kind",
                 ],
                 "properties": {
-                    "rank": {"type": "integer", "minimum": 1, "maximum": 100},
+                    "rank": {"type": "integer"},
                     "title": {"type": "string"},
                     "evidence_summary": {"type": "string"},
                     "tool": {

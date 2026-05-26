@@ -75,7 +75,7 @@ VULN_SSRF_HYPOTHESIS_SCHEMA = {
                     "target_url_in_payload",
                 ],
                 "properties": {
-                    "rank": {"type": "integer", "minimum": 1, "maximum": 100},
+                    "rank": {"type": "integer"},
                     "title": {"type": "string"},
                     "evidence_summary": {"type": "string"},
                     "tool": {"type": "string", "enum": ["exec-plan", "smart-web-probe", "code-exec-attack"]},
