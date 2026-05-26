@@ -692,7 +692,7 @@ function buildStoryBeats(run: Run, findings: Finding[], tasks: Task[]): StoryBea
       const tool = t.tool;
       const ts = formatHM(t.updated_at ?? t.created_at);
       if (tool === 'target-intel' && status === 'completed') {
-        beats.push({ at: ts, rawAt: String(t.updated_at ?? t.created_at), kind: 'recon', text: `I analysed the target with Claude`, detail: 'tech stack + likely vulnerabilities' });
+        beats.push({ at: ts, rawAt: String(t.updated_at ?? t.created_at), kind: 'recon', text: `I analysed the target with the picker AI`, detail: 'tech stack + likely vulnerabilities' });
       } else if (status === 'failed') {
         beats.push({ at: ts, rawAt: String(t.updated_at ?? t.created_at), kind: 'block', text: `${tool} aborted on me`, detail: 'pivoting to a different angle' });
       } else if (tool === 'exec-plan' && status === 'completed') {
@@ -786,7 +786,7 @@ const VULN_GLOSSARY: Record<string, string> = {
 // What is this tool actually doing? Plain-language descriptions for the
 // "right now" strip so the audience knows what a tool name means.
 const TOOL_NARRATIVE: Record<string, string> = {
-  'target-intel': 'analysing the target with Claude — fingerprinting tech stack and likely vulnerabilities',
+  'target-intel': 'analysing the target with the picker AI — fingerprinting tech stack and likely vulnerabilities',
   'content-discovery': 'wordlist-scanning for hidden endpoints',
   'nuclei': 'matching known-vulnerability templates against responses',
   'smart-web-probe': 'fetching the app and parsing it for entry points',

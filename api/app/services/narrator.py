@@ -274,8 +274,9 @@ def append_panel_atomic_sql(
     append-only — no race possible. The runs read endpoint joins these
     rows into the response under `narrative.panels`.
     """
-    from sqlalchemy import text
     import uuid as _uuid
+
+    from sqlalchemy import text
     sql = text(
         """
         INSERT INTO audit_events (id, actor, action, object_type, object_id, metadata_json, created_at, updated_at)
