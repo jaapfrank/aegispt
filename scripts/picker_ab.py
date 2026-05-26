@@ -9,6 +9,7 @@ from typing import Any, Sequence
 
 CLAUDE_PROVIDER = "claude-opus-4-7"
 CHATGPT_OAUTH_PROVIDER = "chatgpt_oauth"
+GEMINI_PROVIDER = "gemini-3.1-pro"
 
 
 @dataclass(frozen=True)
@@ -50,7 +51,11 @@ class PickerComparisonReport:
     winner_claim: None = None
 
 
-def build_dry_run_report(*, target: str = "dry-run://picker-ab-fixture") -> PickerComparisonReport:
+def build_dry_run_report(
+    *,
+    target: str = "dry-run://picker-ab-fixture",
+    include_gemini: bool = False,
+) -> PickerComparisonReport:
     evidence_fixture_id = "picker-ab-dry-run-v1"
     provider_results = [
         PickerProviderResult(
@@ -85,7 +90,7 @@ def build_dry_run_report(*, target: str = "dry-run://picker-ab-fixture") -> Pick
         ),
         PickerProviderResult(
             provider="chatgpt_oauth",
-            provider_config={"llm_provider": CHATGPT_OAUTH_PROVIDER, "model": "gpt-5.4"},
+            provider_config={"llm_provider": CHATGPT_OAUTH_PROVIDER, "model": "gpt-5.5"},
             target=target,
             evidence_fixture_id=evidence_fixture_id,
             run_id="dry-run-chatgpt-oauth",
@@ -114,6 +119,39 @@ def build_dry_run_report(*, target: str = "dry-run://picker-ab-fixture") -> Pick
             failure_reasons=[],
         ),
     ]
+    if include_gemini:
+        provider_results.append(
+            PickerProviderResult(
+                provider="gemini",
+                provider_config={"llm_provider": GEMINI_PROVIDER, "model": "gemini-3.1-pro-preview"},
+                target=target,
+                evidence_fixture_id=evidence_fixture_id,
+                run_id="dry-run-gemini",
+                decisions=[
+                    PickerDecisionLog(
+                        step=1,
+                        action="pick",
+                        tool="target-intel",
+                        target=target,
+                        confidence=0.69,
+                        reasoning="Mirror the same baseline evidence before choosing a next step (3-way mode).",
+                    ),
+                    PickerDecisionLog(
+                        step=2,
+                        action="exec_plan",
+                        tool="code-exec-attack",
+                        target=target,
+                        confidence=0.72,
+                        reasoning="Fixture has CPG-surfaced sinks; the harness can stage a focused exploit script.",
+                    ),
+                ],
+                finding_count=1,
+                high_or_critical_count=1,
+                canary_delta=1,
+                proof_delta=1,
+                failure_reasons=[],
+            )
+        )
     return _build_report(
         mode="dry-run",
         target=target,
@@ -133,8 +171,8 @@ def load_recorded_report(path: Path) -> PickerComparisonReport:
         raise ValueError("recorded picker A/B input requires 'target'")
     if not evidence_fixture_id:
         raise ValueError("recorded picker A/B input requires 'evidence_fixture_id' or 'evidence_id'")
-    if not isinstance(raw_results, list) or len(raw_results) != 2:
-        raise ValueError("recorded picker A/B input requires exactly two provider results")
+    if not isinstance(raw_results, list) or len(raw_results) < 2:
+        raise ValueError("recorded picker A/B input requires at least two provider results")
     provider_results = [_provider_result_from_payload(item, target, evidence_fixture_id) for item in raw_results]
     return _build_report(
         mode="recorded",
@@ -212,14 +250,19 @@ def write_report(report: PickerComparisonReport, path: Path, *, output_format: s
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compare Claude and ChatGPT-OAuth picker decisions.")
+    parser = argparse.ArgumentParser(description="Compare picker decisions across providers (2-way default, 3-way with --include-gemini).")
     parser.add_argument("--input", type=Path, help="Recorded run/result JSON to compare.")
     parser.add_argument("--target", default="dry-run://picker-ab-fixture", help="Target label for dry-run mode.")
     parser.add_argument("--output", type=Path, help="Write the comparison report to this path.")
     parser.add_argument("--format", choices=("json", "markdown"), default="json", help="Report output format.")
+    parser.add_argument("--include-gemini", action="store_true", help="Dry-run mode: include a third Gemini provider result.")
     args = parser.parse_args(argv)
 
-    report = load_recorded_report(args.input) if args.input else build_dry_run_report(target=args.target)
+    report = (
+        load_recorded_report(args.input)
+        if args.input
+        else build_dry_run_report(target=args.target, include_gemini=args.include_gemini)
+    )
     rendered = report_to_markdown(report) if args.format == "markdown" else report_to_json(report)
     if args.output:
         write_report(report, args.output, output_format=args.format)
@@ -275,8 +318,8 @@ def _build_report(
     evidence_fixture_id: str,
     provider_results: list[PickerProviderResult],
 ) -> PickerComparisonReport:
-    if len(provider_results) != 2:
-        raise ValueError("picker A/B report requires exactly two provider results")
+    if len(provider_results) < 2:
+        raise ValueError("picker A/B report requires at least two provider results")
     matched_decision_count = min(len(item.decisions) for item in provider_results)
     deltas = {
         "finding_count": _metric_delta(provider_results, "finding_count"),
@@ -307,14 +350,30 @@ def _build_report(
 
 
 def _metric_delta(provider_results: list[PickerProviderResult], field_name: str) -> dict[str, Any]:
-    left, right = provider_results
-    left_value = int(getattr(left, field_name))
-    right_value = int(getattr(right, field_name))
-    return {
-        left.provider: left_value,
-        right.provider: right_value,
-        "absolute_delta": right_value - left_value,
-    }
+    """N-way metric delta.
+
+    For 2-provider mode the result keeps the historical shape:
+    ``{provider_a: int, provider_b: int, absolute_delta: provider_b - provider_a}``.
+
+    For 3-or-more-provider mode an ``absolute_delta_pairs`` list is added
+    with every (other - first) pair, while ``absolute_delta`` still
+    encodes (last - first) for backwards-compat in 2-provider consumers.
+    """
+    values = {item.provider: int(getattr(item, field_name)) for item in provider_results}
+    first_value = int(getattr(provider_results[0], field_name))
+    last_value = int(getattr(provider_results[-1], field_name))
+    out: dict[str, Any] = dict(values)
+    out["absolute_delta"] = last_value - first_value
+    if len(provider_results) > 2:
+        out["absolute_delta_pairs"] = [
+            {
+                "first": provider_results[0].provider,
+                "other": item.provider,
+                "delta": int(getattr(item, field_name)) - first_value,
+            }
+            for item in provider_results[1:]
+        ]
+    return out
 
 
 def _safe_dict(value: Any) -> dict[str, Any]:
