@@ -1163,15 +1163,38 @@ def _maybe_dispatch_cpg_seeded_cea(
     script = ""
     severity = "high"
     rationale = ""
-    # Provider preference order (best JSON-schema adherence first):
-    #   1. Claude Opus (when ANTHROPIC_API_KEY available) — strongest schema follower
-    #   2. local-qwen (when AEGISPT_LOCAL_LLM_URL set) — free but verbose <think> output
-    #   3. chatgpt_oauth — fallback when nothing else available
+    # Provider selection. Run-config wins (`configuration_json.llm_provider`)
+    # so an operator who started the run with `--llm-provider chatgpt_oauth`
+    # never gets silently redirected to Claude. Falls back to env-based
+    # detection only when the run-config does not pin a provider.
     use_local_llm = bool(os.environ.get("AEGISPT_LOCAL_LLM_URL", "").strip())
     have_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())
+    run_cfg_provider = ""
+    try:
+        _cfg_provider_raw = (getattr(run, "configuration_json", None) or {}).get("llm_provider")
+        run_cfg_provider = str(_cfg_provider_raw or "").strip().lower()
+    except Exception:  # noqa: BLE001
+        run_cfg_provider = ""
     try:
         from api.app.services.llm_provider import LLMProvider, LLMProviderConfig  # noqa: E402
-        if have_anthropic:
+        # Run-config-pinned provider takes priority — never silently
+        # override what the operator requested.
+        if run_cfg_provider in {"chatgpt_oauth", "chatgpt-oauth"}:
+            provider = LLMProvider(LLMProviderConfig.for_model("chatgpt_oauth"))
+            logger.info(
+                "PROOF_EXEC_CPG_SEEDED_CEA_RUN_CFG_OAUTH_2026052614 run=%s — respecting run config",
+                str(getattr(run, "id", "?"))[:8],
+            )
+            have_anthropic = False
+            use_local_llm = False
+        elif run_cfg_provider in {"local-qwen", "local_qwen"}:
+            provider = LLMProvider(LLMProviderConfig.for_model("local-qwen"))
+            logger.info(
+                "PROOF_EXEC_CPG_SEEDED_CEA_RUN_CFG_LOCAL_QWEN_2026052614 run=%s",
+                str(getattr(run, "id", "?"))[:8],
+            )
+            have_anthropic = False
+        elif have_anthropic:
             provider = LLMProvider(LLMProviderConfig.for_model("claude-opus-4-7"))
             logger.info("PROOF_EXEC_CPG_SEEDED_CEA_USING_CLAUDE_2026052407 picked Anthropic")
             use_local_llm = False
@@ -1187,7 +1210,9 @@ def _maybe_dispatch_cpg_seeded_cea(
     except Exception as exc:  # noqa: BLE001
         logger.warning("cpg_seeded_cea: force-provider failed: %s", exc)
     provider_kind = (
-        "claude" if have_anthropic
+        "chatgpt_oauth" if run_cfg_provider in {"chatgpt_oauth", "chatgpt-oauth"}
+        else "local_qwen" if run_cfg_provider in {"local-qwen", "local_qwen"}
+        else "claude" if have_anthropic
         else "local_qwen" if use_local_llm
         else "anthropic" if _provider_is_anthropic(provider)
         else "chatgpt_oauth" if _provider_is_chatgpt_oauth(provider)
