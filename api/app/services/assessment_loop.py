@@ -920,6 +920,10 @@ def _maybe_dispatch_cpg_seeded_cea(
         len(getattr(run, "tasks", None) or []),
     )
     if not getattr(run, "tasks", None):
+        logger.info(
+            "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_NOTASKS_2026052613 run=%s",
+            str(getattr(run, "id", "?"))[:8],
+        )
         return None
     has_cpg = False
     cpg_text = ""
@@ -984,10 +988,16 @@ def _maybe_dispatch_cpg_seeded_cea(
                     except Exception:  # noqa: BLE001
                         pass
     logger.info(
-        "PROOF_EXEC_CPG_SEEDED_CEA_GATE_2026052405 has_cea=%s has_cpg=%s cpg_text_len=%d source_len=%d recon_len=%d",
+        "PROOF_EXEC_CPG_SEEDED_CEA_GATE_2026052405 run=%s has_cea=%s has_cpg=%s cpg_text_len=%d source_len=%d recon_len=%d",
+        str(getattr(run, "id", "?"))[:8],
         has_cea, has_cpg, len(cpg_text), len(pre_recon_source_text), len(recon_text),
     )
     if has_cea or not has_cpg or not cpg_text:
+        logger.info(
+            "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_GATE_2026052613 run=%s has_cea=%s has_cpg=%s cpg_text_empty=%s",
+            str(getattr(run, "id", "?"))[:8],
+            has_cea, has_cpg, not cpg_text,
+        )
         return None
     # Sanity: only seed when CPG actually has a non-empty sink section.
     sinks_found = []
@@ -998,19 +1008,38 @@ def _maybe_dispatch_cpg_seeded_cea(
             if "(sample, 0)" not in tail and " 0)" not in tail.split(")")[0] + ")":
                 sinks_found.append(label)
     logger.info(
-        "PROOF_EXEC_CPG_SEEDED_CEA_SINKS_2026052405 sinks_found=%s",
+        "PROOF_EXEC_CPG_SEEDED_CEA_SINKS_2026052405 run=%s sinks_found=%s",
+        str(getattr(run, "id", "?"))[:8],
         sinks_found,
     )
     if not sinks_found:
+        logger.info(
+            "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_NOSINKS_2026052613 run=%s",
+            str(getattr(run, "id", "?"))[:8],
+        )
         return None
 
+    logger.info(
+        "PROOF_EXEC_CPG_SEEDED_CEA_POST_SINKS_2026052614 run=%s",
+        str(getattr(run, "id", "?"))[:8],
+    )
     target_url = ""
     for t in (targets or []):
         target_url = str(t.get("value") or t.get("url") or "")
         if target_url:
             break
     if not target_url:
+        logger.info(
+            "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_NOTARGET_2026052613 run=%s targets_count=%d",
+            str(getattr(run, "id", "?"))[:8],
+            len(targets or []),
+        )
         return None
+    logger.info(
+        "PROOF_EXEC_CPG_SEEDED_CEA_POST_TARGET_2026052614 run=%s target_url=%r",
+        str(getattr(run, "id", "?"))[:8],
+        target_url[:80],
+    )
 
     # Trim CPG to just the sink+route sections — drop the INFO pass logs
     # which are noise. They're produced by joern-parse, not query output.
