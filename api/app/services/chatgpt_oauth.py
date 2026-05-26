@@ -532,6 +532,7 @@ def send_chatgpt_backend_streaming_json_request(
         # delta path until the model upgrade. Keep both: deltas accumulate
         # when emitted, fallback extracts from response.completed otherwise.
         completed_event: dict[str, Any] | None = None
+        error_payload: dict[str, Any] | None = None
         event_type_counts: dict[str, int] = {}
         for raw_line in response.iter_lines():
             line = str(raw_line or "").strip()
@@ -552,16 +553,43 @@ def send_chatgpt_backend_streaming_json_request(
                 output_chunks.append(str(event.get("delta") or ""))
             elif event_type == "response.completed":
                 completed_event = event
+            elif event_type in {"error", "response.failed"}:
+                # SSE returned HTTP 200 but the model run failed mid-stream
+                # (empirical 2026-05-26 smoke 43: gpt-5.5 + xhigh reasoning
+                # + heavy cpg_seeded_cea prompt → response.failed event with
+                # an OpenAI-side error payload). Capture the FIRST error so
+                # we can surface its actual reason rather than "empty output".
+                if error_payload is None:
+                    error_payload = event
     output_text = "".join(output_chunks).strip()
     if not output_text and completed_event is not None:
         output_text = _extract_text_from_completed_event(completed_event).strip()
     if not output_text:
+        error_reason = _format_oauth_error_payload(error_payload)
         logger.warning(
-            "chatgpt_oauth: empty output on model=%s effort=%s event_counts=%s",
-            model, effort or "(none)", event_type_counts,
+            "chatgpt_oauth: empty output on model=%s effort=%s event_counts=%s error=%s",
+            model, effort or "(none)", event_type_counts, error_reason,
         )
-        raise ChatGPTOAuthError("ChatGPT streaming backend response did not contain output text")
+        raise ChatGPTOAuthError(
+            f"ChatGPT streaming backend response did not contain output text "
+            f"(events={event_type_counts}; error={error_reason})"
+        )
     return _json_object_from_model_output(output_text)
+
+
+def _format_oauth_error_payload(event: dict[str, Any] | None) -> str:
+    if not event:
+        return "none"
+    if event.get("type") == "response.failed":
+        response_obj = event.get("response") or {}
+        err = response_obj.get("error") or {}
+        if isinstance(err, dict):
+            return f"{err.get('code') or err.get('type') or 'unknown'}: {err.get('message') or ''}"[:240]
+        return str(err)[:240]
+    err = event.get("error") or {}
+    if isinstance(err, dict):
+        return f"{err.get('code') or err.get('type') or 'unknown'}: {err.get('message') or ''}"[:240]
+    return str(err)[:240]
 
 
 def _extract_text_from_completed_event(event: dict[str, Any]) -> str:
