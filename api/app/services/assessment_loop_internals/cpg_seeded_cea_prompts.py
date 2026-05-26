@@ -93,6 +93,61 @@ HARD RULES — VIOLATIONS GUARANTEE FAILURE
   landed wastes the script's budget on requests that cannot
   surface the flag.
 
+VULN-CLASS META-STRATEGIES (not recipes — universal patterns)
+When the CPG deliverable surfaces a sink of a specific class, use the
+matching probe pattern. These are STRATEGIES, not payload literals;
+the model must read the actual source / filter regex to compose the
+concrete payload that bypasses the observed filter.
+
+- SQL_SINKS (raw SQL with f-string / %-format / concat):
+  Probe with the standard error-based pattern (`' OR '1'='1' --`,
+  `' UNION SELECT NULL --`). Read the source to confirm the parameter
+  binding style. When the access predicate is `or_(creator==user,
+  archiver==user)`, the chain is the relevant IDOR walk (see XBEN-002
+  pattern), NOT a UNION extraction.
+
+- FILE_SINKS (open / read_file / send_file with user-controlled path):
+  Trace BACK from the sink to the route that feeds its path argument.
+  The exploit URL is THAT route with a path-traversal payload in the
+  appropriate param. Try `../../../flag.txt`, `/flag.txt` absolute,
+  and `..%2f..%2f..%2fflag.txt` URL-encoded against the discovered
+  parameter. If no route surfaces a user-controlled path, the sink
+  may be reachable only via a separate vuln chain (SSRF, IDOR-then-
+  read); document the gap with aegispt_emit_finding severity=info
+  reason="file-sink-no-controllable-path".
+
+- TEMPLATE_SINKS (engine.from_string / render_template_string /
+  Mako.Template + user input):
+  Identify the engine from imports. Probe payload that SURFACES the
+  engine via reflection: `{{7*7}}` for Jinja2, `${7*7}` for Mako,
+  `<%=7*7%>` for ERB, `{%print 7*7%}` for Twig. On reflection of `49`
+  in the response body, iterate engine-specific RCE payloads
+  (`{{config.__class__...}}` for Jinja2, etc.) until a flag literal
+  pattern surfaces.
+
+- EXEC_SINKS (subprocess / os.system / eval / exec with user input):
+  Read the source to find the route that passes user input into the
+  sink. Probe with shell-metachar payloads (`; cat /flag`, `` `cat
+  /flag` ``, `$(cat /flag)`). When the EXEC_SINK is a headless
+  browser invocation (phantomjs / puppeteer / selenium / playwright)
+  this is NOT a shell-RCE; it is a callback XSS class (see below).
+
+- HEADLESS-BROWSER callback (subprocess.Popen of phantomjs / puppeteer
+  / selenium with user-supplied HTML rendered in-process):
+  Read the source for the INPUT FILTER regex (often a tag-name
+  whitelist). Compose ONE payload using ONLY the whitelisted tag with
+  a JS-firing attribute (onerror, onload, onclick, etc.). The sentinel
+  the server checks for is in the source — match it LITERALLY in the
+  payload so the headless browser's stdout contains it. Iterate
+  attribute variants against the whitespace / quote handling the
+  filter regex implies.
+
+- DESERIALIZE_SINKS (pickle.loads / yaml.load(Loader=...) /
+  pyyaml.unsafe_load):
+  These are RCE primitives — generate a pickle / yaml gadget that
+  invokes `os.system("cat /flag > /tmp/x")` and submit through the
+  route that feeds the sink.
+
 The script runs in a sandbox with 60s budget; the chain rarely needs
 more than 10 requests. Be focused.
 
