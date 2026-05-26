@@ -75,6 +75,23 @@ HARD RULES — VIOLATIONS GUARANTEE FAILURE
       auth succeeded. Only proceed to the exploit chain after this check.
 - DO inspect EVERY response body for the flag pattern, not just the
   expected "receipt" page.
+- WHEN the access-check predicate involves a STATE-CHANGING route
+  (names typically containing one of: `archive`, `transfer`, `grant`,
+  `assign`, `claim`, `set_*`, `update_*`, `add_*`, `delete_*`),
+  the mutation route is POST by default in Flask/Express/Django
+  apps. Try POST first; only fall back to GET when POST returns
+  405 or 404. Issuing GET on a POST-mutation route reads the form
+  but does NOT mutate state, so the subsequent read route still
+  fails the access check and returns the same generic template
+  without the protected data.
+- BEFORE iterating the exploit chain, verify the auth state took
+  effect: GET an authenticated-only route surfaced by CPG ROUTES
+  (e.g. `/dashboard`, `/account`, `/profile`). If the response is
+  302 or 401, the login did NOT succeed; print a one-line JSON
+  diagnosing `{"auth_precondition": "failed", "post_login_status":
+  <code>}` and exit 0. Iterating the chain when auth has not
+  landed wastes the script's budget on requests that cannot
+  surface the flag.
 
 The script runs in a sandbox with 60s budget; the chain rarely needs
 more than 10 requests. Be focused.
