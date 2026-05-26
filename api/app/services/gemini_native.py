@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from typing import Any
 
 import httpx
@@ -30,6 +31,39 @@ logger = logging.getLogger(__name__)
 
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_TIMEOUT_SECONDS = 240.0
+
+# Gemini free-tier daily quota is 250 requests/model/day. Once the first
+# 429 comes back, every subsequent call within the same daily window will
+# also 429. Smoke-40 burnt 1630 such calls and ~40min wall time before
+# the loop gave up on its own. Track per-model exhaustion + skip the HTTP
+# round-trip for QUOTA_BACKOFF_SECONDS so the assessment loop fails fast.
+_quota_exhausted_at: dict[str, float] = {}
+QUOTA_BACKOFF_SECONDS = 3600.0
+
+
+def reset_quota_state() -> None:
+    """Test hook — clear the per-model quota-exhaustion state."""
+    _quota_exhausted_at.clear()
+
+
+def _quota_blocked(model: str) -> bool:
+    ts = _quota_exhausted_at.get(model)
+    if ts is None:
+        return False
+    if time.time() - ts >= QUOTA_BACKOFF_SECONDS:
+        _quota_exhausted_at.pop(model, None)
+        return False
+    return True
+
+
+def _mark_quota_exhausted(model: str) -> None:
+    _quota_exhausted_at[model] = time.time()
+    logger.warning(
+        "gemini_native PROOF_EXEC quota_exhausted model=%s backoff_seconds=%d "
+        "— skipping further calls until backoff expires",
+        model,
+        int(QUOTA_BACKOFF_SECONDS),
+    )
 
 
 def _api_key() -> str:
@@ -105,6 +139,14 @@ def send_gemini_picker_request(
         otherwise the raw text wrapped as ``{"text": "..."}``. Returns
         None on transport / parse failure (caller logs + falls back).
     """
+    if _quota_blocked(model):
+        logger.warning(
+            "gemini_native: skipping call to %s — daily quota previously exhausted "
+            "(429). Wait for backoff to expire or daily reset.",
+            model,
+        )
+        return None
+
     key = _api_key()
     url = f"{GEMINI_BASE_URL}/models/{model}:generateContent"
 
@@ -147,6 +189,8 @@ def send_gemini_picker_request(
             model,
             body_preview,
         )
+        if resp.status_code == 429:
+            _mark_quota_exhausted(model)
         return None
 
     try:
