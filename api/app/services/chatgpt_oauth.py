@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import secrets
 import uuid
 from dataclasses import dataclass
@@ -22,6 +23,8 @@ from api.app.services.secrets import (
     direct_secret_storage_backend,
     encrypt_secret_value,
 )
+
+logger = logging.getLogger(__name__)
 
 CHATGPT_OAUTH_PROVIDER = "chatgpt_oauth"
 CHATGPT_OAUTH_PENDING_PURPOSE = "chatgpt_oauth.pkce_state"
