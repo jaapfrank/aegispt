@@ -1,5 +1,11 @@
 # Current State
 
+## Latest Continuation — Claude vs ChatGPT-OAuth picker diagnosis (2026-05-26)
+
+Operator asked why Claude appears to work much better inside AegisPT than ChatGPT-OAuth. Added `docs/research/claude-vs-chatgpt-picker-diagnosis-2026-05-26.md` as an investigation-only note. No runtime behavior, provider defaults, picker logic, runner behavior, queue state, or benchmark scripts were changed.
+
+Key conclusion: the local evidence does not prove Claude is intrinsically better at pentesting in AegisPT. It shows AegisPT is currently more Claude-shaped: the Anthropic picker gets native `tools=`, `output_config` JSON schema, a 12-hop tool loop, memory/http_fetch/agent-tools, context curation, and prompt cache hints. ChatGPT-OAuth gets a newer direct streamed JSON decision path without an equivalent in-turn tool loop. Current ChatGPT settings (`gpt-5.5`, reasoning `xhigh`, timeout 240s) also create high latency/retry-exhaustion risk. Recommendation: do not change default provider based on current evidence; first make the ChatGPT picker structurally equivalent or explicitly looped, normalize A/B settings, and measure solved/verified-exploited deltas.
+
 ## Latest Continuation — Repo hygiene and open task audit (2026-05-24)
 
 Operator asked to inspect the system and open tasks because the repo feels like it contains a lot of old code and files. Added `docs/research/repo-hygiene-and-open-tasks-audit-2026-05-24.md` as an audit-only report. No cleanup or runtime changes were performed.
