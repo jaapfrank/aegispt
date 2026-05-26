@@ -42,6 +42,41 @@ def _api_key() -> str:
     return key
 
 
+# Gemini's responseSchema field is a SUBSET of JSON Schema. It rejects
+# keys that Anthropic/OpenAI accept (notably additionalProperties, $defs,
+# $ref, definitions, patternProperties). Strip them before POST so a
+# specialist schema authored against Anthropic-strict still works here.
+# Empirical 400-body from gemini-3.1-pro-preview 2026-05-26:
+#   Unknown name "additionalProperties" at 'generation_config.response_schema'
+_GEMINI_UNSUPPORTED_SCHEMA_KEYS = {
+    "additionalProperties",
+    "$defs",
+    "$ref",
+    "$schema",
+    "$id",
+    "definitions",
+    "patternProperties",
+    "unevaluatedProperties",
+    "dependentRequired",
+    "dependentSchemas",
+    # OpenAI-specific extensions Gemini does not know about
+    "additional_properties",
+}
+
+
+def _strip_gemini_unsupported_keys(node: Any) -> Any:
+    """Recursively remove keys Gemini rejects from a JSON-schema-shaped dict."""
+    if isinstance(node, dict):
+        return {
+            k: _strip_gemini_unsupported_keys(v)
+            for k, v in node.items()
+            if k not in _GEMINI_UNSUPPORTED_SCHEMA_KEYS
+        }
+    if isinstance(node, list):
+        return [_strip_gemini_unsupported_keys(v) for v in node]
+    return node
+
+
 def send_gemini_picker_request(
     *,
     model: str,
@@ -76,7 +111,7 @@ def send_gemini_picker_request(
     generation_config: dict[str, Any] = {"maxOutputTokens": max_output_tokens}
     if response_schema is not None:
         generation_config["responseMimeType"] = "application/json"
-        generation_config["responseSchema"] = response_schema
+        generation_config["responseSchema"] = _strip_gemini_unsupported_keys(response_schema)
     if thinking_budget is not None:
         generation_config["thinkingConfig"] = {"thinkingBudget": int(thinking_budget)}
 
