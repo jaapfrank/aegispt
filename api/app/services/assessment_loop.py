@@ -1414,7 +1414,8 @@ def _specialists_select_next_action(
     provider = LLMProvider.for_run(getattr(run, "configuration_json", None))
     provider_is_anthropic = _provider_is_anthropic(provider)
     provider_is_chatgpt_oauth = _provider_is_chatgpt_oauth(provider)
-    if not provider_is_anthropic and not provider_is_chatgpt_oauth:
+    provider_is_gemini = _provider_is_gemini(provider)
+    if not (provider_is_anthropic or provider_is_chatgpt_oauth or provider_is_gemini):
         return None
 
     # M1 of beat-shannon-pro roadmap: adversarial script critique.
