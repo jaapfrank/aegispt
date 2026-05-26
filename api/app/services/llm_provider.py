@@ -71,6 +71,65 @@ KNOWN_PROVIDERS: dict[str, dict[str, Any]] = {
         "litellm_model": "gemini/gemini-2.0-pro",
         "api_key_env": "GEMINI_API_KEY",
     },
+    # Native REST route (gemini_native.py) -- avoids LiteLLM dependency.
+    # Use these aliases as --llm-provider values in xbow_benchmark.
+    # 2026-05-26: verified live with the operator-supplied GEMINI_API_KEY
+    # against /v1beta/models/<model>:generateContent.
+    "gemini": {
+        "model": "gemini-2.5-pro",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "gemini-2.5-pro": {
+        "model": "gemini-2.5-pro",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "gemini-2.5-flash": {
+        "model": "gemini-2.5-flash",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "gemini-3.5-flash": {
+        "model": "gemini-3.5-flash",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "gemini-3.1-pro": {
+        # Verified live 2026-05-26 against the operator key. The actual
+        # API model id is gemini-3.1-pro-preview (preview-tier).
+        "model": "gemini-3.1-pro-preview",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "gemini-3-pro": {
+        "model": "gemini-3-pro-preview",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "gemini-3-flash": {
+        "model": "gemini-3-flash-preview",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "gemini-pro-latest": {
+        # Google's own "latest" alias -- auto-points at the newest stable
+        # pro model. Use this when you don't want to pin a version.
+        "model": "gemini-pro-latest",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "gemini-flash-latest": {
+        "model": "gemini-flash-latest",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
+    "gemini-flash": {
+        # Convenience alias pointing at the newest stable flash model.
+        "model": "gemini-3.5-flash",
+        "litellm_model": None,
+        "api_key_env": "GEMINI_API_KEY",
+    },
     "deepseek-v3": {
         "model": "deepseek-v3",
         "litellm_model": "deepseek/deepseek-chat",

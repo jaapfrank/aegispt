@@ -80,6 +80,17 @@ def _provider_is_anthropic(provider: Any) -> bool:
     return str(getattr(config, "api_key_env", "") or "").strip().upper().startswith("ANTHROPIC")
 
 
+def _provider_is_gemini(provider: Any) -> bool:
+    """Detect Gemini provider — model name starts with 'gemini' or env
+    key is GEMINI_API_KEY. Used by the picker + CPG-CEA dispatcher to
+    route to api.app.services.gemini_native instead of the Anthropic /
+    ChatGPT-OAuth call paths."""
+    config = getattr(provider, "config", None)
+    model = str(getattr(config, "model", "") or "").strip().lower()
+    api_key_env = str(getattr(config, "api_key_env", "") or "").strip().upper()
+    return api_key_env == "GEMINI_API_KEY" or model.startswith("gemini")
+
+
 def _picker_schema_for_current_state(
     *,
     run: Run,
@@ -1187,6 +1198,15 @@ def _maybe_dispatch_cpg_seeded_cea(
             )
             have_anthropic = False
             use_local_llm = False
+        elif run_cfg_provider.startswith("gemini"):
+            provider = LLMProvider(LLMProviderConfig.for_model(run_cfg_provider))
+            logger.info(
+                "PROOF_EXEC_CPG_SEEDED_CEA_RUN_CFG_GEMINI_2026052615 run=%s model=%s",
+                str(getattr(run, "id", "?"))[:8],
+                provider.config.model,
+            )
+            have_anthropic = False
+            use_local_llm = False
         elif run_cfg_provider in {"local-qwen", "local_qwen"}:
             provider = LLMProvider(LLMProviderConfig.for_model("local-qwen"))
             logger.info(
@@ -1256,6 +1276,26 @@ def _maybe_dispatch_cpg_seeded_cea(
             except Exception as exc:  # noqa: BLE001
                 logger.warning("cpg_seeded_cea: local-llm call failed: %s", exc)
                 resp = None
+            logger.info(
+                "PROOF_EXEC_CPG_SEEDED_CEA_RESP_2026052406 resp_type=%s resp_keys=%s",
+                type(resp).__name__,
+                list(resp.keys())[:10] if isinstance(resp, dict) else "n/a",
+            )
+            if isinstance(resp, dict):
+                script = str(resp.get("python_script") or "").strip()
+                severity = str(resp.get("expected_finding_severity") or "high")
+                rationale = str(resp.get("rationale") or "")
+        elif _provider_is_gemini(provider):
+            from api.app.services.gemini_native import send_gemini_picker_request  # noqa: E402
+            resp = send_gemini_picker_request(
+                model=str(provider.config.model or "gemini-2.5-pro"),
+                instructions=CPG_SEEDED_CEA_PROMPT,
+                user_content=user_content,
+                response_schema=CPG_SEEDED_CEA_SCHEMA,
+                thinking_budget=8192,
+                max_output_tokens=8192,
+                timeout_seconds=300.0,
+            )
             logger.info(
                 "PROOF_EXEC_CPG_SEEDED_CEA_RESP_2026052406 resp_type=%s resp_keys=%s",
                 type(resp).__name__,
@@ -1647,7 +1687,27 @@ def _specialists_select_next_action(
 
     # Provider-specific specialist call factory. The orchestrator only
     # needs a (meta, user_content) -> dict|None callable.
-    if provider_is_chatgpt_oauth:
+    provider_is_gemini = _provider_is_gemini(provider)
+    if provider_is_gemini:
+        from api.app.services.gemini_native import send_gemini_picker_request  # noqa: E402
+
+        def _call(meta: dict[str, Any], user_content: str) -> dict[str, Any] | None:
+            try:
+                payload = send_gemini_picker_request(
+                    model=str(provider.config.model or "gemini-2.5-pro"),
+                    instructions=meta["prompt"],
+                    user_content=user_content,
+                    response_schema=meta["schema"],
+                    thinking_budget=8192,
+                    timeout_seconds=120.0,
+                )
+                if isinstance(payload, dict):
+                    return payload
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("specialist %s Gemini call failed: %s", meta["name"], exc)
+            return None
+
+    elif provider_is_chatgpt_oauth:
         from api.app.config import get_settings  # noqa: E402
         from api.app.services.chatgpt_oauth import (  # noqa: E402
             send_chatgpt_backend_streaming_json_request,
