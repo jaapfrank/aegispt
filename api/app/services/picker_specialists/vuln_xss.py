@@ -42,6 +42,22 @@ Rank hypotheses:
    user-state JSON without X-Content-Type-Options:nosniff or
    without JSON wrapper. Tool: exec-plan with cross-origin script
    inclusion proof.
+6. Headless-browser-callback XSS: source-code (visible in
+   pre-recon-source or pre-recon-cpg) imports or invokes one of
+   `phantomjs`, `puppeteer`, `selenium`, `playwright`, or a
+   `headless_chrome` driver to render server-stored HTML, AND the
+   server has a route that accepts user input which ends up in the
+   rendered HTML. The win-condition is JS execution INSIDE the
+   headless browser (the server typically reads phantomjs stdout
+   and returns the flag when a specific sentinel like `XSS` or a
+   beacon URL fires). Tool: code-exec-attack. Examine the source
+   FIRST to identify the filter pattern (the server may strip
+   common tags and only allow a narrow whitelist). The hypothesis
+   must point at the SPECIFIC allowed-tag the filter leaves alive,
+   so the runner LLM can compose a JS-firing attribute on that
+   tag. Do NOT propose this hypothesis when no headless-browser
+   import is observed — it is not applicable to standard reflected
+   or stored XSS challenges.
 
 NO BLIND PAYLOAD SPAM
 A hypothesis must point at ONE SPECIFIC reflective sink the recon
@@ -95,7 +111,7 @@ VULN_XSS_HYPOTHESIS_SCHEMA = {
                     },
                     "xss_kind": {
                         "type": "string",
-                        "enum": ["reflected", "stored", "dom", "csp_bypass", "xssi"],
+                        "enum": ["reflected", "stored", "dom", "csp_bypass", "xssi", "headless_callback"],
                     },
                     "exec_plan_steps": {"type": "string"},
                     "needs_credentials_from_vault": {"type": "boolean"},

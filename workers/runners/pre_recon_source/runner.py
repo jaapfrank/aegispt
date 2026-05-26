@@ -83,6 +83,17 @@ SINK_PATTERNS = [
     (re.compile(r"\beval\s*\("), "js-eval", "critical"),
     (re.compile(r"\bdocument\.write\s*\("), "js-document-write", "high"),
     (re.compile(r"\bsetTimeout\s*\(\s*[fr]?[\"']"), "js-setTimeout-string", "medium"),
+    # Headless-browser-callback indicator: server-side spawn of a
+    # JS-executing renderer over user-supplied HTML. Win condition for
+    # this class is JS firing inside the headless browser, NOT a
+    # server-side state change. vuln_xss specialist's
+    # `headless_callback` hypothesis triggers on this finding.
+    (re.compile(r"\bphantomjs\b", re.IGNORECASE), "headless-phantomjs", "high"),
+    (re.compile(r"\bpuppeteer\b"), "headless-puppeteer", "high"),
+    (re.compile(r"\bselenium\b", re.IGNORECASE), "headless-selenium", "high"),
+    (re.compile(r"\bplaywright\b", re.IGNORECASE), "headless-playwright", "high"),
+    (re.compile(r"\bheadless[\s_-]?chrome\b", re.IGNORECASE), "headless-chrome", "high"),
+    (re.compile(r"\bwebdriver\b", re.IGNORECASE), "headless-webdriver", "high"),
 ]
 
 # Auth + credentials patterns.
