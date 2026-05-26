@@ -124,6 +124,10 @@ from workers.runners.api_assessment.runner import (
     execute_api_assessment,
 )
 from workers.runners.auth_flow.runner import execute_auth_flow_analysis
+from workers.runners.recon_deliverable.runner import execute_recon_deliverable
+from workers.runners.code_exec_attack.runner import execute_code_exec_attack
+from workers.runners.pre_recon_source.runner import execute_pre_recon_source
+from workers.runners.pre_recon_cpg.runner import execute_pre_recon_cpg
 from workers.runners.aws_inventory.runner import execute_aws_inventory
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution, RunnerRequest
 from workers.runners.base.stdout_stream import (
@@ -244,6 +248,10 @@ SUPPORTED_TOOLS = {
     "ai-shell",
     "api-assessment",
     "auth-flow",
+    "recon-deliverable",  # Phase 2 of landscape-plan 2026-05-22 — Shannon-style attack surface map
+    "code-exec-attack",   # Phase B 2026-05-22 — AI-emitted Python exploit script with scope-guarded httpx
+    "pre-recon-source",   # Phase 4 2026-05-22 — Shannon-style white-box source audit (opt-in per run)
+    "pre-recon-cpg",      # M3 beat-shannon-pro 2026-05-23 — Joern CPG dataflow scan
     "aws-inventory",
     "bloodhound-collect",
     "biz-logic-probe",
@@ -2231,9 +2239,27 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 if any(kw in p for kw in ("/newaccount", "/register", "/signup", "/sign-up", "/create-account", "/join")):
                     auto_reg_url = str(path)
                     break
+        # Translate flat username/password to auth_contexts list shape.
+        # The picker empirically emits {username:"test", password:"test"}
+        # when it discovers credentials in HTML (see v9/run 7bb21966
+        # 2026-05-22), but the runner requires auth_contexts=[{...}]. The
+        # mismatch caused 0% auth-flow execution despite the picker
+        # consistently surfacing valid credentials → runner skip → exec_plan
+        # blind-guess fallback that fails on the wrong endpoint. Building
+        # auth_contexts from the flat shape here unblocks the credentialed
+        # exploit path.
+        auth_contexts_value = request.params.get("auth_contexts", [])
+        if not auth_contexts_value or (isinstance(auth_contexts_value, list) and not auth_contexts_value):
+            flat_username = request.params.get("username")
+            flat_password = request.params.get("password")
+            if flat_username and flat_password:
+                auth_contexts_value = [{
+                    "username": str(flat_username),
+                    "password": str(flat_password),
+                }]
         return execute_auth_flow_analysis(
             targets=request.targets,
-            auth_contexts=request.params.get("auth_contexts", []),
+            auth_contexts=auth_contexts_value,
             scope_allowlist=request.scope_allowlist,
             registration_url=auto_reg_url,
             reg_username_field=str(request.params.get("reg_username_field") or "username"),
@@ -2310,6 +2336,38 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 if isinstance(request.params.get("active_scanner_ids"), list)
                 else limits.get("zap_active_scanner_ids", [])
             ),
+        )
+
+    if request.tool == "recon-deliverable":
+        return execute_recon_deliverable(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "code-exec-attack":
+        return execute_code_exec_attack(
+            targets=request.targets,
+            script=str(request.params.get("script") or ""),
+            scope_allowlist=request.scope_allowlist,
+            # code-exec-attack scripts are multi-step exploit chains
+            # (login + state-change + read + flag-scan + retries).
+            # 10s default is too tight; chains time-out before reaching
+            # the flag. 60s is the runner's own default.
+            timeout_seconds=max(timeout_seconds, 60.0),
+        )
+    if request.tool == "pre-recon-source":
+        return execute_pre_recon_source(
+            targets=request.targets,
+            source_dir=str(request.params.get("source_dir") or "") or None,
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "pre-recon-cpg":
+        return execute_pre_recon_cpg(
+            targets=request.targets,
+            source_dir=str(request.params.get("source_dir") or "") or None,
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=timeout_seconds,
         )
 
     raise ValueError(f"unsupported tool runner: {request.tool}")
@@ -5247,6 +5305,57 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             else:
                 task.status = "failed"
             _update_run_status(session, task.run)
+            # Persist auth-flow's working credentials into the run credential
+            # vault so downstream chain dispatches (autonomous agent sequence,
+            # session-security with the same creds) can resolve `auth.username`
+            # references without re-discovering them. Empirically gated on the
+            # auth-flow runner's stdout reporting auth_context_count >= 1 —
+            # that's the runner's signal that creds passed the loginability
+            # check (not just that they were dispatched). Without this, the
+            # second auth-flow dispatch in run 37aef115 (2026-05-22) skipped
+            # because the chained params used password_source="…test_account…"
+            # as a reference into an empty vault.
+            if (
+                execution.exit_code == 0
+                and task.tool == "auth-flow"
+                and run_uses_ai_loop(task.run)
+            ):
+                try:
+                    persisted_username = str(runner_params.get("username") or "").strip()
+                    persisted_password = str(runner_params.get("password") or "").strip()
+                    if not (persisted_username and persisted_password):
+                        # Fall back to auth_contexts[0] if the dispatcher
+                        # converted flat to list before dispatch.
+                        ac = runner_params.get("auth_contexts") or []
+                        if isinstance(ac, list) and ac and isinstance(ac[0], dict):
+                            persisted_username = str(ac[0].get("username") or "").strip() or persisted_username
+                            persisted_password = str(ac[0].get("password") or "").strip() or persisted_password
+                    # Only store when stdout reports the runner actually used
+                    # the credentials (auth_context_count >= 1). Otherwise we
+                    # could promote a never-validated guess.
+                    stdout_text = str(execution.stdout or "")
+                    if (
+                        persisted_username
+                        and persisted_password
+                        and '"auth_context_count": 1' in stdout_text
+                    ):
+                        store_run_credential_vault_secret(
+                            session=session,
+                            run=task.run,
+                            settings=get_settings(),
+                            secret_kind="password",
+                            value=persisted_password,
+                            label=f"auth-flow:{persisted_username}",
+                            source_task_id=str(task.id),
+                            source_tool="auth-flow",
+                            target=(task_targets[0] if task_targets else None),
+                            username=persisted_username,
+                            discovery_source="auth_flow_success",
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        "auth-flow vault persistence skipped: %s", exc
+                    )
         run_completion_reached = previous_run_status not in {
             "completed",
             "completed_with_errors",

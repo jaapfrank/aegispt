@@ -388,6 +388,11 @@ def execute_exec_plan(
             # If expectations passed and there's an on_success.create_finding, emit it
             if passed:
                 on_success = step.get("on_success") or {}
+                # Defensive: specialists/picker sometimes emit on_success as
+                # a free-text string instead of the expected dict. Treat
+                # non-dict as empty (no finding emit) rather than crashing.
+                if not isinstance(on_success, dict):
+                    on_success = {}
                 finding_spec = on_success.get("create_finding")
                 if isinstance(finding_spec, dict):
                     severity = str(finding_spec.get("severity") or "high").lower()
