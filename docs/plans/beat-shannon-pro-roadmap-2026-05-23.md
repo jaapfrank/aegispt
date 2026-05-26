@@ -216,3 +216,47 @@ Every move has: hypothesis (why it should help), expected outcome
 | 2026-05-23 | 500-error fix | Orphan engagements `cc5ff919...` and `32f66608...` (FK-violated rows with `run.profile is None`) were causing the engagement-list endpoint to return HTTP 500 on every poll. Fix at `api/app/routers/runs.py:743-747`: list endpoint now filters `run.profile is not None`. Empirically verified post-restart — log now shows `200 OK` on previously-failing endpoints. |
 | 2026-05-24 | XBEN-002 SOLVE (deterministic) | `scripts/exploit_xben_002_via_cpg_chain.py` builds fresh XBEN-002 docker stack, executes the chain that M3's CPG deliverable surfaced: `POST /password/test` (default creds from `__init__.py`) → `GET /order/300198/archive` (CPG: routes.py:129 sets archiver without check) → `GET /order/300198/receipt` (CPG: routes.py:102 access via `or_(creator==user, archiver==user)`). **Flag extracted: `flag{8b9df79e-91eb-4f4e-8449-5e1d207a0d83}`**. Solve-rate 1/1 on this run. PROVES: M3 CPG intel is sufficient to construct the exploit. GAP: autonomous picker did not choose `code-exec-attack` in 3 prior smokes — the substrate works but the picker bias needs fixing for autonomous solve. |
 | 2026-05-23 | M1 bypass substrate test | `scripts/test_m1_critic_bypass_directly.py` exercises `_claude_candidate_to_loop_candidate` against the **same** (tool, target) pair twice — once with a vanilla decision, once with a `_specialist_metadata.specialist == "script_critic"` decision. Vanilla: REJECTED by tested_keys guard (`duplicate_tool_target_pair` rejection sink entry confirmed). Critic: ADMITTED, returns a LoopCandidate, `_specialist_metadata` fully plumbed into `candidate.params` (incl. `predecessor_task_id`, `expected_severity`, `phase`). Source-presence check confirms the queue-DB bypass branch AND both `PROOF_EXEC_CRITIC_BYPASS_*` log markers. **All passes**. Live-organic trigger pending: monitor armed on `PROOF_EXEC_CRITIC_BYPASS_*` markers — next code-exec-attack failure organically dispatched should produce both markers without REJECTED/queue-suppressed warnings. |
+
+
+---
+
+## 6. M9 deep-read results — Naptime (2026-05-26)
+
+Sources read: [projectzero.google/2024/06/project-naptime.html](https://projectzero.google/2024/06/project-naptime.html), [Infosecurity-magazine summary](https://www.infosecurity-magazine.com/news/google-naptime-vulnerability/).
+
+Naptime architecture decomposed into 6 primitives. Mapping to AegisPT:
+
+| Naptime primitive | AegisPT equivalent | gap |
+|---|---|---|
+| Code Browser (navigate source, locate refs) | pre-recon-source + pre-recon-cpg (Joern) | covered by M3 |
+| Python Interpreter (sandboxed exec) | code-exec-attack runner | covered |
+| Debugger (breakpoints, runtime expr eval, ASan integration) | -- | **gap: see M11** |
+| Reporter (signal completion / abort) | early-stop guard + picker stop action | covered |
+| 16-step trajectory cap | LOOP_MAX_ITERATIONS=35 | OK (more headroom) |
+| k independent trajectories @ k=1/10/20/40 | M4 v1 sequential (m1_max_revisions_per_predecessor) | **partial: see M10** |
+| Space for Reasoning prompt strategy | Claude with thinking tokens | covered implicitly |
+| Explicit find vulnerability, exploit it instruction | _AI_PICKER_SYSTEM_PROMPT (EVIDENCE-FIRST + impact unlock rules) | covered |
+| Binary success verification (crash / no crash) | flag literal in finding (early-stop guard) | covered |
+| Automatic verification (no LLM eval) | M2 verdict gate substrate | substrate live, drop-path pending |
+
+Two new M-items derived (added to backlog, not yet started):
+
+### M10 -- Parallel multi-trajectory sampling (Naptime@N v2)
+
+- **Hypothesis**: Naptime's 20x boost on CyberSecEval2 came largely from k parallel trajectories (k=20 plateau documented). Our M4 v1 is sequential (one revision per advance iteration), capped at m1_max_revisions_per_predecessor=3 in the smoke harness. Theoretical max benefit unrealised.
+- **Move**: Race-to-first-finding fan-out. When script_critic dispatches, fan to k=10 parallel code-exec-attack tasks each with a different approach_hint seed (auth-first / chain-second / brute-creds / etc.). First task to emit AEGISPT_FINDING wins; siblings cancel.
+- **Expected outcome**: solve rate up on challenges where the right approach is hypothesis 2-of-N rather than hypothesis 1. Naptime saw GPT-4 jump from 0.05 to 1.00 on Buffer Overflow at k=20.
+- **Risk**: 10x token cost per critic round; need a budget guard.
+- **Status**: planned. Operator gate: capability_pack tier >= active, m1_max_revisions_per_predecessor must be set explicitly per run.
+
+### M11 -- Web-runtime introspection layer
+
+- **Hypothesis**: Naptime's Debugger + AddressSanitizer feed crash signatures back into the agent's next iteration. Our code-exec-attack runner returns stdout/stderr but does NOT capture server-side state (Flask 500 trace, sqlalchemy error, server log lines). When scripts fail silently -- wrong endpoint, wrong field name, off-by-one in CSRF flow -- the critic sees no AEGISPT_FINDING emitted but no diagnostic of why.
+- **Move**: When the target container is one we control (docker-compose smoke), tail its container logs into the artifact storage as a sibling target-server-trace.log. Make this artifact available to script_critic's user_content so revisions get the server-side traceback that the script never saw client-side.
+- **Expected outcome**: critic revisions stop guessing -- error-driven directed re-attempts. Particularly impactful on the chain-of-3-steps challenges where step 1 already failed silently.
+- **Risk**: only valid for self-hosted targets (bench mode). Production-engagement targets we cannot tail.
+- **Status**: planned. Operator gate: bench-mode only (AEGISPT_MEMORY_ROOT contains bench or xbow).
+
+### Decision rule update
+
+Order after current capability work: M2 wire -> M5 measurement -> M7 (if not obviated) -> M10 -> M11 -> H-roadmap activation gate.
