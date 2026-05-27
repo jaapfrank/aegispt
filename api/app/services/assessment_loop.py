@@ -91,6 +91,24 @@ def _provider_is_gemini(provider: Any) -> bool:
     return api_key_env == "GEMINI_API_KEY" or model.startswith("gemini")
 
 
+def _provider_is_local_qwen(provider: Any) -> bool:
+    """Detect local-qwen provider — talks to an OpenAI-compatible endpoint
+    at AEGISPT_LOCAL_LLM_URL. Used by picker + specialists to route to the
+    local llama-cpp-python server (Qwen3.6-27B-Heretic, uncensored) when
+    cloud providers are quota-blocked or content-filtered."""
+    config = getattr(provider, "config", None)
+    model = str(getattr(config, "model", "") or "").strip().lower()
+    return model in {"local-qwen", "local_qwen"}
+
+
+def _strip_qwen_reasoning_tokens(text: str) -> str:
+    """Qwen3.x emits a `<think>...</think>` block before the answer. Strip
+    it so JSON parsers see the actual content. No-op when absent."""
+    if "</think>" in text:
+        text = text.split("</think>", 1)[1]
+    return text.lstrip()
+
+
 def _picker_schema_for_current_state(
     *,
     run: Run,
@@ -156,6 +174,96 @@ def _collect_discovered_targets(run: Run, limit: int = 15) -> list[str]:
             if len(paths) >= limit:
                 return paths
     return paths
+
+
+def _local_qwen_select_next_action(
+    *,
+    run: Run,
+    session: Any,
+    user_content: str,
+    tested_keys: set[str],
+    available_tools: list[str],
+) -> dict[str, Any] | None:
+    """Picker call against the local llama-cpp-python server (Qwen3.6-27B
+    Heretic Uncensored). OpenAI-compatible /v1/chat/completions with
+    response_format=json_object to enforce JSON-only output. The picker
+    schema is included in the system prompt for the model to follow; the
+    decoder is tolerant of extra `<think>` reasoning tokens that Qwen3.x
+    emits before the answer."""
+    import os as _os  # noqa: E402
+    import httpx as _httpx  # noqa: E402
+
+    llm_url = (_os.environ.get("AEGISPT_LOCAL_LLM_URL", "") or "").rstrip("/")
+    if not llm_url:
+        logger.warning(
+            "picker: AEGISPT_LOCAL_LLM_URL is empty; local-qwen picker cannot run. "
+            "Set it in the API service environment to point at the OpenAI-compatible endpoint."
+        )
+        return None
+    try:
+        picker_schema = _picker_schema_for_current_state(
+            run=run,
+            tested_keys=tested_keys,
+            available_tools=available_tools,
+        )
+        system_prompt = (
+            _AI_PICKER_SYSTEM_PROMPT
+            + "\n\n=== LOCAL QWEN PICKER MODE ===\n"
+            "Return ONE JSON object that matches the schema below. "
+            "Do not wrap in markdown. Do not include prose outside JSON. "
+            "Internal `<think>...</think>` reasoning is fine but the FINAL "
+            "non-think output must be exactly one JSON object.\n\n"
+            "Picker JSON Schema:\n"
+            + json.dumps(picker_schema, separators=(",", ":"))
+        )
+        body = {
+            "model": "local-qwen",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.2,
+            "max_tokens": 2048,
+        }
+        # 300s is generous: Qwen3.6 IQ3_M on a single 5080 averages
+        # ~15-25 t/s; a 2K-token answer with `<think>` block can run up
+        # to ~3 min. Keeps the picker from timing out on long reasoning
+        # without leaking unbounded waits into the loop.
+        with _httpx.Client(timeout=300.0) as client:
+            resp = client.post(
+                f"{llm_url}/v1/chat/completions",
+                json=body,
+                headers={"Content-Type": "application/json"},
+            )
+        if resp.status_code != 200:
+            logger.warning(
+                "picker: local-qwen HTTP %d body=%r",
+                resp.status_code, resp.text[:240],
+            )
+            return None
+        data = resp.json()
+        content = ""
+        for choice in (data.get("choices") or [])[:1]:
+            content = str((choice.get("message") or {}).get("content") or "")
+        content = _strip_qwen_reasoning_tokens(content).strip()
+        if not content:
+            logger.warning("picker: local-qwen returned empty content")
+            return None
+        try:
+            payload = json.loads(content)
+        except json.JSONDecodeError:
+            logger.warning("picker: local-qwen content was not JSON; head=%r", content[:240])
+            return None
+        if isinstance(payload.get("decision"), dict):
+            payload = payload["decision"]
+        if not isinstance(payload, dict):
+            logger.warning("picker: local-qwen response was not a JSON object")
+            return None
+        return _decode_picker_plan(payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("picker: local-qwen next-action call failed: %s", exc)
+        return None
 
 
 def _chatgpt_oauth_select_next_action(
@@ -1417,7 +1525,8 @@ def _specialists_select_next_action(
     provider_is_anthropic = _provider_is_anthropic(provider)
     provider_is_chatgpt_oauth = _provider_is_chatgpt_oauth(provider)
     provider_is_gemini = _provider_is_gemini(provider)
-    if not (provider_is_anthropic or provider_is_chatgpt_oauth or provider_is_gemini):
+    provider_is_local_qwen = _provider_is_local_qwen(provider)
+    if not (provider_is_anthropic or provider_is_chatgpt_oauth or provider_is_gemini or provider_is_local_qwen):
         return None
 
     # M1 of beat-shannon-pro roadmap: adversarial script critique.
@@ -1742,6 +1851,61 @@ def _specialists_select_next_action(
                 logger.warning("specialist %s ChatGPT call failed: %s", meta["name"], exc)
             return None
 
+    elif provider_is_local_qwen:
+        import os as _os_lq  # noqa: E402
+        import httpx as _httpx_lq  # noqa: E402
+
+        llm_url = (_os_lq.environ.get("AEGISPT_LOCAL_LLM_URL", "") or "").rstrip("/")
+
+        def _call(meta: dict[str, Any], user_content: str) -> dict[str, Any] | None:
+            if not llm_url:
+                logger.warning(
+                    "specialist %s local-qwen: AEGISPT_LOCAL_LLM_URL empty; cannot call",
+                    meta["name"],
+                )
+                return None
+            instructions = (
+                meta["prompt"]
+                + "\n\nReturn ONLY one JSON object matching this schema. "
+                "No markdown, no prose outside JSON:\n"
+                + json.dumps(meta["schema"], separators=(",", ":"))
+            )
+            try:
+                with _httpx_lq.Client(timeout=300.0) as client:
+                    resp = client.post(
+                        f"{llm_url}/v1/chat/completions",
+                        json={
+                            "model": "local-qwen",
+                            "messages": [
+                                {"role": "system", "content": instructions},
+                                {"role": "user", "content": user_content},
+                            ],
+                            "response_format": {"type": "json_object"},
+                            "temperature": 0.2,
+                            "max_tokens": 2048,
+                        },
+                        headers={"Content-Type": "application/json"},
+                    )
+                if resp.status_code != 200:
+                    logger.warning(
+                        "specialist %s local-qwen HTTP %d body=%r",
+                        meta["name"], resp.status_code, resp.text[:200],
+                    )
+                    return None
+                data = resp.json()
+                content = ""
+                for choice in (data.get("choices") or [])[:1]:
+                    content = str((choice.get("message") or {}).get("content") or "")
+                content = _strip_qwen_reasoning_tokens(content).strip()
+                if not content:
+                    return None
+                payload = json.loads(content)
+                if isinstance(payload, dict):
+                    return payload
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("specialist %s local-qwen call failed: %s", meta["name"], exc)
+            return None
+
     else:
         # Anthropic provider — direct client.messages.create per specialist.
         client = provider.raw_anthropic_client()
@@ -2010,10 +2174,10 @@ def _claude_select_next_action(
     provider = LLMProvider.for_run(getattr(run, "configuration_json", None))
     provider_is_anthropic = _provider_is_anthropic(provider)
     provider_is_chatgpt_oauth = _provider_is_chatgpt_oauth(provider)
-    if not provider_is_anthropic and not provider_is_chatgpt_oauth:
+    provider_is_local_qwen = _provider_is_local_qwen(provider)
+    if not (provider_is_anthropic or provider_is_chatgpt_oauth or provider_is_local_qwen):
         logger.warning(
-            "picker: configured model %s is non-Anthropic; tool-use features unsupported "
-            "and no governed picker branch exists for this provider. Skipping picker call.",
+            "picker: configured model %s has no governed picker branch. Skipping picker call.",
             provider.config.model,
         )
         return None
@@ -2276,6 +2440,15 @@ def _claude_select_next_action(
 
     if provider_is_chatgpt_oauth:
         return _chatgpt_oauth_select_next_action(
+            run=run,
+            session=session,
+            user_content=user_content,
+            tested_keys=tested_keys,
+            available_tools=available_tools,
+        )
+
+    if provider_is_local_qwen:
+        return _local_qwen_select_next_action(
             run=run,
             session=session,
             user_content=user_content,
