@@ -112,6 +112,69 @@ def _strip_qwen_reasoning_tokens(text: str) -> str:
 _DEFAULT_WALL_CLOCK_BUDGET_SECONDS = 1800.0
 
 
+def _load_skill_pack_text() -> str:
+    """Load all docs/skills/*.md files and concatenate as a single block
+    that's appended to the picker system prompt when
+    AEGISPT_SKILL_PACK_ENABLED is set.
+
+    Without this, the 4 skill files at docs/skills/ (access-control,
+    SSTI, JWT-forgery, SQLi-REST) are orphan-orphans: written but
+    never injected into any LLM prompt. Operator-flagged 2026-05-28:
+    'als ze niet ge-injected worden, hebben we 4 mooie .md files die
+    de LLM nooit ziet'.
+
+    Returns empty string when the env flag is unset OR no skill files
+    exist OR loading fails. Best-effort: never raises.
+    """
+    import os as _os_skills
+    if str(_os_skills.environ.get("AEGISPT_SKILL_PACK_ENABLED", "") or "").strip().lower() not in {"1", "true", "yes", "on"}:
+        return ""
+    try:
+        from pathlib import Path as _Path_skills
+        skills_dir = _Path_skills(__file__).resolve().parents[3] / "docs" / "skills"
+        if not skills_dir.exists() or not skills_dir.is_dir():
+            return ""
+        skill_files = sorted(skills_dir.glob("*.md"))
+        # Skip README.md — it's documentation about the skill format,
+        # not a vuln-class skill itself.
+        skill_files = [p for p in skill_files if p.name.lower() != "readme.md"]
+        if not skill_files:
+            return ""
+        body_parts = []
+        for path in skill_files:
+            try:
+                content = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            body_parts.append(f"--- SKILL FILE: {path.name} ---\n{content}\n")
+        if not body_parts:
+            return ""
+        return (
+            "\n\n=== VULN-CLASS SKILL PACK (AEGISPT_SKILL_PACK_ENABLED=1) ===\n"
+            "The following are vuln-class technique playbooks distilled from prior "
+            "forensic analyses. Each is a GENERIC technique, NOT a target-specific "
+            "recipe. When the recon evidence matches a skill's class signature, "
+            "follow that skill's Phase A / Phase B / mutation strategy / stop "
+            "conditions. Skills inform your decisions; they do not replace your "
+            "judgement.\n\n"
+            + "\n".join(body_parts)
+        )
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+_AEGISPT_SKILL_PACK_TEXT: str = _load_skill_pack_text()
+
+
+def _picker_prompt_with_skills() -> str:
+    """Return the picker system prompt with the skill pack appended when
+    enabled. Cached at import time via _AEGISPT_SKILL_PACK_TEXT; toggle
+    via AEGISPT_SKILL_PACK_ENABLED env requires API restart."""
+    if _AEGISPT_SKILL_PACK_TEXT:
+        return _AI_PICKER_SYSTEM_PROMPT + _AEGISPT_SKILL_PACK_TEXT
+    return _AI_PICKER_SYSTEM_PROMPT
+
+
 def _log_anthropic_usage(*, site: str, run_id: str, msg: Any) -> None:
     """Log Anthropic-API token usage so operators can compute cache hit rate
     post-hoc. Without this, the ledger only shows aggregate cost (~EUR 3.10
@@ -283,7 +346,7 @@ def _local_qwen_select_next_action(
             available_tools=available_tools,
         )
         system_prompt = (
-            _AI_PICKER_SYSTEM_PROMPT
+            _picker_prompt_with_skills()
             + "\n\n=== LOCAL QWEN PICKER MODE ===\n"
             "Return ONE JSON object that matches the schema below. "
             "Do not wrap in markdown. Do not include prose outside JSON. "
@@ -374,7 +437,7 @@ def _chatgpt_oauth_select_next_action(
             available_tools=available_tools,
         )
         instructions = (
-            _AI_PICKER_SYSTEM_PROMPT
+            _picker_prompt_with_skills()
             + "\n\n=== CHATGPT OAUTH PICKER MODE ===\n"
             "This provider branch does not expose assistant tool-calls inside the model "
             "turn. Return the final picker decision directly. If more evidence is needed, "
@@ -2725,7 +2788,7 @@ def _claude_select_next_action(
                 max_tokens=PICKER_MAX_TOKENS,
                 system=[{
                     "type": "text",
-                    "text": _AI_PICKER_SYSTEM_PROMPT,
+                    "text": _picker_prompt_with_skills(),
                     "cache_control": {"type": "ephemeral"},
                 }],
                 tools=tools,
