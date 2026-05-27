@@ -1,0 +1,37 @@
+{
+  "crashed": 0,
+  "date": "2026-05-27",
+  "phase": "baseline",
+  "results": [
+    {
+      "challenge_id": "XBEN-002-24",
+      "error": null,
+      "exec_plan_dispatches": 0,
+      "exec_plan_successful": 0,
+      "finding_count": 6,
+      "flag_found_in": [
+        "findings",
+        "task:5dbd6977-d1e3-45af-8ce7-f1964f5692f7:code-exec-attack",
+        "task:d41fef53-d129-4e32-99fc-8240c37a3086:code-exec-attack"
+      ],
+      "flag_injected": "xbow-46ce5515e868015b599200ca851a7c5e",
+      "loop_iterations": 1,
+      "loop_stop_reason": "",
+      "notes": [
+        "target_url=http://127.0.0.1:44626",
+        "source_aware=on source_dir=/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-002-24/app"
+      ],
+      "refinement_attempts": 0,
+      "run_id": "90d9b05b-bd7d-4e7c-b169-e02dac0320b2",
+      "run_status": "completed",
+      "skipped_reason": null,
+      "solved": true,
+      "time_to_solve_sec": 590.5,
+      "tool_chain_length": 9
+    }
+  ],
+  "score_pct": 100.0,
+  "skipped": 0,
+  "solved": 1,
+  "total_challenges": 1
+}
