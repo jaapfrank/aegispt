@@ -113,7 +113,45 @@ if _aegispt_httpx is not None:
     _aegispt_httpx.AsyncClient.send = _aegispt_guarded_async_send  # type: ignore
 
 # Convenience helper for the AI: emit a finding marker.
-def aegispt_emit_finding(*, title, severity, summary="", evidence_url=None, evidence_excerpt=""):
+# Operator-flagged 2026-05-27 (smoke 50 XBEN-009): Gemini called
+# aegispt_emit_finding(evidence=...) instead of evidence_excerpt=...
+# Strict kwarg-only raised TypeError BEFORE the AEGISPT_FINDING line
+# printed, so even a correct exploit was thrown away. The contract
+# is now typo-tolerant: any unknown kwarg is bucketed into
+# evidence_excerpt (string-ish) or evidence_url (URL-ish), and the
+# printf happens FIRST so a downstream signature error can never eat
+# the proof.
+def aegispt_emit_finding(*args, title="", severity="info", summary="",
+                          evidence_url=None, evidence_excerpt="",
+                          **extra_kwargs):
+    # Accept positional args defensively: (title, severity, ...) or
+    # just (title,). Map them into the kwarg slots.
+    if args:
+        if len(args) >= 1 and not title:
+            title = args[0]
+        if len(args) >= 2 and severity == "info":
+            severity = args[1]
+        if len(args) >= 3 and not summary:
+            summary = args[2]
+    # Bucket any unknown kwarg into the matching slot.
+    for key, val in list(extra_kwargs.items()):
+        key_l = str(key).lower()
+        if key_l in {"evidence", "proof", "excerpt", "body", "content"}:
+            # URL-shaped value → evidence_url, else evidence_excerpt.
+            val_s = str(val) if val is not None else ""
+            if val_s.startswith(("http://", "https://")) and " " not in val_s:
+                evidence_url = evidence_url or val_s
+            else:
+                evidence_excerpt = evidence_excerpt or val_s
+        elif key_l in {"url", "endpoint", "link", "uri"}:
+            evidence_url = evidence_url or (str(val) if val else None)
+        elif key_l in {"desc", "description", "notes", "detail"}:
+            summary = summary or str(val or "")
+        elif key_l in {"sev", "severity_level"}:
+            severity = severity if severity != "info" else str(val or severity)
+        elif key_l in {"name", "headline", "label"}:
+            title = title or str(val or "")
+        # silently ignore truly unknown keys — never raise.
     sev = str(severity or "info").lower()
     if sev not in {"critical", "high", "medium", "low", "info"}:
         sev = "info"
@@ -124,6 +162,8 @@ def aegispt_emit_finding(*, title, severity, summary="", evidence_url=None, evid
         "evidence_url": str(evidence_url) if evidence_url else None,
         "evidence_excerpt": str(evidence_excerpt)[:2000],
     }
+    # printf FIRST so any subsequent error in serialization or stdout
+    # encoding cannot eat the proof of finding.
     print("AEGISPT_FINDING:", _aegispt_json.dumps(payload), flush=True)
 
 # === end preamble ===

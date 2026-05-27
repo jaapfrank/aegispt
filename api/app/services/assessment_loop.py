@@ -5118,6 +5118,21 @@ def advance_assessment_loop(
                 )
                 break
 
+    # Budget guard 2026-05-27 (operator-flagged smoke 50 / XBEN-009):
+    # the picker correctly returned None at T+1042s when budget exhausted,
+    # but the next_best_action_selector fallback kept queuing low-value
+    # probes (file-upload-probe, info-disclosure-probe, http-smuggling,
+    # logging-probe...) for another 17 minutes. The whole point of the
+    # budget guard is to STOP spending wall-clock + cost. So gate the
+    # selector with the same check.
+    if _run_budget_exhausted(run):
+        logger.info(
+            "PROOF_EXEC_NEXT_BEST_ACTION_BUDGET_SKIPPED_2026052712 run=%s "
+            "selector skipped because wall_clock_budget_seconds exceeded",
+            str(getattr(run, "id", "?"))[:8],
+        )
+        return None
+
     selector_targets = _context_targets(context_document) or targets
     # backlog-404 — when the operator explicitly opted into
     # autonomous-intrusive at run-create time, the selector returns
