@@ -285,6 +285,58 @@ def execute_code_exec_attack(
     # Assemble the full script: preamble + AI body.
     full_script = SCOPE_GUARD_PREAMBLE + "\n\n# === AI-emitted body ===\n" + script
 
+    # Operator-flagged 2026-05-27 (smoke 52 / XBEN-020): syntactically
+    # broken Python (unterminated string literal) was dispatched, ran,
+    # exited 1, AND THEN A BYTE-IDENTICAL COPY was dispatched 12 min
+    # later because the specialist re-emitted the same broken script.
+    # Compile-check BEFORE spawning the subprocess: a SyntaxError now
+    # short-circuits with a structured early-fail that triggers
+    # script_critic on the next orchestrator iteration, and surfaces
+    # the SyntaxError line so the next emit is informed.
+    try:
+        compile(full_script, "<aegispt-exec>", "exec")
+    except SyntaxError as _syn_exc:
+        logger.warning(
+            "PROOF_EXEC_CODE_EXEC_SYNTAX_REJECTED_2026052712 "
+            "rejected pre-execute: %s (line %s offset %s)",
+            _syn_exc.msg, _syn_exc.lineno, _syn_exc.offset,
+        )
+        return RunnerExecution(
+            tool="code-exec-attack",
+            exit_code=2,  # POSIX "Misuse of shell builtins"; chosen distinct from sandbox-exec exit codes
+            stdout=json.dumps({
+                "tool": "code-exec-attack",
+                "script_length": len(script),
+                "scope_allowlist": allowlist_urls,
+                "exit_code": 2,
+                "duration_seconds": 0.0,
+                "timed_out": False,
+                "scope_violation_detected": False,
+                "findings": [],
+                "syntax_error": {
+                    "message": str(_syn_exc.msg),
+                    "lineno": _syn_exc.lineno,
+                    "offset": _syn_exc.offset,
+                    "text": _syn_exc.text[:200] if _syn_exc.text else None,
+                },
+                "rejected_pre_execute": True,
+            }),
+            stderr=(
+                f"AEGISPT_PRE_EXECUTE_SYNTAX_ERROR: {_syn_exc.msg} at line "
+                f"{_syn_exc.lineno} offset {_syn_exc.offset}. Script was NOT "
+                f"executed. Critic should rewrite — do not re-dispatch verbatim."
+            ),
+            artifacts=[],
+            metadata={
+                "status": "rejected_pre_execute",
+                "rejected_pre_execute": True,
+                "rejection_reason": "syntax_error",
+                "runner_digest": "workers.code_exec_attack.runner:v1",
+                "syntax_error_lineno": _syn_exc.lineno,
+                "syntax_error_msg": str(_syn_exc.msg),
+            },
+        )
+
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".py", encoding="utf-8", delete=False
     ) as tmp:
