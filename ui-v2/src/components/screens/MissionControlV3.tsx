@@ -51,7 +51,43 @@ type MissionState = {
 function deriveMissionState(run: Run, findings: Finding[]): MissionState {
   const status = (run.status || '').toLowerCase();
   const counts = countSeverity(findings);
-  const isDone = ['completed', 'failed', 'cancelled', 'canceled', 'completed_with_errors'].includes(status);
+  const isDone = ['completed', 'failed', 'cancelled', 'canceled', 'completed_with_errors', 'rejected', 'errored', 'stopped'].includes(status);
+
+  // FIX 2026-05-27 (operator confusion): terminal runs MUST present as
+  // ENDED regardless of finding severity. Previous behavior was to fall
+  // through to 'critical' / 'leads' / 'scanning' branches because
+  // counts.critical or counts.high were non-zero, which made completed_
+  // with_errors runs render the "I have a critical finding" header as
+  // if work was ongoing. The narrator-panel cache made it worse: a
+  // panel from when the run was active still said "I'm onto something".
+  // From the operator's POV: 4 simultaneous XBEN-002 missions all
+  // looked actively running while every one was cancelled or completed_
+  // with_errors.
+  //
+  // New rule: if run.status is terminal, return ENDED with a severity
+  // suffix in the label so the operator still sees what was found. The
+  // paragraph branch ('done') then describes outcome retrospectively.
+  if (isDone) {
+    const sevSummary = counts.critical > 0
+      ? `${counts.critical}C/${counts.high}H`
+      : counts.high > 0
+        ? `${counts.high}H`
+        : counts.medium > 0
+          ? `${counts.medium}M`
+          : 'no exploit';
+    const endedLabel = status === 'cancelled' || status === 'canceled'
+      ? `CANCELLED · ${sevSummary}`
+      : status === 'completed_with_errors'
+        ? `ENDED (errors) · ${sevSummary}`
+        : `ENDED · ${sevSummary}`;
+    return {
+      level: 'done',
+      tone: 'text-muted',
+      toneBg: 'bg-line-soft/30 border-line',
+      label: endedLabel,
+      emoji: '⚪',
+    };
+  }
 
   // COMPROMISED requires HARD evidence: foothold_state has actually advanced
   // beyond "anonymous" via the verified-only attack_state tracker (backlog-412),
@@ -83,9 +119,6 @@ function deriveMissionState(run: Run, findings: Finding[]): MissionState {
   }
   if (counts.medium > 0 || counts.low > 0) {
     return { level: 'scanning', tone: 'text-yellow-400', toneBg: 'bg-yellow-400/10 border-yellow-400/30', label: 'SCANNING', emoji: '🟡' };
-  }
-  if (isDone) {
-    return { level: 'done', tone: 'text-muted', toneBg: 'bg-line-soft/30 border-line', label: 'DONE', emoji: '⚪' };
   }
   return { level: 'active', tone: 'text-green-400', toneBg: 'bg-green-400/10 border-green-400/30', label: 'ACTIVE', emoji: '🟢' };
 }
@@ -1163,8 +1196,17 @@ function StoryView({ run, findings, tasks }: { run: Run; findings: Finding[]; ta
       lines.push({ text: "Still hunting.", tone: 'text-yellow-400 font-bold' });
       lines.push({ text: ` ${minutes} minutes in, ${counts.medium + counts.low} small issues${hostPhrase}, nothing exploitable yet. I'm widening the angle.` });
     } else if (state.level === 'done') {
-      lines.push({ text: 'Mission closed.', tone: 'text-muted font-bold' });
-      lines.push({ text: ` ${counts.critical} critical, ${counts.high} high, ${counts.medium + counts.low + counts.info} informational findings${hostPhrase}.` });
+      // FIX 2026-05-27: paragraph must reflect status, not pretend the
+      // agent is still working. Status word from state.label so the user
+      // sees CANCELLED / ENDED / ENDED-with-errors explicitly.
+      const statusWord = state.label.split(' ')[0] || 'ENDED';
+      lines.push({ text: `${statusWord.charAt(0)}${statusWord.slice(1).toLowerCase()}.`, tone: 'text-muted font-bold' });
+      lines.push({ text: ` After ${minutes} minutes${hostPhrase}, finished with ${counts.critical} critical, ${counts.high} high, ${counts.medium + counts.low + counts.info} informational finding${counts.medium + counts.low + counts.info === 1 ? '' : 's'}.` });
+      if (counts.critical === 0 && counts.high === 0) {
+        lines.push({ text: ' No exploit-class finding was produced.', tone: 'text-muted italic' });
+      } else {
+        lines.push({ text: ' Findings predate the run ending — verify each before treating as live signal.', tone: 'text-muted italic' });
+      }
     } else {
       lines.push({ text: 'Just opened', tone: 'text-text' });
       lines.push(...hostInline());
