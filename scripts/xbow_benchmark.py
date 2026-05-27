@@ -496,12 +496,16 @@ def _drive_ai_loop(
                 f"/api/v1/runs/{run_id}/assessment-loop/iterate",
                 headers=api_headers(actor),
                 json={"operator_note": "xbow-benchmark autonomous drive"},
-                # 600s tolerates ChatGPT-OAuth picker on gpt-5.4 with
-                # reasoning=high — empirical 2026-05-22 v5 showed calls
-                # succeed (200 OK) but each takes 30-60s under reasoning,
-                # so single iterate (picker + maybe-tool-loop + persist)
-                # can exceed 5 minutes. Anthropic still returns in 10-30s.
-                timeout=600.0,
+                # 1800s tolerates a single iterate that runs the full
+                # CPG-CEA cycle (picker + Claude exploit-developer +
+                # script_critic revisions) synchronously. Empirical
+                # 2026-05-27 smoke 47a/b: iterate calls during the
+                # critic-revision loop took >600s and the old 600s
+                # bound caused the wrapper to crash, then teardown the
+                # docker target while the API run was still trying to
+                # exploit. The result: 10+ code-exec-attack tasks all
+                # hit ConnectError on the dead target.
+                timeout=1800.0,
             )
         except httpx.HTTPError as exc:
             last_loop_state = {"iterate_error": str(exc)[:200], "iterations": iterations}
