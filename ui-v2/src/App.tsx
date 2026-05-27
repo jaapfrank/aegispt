@@ -36,6 +36,7 @@ import DashboardScreen from './components/screens/Dashboard';
 import EvidenceReplay from './components/screens/EvidenceReplay';
 import FindingsTheater from './components/screens/FindingsTheater';
 import HistoryScreen from './components/screens/History';
+import LiveCLIScreen from './components/screens/LiveCLI';
 import MissionControl from './components/screens/MissionControl';
 import PacksScreen from './components/screens/Packs';
 import ProblemsCenter from './components/screens/ProblemsCenter';
@@ -103,6 +104,7 @@ const navSections: NavSection[] = [
       { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard },
       { to: '/intake', labelKey: 'nav.intake', icon: Crosshair },
       { to: '/mission-control', labelKey: 'nav.missionControl', icon: Activity, pulse: true },
+      { to: '/live-cli', labelKey: 'nav.liveCli', icon: Command },
     ],
   },
   {
@@ -134,6 +136,7 @@ export default function App() {
           <Route index element={<DashboardScreen />} />
           <Route path="intake" element={<IntakeScreen />} />
           <Route path="mission-control" element={<MissionControl />} />
+          <Route path="live-cli" element={<LiveCLIScreen />} />
           <Route path="surface-map" element={<SurfaceMap />} />
           <Route path="evidence" element={<EvidenceReplay />} />
           <Route path="findings" element={<FindingsTheater />} />

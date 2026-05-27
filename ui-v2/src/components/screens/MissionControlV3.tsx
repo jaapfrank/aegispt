@@ -1611,7 +1611,7 @@ function colorizeLine(text: string, isErrStream: boolean): React.ReactNode {
   return out;
 }
 
-function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
+export function LiveTaskDrillDown({ tasks }: { tasks: Task[] }) {
   const active = useMemo(() => activeTaskNow(tasks), [tasks]);
   const recentTasks = useMemo(() => {
     // Bumped from 12 → 40 per operator request 2026-05-21: with the skip-runner
@@ -1891,7 +1891,7 @@ const TERMINAL_RUN_STATUSES = new Set([
   'completed', 'completed_with_errors', 'failed', 'cancelled', 'canceled', 'rejected',
 ]);
 
-function LiveEventsFeed({ runId }: { runId: string }) {
+export function LiveEventsFeed({ runId }: { runId: string }) {
   const [events, setEvents] = useState<FeedEvent[]>([]);
   const [feedClosed, setFeedClosed] = useState(false);
   const prevSnapshotRef = useRef<{
