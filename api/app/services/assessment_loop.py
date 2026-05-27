@@ -5027,6 +5027,42 @@ def advance_assessment_loop(
         run.configuration_json = configuration
         return build_assessment_loop_state(session, run=run, scope=scope)
 
+    # Budget-exhaustion finalize 2026-05-28 (operator-flagged Gemini-leak
+    # on smokes 50/55: budget guard fires at picker but loop keeps
+    # iterating forever — PROOF_EXEC_RUN_BUDGET_EXHAUSTED fired 3x for
+    # the same run before manual cancel). When wall_clock_budget is
+    # exceeded AND no active tasks remain (we'd have already returned
+    # above with status=waiting_for_execution), finalize the run with
+    # an explicit stop_reason so the wrapper sees terminal state and
+    # exits cleanly. No more endless "I see budget out but keep
+    # iterating" loops.
+    if _run_budget_exhausted(run):
+        loop_state["status"] = "stopped"
+        loop_state["stop_reason"] = "wall_clock_budget_exhausted"
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        _finalize_run_after_loop_stop(run, stop_reason="wall_clock_budget_exhausted")
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor=actor,
+            reason="assessment_loop_wall_clock_budget_exhausted",
+        )
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_loop.stopped",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={"reason": "wall_clock_budget_exhausted"},
+        )
+        logger.info(
+            "PROOF_EXEC_LOOP_FINALIZED_BUDGET_2026052812 run=%s — orchestrator "
+            "terminated loop because wall_clock_budget_seconds elapsed",
+            str(getattr(run, "id", "?"))[:8],
+        )
+        return build_assessment_loop_state(session, run=run, scope=scope)
+
     max_iterations = int(loop_state.get("max_iterations") or LOOP_MAX_ITERATIONS)
     stuck_threshold = int(loop_state.get("stuck_threshold") or LOOP_STUCK_THRESHOLD)
     if int(loop_state.get("iteration_count") or 0) >= max_iterations:
