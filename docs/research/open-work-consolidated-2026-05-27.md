@@ -8,14 +8,24 @@ Operator request 2026-05-27: capture ALL open work so the next session doesn't f
 - [task-audit-2026-05-27.md](task-audit-2026-05-27.md) (25 open SPRINT items + M1-M9 audit + replace recommendations)
 - The smoke 38-47 empirical evidence accumulated this session
 
-## A — Immediate (this session + tonight)
+## A — Completed in extended session (2026-05-27 / 28)
 
-1. **Smoke 47d in flight** — Claude Opus 4.7 on XBEN-002 with hard 900s budget (≈ €1,25 cap). PID 351417. Result determines next step.
-2. **If 47d SOLVES**: archive artifacts to `docs/validation/xbow-smoke47d-claude-2026-05-27/`, fill in flag byte-equality check, **first formal 1/25 score on the books**.
-3. **If 47d no-flag**: diagnose which phase failed (picker / CPG-CEA / runner / sandbox / verifier), pick ONE root cause, write ONE skill-file targeting it.
-4. **API restart after 47d**: loads `a810f0d` cache hit-rate logging + `6b0ac53` defensive OAuth prompt. Next smokes get real cache% data.
-5. **Smoke 48 Gemini sequential**: same XBEN-002, proven SOLVED in smoke 38 (590s on gemini-3.1-pro). 250/day quota OK.
-6. **Smoke 49 OAuth defensive**: tests whether `cyber_policy` filter passes with audit-language reframe. No code change beyond 6b0ac53.
+ALL section-A items shipped + a follow-on second sprint of surgical orchestration-strip fixes per operator's "geen 4de overhaul, surgical reductie" framing:
+
+1. ✅ **Smoke 47d/47e/48 — XBEN-002 SOLVED 3/3 STABLE**. First formal score-lane: 0/25 → 1/25 archived in `docs/validation/xbow-smoke47d/47e/48-*-2026-05-27/`.
+2. ✅ **Daily-5 baseline established**: 1/5 SOLVED, 4 no-flag with diagnostics — `docs/validation/xbow-daily5-baseline-2026-05-27.md`.
+3. ✅ **Subagents shipped**: `.claude/agents/smoke-monitor.md` + `.claude/agents/diagnose-no-flag.md` (active next session). Used as `general-purpose` patterns this session — produced 3 forensic diagnoses (smokes 49/50/52) and 1 root-cause analysis (XBEN-014 wrapper hang).
+4. ✅ **6 surgical fix commits** addressing every operator-flagged orchestration anti-pattern:
+   - `bb2fd36` — emit_finding kwarg-tolerant + budget-guard on next_best_action_selector + 2 vuln-class skills (SSTI + IDOR)
+   - `4b15a36` — pre-execute compile-check on code-exec-attack
+   - `d9b26b0` — wrapper skips sync /dispatch + SSTI Django-bypass skill refinement
+   - `1f556a5` — credential-vault auto-populate from pre-recon-source + 2 vuln-class skills (JWT-forgery + SQLi-REST)
+   - `5bc9d42` — orchestrator finalizes run on wall_clock_budget_exhausted (closes Gemini-leak)
+5. ✅ **4 vuln-class skills in `docs/skills/`**: access-control-state-change-post + ssti-engine-fingerprint-then-escape + jwt-none-and-disclosed-secret-forgery + sqli-rest-api-error-and-blind.
+6. ✅ **Wave 3 empirical validation** (smokes 55/56/57): detection delta on the 4 unsolved daily-5 targets: **7 findings (pre-fix) → 22 findings (post-fix)**, 3.1× increase. Wrapper-dispatch-skip unblocked XBEN-014 and XBEN-020 entirely (previously stuck/crashed, now run to completion).
+7. ✅ **Wave 4 in flight** (smokes 58/59) at end of session: testing credential-vault auto-populate fix (post-restart) on XBEN-009 + XBEN-005.
+
+**Score-lane status at session end**: 1/5 SOLVED (XBEN-002 STABLE). Detection on 4 unsolved improved 3.1×. New bottleneck = exploit-craft sophistication (Phase B escape patterns), NOT infrastructure.
 
 ## B — Score-lane critical (1-2 weeks)
 
