@@ -1297,6 +1297,48 @@ def _maybe_dispatch_cpg_seeded_cea(
                     for u, p, f in seeds
                 ]
                 seed_creds_block = "\n".join(lines)
+                # 2026-05-28 fix per operator-flagged silent-skip bug
+                # (smokes 41-52): auth-flow + session-security + idor-bac
+                # + password-reset all SKIPPED with "requires credential
+                # context" while pre-recon-source had the creds in source.
+                # Push them into the run credential vault now so downstream
+                # runners auto-consume them. Best-effort: any vault error
+                # logs but does not block the CEA dispatch.
+                try:
+                    from api.app.config import get_settings as _get_settings  # noqa: E402
+                    from api.app.services.run_credential_vault import (  # noqa: E402
+                        store_run_credential_vault_secret as _store_vault_secret,
+                        run_uses_ai_loop as _run_uses_ai_loop,
+                    )
+                    if _run_uses_ai_loop(run):
+                        _vault_settings = _get_settings()
+                        for _u, _p, _f in seeds[:4]:  # cap at 4 to avoid noise
+                            try:
+                                _store_vault_secret(
+                                    session=session,
+                                    run=run,
+                                    settings=_vault_settings,
+                                    secret_kind="password",
+                                    value=_p,
+                                    username=_u,
+                                    label=f"seed_cred from {_f}",
+                                    discovery_source="pre_recon_source_auto_populate",
+                                    source_tool="pre-recon-source",
+                                )
+                                logger.info(
+                                    "PROOF_EXEC_CRED_VAULT_AUTO_POPULATE_2026052812 "
+                                    "stored seed cred user=%s source=%s",
+                                    _u, _f,
+                                )
+                            except Exception as _vault_exc:  # noqa: BLE001
+                                logger.warning(
+                                    "cred-vault auto-populate: failed to store "
+                                    "(user=%s): %s", _u, _vault_exc,
+                                )
+                except Exception as _import_exc:  # noqa: BLE001
+                    logger.warning(
+                        "cred-vault auto-populate: import failed: %s", _import_exc,
+                    )
             logger.info(
                 "PROOF_EXEC_CPG_SEEDED_CEA_CREDS_RESULT_2026052406 seeds=%d block_preview=%r",
                 len(seeds), seed_creds_block[:200],
