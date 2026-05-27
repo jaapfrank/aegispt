@@ -164,6 +164,13 @@ def _load_skill_pack_text() -> str:
 
 
 _AEGISPT_SKILL_PACK_TEXT: str = _load_skill_pack_text()
+if _AEGISPT_SKILL_PACK_TEXT:
+    logger.info(
+        "PROOF_EXEC_SKILL_PACK_LOADED_2026052813 bytes=%d "
+        "(env AEGISPT_SKILL_PACK_ENABLED active, picker system prompt will "
+        "include vuln-class playbooks from docs/skills/)",
+        len(_AEGISPT_SKILL_PACK_TEXT),
+    )
 
 
 def _picker_prompt_with_skills() -> str:
