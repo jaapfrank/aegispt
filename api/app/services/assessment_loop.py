@@ -112,6 +112,34 @@ def _strip_qwen_reasoning_tokens(text: str) -> str:
 _DEFAULT_WALL_CLOCK_BUDGET_SECONDS = 1800.0
 
 
+def _log_anthropic_usage(*, site: str, run_id: str, msg: Any) -> None:
+    """Log Anthropic-API token usage so operators can compute cache hit rate
+    post-hoc. Without this, the ledger only shows aggregate cost (~EUR 3.10
+    today) but no per-call cache_read / cache_creation split. Operator
+    asked 2026-05-27 to see actual hit rate, not infer from totals.
+
+    Adds the same PROOF marker shape used by the picker tool-use loop so
+    a single grep collects all call-site usage."""
+    try:
+        u = getattr(msg, "usage", None)
+        if u is None:
+            return
+        inp = int(getattr(u, "input_tokens", 0) or 0)
+        out = int(getattr(u, "output_tokens", 0) or 0)
+        cache_read = int(getattr(u, "cache_read_input_tokens", 0) or 0)
+        cache_create = int(getattr(u, "cache_creation_input_tokens", 0) or 0)
+        billed_input = inp + cache_read + cache_create
+        hit_pct = (100.0 * cache_read / billed_input) if billed_input else 0.0
+        logger.info(
+            "PROOF_EXEC_ANTHROPIC_USAGE_2026052712 site=%s run=%s input=%d "
+            "cache_read=%d cache_creation=%d output=%d hit_pct=%.1f",
+            site, run_id[:8] if run_id else "?",
+            inp, cache_read, cache_create, out, hit_pct,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _run_budget_exhausted(run: Run) -> bool:
     """Hard wall-clock budget guard. Operator request 2026-05-27: stop the
     loop spending money on cloud LLMs once a configurable budget elapses.
@@ -979,6 +1007,9 @@ def _maybe_dispatch_script_critic(
                     },
                     timeout=120.0,
                 )
+                _log_anthropic_usage(
+                    site="script_critic", run_id=str(getattr(run, "id", "")), msg=msg,
+                )
                 for block in (msg.content or []):
                     if getattr(block, "type", "") == "text":
                         txt = str(getattr(block, "text", "") or "").strip()
@@ -1513,6 +1544,9 @@ def _maybe_dispatch_cpg_seeded_cea(
                 output_config={"format": {"type": "json_schema", "schema": CPG_SEEDED_CEA_SCHEMA}},
                 timeout=120.0,
             )
+            _log_anthropic_usage(
+                site="cpg_seeded_cea", run_id=str(getattr(run, "id", "")), msg=msg,
+            )
             for block in (msg.content or []):
                 if getattr(block, "type", "") == "text":
                     txt = str(getattr(block, "text", "") or "").strip()
@@ -1980,6 +2014,11 @@ def _specialists_select_next_action(
                         "format": {"type": "json_schema", "schema": meta["schema"]},
                     },
                     timeout=90.0,
+                )
+                _log_anthropic_usage(
+                    site=f"specialist_{meta['name']}",
+                    run_id=str(getattr(run, "id", "")),
+                    msg=msg,
                 )
                 # Extract first text block.
                 for block in (msg.content or []):
