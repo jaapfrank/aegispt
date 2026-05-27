@@ -1000,7 +1000,11 @@ def _maybe_dispatch_script_critic(
                 msg = client.messages.create(
                     model=provider.config.model,
                     max_tokens=4096,
-                    system=[{"type": "text", "text": SCRIPT_CRITIC_PROMPT}],
+                    system=[{
+                        "type": "text",
+                        "text": SCRIPT_CRITIC_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }],
                     messages=[{"role": "user", "content": user_content}],
                     output_config={
                         "format": {"type": "json_schema", "schema": SCRIPT_CRITIC_SCHEMA},
@@ -1536,10 +1540,20 @@ def _maybe_dispatch_cpg_seeded_cea(
                 rationale = str(resp.get("rationale") or "")
         elif _provider_is_anthropic(provider):
             client = provider.raw_anthropic_client()
+            # FIX 2026-05-27: smokes 47e + 48 showed 0% cache hit rate on
+            # this call site (6562 input tokens billed as fresh every
+            # call). The CPG_SEEDED_CEA_PROMPT is a static ~7.8KB block
+            # — perfect cache candidate. cache_control: ephemeral marks
+            # it for prompt-cache reuse; subsequent calls within the
+            # 5-min cache window hit at 0.1x input cost.
             msg = client.messages.create(
                 model=provider.config.model,
                 max_tokens=4096,
-                system=[{"type": "text", "text": CPG_SEEDED_CEA_PROMPT}],
+                system=[{
+                    "type": "text",
+                    "text": CPG_SEEDED_CEA_PROMPT,
+                    "cache_control": {"type": "ephemeral"},
+                }],
                 messages=[{"role": "user", "content": user_content}],
                 output_config={"format": {"type": "json_schema", "schema": CPG_SEEDED_CEA_SCHEMA}},
                 timeout=120.0,
@@ -2008,7 +2022,11 @@ def _specialists_select_next_action(
                 msg = client.messages.create(
                     model=provider.config.model,
                     max_tokens=2048,
-                    system=[{"type": "text", "text": meta["prompt"]}],
+                    system=[{
+                        "type": "text",
+                        "text": meta["prompt"],
+                        "cache_control": {"type": "ephemeral"},
+                    }],
                     messages=[{"role": "user", "content": user_content}],
                     output_config={
                         "format": {"type": "json_schema", "schema": meta["schema"]},
