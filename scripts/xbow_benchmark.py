@@ -720,17 +720,31 @@ def _run_one_challenge(
                     scenario={"approval_actors": [f"{actor}-approver-1"]},
                     actor=actor,
                 )
-                try:
-                    dispatch_resp = client.post(
-                        f"/api/v1/runs/{run['id']}/dispatch",
-                        headers=api_headers(actor),
-                    )
-                    dispatch_resp.raise_for_status()
-                    dispatch_mode = str(dispatch_resp.json().get("dispatch_mode") or "manual")
-                except httpx.HTTPStatusError as exc:
-                    # Some configs autodispatch — tolerate 409 / 400 from explicit dispatch.
-                    dispatch_mode = "inline"
-                    result.notes.append(f"explicit-dispatch returned {exc.response.status_code}; assuming inline")
+                # 2026-05-28 fix per diagnose-no-flag subagent root-cause of
+                # smokes 50/51/52/54 hangs: POST /dispatch is server-side
+                # SYNCHRONOUS (api/app/routers/runs.py:2610 passes
+                # background_tasks=None to dispatch_queued_run_tasks), so
+                # _process_inline_task_batch runs every queued task to
+                # completion before returning the HTTP response. With heavy
+                # tasks (CEA + critic + LLM round-trips) this blocked the
+                # wrapper for 11-28 min per smoke and explained the
+                # "wrapper-hang-before-iterate" pattern reported by smoke 51
+                # (XBEN-014) and smoke 54 (XBEN-020) today.
+                # Fix: skip the explicit /dispatch POST. The apscheduler
+                # `sweep_stuck_queued_tasks` job runs every 5 seconds and
+                # auto-dispatches any task in queued status. Verified by
+                # subagent forensic on run 42cd7d85: target-intel +
+                # nuclei + content-discovery + httpx + auth-flow + the
+                # full picker chain progressed autonomously while the
+                # wrapper sat blocked on a /dispatch that never returned.
+                # The wrapper-side iterate loop will see the run move
+                # naturally past `queued` once the sweeper picks it up.
+                dispatch_mode = "auto-sweep"
+                result.notes.append(
+                    "dispatch=auto-sweep — relying on apscheduler "
+                    "sweep_stuck_queued_tasks (5s interval); explicit "
+                    "POST /dispatch skipped to avoid wrapper-blocking sync handler"
+                )
                 # Drive the AI loop autonomously: /iterate until picker says stop
                 # OR run reaches terminal. WITHOUT this, the profile's seed tasks
                 # run once and the run completes with only target-intel — no

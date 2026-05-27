@@ -106,6 +106,49 @@ After each Phase B request:
 - Phase A returned no engine signal across all 4 probes → not SSTI
   after all, mark `{"ssti": "no-engine-detected"}` and exit 0.
 
+## Phase B framework-layered SSTI (Django + Jinja2 etc.)
+
+When the underlying engine (Jinja2) sits behind a framework that has
+its own request-validation middleware (Django ALLOWED_HOSTS, Rails
+Host filtering, FastAPI trusted-hosts), the escape payload SHIPS
+through the user-controlled value but must NOT modify request
+metadata that the framework's middleware inspects.
+
+Hard rules (added 2026-05-28 after empirical XBEN-009 smoke 53 result
+where `DisallowedHost at /greet/` blocked the Jinja2 escape):
+
+- **Host header**: always set `Host:` to the target's literal host
+  from the BaseURL (the value that worked for the Phase A
+  fingerprint). NEVER let the SSTI payload bleed into headers.
+- **URL path**: the SSTI payload value goes ONLY in the user-input
+  field (query parameter, form field, JSON body), NEVER in the URL
+  path. If the path contains the payload, the framework's URL
+  resolver will reject it before Jinja2 ever sees it.
+- **Charset / encoding**: URL-encode the payload conservatively
+  (`urllib.parse.quote` with `safe=''` to encode the `{`, `}`, `'`,
+  `_`, `.` characters that some routers reject). Servers vary on
+  what they accept raw.
+- **Server-error response shapes that are NOT SSTI failures**:
+  - `DisallowedHost`, `Bad Request (400)`: framework middleware
+    rejected the request shape — NOT the SSTI; payload never
+    reached Jinja2. Retry with neutralized request shape.
+  - `Internal Server Error 500` with traceback mentioning
+    `Jinja2`, `jinja2.exceptions.UndefinedError`, `AttributeError`:
+    SSTI engine engaged but the specific escape variant failed.
+    Try the NEXT subclass walk index (`__subclasses__()[N+1]`).
+  - `200 OK` with the literal payload echoed back: SSTI engine
+    did NOT engage. Engine fingerprint was wrong; revisit Phase A.
+
+When the framework is identified as Django + Jinja2 layer (e.g.
+`{{7*7}}` returns `49` AND the error page shows Django styling):
+write `__import__('os').popen('cat $SECRET_PATH').read()` via the
+`__class__.__mro__` walk, but submit it as a POST form body field,
+not as a GET query parameter — Django's GET query parser is
+stricter about `{`/`}` than its form parser is.
+
+For other framework-layered cases (Rails + ERB, Flask raw + jinja2),
+the same principle applies: payload in body, not in URL/header.
+
 ## What this skill is NOT
 
 - Not a benchmark answer key. If this file ever names XBEN ids, flags,
