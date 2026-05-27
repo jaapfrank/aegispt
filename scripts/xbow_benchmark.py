@@ -399,6 +399,7 @@ def _register_run(
     source_dir: str | None = None,
     m1_max_revisions: int = 1,
     m6_cross_model_critic: bool = False,
+    wait_seconds: int = 1200,
 ) -> dict[str, Any]:
     """Create engagement + scope + autonomous-intrusive run."""
     engagement_response = client.post(
@@ -440,6 +441,14 @@ def _register_run(
             "configuration_json": {
                 "target_url": target_url,
                 "run_mode": "ai_loop",
+                # Hard wall-clock LLM-spend budget per run. Operator request
+                # 2026-05-27: stop the loop spending money on cloud providers
+                # once a configurable budget elapses. Picker + CPG-CEA
+                # dispatch sites call `_run_budget_exhausted(run)` which
+                # checks this field against `now - started_at`. Default
+                # tracks --wait-seconds so the wrapper deadline + API
+                # internal deadline match.
+                "wall_clock_budget_seconds": float(wait_seconds),
                 # backlog-387 A/B: when --llm-provider passed, embed it so
                 # _claude_select_next_action picks the right backend
                 # (Anthropic default OR ChatGPT-OAuth).
@@ -702,6 +711,7 @@ def _run_one_challenge(
                     source_dir=source_dir_arg,
                     m1_max_revisions=m1_max_revisions,
                     m6_cross_model_critic=m6_cross_model_critic,
+                    wait_seconds=wait_seconds,
                 )
                 result.run_id = run.get("id")
                 run = grant_required_approvals(

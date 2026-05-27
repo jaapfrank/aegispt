@@ -109,6 +109,54 @@ def _strip_qwen_reasoning_tokens(text: str) -> str:
     return text.lstrip()
 
 
+_DEFAULT_WALL_CLOCK_BUDGET_SECONDS = 1800.0
+
+
+def _run_budget_exhausted(run: Run) -> bool:
+    """Hard wall-clock budget guard. Operator request 2026-05-27: stop the
+    loop spending money on cloud LLMs once a configurable budget elapses.
+    Read `configuration_json.wall_clock_budget_seconds` (default 1800);
+    compare against `now - started_at`. When the budget is exceeded, this
+    helper returns True and the picker / CPG-CEA dispatchers return None,
+    which the loop interprets as "no candidate action" and terminates
+    with stop_reason=picker_retry_exhausted. No more LLM round-trips for
+    this run until an operator restarts it with a higher budget. The
+    helper logs the PROOF_EXEC marker so operators can grep production
+    logs to confirm the guard fired."""
+    import os as _os_budget
+    import time as _time_budget
+    cfg = (getattr(run, "configuration_json", None) or {})
+    try:
+        budget = float(cfg.get("wall_clock_budget_seconds")
+                       or _os_budget.environ.get("AEGISPT_RUN_BUDGET_SECONDS")
+                       or _DEFAULT_WALL_CLOCK_BUDGET_SECONDS)
+    except (TypeError, ValueError):
+        budget = _DEFAULT_WALL_CLOCK_BUDGET_SECONDS
+    started_at = getattr(run, "started_at", None) or getattr(run, "created_at", None)
+    if started_at is None:
+        return False
+    try:
+        # started_at may be a datetime or an ISO string depending on caller
+        if hasattr(started_at, "timestamp"):
+            elapsed = _time_budget.time() - float(started_at.timestamp())
+        else:
+            from datetime import datetime as _dt  # noqa: E402
+            elapsed = _time_budget.time() - _dt.fromisoformat(
+                str(started_at).replace("Z", "+00:00")
+            ).timestamp()
+    except Exception:  # noqa: BLE001
+        return False
+    if elapsed > budget:
+        logger.warning(
+            "PROOF_EXEC_RUN_BUDGET_EXHAUSTED_2026052712 run=%s elapsed=%.0fs "
+            "budget=%.0fs — picker/CPG-CEA will return None; restart run "
+            "with higher wall_clock_budget_seconds to resume.",
+            str(getattr(run, "id", "?"))[:8], elapsed, budget,
+        )
+        return True
+    return False
+
+
 def _picker_schema_for_current_state(
     *,
     run: Run,
@@ -1034,6 +1082,8 @@ def _maybe_dispatch_cpg_seeded_cea(
     2026-05-24: specialists picked 0 CEA across 4 source-aware smokes
     even though the CPG deliverable surfaced the full XBEN-002 chain.
     """
+    if _run_budget_exhausted(run):
+        return None
     logger.info(
         "PROOF_EXEC_CPG_SEEDED_CEA_ENTER_2026052405 run=%s n_tasks=%d",
         str(getattr(run, "id", "?"))[:8],
@@ -1534,6 +1584,8 @@ def _specialists_select_next_action(
     provider_is_gemini = _provider_is_gemini(provider)
     provider_is_local_qwen = _provider_is_local_qwen(provider)
     if not (provider_is_anthropic or provider_is_chatgpt_oauth or provider_is_gemini or provider_is_local_qwen):
+        return None
+    if _run_budget_exhausted(run):
         return None
 
     # M1 of beat-shannon-pro roadmap: adversarial script critique.
@@ -2187,6 +2239,8 @@ def _claude_select_next_action(
             "picker: configured model %s has no governed picker branch. Skipping picker call.",
             provider.config.model,
         )
+        return None
+    if _run_budget_exhausted(run):
         return None
     if not tested_keys:
         # First iteration: let target-intel heuristic handle the seed step
