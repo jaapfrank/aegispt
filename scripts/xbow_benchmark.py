@@ -657,13 +657,14 @@ def _run_one_challenge(
                 )
                 return result
             result.notes.append(f"target_url={target_url}")
-            # Default client timeout is 600s — matches the iterate-call override
-            # and tolerates slow ChatGPT-OAuth reasoning paths where ANY harness
-            # request can land while a sync picker call holds the worker thread.
-            # v6 crashed at 220s with iterations=0 because a default-timeout
-            # call (likely dispatch/register/grant) raised httpx.ReadTimeout
-            # while the picker was busy — bumped 2026-05-22 after v6 analysis.
-            with httpx.Client(base_url=base_url.rstrip("/"), timeout=600.0) as client:
+            # Default client timeout is 1800s — matches the iterate-call
+            # explicit override (d5cccea). Empirical 2026-05-27 smoke 47a/b/c:
+            # the wrapper crashed at exactly 641s on the GET /runs/{id} poll
+            # call when the API server was busy in a synchronous critic-
+            # revision cycle. The wrapper-side reachability budget must
+            # exceed any one heavy-LLM iterate cycle. v6 (2026-05-22) had
+            # the same root cause at 220s.
+            with httpx.Client(base_url=base_url.rstrip("/"), timeout=1800.0) as client:
                 # Phase 4: source-aware mode points the picker at the
                 # XBEN challenge's app/ folder (the running container's
                 # source). When --source-aware is OFF (default), source_dir
