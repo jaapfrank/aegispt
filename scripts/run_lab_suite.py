@@ -3,8 +3,9 @@
 (labs/aegispt_lab_suite) — a non-XBOW generalization target.
 
 This validates the SAME readiness/isolation/envelope chain the XBOW harness
-uses, on an independent set of 5 flag-capture challenges (SSRF, cache-key,
-GraphQL authz, signed-URL, coupon-race) behind one HTTP service. The lab
+uses, on an independent set of flag-capture challenges (the manifest is the
+source of truth for the current set: SSRF, cache-key, GraphQL authz,
+signed-URL, coupon-race, plus any added later) behind one HTTP service. The lab
 already binds to its own loopback IP (127.0.0.155:8088), so the agent's recon
 sees only the lab — the harness on 127.0.0.1 stays invisible.
 
@@ -50,6 +51,13 @@ def _sh(cmd: list[str], *, cwd: Path | None = None, timeout: float = 300.0) -> s
     return subprocess.run(cmd, cwd=str(cwd) if cwd else None, capture_output=True, text=True, timeout=timeout)
 
 
+def _no_proxy_opener() -> urllib.request.OpenerDirector:
+    """Opener with proxies explicitly disabled. Loopback targets (127.0.0.x)
+    must never be routed through HTTP_PROXY — with an incomplete NO_PROXY the
+    grade/health requests could be hijacked or fail."""
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 class _LabHealthMonitor(threading.Thread):
     """Poll the lab /healthz during the run and restart the container if it
     dies. Operator priority 2026-05-28: an unstable target contaminates every
@@ -64,24 +72,31 @@ class _LabHealthMonitor(threading.Thread):
         self.lab_base = lab_base.rstrip("/")
         self.lab_dir = lab_dir
         self.interval = interval
-        self._stop = threading.Event()
+        # NB: name is _stop_evt, NOT _stop — threading.Thread already defines a
+        # _stop() method, and shadowing it with an Event breaks join().
+        self._stop_evt = threading.Event()
         self.deaths = 0
         self.restarts = 0
 
     def _healthy(self) -> bool:
         try:
-            with urllib.request.urlopen(self.lab_base + "/healthz", timeout=3) as r:
+            with _no_proxy_opener().open(self.lab_base + "/healthz", timeout=3) as r:
                 return bool(json.loads(r.read().decode("utf-8")).get("status"))
         except Exception:  # noqa: BLE001
             return False
 
     def run(self) -> None:
-        while not self._stop.wait(self.interval):
+        while not self._stop_evt.wait(self.interval):
             if self._healthy():
                 continue
             self.deaths += 1
-            logger.warning("lab health-check: target DOWN (death #%d) — restarting container", self.deaths)
-            up = _sh(["docker", "compose", "up", "-d", "--wait"], cwd=self.lab_dir, timeout=300)
+            logger.warning("lab health-check: target DOWN (death #%d) — force-recreating container", self.deaths)
+            # --force-recreate handles a wedged/unhealthy-but-existing container
+            # that a plain `up -d` would leave in place.
+            up = _sh(
+                ["docker", "compose", "up", "-d", "--force-recreate", "--wait"],
+                cwd=self.lab_dir, timeout=300,
+            )
             if up.returncode == 0:
                 self.restarts += 1
                 logger.info("lab health-check: target restarted (restart #%d)", self.restarts)
@@ -89,7 +104,8 @@ class _LabHealthMonitor(threading.Thread):
                 logger.error("lab health-check: restart FAILED: %s", (up.stderr or up.stdout)[:200])
 
     def stop(self) -> None:
-        self._stop.set()
+        self._stop_evt.set()
+        self.join(timeout=10)
 
 
 def _manifest_challenge_ids() -> list[str]:
@@ -104,7 +120,7 @@ def _grade(base_url: str, challenge_id: str, flag: str) -> bool:
         headers={"Content-Type": "application/json"}, method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with _no_proxy_opener().open(req, timeout=5) as resp:
             return bool(json.loads(resp.read().decode("utf-8")).get("match"))
     except Exception as exc:  # noqa: BLE001
         logger.warning("grade %s failed: %s", challenge_id, exc)
@@ -163,7 +179,7 @@ def main() -> int:
     healthy = False
     for _ in range(30):
         try:
-            with urllib.request.urlopen(lab_base + "/healthz", timeout=3) as r:
+            with _no_proxy_opener().open(lab_base + "/healthz", timeout=3) as r:
                 if json.loads(r.read().decode("utf-8")).get("status"):
                     healthy = True
                     break
