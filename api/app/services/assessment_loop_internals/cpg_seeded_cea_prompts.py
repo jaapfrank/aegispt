@@ -166,6 +166,16 @@ concrete payload that bypasses the observed filter.
       the server-side fetch satisfies that guard for you.
   (3) The leaked secret comes back INSIDE the fetcher's response body
       (e.g. a `fetched_body` field). Parse THAT for the flag.
+  (4) PERSPECTIVE RULE: if the server-side fetch returns 502 / fetch_failed /
+      connection refused / timeout / name-resolution-failed, the SSRF route
+      WORKS but the server-side URL is not reachable FROM THE TARGET RUNTIME.
+      Do NOT abandon SSRF and do NOT change the outer target envelope (the
+      host:port YOU connect to). Instead vary the INTERNAL fetch target: use
+      the service's internal listen port (from the "Service Internal Listen
+      Port(s)" recon facts, e.g. 8080) over loopback —
+      http://127.0.0.1:<internal_port>/<gated_path>, then localhost, then any
+      compose service name. The external published port is almost never
+      reachable from inside the container.
 
 - AUTHZ / BATCH / DIFFERENTIAL bugs (GraphQL batched operations, bulk
   endpoints, "list vs get" permission gaps):
