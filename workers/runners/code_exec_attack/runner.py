@@ -184,7 +184,7 @@ def _scope_allowlist_urls(scope_allowlist: dict[str, Any] | None) -> list[str]:
 
 
 _FLAG_LITERAL_RE = re.compile(
-    r"(flag\{[^}\r\n]{1,200}\}|xbow-[a-f0-9]{16,128}|FLAG\{[^}\r\n]{1,200}\}|ctf\{[^}\r\n]{1,200}\})",
+    r"(flag\{[^}\r\n]{1,200}\}|xbow-[a-f0-9]{16,128}|FLAG\{[^}\r\n]{1,200}\}|ctf\{[^}\r\n]{1,200}\}|aegispt\{[^}\r\n]{1,200}\})",
     re.IGNORECASE,
 )
 _FALLBACK_JSON_FLAG_RE = re.compile(
