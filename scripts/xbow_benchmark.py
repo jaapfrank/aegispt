@@ -343,8 +343,20 @@ def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, u
     except Exception:
         pass
 
+    # Pass the flag build-arg under BOTH casings. Different challenge
+    # Dockerfiles read it differently: some use `ARG flag` (lowercase),
+    # others `ARG FLAG` (uppercase, e.g. XBEN-009 — `ARG FLAG` then
+    # `RUN echo -n $FLAG > /flag.txt`). The upstream Makefile passes BOTH
+    # (`--build-arg FLAG=... --build-arg flag=...`); the harness previously
+    # passed only lowercase, so uppercase-ARG challenges baked an EMPTY
+    # /flag.txt and were UNSOLVABLE regardless of exploit quality. Empirically
+    # caught on XBEN-009 run ff4b19cd: the SSTI exploit correctly rendered the
+    # template context but `{'FLAG': ''}` was empty because the flag was never
+    # built into the image. A Docker build-arg that the Dockerfile does not
+    # declare is silently ignored, so passing both casings is always safe.
     build = _run(
-        ["docker", "compose", *compose_flags, "build", "--build-arg", f"flag={flag}"],
+        ["docker", "compose", *compose_flags, "build",
+         "--build-arg", f"FLAG={flag}", "--build-arg", f"flag={flag}"],
         cwd=challenge_dir,
         timeout=build_timeout,
         env=env_overlay,
