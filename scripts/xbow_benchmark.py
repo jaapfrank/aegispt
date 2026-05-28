@@ -77,6 +77,27 @@ COMPOSE_PORT_LONG_RE = re.compile(r'^\s*-\s*"?(\d{1,5}):(\d{1,5})"?\s*$')
 COMPOSE_PORT_SHORT_RE = re.compile(r'^\s*-\s*"?(\d{1,5})"?\s*$')
 COMPOSE_SERVICE_RE = re.compile(r"^([A-Za-z0-9_-]+):\s*$")
 WEB_CONTAINER_PORTS = (80, 443, 8080, 8443, 5000, 5003, 3000, 8000)
+# Known NON-HTTP service ports. We no longer gate web-eligibility on a web-port
+# whitelist (too narrow — it skipped real web apps on 4567/9292/2368/etc.).
+# Instead a challenge is web-eligible if it exposes ANY port that is NOT a known
+# infra/DB/SSH service port. This is a blacklist of things we know are not HTTP.
+_NON_WEB_PORTS = frozenset({
+    22,     # SSH
+    25, 465, 587,  # SMTP
+    53,     # DNS
+    3306,   # MySQL
+    5432,   # Postgres
+    6379,   # Redis
+    27017, 27018,  # MongoDB
+    11211,  # Memcached
+    9200, 9300,  # Elasticsearch
+    5672, 15672,  # RabbitMQ (15672 is its HTTP UI, but treat the pair as infra)
+    2181,   # Zookeeper
+    9092,   # Kafka
+    1433,   # MSSQL
+    1521,   # Oracle
+    389, 636,  # LDAP
+})
 DEFAULT_PROFILE_NAME = "autonomous-web"  # seeds target-intel; AI loop drives the rest via /iterate
 TERMINAL_STATUSES = {"completed", "completed_with_errors", "failed", "cancelled", "stopped", "errored"}
 LOOP_TERMINAL_STATUSES = {"stopped", "completed", "completed_with_errors", "failed", "cancelled"}
@@ -136,6 +157,23 @@ def _discover_challenges(xbow_repo: Path) -> list[Path]:
     )
 
 
+def _challenge_loopback_ip(challenge_dir: Path) -> str:
+    """Dedicated loopback IP (127.0.0.X) for a challenge, so the agent's recon
+    sees ONLY the challenge — never AegisPT's own services (API 127.0.0.1:8000,
+    Postgres 127.0.0.1:5432, local LLM 127.0.0.1:8801). Operator-flagged
+    2026-05-28: sharing 127.0.0.1 contaminates the test — a port scan finds the
+    harness itself as "attack surface". Each 127.0.0.0/8 address is distinct on
+    Linux loopback, so a service bound to 127.0.0.1:8000 is unreachable via
+    127.0.0.2 (verified). Deterministic per challenge name (stable across
+    re-runs, distinct across challenges) in the 127.0.0.2-127.0.0.250 range;
+    .1 is reserved for the harness.
+    """
+    import hashlib as _hashlib
+    h = int(_hashlib.sha256(challenge_dir.name.encode("utf-8")).hexdigest(), 16)
+    octet = 2 + (h % 249)  # 2..250
+    return f"127.0.0.{octet}"
+
+
 def _parse_compose_port(compose_path: Path) -> int | None:
     """Best-effort: scan ``docker-compose.yml`` for a static HOST:CONTAINER
     mapping pointing at a web-shaped container port.
@@ -159,12 +197,14 @@ def _parse_compose_port(compose_path: Path) -> int | None:
             continue
         host_port = int(m.group(1))
         container_port = int(m.group(2))
+        if container_port in _NON_WEB_PORTS:
+            continue  # skip DB/SSH/infra ports — not an HTTP target
         if first_static is None:
             first_static = host_port
         if container_port in WEB_CONTAINER_PORTS and preferred is None:
             preferred = host_port
     # Prefer a well-known web container port, but fall back to the first
-    # static host mapping so non-standard web ports (e.g. 4567) still resolve.
+    # non-infra static mapping so non-standard web ports (e.g. 4567) resolve.
     return preferred if preferred is not None else first_static
 
 
@@ -190,8 +230,14 @@ def _challenge_has_web_service(compose_path: Path) -> bool:
         or re.search(r"https?://(localhost|127\.0\.0\.1)", text)
     )
     for raw_line in text.splitlines():
-        if COMPOSE_PORT_LONG_RE.match(raw_line) or COMPOSE_PORT_SHORT_RE.match(raw_line):
+        m = COMPOSE_PORT_LONG_RE.match(raw_line)
+        if m and int(m.group(2)) not in _NON_WEB_PORTS:
             return True
+        m = COMPOSE_PORT_SHORT_RE.match(raw_line)
+        if m and int(m.group(1)) not in _NON_WEB_PORTS:
+            return True
+    # All exposed ports are known infra/DB ports (or none) — only web if an
+    # HTTP healthcheck says so.
     return healthcheck_is_http
 
 
@@ -225,6 +271,8 @@ def _resolve_runtime_port(challenge_dir: Path, *, timeout: float = 30.0) -> int 
             published = pub.get("PublishedPort")
             if not (isinstance(published, int) and published > 0):
                 continue
+            if isinstance(target, int) and target in _NON_WEB_PORTS:
+                continue  # skip DB/SSH/infra published ports
             if first_published is None:
                 first_published = int(published)
             if isinstance(target, int) and target in WEB_CONTAINER_PORTS and preferred is None:
@@ -233,6 +281,68 @@ def _resolve_runtime_port(challenge_dir: Path, *, timeout: float = 30.0) -> int 
     # published port so non-standard web ports (e.g. 4567) still resolve
     # instead of the run aborting with "no web port found".
     return preferred if preferred is not None else first_published
+
+
+# Framework "request rejected before reaching app logic" signatures. A uniform
+# hit of one of these means the request ENVELOPE (Host header etc.) is wrong,
+# not the payload — the exact class that cost XBEN-009 three blind revisions.
+_HOST_BLOCK_RE = re.compile(
+    r"DisallowedHost|Invalid HTTP_HOST|Bad Request \(400\)|"
+    r"The plain HTTP request was sent to HTTPS|Host header|"
+    r"<title>400|Invalid Host header",
+    re.IGNORECASE,
+)
+
+
+def _probe_target_envelope(connect_host: str, host_port: int, *, timeout: float = 8.0) -> dict[str, Any]:
+    """Deterministic preflight (codex Challenge-Readiness contract): discover
+    which Host HEADER the app accepts, WITHOUT any exploit logic. The agent
+    must CONNECT to the challenge's dedicated IP (``connect_host``) — that is
+    the only place the challenge listens — but the app may validate the Host
+    header against an allowlist (e.g. Django ALLOWED_HOSTS=['localhost'] on
+    XBEN-009, which 401'd every IP-based Host and cost 3 critic revisions).
+    Connect-IP and Host-header are therefore legitimately different here.
+
+    Always connects to ``connect_host``:<port>; only the Host header is varied.
+    Returns: {host_header, base_url, first_status, framework_blocked_default,
+    by_host}. base_url always uses connect_host (where the challenge lives).
+    Best-effort: on error, host_header defaults to connect_host.
+    """
+    import httpx as _httpx
+    base_url = f"http://{connect_host}:{host_port}"
+    # The connect IP itself first (works for non-validating apps), then common
+    # ALLOWED_HOSTS values.
+    candidate_headers = [connect_host, "localhost", "0.0.0.0", "127.0.0.1"]
+    seen: set[str] = set()
+    by_host: dict[str, dict[str, Any]] = {}
+    for host in candidate_headers:
+        if host in seen:
+            continue
+        seen.add(host)
+        try:
+            with _httpx.Client(timeout=timeout) as c:
+                r = c.get(base_url + "/", headers={"Host": f"{host}:{host_port}"}, follow_redirects=False)
+            blocked = bool(r.status_code == 400 and _HOST_BLOCK_RE.search(r.text or ""))
+            by_host[host] = {"status": r.status_code, "blocked": blocked}
+        except Exception as exc:  # noqa: BLE001
+            by_host[host] = {"status": None, "error": str(exc)[:120]}
+
+    default = by_host.get(connect_host) or {}
+    default_ok = bool(default.get("status") and not default.get("blocked"))
+    host_header = connect_host
+    if not default_ok:
+        for host in candidate_headers:
+            info = by_host.get(host) or {}
+            if info.get("status") and not info.get("blocked"):
+                host_header = host
+                break
+    return {
+        "host_header": host_header,
+        "base_url": base_url,
+        "first_status": (by_host.get(host_header) or {}).get("status"),
+        "framework_blocked_default": not default_ok,
+        "by_host": by_host,
+    }
 
 
 def _run(cmd: list[str], *, cwd: Path | None = None, timeout: float, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
@@ -248,15 +358,56 @@ def _run(cmd: list[str], *, cwd: Path | None = None, timeout: float, env: dict[s
     )
 
 
-def _normalize_compose(challenge_dir: Path) -> Path:
-    """Some upstream XBOW compose files have duplicate YAML keys at the same
-    nesting level (e.g. XBEN-001-24/docker-compose.yml has ``depends_on:``
-    defined twice on the same service). Docker's compose parser rejects this;
-    PyYAML accepts it (last value wins). Round-trip through PyYAML to produce
-    a normalized variant we then point ``docker compose`` at via ``-f``.
+def _rewrite_port_entry_to_bind_ip(entry: Any, bind_ip: str) -> Any:
+    """Rewrite one compose port entry to bind to ``bind_ip`` at the NATIVE
+    container port. Forms handled:
+      "8081:8080"          -> "127.0.0.X:8080:8080"
+      "8080"               -> "127.0.0.X:8080:8080"
+      "8080/tcp"           -> "127.0.0.X:8080:8080/tcp"
+      "1.2.3.4:8081:8080"  -> "127.0.0.X:8080:8080"  (force our IP)
+      {target,published,…} -> {host_ip, target, published=target}
+    Binding native host==container port on a per-challenge dedicated loopback
+    IP keeps the real port numbers (no remap confusion) AND isolates the
+    challenge from the harness on 127.0.0.1.
+    """
+    if isinstance(entry, str):
+        proto = ""
+        body = entry
+        if "/" in body:
+            body, proto = body.split("/", 1)
+            proto = "/" + proto
+        parts = body.split(":")
+        # container port is always the LAST numeric segment
+        container = parts[-1]
+        return f"{bind_ip}:{container}:{container}{proto}"
+    if isinstance(entry, dict):
+        target = entry.get("target")
+        if target is None:
+            return entry
+        cleaned = {k: v for k, v in entry.items() if k not in {"published", "host_ip"}}
+        cleaned["host_ip"] = bind_ip
+        cleaned["published"] = target
+        return cleaned
+    return entry
 
-    Returns the path to use for compose commands — the original if no
-    duplicate keys were found, otherwise the normalized sibling file.
+
+def _normalize_compose(challenge_dir: Path, bind_ip: str | None = None) -> Path:
+    """Round-trip the compose through PyYAML (fixes upstream duplicate-key
+    files like XBEN-001) AND, when ``bind_ip`` is given, bind every published
+    port to that dedicated loopback IP at its NATIVE container port.
+
+    Why bind_ip: AegisPT itself runs on 127.0.0.1 (API :8000, Postgres :5432,
+    local LLM :8801). If the challenge also publishes on 127.0.0.1, the agent's
+    recon discovers the harness as "attack surface" and the test is
+    contaminated. Pinning each challenge to its own 127.0.0.X makes a recon
+    scan of that IP see ONLY the challenge; our services on 127.0.0.1 are a
+    different address and invisible. Native port numbers (host==container) are
+    preserved so the agent sees real ports (443, 4567, …) — no remap confusion,
+    and app-generated absolute URLs keep working. No collision risk: each
+    challenge has its own IP, distinct from the harness and other challenges.
+
+    Returns the path to use for compose commands (always the normalized sibling
+    when bind_ip is set, since the port binding must take effect).
     """
     original = challenge_dir / "docker-compose.yml"
     if not original.is_file():
@@ -272,11 +423,6 @@ def _normalize_compose(challenge_dir: Path) -> Path:
         return original
     if not isinstance(parsed, dict):
         return original
-    # Strip fixed host-port mappings (e.g. "8000:80" → "80") so XBEN challenges
-    # that hard-code popular host ports don't clash with the AegisPT API on
-    # :8000 or local Postgres on :5432. Docker assigns a free host port when
-    # only the container port is specified, and the harness resolves the
-    # published port via `docker compose ps --format json` already.
     services = parsed.get("services")
     if isinstance(services, dict):
         for svc_cfg in services.values():
@@ -287,28 +433,27 @@ def _normalize_compose(challenge_dir: Path) -> Path:
                 continue
             rewritten: list[Any] = []
             for entry in ports:
-                if isinstance(entry, str) and ":" in entry:
-                    # "HOST:CONTAINER" or "HOST:CONTAINER/proto" — keep just container side.
-                    container_side = entry.split(":", 1)[1]
-                    rewritten.append(container_side)
+                if bind_ip:
+                    rewritten.append(_rewrite_port_entry_to_bind_ip(entry, bind_ip))
+                elif isinstance(entry, str) and ":" in entry:
+                    rewritten.append(entry.split(":", 1)[1])
                 elif isinstance(entry, dict) and "published" in entry:
-                    # long-form { target, published, ... } — drop "published"
-                    cleaned = {k: v for k, v in entry.items() if k != "published"}
-                    rewritten.append(cleaned)
+                    rewritten.append({k: v for k, v in entry.items() if k != "published"})
                 else:
                     rewritten.append(entry)
             svc_cfg["ports"] = rewritten
-    # Round-trip serialisation. PyYAML's default Dumper collapses any duplicate
-    # keys to the last seen value, which fixes the XBEN-001 class of bug.
     try:
         normalized = yaml.safe_dump(parsed, sort_keys=False, default_flow_style=False)
     except yaml.YAMLError:
         return original
-    if normalized.strip() == raw.strip():
+    if bind_ip is None and normalized.strip() == raw.strip():
         return original
     out = challenge_dir / "docker-compose.normalized.yml"
     out.write_text(normalized, encoding="utf-8")
-    logger.info("xbow harness: normalized compose written for %s", challenge_dir.name)
+    logger.info(
+        "xbow harness: normalized compose written for %s (bind_ip=%s)",
+        challenge_dir.name, bind_ip or "default",
+    )
     return out
 
 
@@ -346,7 +491,10 @@ def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, u
         )
 
     env_overlay = {"FLAG": flag}
-    compose_file = _normalize_compose(challenge_dir)
+    # Dedicated loopback IP isolates this challenge from the harness's own
+    # services on 127.0.0.1 (see _challenge_loopback_ip). Bound at native ports.
+    bind_ip = _challenge_loopback_ip(challenge_dir)
+    compose_file = _normalize_compose(challenge_dir, bind_ip=bind_ip)
     compose_flags = ["-f", compose_file.name] if compose_file.name != "docker-compose.yml" else []
 
     # FLAG is a per-run build-arg that gets baked into the image, so a
@@ -430,7 +578,7 @@ def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, u
             f"{(up.stderr or up.stdout)[:400]}"
         )
     try:
-        yield
+        yield bind_ip
     finally:
         try:
             _run(["docker", "compose", *compose_flags, "down", "-v"], cwd=challenge_dir, timeout=120, env=env_overlay)
@@ -450,6 +598,8 @@ def _register_run(
     m1_max_revisions: int = 1,
     m6_cross_model_critic: bool = False,
     wait_seconds: int = 1200,
+    allowlist_urls: list[str] | None = None,
+    target_envelope: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create engagement + scope + autonomous-intrusive run."""
     engagement_response = client.post(
@@ -466,11 +616,16 @@ def _register_run(
     engagement_response.raise_for_status()
     engagement = engagement_response.json()
 
+    # Scope allowlist covers BOTH host spellings (127.0.0.1 + localhost) so the
+    # scope guard never blocks the working Host the preflight detected — without
+    # this the agent's correct `Host: localhost` request was rejected by the
+    # guard (observed XBEN-009 task 22a3e6ee: "host 'localhost' not in scope").
+    scope_urls = list(allowlist_urls) if allowlist_urls else [target_url]
     scope_response = client.post(
         f"/api/v1/engagements/{engagement['id']}/scope",
         headers=api_headers(actor),
         json={
-            "allowlist_json": {"urls": [target_url]},
+            "allowlist_json": {"urls": scope_urls},
             "denylist_json": {},
         },
     )
@@ -507,6 +662,22 @@ def _register_run(
                 # orchestrator dispatches pre-recon-source FIRST and
                 # concatenates the white-box deliverable with network recon.
                 **({"source_dir": source_dir} if source_dir else {}),
+                # Target Envelope (codex Challenge-Readiness contract): the
+                # preflight-detected request envelope — the working Host header
+                # and first status. Generic target metadata (NOT an exploit
+                # recipe, NOT XBOW-specific), so the contamination guard is
+                # satisfied. Lets the picker/recon surface "this app needs
+                # Host: <x>" so the agent does not rediscover it via failed
+                # requests.
+                **(
+                    {"target_envelope": {
+                        "host_header": target_envelope.get("host_header"),
+                        "base_url": target_envelope.get("base_url"),
+                        "first_status": target_envelope.get("first_status"),
+                        "framework_blocked_default_host": target_envelope.get("framework_blocked_default"),
+                    }}
+                    if target_envelope else {}
+                ),
                 # M4 multi-trajectory + M6 cross-model critic per-run config.
                 # Default {} keeps M1 baseline behavior.
                 **(
@@ -693,29 +864,35 @@ def _run_one_challenge(
 
     started = time.time()
     try:
-        with _docker_challenge(challenge_dir, flag, build_timeout=build_timeout, up_timeout=up_timeout):
-            # ALWAYS resolve the host port AFTER docker compose up.
-            # The compose file may hardcode a static host port like ``8000:80``
-            # that collides with a host service (e.g. AegisPT API itself on
-            # 127.0.0.1:8000). When that happens Docker rebinds to a different
-            # host port, and a pre-up static-port read would point the agent
-            # at the wrong service (catastrophic: agent attacks the harness
-            # API instead of the challenge). Always trust the Docker-reported
-            # PublishedPort.
+        with _docker_challenge(challenge_dir, flag, build_timeout=build_timeout, up_timeout=up_timeout) as bind_ip:
+            # ALWAYS resolve the host port AFTER docker compose up. With the
+            # dedicated-IP binding the challenge publishes at its NATIVE port on
+            # bind_ip (e.g. 127.0.0.7:443), so the agent sees real port numbers.
             host_port = _resolve_runtime_port(challenge_dir)
             if host_port is None:
                 result.error = "could not resolve published host port after docker compose up"
                 return result
-            target_url = f"http://127.0.0.1:{host_port}"
-            # Belt-and-braces safety: refuse to point the agent at the API itself.
-            api_port_in_base_url = urlparse(base_url).port
-            if api_port_in_base_url is not None and host_port == api_port_in_base_url:
-                result.error = (
-                    f"challenge published port {host_port} collides with the AegisPT API "
-                    f"({base_url}); refusing to drive the agent against the harness itself"
+            # The challenge lives ONLY on its dedicated loopback IP. The agent
+            # must connect there — NOT localhost/127.0.0.1, which is the harness.
+            target_url = f"http://{bind_ip}:{host_port}"
+            # Deterministic preflight: detect which Host HEADER the app accepts
+            # (connect stays on bind_ip; only the header varies). Hands the
+            # agent a working envelope so it doesn't burn revisions rediscovering
+            # e.g. Django ALLOWED_HOSTS=['localhost'] (XBEN-009 needed exactly
+            # that). Connect-IP != Host-header is expected here.
+            envelope = _probe_target_envelope(bind_ip, host_port)
+            # Scope = the WHOLE dedicated IP with NO port. The scope guard treats
+            # a port-less allowlist host as "all ports allowed", so the agent can
+            # explore EVERY open port on the challenge (operator point: a real
+            # target may expose 443 + others, all exploitable) — while the
+            # harness on 127.0.0.1 stays out of scope and invisible.
+            scope_allowlist_urls = [f"http://{bind_ip}"]
+            if envelope.get("host_header") and envelope["host_header"] != bind_ip:
+                result.notes.append(
+                    f"preflight: app validates Host (status by header={envelope['by_host']}); "
+                    f"agent should send Host: {envelope['host_header']} while connecting to {bind_ip}"
                 )
-                return result
-            result.notes.append(f"target_url={target_url}")
+            result.notes.append(f"target_url={target_url} scope={scope_allowlist_urls}")
             # Default client timeout is 1800s — matches the iterate-call
             # explicit override (d5cccea). Empirical 2026-05-27 smoke 47a/b/c:
             # the wrapper crashed at exactly 641s on the GET /runs/{id} poll
@@ -762,6 +939,8 @@ def _run_one_challenge(
                     m1_max_revisions=m1_max_revisions,
                     m6_cross_model_critic=m6_cross_model_critic,
                     wait_seconds=wait_seconds,
+                    allowlist_urls=scope_allowlist_urls,
+                    target_envelope=envelope,
                 )
                 result.run_id = run.get("id")
                 run = grant_required_approvals(
