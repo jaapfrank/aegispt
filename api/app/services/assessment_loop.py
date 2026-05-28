@@ -2169,6 +2169,7 @@ def _specialists_select_next_action(
     # 60-150s fan-out latency per iteration). Only re-fan-out when the queue
     # is exhausted within its attempt budget.
     from api.app.services.picker_specialists.queue import (  # noqa: E402
+        QUEUE_STATE_FAILED,
         QUEUE_STATE_RUNNING,
         assign_ids_to_hypotheses,
         has_open_work,
@@ -2264,6 +2265,57 @@ def _specialists_select_next_action(
                 session.flush()
             except Exception:  # noqa: BLE001
                 pass
+    # Guard (PROOF_EXEC 2026-05-28): a code-exec-attack hypothesis MUST carry a
+    # non-empty python_script. The specialist schema marks python_script
+    # "REQUIRED when tool=code-exec-attack" only in the field DESCRIPTION — it is
+    # NOT in the schema's required[] array, and JSON-Schema if/then conditional-
+    # required is not reliably honoured across Anthropic/Gemini/OpenAI structured
+    # output. So the LLM can validly emit tool=code-exec-attack with no script,
+    # which then dies at the runner with "empty script — refusing to run", burning
+    # a whole iteration. Empirically 3/12 CEA dispatches on smoke 63 (run
+    # ff4b19cd) hit exactly this. Skip malformed picks (bounded) and take the next
+    # open hypothesis instead of dispatching a guaranteed-empty exec task.
+    _empty_cea_skips = 0
+    while (
+        top is not None
+        and str(top.get("tool") or "").strip() == "code-exec-attack"
+        and not str(top.get("python_script") or "").strip()
+        and _empty_cea_skips < 5
+    ):
+        logger.warning(
+            "PROOF_EXEC_EMPTY_CEA_SCRIPT_REJECTED_2026052814 run=%s specialist=%s "
+            "rank=%s title=%r — code-exec-attack hypothesis had empty python_script; "
+            "marking failed and re-picking next open hypothesis",
+            str(getattr(run, "id", "?"))[:8],
+            top.get("__specialist"),
+            top.get("rank"),
+            str(top.get("title") or "")[:80],
+        )
+        transition_state(
+            top,
+            new_state=QUEUE_STATE_FAILED,
+            reason="empty_python_script_malformed_hypothesis",
+        )
+        _empty_cea_skips += 1
+        top = pick_next_open(stored_queue)
+        if top is not None:
+            transition_state(
+                top,
+                new_state=QUEUE_STATE_RUNNING,
+                reason="picker_dispatch_after_empty_cea_skip",
+            )
+    if _empty_cea_skips:
+        loop_cfg["hypothesis_queue"] = stored_queue
+        loop_cfg["hypothesis_queue_summary"] = queue_summary(stored_queue)
+        cfg["ai_assessment_loop"] = loop_cfg
+        run.configuration_json = cfg
+        if session is not None:
+            try:
+                session.flush()
+            except Exception:  # noqa: BLE001
+                pass
+    if top is None:
+        return None
     logger.info(
         "specialists: top hypothesis from %s rank=%s tool=%s title=%r",
         top.get("__specialist"),
