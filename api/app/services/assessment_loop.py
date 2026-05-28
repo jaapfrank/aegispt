@@ -235,6 +235,45 @@ def _summarize_cea_observation(*, script_stdout: str, exit_code: Any) -> str:
     return "\n".join(lines)
 
 
+def _target_envelope_block(run: Any) -> str:
+    """Render the harness-detected Target Envelope (operating manual) as a
+    prompt block so the exploit-crafting LLM does NOT have to rediscover how to
+    make a valid request. The harness isolates each challenge on its own
+    loopback IP (127.0.0.X) and preflights which Host HEADER the app accepts;
+    those facts live in run.configuration_json['target_envelope']. Surfacing
+    them removes the "connect to 127.0.0.X but send Host: localhost" guessing
+    that the dedicated-IP isolation introduced (codex Challenge-Readiness
+    contract). Returns '' when no envelope is present (e.g. non-harness runs).
+    """
+    try:
+        cfg = getattr(run, "configuration_json", None) or {}
+        env = cfg.get("target_envelope") if isinstance(cfg, dict) else None
+        if not isinstance(env, dict):
+            return ""
+        base_url = str(env.get("base_url") or "").strip()
+        host_header = str(env.get("host_header") or "").strip()
+        first_status = env.get("first_status")
+        blocked = bool(env.get("framework_blocked_default_host"))
+        if not base_url:
+            return ""
+        lines = [
+            "=== TARGET ENVELOPE (operating manual — read BEFORE crafting requests) ===",
+            f"Connect to this base URL — it is the ONLY address the target listens on: {base_url}",
+            "Do NOT use localhost or 127.0.0.1 — the target is not there; those are out of scope.",
+        ]
+        if blocked and host_header:
+            lines.append(
+                f"This app VALIDATES the HTTP Host header. On EVERY request set the header "
+                f"`Host: {host_header}` (still connecting to the base URL above), otherwise it "
+                f"returns 400. Example httpx: client.get(url, headers={{'Host': '{host_header}'}})."
+            )
+        if first_status is not None:
+            lines.append(f"First observed status with the correct envelope: {first_status}.")
+        return "\n".join(lines) + "\n\n"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _log_anthropic_usage(*, site: str, run_id: str, msg: Any) -> None:
     """Log Anthropic-API token usage so operators can compute cache hit rate
     post-hoc. Without this, the ledger only shows aggregate cost (~EUR 3.10
@@ -1062,7 +1101,8 @@ def _maybe_dispatch_script_critic(
 
     # Build the user content envelope for the critic.
     user_content = (
-        "=== OBSERVATION SUMMARY (read this FIRST) ===\n"
+        _target_envelope_block(run)
+        + "=== OBSERVATION SUMMARY (read this FIRST) ===\n"
         f"{observation_summary}\n\n"
         "=== PRIOR EXPLOIT SCRIPT (failed to emit finding) ===\n"
         f"{latest_script_text or '(script source unavailable)'}\n\n"
@@ -1570,7 +1610,8 @@ def _maybe_dispatch_cpg_seeded_cea(
             pass
 
     user_content = (
-        "=== JOERN CPG TAINT SURVEY (trimmed to sinks/routes) ===\n"
+        _target_envelope_block(run)
+        + "=== JOERN CPG TAINT SURVEY (trimmed to sinks/routes) ===\n"
         f"{cpg_trimmed}\n\n"
         "=== SEED CREDENTIALS (from source seed data — USE THESE LITERALLY) ===\n"
         f"{seed_creds_block}\n\n"
