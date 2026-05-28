@@ -286,6 +286,67 @@ def _build_next_step_hints(analysis: dict[str, Any], base_url: str) -> list[dict
     return hints
 
 
+def _port_discovery_required_analysis(base_target: str, context: dict[str, Any]) -> dict[str, Any] | None:
+    """Codex Challenge-Readiness 2026-05-28: when the target URL has NO explicit
+    port AND the default-port probe got no usable response, this is NOT an
+    "empty site" — it's "service port unknown". With the dedicated-IP / whole-IP
+    scope model a target is a HOST whose serving port must be DISCOVERED first.
+    Returns a deterministic port-discovery-first plan (nmap at priority 1, then
+    httpx with Host-header candidates, then web recon) instead of letting the
+    LLM hallucinate a port-80 webapp analysis + waste httpx/nuclei steps.
+    Returns None when the target already responded or has an explicit port.
+    """
+    parsed = urlparse(base_target)
+    if parsed.port is not None:
+        return None  # explicit port given — normal analysis applies
+    status = context.get("status")
+    if status is not None:
+        return None  # default port answered — it really is a web target
+    host = parsed.hostname or base_target
+    return {
+        "site_type": "port_discovery_required",
+        "readiness_status": "service_port_unknown",
+        "technology_stack": [],
+        "cves_to_check": [],
+        "attack_surface": [],
+        "sensitive_data_found": [],
+        "observed_paths": [],
+        "attack_candidates": [],
+        "target_envelope": {
+            "connect_host": host,
+            "scope_ports": "all",
+            "explicit_port_present": False,
+            "host_header_candidates": ["localhost", host],
+        },
+        "test_plan": [
+            {
+                "priority": 1,
+                "tool": "nmap",
+                "reason": (
+                    "URL has no explicit port and the default-port probe returned no "
+                    "response. Discover which port actually serves BEFORE any HTTP recon."
+                ),
+                "params": {"target": host, "ports": "1-65535", "service_detection": True},
+                "expected_finding": "Open port(s) + service banners identifying the live service.",
+            },
+            {
+                "priority": 2,
+                "tool": "httpx",
+                "reason": "Once a port is found, confirm HTTP and the accepted Host header.",
+                "params": {"url": f"http://{host}", "follow_redirects": True, "timeout": 10},
+                "expected_finding": "HTTP status + headers at the discovered port.",
+            },
+            {
+                "priority": 3,
+                "tool": "smart-web-probe",
+                "reason": "After a working base URL is established, enumerate paths/framework.",
+                "params": {"url": f"http://{host}"},
+                "expected_finding": "Endpoints, framework markers, API surface.",
+            },
+        ],
+    }
+
+
 def execute_target_intel(
     targets: list[str],
     *,
@@ -300,11 +361,20 @@ def execute_target_intel(
     # Step 1: probe the target
     context = _probe_target(base_target, min(timeout_seconds, 15.0))
 
-    # Step 2: Claude analysis (or fallback)
-    analysis = _call_claude(context, base_target)
-    if not analysis:
-        logger.info("target-intel: using heuristic fallback (no API key or Claude error)")
-        analysis = _fallback_analysis(context)
+    # Step 2: readiness gate — if the port is unknown (no explicit port + no
+    # response), emit a deterministic port-discovery-first plan instead of an
+    # LLM webapp hallucination. Otherwise run the normal Claude analysis.
+    analysis = _port_discovery_required_analysis(base_target, context)
+    if analysis is not None:
+        logger.info(
+            "target-intel: readiness=service_port_unknown for %s — emitting "
+            "port-discovery-first plan (nmap priority 1)", base_target,
+        )
+    else:
+        analysis = _call_claude(context, base_target)
+        if not analysis:
+            logger.info("target-intel: using heuristic fallback (no API key or Claude error)")
+            analysis = _fallback_analysis(context)
 
     # Step 3: format result
     result = {
