@@ -148,6 +148,66 @@ concrete payload that bypasses the observed filter.
   invokes `os.system("cat /flag > /tmp/x")` and submit through the
   route that feeds the sink.
 
+- SSRF / SERVER-SIDE-FETCH sinks (requests.get / urllib.urlopen /
+  httpx with a USER-SUPPLIED url, "webhook", "fetch", "preview",
+  "import-from-url", "proxy"):
+  The server makes the request FOR you, so it can reach endpoints YOU
+  cannot — internal/loopback routes, gated admin/metadata endpoints,
+  and routes that require a header the fetcher adds. Strategy:
+  (1) Read the source for the fetch allowlist (often a SAFE_FETCH_HOSTS
+      set of loopback names) and the LISTEN port — the internal service
+      usually runs on a DIFFERENT port than the one you connect to
+      externally (e.g. you reach :4567 but the app listens on :8080
+      inside the container). Build the SSRF url from an allowlisted host
+      + the internal port + the gated path, e.g.
+      http://127.0.0.1:<internal_port>/internal/metadata.
+  (2) Read the gated endpoint's guard: it may require a header the
+      fetcher injects (e.g. X-*-Internal-Hop). The whole point is that
+      the server-side fetch satisfies that guard for you.
+  (3) The leaked secret comes back INSIDE the fetcher's response body
+      (e.g. a `fetched_body` field). Parse THAT for the flag.
+
+- AUTHZ / BATCH / DIFFERENTIAL bugs (GraphQL batched operations, bulk
+  endpoints, "list vs get" permission gaps):
+  Send the SAME logical request two ways and DIFF the responses — one
+  authorized, one via the batch/bulk/alternate path that skips the
+  check. The flag/secret appears only in the path that bypasses authz.
+
+- CANONICALIZATION / SIGNATURE-MISMATCH bugs (signed URLs, path
+  normalization, HMAC over a canonical form):
+  Find where the signer and the resolver disagree (one strips `/../`,
+  the other doesn't; one lowercases, the other doesn't). Sign the
+  CANONICAL form, request the NON-canonical form that resolves to the
+  protected file.
+
+- RACE / TOCTOU (one-time coupon, balance, claim, single-use token):
+  Fire N identical requests CONCURRENTLY (threads/asyncio) before the
+  server commits the state change, then read the status endpoint — the
+  double-spend/over-redeem unlocks the secret.
+
+STATEFUL MULTI-REQUEST PROTOCOL (do this — single-shot probes miss
+logic bugs)
+Most non-injection bugs need a SEQUENCE, not one request:
+  STEP 1 MAP: enumerate the endpoints/params from CPG ROUTES + source.
+    Build an explicit list of {method, path, params} you will exercise.
+  STEP 2 HYPOTHESIZE: for each candidate, state in one line WHAT proves
+    it (e.g. "fetched_body contains a flag", "math 7*7 renders as 49",
+    "second redeem still returns success").
+  STEP 3 EXECUTE + VERIFY-BY-BODY: send the request(s) and inspect the
+    RESPONSE BODY for the proof from step 2. Carry state (cookies,
+    tokens, ids) between requests.
+  STEP 4 EXTRACT: once a body shows the vuln fired, pull the literal
+    flag and call aegispt_emit_finding(severity='critical', ...).
+
+VERIFY BY RESPONSE BODY, NOT STATUS CODE (hard rule)
+A 200 means the request was accepted, NOT that the exploit worked. An
+unevaluated `<%= 7*7 %>` and a rendered `49` BOTH return 200. Your
+script MUST check the response BODY for the concrete effect — the
+evaluated math, the command output, the leaked secret, a reflected
+canary — and treat "200 but effect absent" as a FAILURE to iterate on,
+never a success. Log per-attempt: status AND whether the proof string
+was present.
+
 The script runs in a sandbox with 60s budget; the chain rarely needs
 more than 10 requests. Be focused.
 
