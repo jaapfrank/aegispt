@@ -151,35 +151,48 @@ def _parse_compose_port(compose_path: Path) -> int | None:
     """
     if not compose_path.is_file():
         return None
+    preferred: int | None = None
+    first_static: int | None = None
     for raw_line in compose_path.read_text(encoding="utf-8", errors="replace").splitlines():
         m = COMPOSE_PORT_LONG_RE.match(raw_line)
         if not m:
             continue
         host_port = int(m.group(1))
         container_port = int(m.group(2))
-        if container_port in WEB_CONTAINER_PORTS:
-            return host_port
-    return None
+        if first_static is None:
+            first_static = host_port
+        if container_port in WEB_CONTAINER_PORTS and preferred is None:
+            preferred = host_port
+    # Prefer a well-known web container port, but fall back to the first
+    # static host mapping so non-standard web ports (e.g. 4567) still resolve.
+    return preferred if preferred is not None else first_static
 
 
 def _challenge_has_web_service(compose_path: Path) -> bool:
-    """Return True if any service exposes a web-shaped container port.
+    """Return True if any service exposes a port we could reach over HTTP.
 
-    Accepts both long and short forms. Used as a cheap pre-filter to skip
-    non-HTTP challenges (DB-only, IoT-protocol-only, etc.) without firing
-    up Docker.
+    2026-05-28: previously this gated on a hard-coded WEB_CONTAINER_PORTS
+    whitelist (80/443/8080/.../8000) and SKIPPED any challenge whose web
+    service used a different port — e.g. XBEN-086 (Sinatra on 4567) and many
+    framework defaults (Rails 3000 covered, but 4567/9292/2368/etc. not).
+    That wrongly excluded real web challenges from the score-lane. A general
+    pentest harness must not pre-filter targets by a magic port list. Now:
+    treat a challenge as web-eligible if it exposes ANY port OR its
+    healthcheck speaks HTTP (curl/wget/http). Only genuinely portless
+    services (no `ports:` mapping at all) are skipped; the runtime HTTP probe
+    downstream confirms whether the port actually serves HTTP.
     """
     if not compose_path.is_file():
         return False
     text = compose_path.read_text(encoding="utf-8", errors="replace")
+    healthcheck_is_http = bool(
+        re.search(r"(curl|wget)\s+[^\n]*https?://", text)
+        or re.search(r"https?://(localhost|127\.0\.0\.1)", text)
+    )
     for raw_line in text.splitlines():
-        m = COMPOSE_PORT_LONG_RE.match(raw_line)
-        if m and int(m.group(2)) in WEB_CONTAINER_PORTS:
+        if COMPOSE_PORT_LONG_RE.match(raw_line) or COMPOSE_PORT_SHORT_RE.match(raw_line):
             return True
-        m = COMPOSE_PORT_SHORT_RE.match(raw_line)
-        if m and int(m.group(1)) in WEB_CONTAINER_PORTS:
-            return True
-    return False
+    return healthcheck_is_http
 
 
 def _resolve_runtime_port(challenge_dir: Path, *, timeout: float = 30.0) -> int | None:
@@ -196,6 +209,8 @@ def _resolve_runtime_port(challenge_dir: Path, *, timeout: float = 30.0) -> int 
     )
     if proc.returncode != 0:
         return None
+    preferred: int | None = None
+    first_published: int | None = None
     for line in proc.stdout.splitlines():
         line = line.strip()
         if not line:
@@ -208,9 +223,16 @@ def _resolve_runtime_port(challenge_dir: Path, *, timeout: float = 30.0) -> int 
         for pub in entry.get("Publishers") or []:
             target = pub.get("TargetPort")
             published = pub.get("PublishedPort")
-            if isinstance(target, int) and isinstance(published, int) and target in WEB_CONTAINER_PORTS and published > 0:
-                return int(published)
-    return None
+            if not (isinstance(published, int) and published > 0):
+                continue
+            if first_published is None:
+                first_published = int(published)
+            if isinstance(target, int) and target in WEB_CONTAINER_PORTS and preferred is None:
+                preferred = int(published)
+    # Prefer a well-known web container port; otherwise fall back to the first
+    # published port so non-standard web ports (e.g. 4567) still resolve
+    # instead of the run aborting with "no web port found".
+    return preferred if preferred is not None else first_published
 
 
 def _run(cmd: list[str], *, cwd: Path | None = None, timeout: float, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
@@ -341,6 +363,22 @@ def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, u
             check=False, capture_output=True, text=True,
         )
     except Exception:
+        pass
+
+    # Idempotent pre-clean: tear down any stale containers/networks left by a
+    # prior or killed run of THIS challenge before bringing it up. Without
+    # this, `docker compose up` fails with "Network <name> ... already exists"
+    # / conflicting-container errors and the whole challenge is wrongly scored
+    # as a CRASH. Empirically caught on XBEN-007: a killed smoke left a
+    # dangling `xben-007-24_default` network and the retry crashed at `up`
+    # even though the build was fine. Best-effort; ignore failures (nothing to
+    # remove on a clean host).
+    try:
+        _run(
+            ["docker", "compose", *compose_flags, "down", "-v", "--remove-orphans"],
+            cwd=challenge_dir, timeout=120, env=env_overlay,
+        )
+    except Exception:  # noqa: BLE001
         pass
 
     # Pass the flag build-arg under BOTH casings. Different challenge
