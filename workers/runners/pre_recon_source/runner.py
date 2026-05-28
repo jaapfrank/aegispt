@@ -103,6 +103,21 @@ SINK_PATTERNS = [
     (re.compile(r"\bwebdriver\b", re.IGNORECASE), "headless-webdriver", "high"),
 ]
 
+# Internal listen-port patterns. 2026-05-28: the SSRF self-fetch class needs
+# the port the service listens on INSIDE its container — which differs from
+# the externally-published port (lab listens on :8080, published as :8088).
+# Without surfacing this the agent points server-side fetches at the external
+# port and gets fetch_failed/502. Generic across frameworks + Dockerfile.
+LISTEN_PORT_PATTERNS = [
+    (re.compile(r"""(?:environ\.get|getenv)\s*\(\s*[\"'][^\"']*PORT[^\"']*[\"']\s*,\s*[\"']?(\d{2,5})[\"']?""", re.IGNORECASE), "env-default-port"),
+    (re.compile(r"(?:HTTPServer|TCPServer|socketserver\.\w+)\s*\(\s*\([^)]*,\s*(\d{2,5})\s*\)"), "httpserver-bind"),
+    (re.compile(r"\.run\s*\([^)]*\bport\s*=\s*(\d{2,5})"), "framework-run-port"),
+    (re.compile(r"0\.0\.0\.0:(\d{2,5})"), "bind-literal"),
+    (re.compile(r"\.listen\s*\(\s*(\d{2,5})"), "node-listen"),
+    (re.compile(r"^\s*EXPOSE\s+(\d{2,5})", re.IGNORECASE), "dockerfile-expose"),
+    (re.compile(r"\bENV\s+\w*PORT\w*\s*=?\s*(\d{2,5})", re.IGNORECASE), "dockerfile-env-port"),
+]
+
 # Auth + credentials patterns.
 AUTH_PATTERNS = [
     (re.compile(r"@login_required\b", re.IGNORECASE), "auth-decorator"),
@@ -162,9 +177,14 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
         "sinks": [],
         "auth": [],
         "creds": [],
+        "listen_ports": [],
     }
     lines = text.splitlines()
     for lineno, line in enumerate(lines, 1):
+        for pattern, kind in LISTEN_PORT_PATTERNS:
+            m = pattern.search(line)
+            if m:
+                hits["listen_ports"].append({"file": rel, "line": lineno, "kind": kind, "port": m.group(1), "snippet": line.strip()[:200]})
         for pattern, kind in ROUTE_PATTERNS:
             m = pattern.search(line)
             if m:
@@ -196,7 +216,9 @@ def _build_markdown(
     sinks: list[dict[str, Any]],
     auth: list[dict[str, Any]],
     creds: list[dict[str, Any]],
+    listen_ports: list[dict[str, Any]] | None = None,
 ) -> str:
+    listen_ports = listen_ports or []
     def _section(title: str, body: str) -> str:
         return f"## {title}\n\n{body.strip()}\n"
 
@@ -223,6 +245,15 @@ def _build_markdown(
         f"# Pre-Recon Source Audit\n\n"
         + _section("Executive Summary", summary)
         + _section("Provenance", "\n".join(f"- `{h}`" for h in hashes_sha256_prefix[:10]) or "_(no files)_")
+        + _section(
+            "Service Internal Listen Port(s) — for container-internal / SSRF self-fetch targeting",
+            (_rows(listen_ports, "file", "line", "kind", "port", "snippet")
+             + "\n\nNOTE: these are the port(s) the service listens on INSIDE its container. "
+               "For SSRF / server-side-fetch exploits the server fetches from inside the "
+               "container, so target the INTERNAL port here (e.g. `http://127.0.0.1:<port>/...`), "
+               "NOT the externally-published port you connect to.")
+            if listen_ports else "_(none observed)_",
+        )
         + _section("Route Inventory (source-grepped)", _rows(routes, "file", "line", "kind", "path", "snippet"))
         + _section("Dangerous Sinks (CRITICAL = direct RCE candidates)", _rows(sinks, "file", "line", "sink", "severity_hint", "snippet"))
         + _section("Auth / Session Surface (source)", _rows(auth, "file", "line", "kind", "snippet"))
@@ -276,6 +307,7 @@ def execute_pre_recon_source(
     sinks: list[dict[str, Any]] = []
     auth: list[dict[str, Any]] = []
     creds: list[dict[str, Any]] = []
+    listen_ports: list[dict[str, Any]] = []
     hashes_prefix: list[str] = []
 
     for path in files:
@@ -284,6 +316,7 @@ def execute_pre_recon_source(
         sinks.extend(hits.get("sinks", []))
         auth.extend(hits.get("auth", []))
         creds.extend(hits.get("creds", []))
+        listen_ports.extend(hits.get("listen_ports", []))
         try:
             with path.open("rb") as fh:
                 digest = hashlib.sha256(fh.read(FILE_READ_CAP_BYTES)).hexdigest()
@@ -299,6 +332,7 @@ def execute_pre_recon_source(
         sinks=sinks,
         auth=auth,
         creds=creds,
+        listen_ports=listen_ports,
     )
 
     payload = {
