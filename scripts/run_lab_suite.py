@@ -100,6 +100,8 @@ def main() -> int:
     parser.add_argument("--llm-provider", default="gemini-3.1-pro")
     parser.add_argument("--profile-name", default="autonomous-web")
     parser.add_argument("--m1-max-revisions", type=int, default=3)
+    parser.add_argument("--source-aware", action="store_true",
+                        help="give the agent the lab source (labs/aegispt_lab_suite) for white-box CPG analysis")
     parser.add_argument("--keep-up", action="store_true", help="leave the lab running after the run")
     args = parser.parse_args()
 
@@ -144,7 +146,7 @@ def main() -> int:
                 challenge_id="aegispt-lab-suite",
                 profile_name=args.profile_name,
                 llm_provider=args.llm_provider,
-                source_dir=None,  # black-box: test true generalization
+                source_dir=str(LAB_DIR) if args.source_aware else None,
                 m1_max_revisions=args.m1_max_revisions,
                 wait_seconds=args.wait_seconds,
                 allowlist_urls=[f"http://{args.lab_ip}"],  # whole IP, all ports/paths
