@@ -473,12 +473,26 @@ def sweep_stuck_queued_tasks(app: Any, settings: Settings) -> int:
 
 
 def finalize_zombie_runs_tick(app: Any, settings: Settings) -> int:
-    """Sweep stale running/queued runs whose `started_at` is older than 5 min.
+    """Sweep genuinely-stale running/queued runs — NO activity for >10 min.
 
     Equivalent to running ``scripts/finalize_zombie_runs.py`` on a cron, but
     in-process so it always fires when the API is up. Without this the
     operator has to manually run the script (we accumulated 16 zombies over
     ~5 days before noticing on 2026-05-24).
+
+    2026-05-28 FIX: the staleness predicate was ``started_at < NOW() - 5min``,
+    which finalized EVERY run older than 5 minutes regardless of whether it
+    was actively making progress. XBOW challenge runs have a 900s (15-min)
+    wall-clock budget, so the sweeper was killing healthy runs mid-recon —
+    empirically observed killing run 75b955ec (smoke 64) at 10:48 right
+    before its SSTI exploit could land against XBEN-009, producing a false
+    "no-flag". A run is a zombie only when it has had NO row activity for a
+    long time; ``updated_at`` is bumped (onupdate=func.now()) on every loop
+    advance + task transition, so it is the correct last-activity signal.
+    Switched to ``updated_at < NOW() - 10min`` — comfortably longer than the
+    longest single task (Joern CPG / content-discovery ~4min) AND the 900s
+    wall-clock budget, so a healthy run self-terminates via the budget guard
+    long before this backstop fires; only a truly-hung run trips it.
     """
     session_factory: sessionmaker[Session] | None = getattr(app.state, "session_factory", None)
     if session_factory is None:
@@ -490,7 +504,7 @@ def finalize_zombie_runs_tick(app: Any, settings: Settings) -> int:
                 _text_zombie(
                     "UPDATE runs SET status='completed_with_errors', updated_at=NOW() "
                     "WHERE status IN ('running','queued') "
-                    "AND started_at < NOW() - INTERVAL '5 minutes' "
+                    "AND updated_at < NOW() - INTERVAL '10 minutes' "
                     "RETURNING id"
                 )
             )
@@ -499,8 +513,10 @@ def finalize_zombie_runs_tick(app: Any, settings: Settings) -> int:
             n = len(rows)
             if n:
                 logger.info(
-                    "zombie-sweeper: finalized %d stale run(s) status=completed_with_errors",
+                    "PROOF_EXEC_ZOMBIE_SWEEP_2026052815 zombie-sweeper: finalized %d "
+                    "stale run(s) (no activity >10min) status=completed_with_errors ids=%s",
                     n,
+                    [str(r[0])[:8] for r in rows],
                 )
             return n
         except Exception as exc:  # noqa: BLE001
