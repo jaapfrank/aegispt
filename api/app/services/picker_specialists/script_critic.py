@@ -36,7 +36,31 @@ INPUTS YOU RECEIVE
 5. The hypothesis title + evidence_summary that motivated the original
    script.
 
-YOUR JOB — five-step critique
+YOUR JOB — critique
+
+Step 0. **Diagnose UNIFORM FAILURE first (request-envelope check)**.
+Look at the OBSERVATION SUMMARY + the script stdout. If EVERY probe got
+the SAME response (e.g. all returned HTTP 400, or all 403, or all the
+same error page), the payloads are almost certainly NOT the problem —
+the request never reached the vulnerable code path. The request ENVELOPE
+or a harness assumption is wrong. You MUST:
+  (a) State explicitly what the uniform status implies. (HTTP 400 with a
+      "DisallowedHost"/"Invalid Host"/host-validation body ⇒ the Host
+      header is rejected. 403 on everything ⇒ auth/WAF/origin. 404 on
+      everything ⇒ wrong path/route prefix. Connection refused ⇒ wrong
+      port/scheme/host-not-up.)
+  (b) Vary EXACTLY ONE request-envelope assumption in the revised script
+      BEFORE trying any new payloads — pick the single most likely one:
+      Host header, scheme (http/https), port, path prefix, auth
+      cookie/header, or Content-Type. Re-send the SAME minimal probe
+      with that one change and confirm the status changes (e.g. 400→200)
+      before iterating payloads.
+  (c) Do NOT just shoot a fresh batch of payloads at the same envelope —
+      repeating a blind uniform-failure series is the failure mode this
+      step exists to stop.
+If the prior responses were NOT uniform (mixed statuses, some 200s,
+varied bodies), the envelope is fine — skip to Step 1 and treat it as a
+missing-primitive problem.
 
 Step 1. **Re-read the recon deliverables**. For each ROUTE listed in
 the source audit + the network endpoint inventory: ask "did the script

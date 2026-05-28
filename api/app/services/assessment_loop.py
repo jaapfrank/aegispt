@@ -182,6 +182,59 @@ def _picker_prompt_with_skills() -> str:
     return _AI_PICKER_SYSTEM_PROMPT
 
 
+# Real HTTP status codes — used to histogram a script's responses without
+# mis-counting payload integers (e.g. {{ subclasses()[104] }} or 7*7).
+_HTTP_STATUS_CODES: frozenset[int] = frozenset({
+    200, 201, 202, 203, 204, 206,
+    301, 302, 303, 304, 307, 308,
+    400, 401, 402, 403, 404, 405, 406, 408, 409, 410, 413, 415, 418, 422, 429, 431,
+    500, 501, 502, 503, 504, 505,
+})
+
+
+def _http_status_histogram(text: str) -> dict[int, int]:
+    """Count real HTTP status codes appearing in a script's output. Curated
+    to the actual status set so SSTI payload integers (104, 49, ...) are not
+    mistaken for statuses. Used to detect uniform-failure signals."""
+    import re as _re_hist
+    hist: dict[int, int] = {}
+    for tok in _re_hist.findall(r"\b(\d{3})\b", text or ""):
+        code = int(tok)
+        if code in _HTTP_STATUS_CODES:
+            hist[code] = hist.get(code, 0) + 1
+    return hist
+
+
+def _summarize_cea_observation(*, script_stdout: str, exit_code: Any) -> str:
+    """Build a loud OBSERVATION SUMMARY for the critic: HTTP status
+    histogram + an explicit UNIFORM-FAILURE flag. This makes the
+    'all probes returned 400' signal impossible to ignore so the critic
+    varies the request envelope instead of re-shooting blind payloads.
+    Codex score-lane guidance 2026-05-28."""
+    hist = _http_status_histogram(script_stdout or "")
+    if not hist:
+        return (
+            f"exit_code={exit_code}. No HTTP status codes detected in the prior "
+            "script's output. If it made requests, the revised script MUST print "
+            "each response's status so failure can be diagnosed."
+        )
+    total = sum(hist.values())
+    parts = ", ".join(f"{code}x{n}" for code, n in sorted(hist.items()))
+    lines = [f"exit_code={exit_code}. HTTP status histogram: {parts} (total {total} responses)."]
+    if len(hist) == 1 and total >= 2:
+        only = next(iter(hist))
+        lines.append(
+            f"UNIFORM FAILURE: every one of the {total} requests returned {only}. "
+            "The payloads are NOT the problem — the request never reached the "
+            "vulnerable code path. Per Step 0: state what this status implies and "
+            "vary EXACTLY ONE request-envelope assumption (Host header, scheme, "
+            "port, path prefix, auth cookie/header, Content-Type) and re-send the "
+            "same minimal probe to confirm the status changes BEFORE trying any "
+            "new payloads. Do NOT re-shoot the same blind series."
+        )
+    return "\n".join(lines)
+
+
 def _log_anthropic_usage(*, site: str, run_id: str, msg: Any) -> None:
     """Log Anthropic-API token usage so operators can compute cache hit rate
     post-hoc. Without this, the ledger only shows aggregate cost (~EUR 3.10
@@ -993,8 +1046,24 @@ def _maybe_dispatch_script_critic(
     except Exception:  # noqa: BLE001
         pass
 
+    # Compute a loud observation summary (status histogram + uniform-failure
+    # flag) from the prior script's REAL stdout so the critic cannot ignore an
+    # "all probes returned 400" signal. Codex score-lane guidance 2026-05-28.
+    _exit_code_for_summary: Any = None
+    try:
+        _env2 = json.loads(latest_stdout_text) if (latest_stdout_text or "").strip().startswith("{") else None
+        if isinstance(_env2, dict):
+            _exit_code_for_summary = _env2.get("exit_code")
+    except Exception:  # noqa: BLE001
+        pass
+    observation_summary = _summarize_cea_observation(
+        script_stdout=real_script_stdout, exit_code=_exit_code_for_summary,
+    )
+
     # Build the user content envelope for the critic.
     user_content = (
+        "=== OBSERVATION SUMMARY (read this FIRST) ===\n"
+        f"{observation_summary}\n\n"
         "=== PRIOR EXPLOIT SCRIPT (failed to emit finding) ===\n"
         f"{latest_script_text or '(script source unavailable)'}\n\n"
         "=== WHAT THE PRIOR SCRIPT ACTUALLY OBSERVED (its stdout) ===\n"
