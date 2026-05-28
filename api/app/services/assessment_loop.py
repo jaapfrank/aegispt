@@ -974,14 +974,33 @@ def _maybe_dispatch_script_critic(
     if not target_url:
         return None
 
+    # Extract the REAL script stdout/stderr from the runner summary envelope.
+    # The runner returns a JSON summary whose `script_stdout` field carries
+    # what the script actually printed (HTTP statuses, response snippets,
+    # per-payload results). Surfacing that verbatim is what lets the critic
+    # reason about uniform-failure signals (e.g. every payload returned 400 →
+    # the request is rejected before reaching the vuln; check Host/auth/path).
+    # Without this the critic only saw `findings:[]` and could not adapt.
+    real_script_stdout = (latest_stdout_text or "")[:4000]
+    real_script_stderr = (latest_stderr_text or "")[:1500]
+    try:
+        _env = json.loads(latest_stdout_text) if (latest_stdout_text or "").strip().startswith("{") else None
+        if isinstance(_env, dict):
+            if _env.get("script_stdout"):
+                real_script_stdout = str(_env.get("script_stdout"))[:6000]
+            if _env.get("script_stderr"):
+                real_script_stderr = str(_env.get("script_stderr"))[:1500]
+    except Exception:  # noqa: BLE001
+        pass
+
     # Build the user content envelope for the critic.
     user_content = (
         "=== PRIOR EXPLOIT SCRIPT (failed to emit finding) ===\n"
         f"{latest_script_text or '(script source unavailable)'}\n\n"
-        "=== SCRIPT STDOUT ===\n"
-        f"{(latest_stdout_text or '')[:4000]}\n\n"
+        "=== WHAT THE PRIOR SCRIPT ACTUALLY OBSERVED (its stdout) ===\n"
+        f"{real_script_stdout or '(no stdout captured)'}\n\n"
         "=== SCRIPT STDERR ===\n"
-        f"{(latest_stderr_text or '')[:1500]}\n\n"
+        f"{real_script_stderr or '(none)'}\n\n"
         "=== PRE-RECON-CPG (Joern dataflow — exact line/file of sinks) ===\n"
         f"{cpg_text or '(no CPG deliverable on this run)'}\n\n"
         "=== PRE-RECON-SOURCE (source-aware deliverable — regex audit) ===\n"

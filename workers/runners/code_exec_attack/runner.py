@@ -398,6 +398,19 @@ def execute_code_exec_attack(
     # guard". Surface that distinctly so callers can audit.
     scope_violation = "AegisPT scope guard" in stderr_capped
 
+    # Embed the actual script stdout/stderr (capped) in the summary payload.
+    # Before 2026-05-28 the payload carried only metadata (findings,
+    # stdout_truncated_bytes) — the real observations the script printed lived
+    # ONLY in the separate exploit_output artifact, which the picker/critic
+    # never loaded. So the script-writing LLM could not see what its own
+    # script observed and kept repeating the same mistake (empirically:
+    # XBEN-009 SSTI scripts got HTTP 400 DisallowedHost on every payload —
+    # the "set Host: localhost" signal was right there in stdout but invisible
+    # to the next script-generation call). Surfacing it here closes the
+    # observation -> next-decision feedback loop for EVERY consumer that reads
+    # tool_executions.stdout_text (script_critic, cpg-seeded-cea, etc.) — pure
+    # observability, no heuristic recipes; the LLM does the reasoning.
+    _SCRIPT_OUTPUT_FEEDBACK_CAP = 8000
     payload = {
         "tool": "code-exec-attack",
         "script_length": len(script),
@@ -408,6 +421,8 @@ def execute_code_exec_attack(
         "scope_violation_detected": scope_violation,
         "findings": findings,
         "stdout_truncated_bytes": min(len(stdout), STDOUT_CAP_BYTES),
+        "script_stdout": stdout_capped[:_SCRIPT_OUTPUT_FEEDBACK_CAP],
+        "script_stderr": stderr_capped[:2000],
     }
 
     artifacts = [
