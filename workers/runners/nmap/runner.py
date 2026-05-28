@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import re
 import subprocess
 import tempfile
 from pathlib import Path
 
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
+
+logger = logging.getLogger(__name__)
 
 PASSIVE_LAN_NSE_DISCOVERY_SCRIPTS = (
     "banner",
@@ -68,17 +71,35 @@ _PORT_TOKEN_RE = re.compile(r"^\d{1,5}(?:-\d{1,5})?$")
 
 
 def normalize_nse_scripts(scripts: list[str] | tuple[str, ...] | None) -> list[str]:
+    """Keep only allowlisted NSE scripts; DROP (do not fail on) others.
+
+    2026-05-28: previously a single non-allowlisted script (e.g. the LLM asking
+    for `http-headers` alongside the allowlisted `http-title`) raised and failed
+    the ENTIRE nmap task — so port discovery never happened and the agent lost
+    its view of the target's multi-port attack surface. Dropping a disallowed
+    script is strictly SAFER than running it (it simply doesn't execute), and
+    the scan still proceeds with the allowed scripts (or none), so port
+    enumeration keeps working. Empirically caught on XBEN-009 run f56c059c:
+    nmap failed with "NSE script is not allowlisted: http-headers".
+    """
     normalized: list[str] = []
     seen: set[str] = set()
+    dropped: list[str] = []
     for raw_script in scripts or []:
         script = str(raw_script or "").strip()
         if not script:
             continue
         if script not in ALLOWED_NSE_SCRIPTS:
-            raise ValueError(f"NSE script is not allowlisted: {script}")
+            dropped.append(script)
+            continue
         if script not in seen:
             seen.add(script)
             normalized.append(script)
+    if dropped:
+        logger.info(
+            "nmap: dropped non-allowlisted NSE script(s) %s; running scan with %s",
+            dropped, normalized or "(no scripts)",
+        )
     return normalized
 
 

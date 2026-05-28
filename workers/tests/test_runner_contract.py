@@ -266,19 +266,33 @@ def test_nmap_nse_command_is_bounded_and_structured(tmp_path: Path) -> None:
     ]
 
 
-def test_nmap_rejects_unallowlisted_nse_script(tmp_path: Path) -> None:
-    try:
-        build_nmap_command(
-            binary="nmap",
-            output_file=tmp_path / "nmap-results.xml",
-            targets=["10.0.20.8"],
-            discovery_only=False,
-            scripts=["http-vuln-cve2006-3392"],
-        )
-    except ValueError as exc:
-        assert "not allowlisted" in str(exc)
-    else:
-        raise AssertionError("unallowlisted NSE script was accepted")
+def test_nmap_drops_unallowlisted_nse_script(tmp_path: Path) -> None:
+    """Unallowlisted NSE scripts are DROPPED (not run), and the scan still
+    builds — failing the whole task on one bad script broke port discovery
+    (2026-05-28: XBEN-009 nmap failed on http-headers, losing the multi-port
+    attack surface). Dropping is strictly safer than running the script."""
+    # A single unallowlisted script: command builds, script is absent.
+    command = build_nmap_command(
+        binary="nmap",
+        output_file=tmp_path / "nmap-results.xml",
+        targets=["10.0.20.8"],
+        discovery_only=False,
+        scripts=["http-vuln-cve2006-3392"],
+    )
+    assert "http-vuln-cve2006-3392" not in command
+    assert "--script" not in command  # nothing allowlisted remained
+    # Mixed: the allowlisted one survives, the disallowed one is dropped.
+    command2 = build_nmap_command(
+        binary="nmap",
+        output_file=tmp_path / "nmap-results2.xml",
+        targets=["10.0.20.8"],
+        discovery_only=False,
+        scripts=["http-title", "http-vuln-cve2006-3392"],
+    )
+    assert "--script" in command2
+    script_arg = command2[command2.index("--script") + 1]
+    assert "http-title" in script_arg
+    assert "http-vuln-cve2006-3392" not in script_arg
 
 
 def test_nmap_command_preview_uses_nested_profile_limits() -> None:
