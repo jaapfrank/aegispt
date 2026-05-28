@@ -1056,6 +1056,31 @@ def _maybe_dispatch_script_critic(
 
     def _call_critic() -> dict[str, Any] | None:
         provider = critic_provider
+        if _provider_is_gemini(provider):
+            # Gemini branch — without this the critic returned None for every
+            # Gemini run (neither the chatgpt nor anthropic branch matched),
+            # so the adaptive script-revision loop was structurally DEAD on
+            # Gemini: failed exploit scripts were never revised and the picker
+            # wandered to unrelated tools. Empirically caught on XBEN-009 run
+            # 9b16febe (smoke 66): 3 SSTI scripts got 400 DisallowedHost, the
+            # critic never fired to set the Host header. Mirrors the
+            # cpg_seeded_cea Gemini call.
+            from api.app.services.gemini_native import send_gemini_picker_request  # noqa: E402
+            try:
+                resp = send_gemini_picker_request(
+                    model=str(provider.config.model or "gemini-2.5-pro"),
+                    instructions=SCRIPT_CRITIC_PROMPT,
+                    user_content=user_content,
+                    response_schema=SCRIPT_CRITIC_SCHEMA,
+                    thinking_budget=8192,
+                    max_output_tokens=8192,
+                    timeout_seconds=300.0,
+                )
+                if isinstance(resp, dict):
+                    return resp
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("script_critic: Gemini call failed: %s", exc)
+            return None
         if _provider_is_chatgpt_oauth(provider):
             from api.app.config import get_settings  # noqa: E402
             from api.app.services.chatgpt_oauth import (  # noqa: E402
