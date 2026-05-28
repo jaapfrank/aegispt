@@ -1,5 +1,58 @@
 # Done Log
 
+- 2026-05-28: FIRST AUTONOMOUS XBOW SOLVE SINCE XBEN-002 — XBEN-009 solved end-to-end (run f956c474, smoke 67).
+  - rationale:
+    - operator pushed to stop patching layers and find the REAL binding constraint; flagged that an LLM should solve XBOW since it has the knowledge, and asked whether the LLM even sees raw tool/script output
+    - forensic read of the smoke-63 exploit-script stdout artifact (not just the parsed summary) exposed that the blockers were infrastructure, not intelligence
+  - five fixes that unblocked it (each empirically proven):
+    - `22a26ab` xbow-harness passed only lowercase `--build-arg flag`; 62/104 Dockerfiles read uppercase `ARG FLAG`, and 11 of those (XBEN-007/009/044/086/089/090/091/093/094/099/100) had no compose `args` fallback → an EMPTY flag was baked in → unsolvable. Now passes both casings. Proven: /flag.txt populated + manual SSTI curl extracted the flag.
+    - `993d5f6` zombie-sweeper finalized runs on `started_at < NOW()-5min` → killed every XBOW run (900s budget) at 5 minutes. Switched to `updated_at < NOW()-10min`. Proven: smoke 65 ran the full 16-min budget.
+    - `11396f0` picker dispatched code-exec-attack hypotheses with empty `python_script` (schema marked it required only in the description) → "empty script — refusing to run" wasted iterations. Now skips + re-picks. Proven: smoke 65 had 0 failed tasks.
+    - `b922041` runner returned only a summary JSON (findings, counts); the real script stdout (HTTP statuses, per-payload results) lived only in an artifact nobody read → the script-writing LLM never saw what its own script observed. Now embeds `script_stdout` in the payload + critic surfaces it verbatim.
+    - `dd9e15c` `_maybe_dispatch_script_critic._call_critic()` had no Gemini branch → the adaptive revision loop was structurally DEAD on every Gemini run. Added it.
+  - the solve chain (autonomous, run f956c474):
+    - cpg_seeded SSTI script → all payloads HTTP 400 DisallowedHost (no Host header)
+    - script_critic (now firing on Gemini, now seeing the 400s) → set `Host: localhost`
+    - emitted `AEGISPT_FINDING` critical → extracted `xbow-2dce43e2419d0f98caa8cd4679eb2dd4` via Django SSTI; run wrote `flag_extracted` success marker
+  - architecture note:
+    - validated the operator thesis: capability was never the bottleneck. A background comparison agent recommended Option A (surface raw observation to the LLM — done) now, then Option B (Mythos-style thin `PICKER_MODE=thin` loop, opt-in) as the next track once A is shown to move solve-rate.
+  - boundaries:
+    - harness build-arg, scheduled-runs sweeper, picker empty-script guard, code-exec-attack runner payload, script-critic provider branch, feedback surfacing changed; no UI, no task-package, no provider default change.
+
+- 2026-05-27: added AI pentest competitive deep-dive.
+  - rationale:
+    - operator asked for deeper research into whether AegisPT can become the best AI-first pentest system, explicitly including Shannon, PentestGPT, other open-source AI pentesters, and commercial systems
+    - the analysis needed to correct feature-inventory optimism and compare AegisPT against current proof, benchmark, provider, skill-file, and enterprise-delivery signals
+  - files:
+    - `docs/research/ai-pentest-competitive-deep-dive-2026-05-27.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - findings:
+    - AegisPT is no longer merely script-kiddie-shaped architecturally, but it remains uncompetitive in output until verified exploit proofs are reproducible in the scorelane
+    - public/current comparators now set a higher bar: Shannon reports 96.15% on source-aware XBOW, PentestGPT's repo reports 86.5% on XBOW, Transilience reports 100/104 using markdown skills, XBOW separates creative AI discovery from deterministic validation, and commercial tools compete on enterprise attack paths, fix validation, and delivery trust
+    - the internal second-opinion report changes the framing from "0/25 forever" to "official baseline 0/25, with an unpromoted post-baseline XBEN-002 solve claim that needs validation-grade evidence"
+    - recommended next move is a narrow daily 5-challenge XBOW scorelane with a reliable provider spine, formal post-baseline solve artifacts, vulnerability-class skill-pack A/B testing, separate source-aware and black-box scoreboards, and hard no-exploit-no-report gating
+  - boundaries:
+    - investigation/report only
+    - no runtime behavior, provider default, picker logic, runner behavior, UI, task queue, benchmark harness, task package, or commit performed
+
+- 2026-05-27: added agentic AI pentesting market/progress diagnosis.
+  - rationale:
+    - operator asked to review agentic AI, pentesting, and AI pentesting resources and determine whether AegisPT is on the right path given low visible progress
+    - the answer needed to compare local evidence against current public patterns without turning feature inventory into a capability claim
+  - files:
+    - `docs/research/agentic-ai-pentest-market-progress-diagnosis-2026-05-27.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - findings:
+    - external leaders and research converge on tool-grounded iterative agents, source-aware analysis, sandboxed execution, deterministic proof/replay, benchmark anti-cheat, memory, observability, and PoC-validated output
+    - AegisPT has many correct building blocks but still has `0/25` XBOW solved, 5/25 attempted, 1 total `exec_plan`, and 0 verified-exploited findings in the latest hard baseline
+    - stagnation is mainly from infrastructure DONE without score-DONE, provider/tool-loop asymmetry, insufficient source-aware defaulting, large coupled modules, too many parallel product directions, and no tight daily score-climb loop
+    - backlog validation currently passes in this checkout (`388 queued task packages mapped one-to-one`), so the older failing-backlog warning in `CURRENT_STATE.md` is stale for the current tree
+  - boundaries:
+    - investigation/report only
+    - no runtime behavior, provider default, picker logic, runner behavior, UI, task queue, benchmark harness, task package, or commit performed
+
 - 2026-05-26: added Claude vs ChatGPT-OAuth picker diagnosis.
   - rationale:
     - operator asked why Claude appears to work much better inside AegisPT than ChatGPT-OAuth
