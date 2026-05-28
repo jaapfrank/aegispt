@@ -62,6 +62,13 @@ ROUTE_PATTERNS = [
     (re.compile(r"\b(?:app|router|express)\s*\.\s*(?:get|post|put|delete|patch|use)\s*\(\s*[\"']([^\"']+)[\"']", re.IGNORECASE), "node-route"),
     # Rails routes.rb (simplified)
     (re.compile(r"\b(?:get|post|put|patch|delete)\s+[\"']([^\"']+)[\"']", re.IGNORECASE), "rails-route"),
+    # Manual dispatch routers (BaseHTTPRequestHandler / do_GET/do_POST and any
+    # hand-rolled `if request.path == "/x"` style). 2026-05-28: the lab suite
+    # routes this way and its routes (e.g. /tools/webhook-tester) were never
+    # surfaced, so the agent kept GUESSING the path (/webhook_tester -> 404).
+    # Matches `parsed.path == "/x"`, `self.path == "/x"`, `path.startswith("/x")`.
+    (re.compile(r"(?:self\.|parsed\.|request\.|req\.)?path\s*==\s*[\"']([^\"']+)[\"']"), "manual-path-dispatch"),
+    (re.compile(r"(?:self\.|parsed\.|request\.|req\.)?path\.startswith\s*\(\s*[\"']([^\"']+)[\"']"), "manual-path-prefix"),
 ]
 
 # Dangerous sinks — each tuple = (regex, sink_label, severity_hint).

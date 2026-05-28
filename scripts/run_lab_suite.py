@@ -21,6 +21,7 @@ import json
 import logging
 import re
 import subprocess
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -47,6 +48,48 @@ _FLAG_RE = re.compile(r"aegispt\{([a-z0-9-]+):[^}\r\n]{1,200}\}")
 
 def _sh(cmd: list[str], *, cwd: Path | None = None, timeout: float = 300.0) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, cwd=str(cwd) if cwd else None, capture_output=True, text=True, timeout=timeout)
+
+
+class _LabHealthMonitor(threading.Thread):
+    """Poll the lab /healthz during the run and restart the container if it
+    dies. Operator priority 2026-05-28: an unstable target contaminates every
+    capability measurement — the agent ends up 'talking to air' (Connection
+    refused) and we wrongly conclude 'agent failed'. This keeps the target
+    alive so a 0/1 vs 1/1 result reflects exploit-craft, not target death.
+    Records deaths + restarts so the run report can flag target_restarted.
+    """
+
+    def __init__(self, lab_base: str, lab_dir: Path, interval: float = 12.0) -> None:
+        super().__init__(daemon=True)
+        self.lab_base = lab_base.rstrip("/")
+        self.lab_dir = lab_dir
+        self.interval = interval
+        self._stop = threading.Event()
+        self.deaths = 0
+        self.restarts = 0
+
+    def _healthy(self) -> bool:
+        try:
+            with urllib.request.urlopen(self.lab_base + "/healthz", timeout=3) as r:
+                return bool(json.loads(r.read().decode("utf-8")).get("status"))
+        except Exception:  # noqa: BLE001
+            return False
+
+    def run(self) -> None:
+        while not self._stop.wait(self.interval):
+            if self._healthy():
+                continue
+            self.deaths += 1
+            logger.warning("lab health-check: target DOWN (death #%d) — restarting container", self.deaths)
+            up = _sh(["docker", "compose", "up", "-d", "--wait"], cwd=self.lab_dir, timeout=300)
+            if up.returncode == 0:
+                self.restarts += 1
+                logger.info("lab health-check: target restarted (restart #%d)", self.restarts)
+            else:
+                logger.error("lab health-check: restart FAILED: %s", (up.stderr or up.stdout)[:200])
+
+    def stop(self) -> None:
+        self._stop.set()
 
 
 def _manifest_challenge_ids() -> list[str]:
@@ -158,13 +201,24 @@ def main() -> int:
                 client, run=run, scenario={"approval_actors": [f"{args.actor}-approver-1"]}, actor=args.actor,
             )
             max_iter = int(args.wait_seconds // max(args.poll_interval, 1.0)) or 30
-            state = _drive_ai_loop(
-                client, actor=args.actor, run_id=run_id,
-                max_iterations=max_iter, poll_interval=args.poll_interval,
-                deadline_seconds=float(args.wait_seconds),
-            )
-            logger.info("loop finished: status=%s stop=%s iters=%s",
-                        state.get("status"), state.get("stop_reason"), state.get("loop_driver_iterations"))
+            # Keep the target alive throughout the run so a 0/1 vs 1/1 result
+            # reflects exploit-craft, not target death (operator priority 1).
+            monitor = _LabHealthMonitor(lab_base, LAB_DIR)
+            monitor.start()
+            try:
+                state = _drive_ai_loop(
+                    client, actor=args.actor, run_id=run_id,
+                    max_iterations=max_iter, poll_interval=args.poll_interval,
+                    deadline_seconds=float(args.wait_seconds),
+                )
+            finally:
+                monitor.stop()
+            logger.info("loop finished: status=%s stop=%s iters=%s | target deaths=%d restarts=%d",
+                        state.get("status"), state.get("stop_reason"),
+                        state.get("loop_driver_iterations"), monitor.deaths, monitor.restarts)
+            if monitor.restarts:
+                logger.warning("target_restarted=true (deaths=%d restarts=%d) — measurement included target instability",
+                               monitor.deaths, monitor.restarts)
             flags = _collect_flags_from_run(client, args.actor, run_id)
             logger.info("captured flag-shaped strings: %s", sorted(flags))
             for flag in flags:
