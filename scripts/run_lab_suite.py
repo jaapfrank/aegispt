@@ -152,7 +152,9 @@ def main() -> int:
             )
             run_id = run.get("id")
             logger.info("run created: %s", run_id)
-            run = grant_required_approvals(client, run=run, scenario={"approval_actors": [f"{args.actor}-approver-1"]})
+            run = grant_required_approvals(
+                client, run=run, scenario={"approval_actors": [f"{args.actor}-approver-1"]}, actor=args.actor,
+            )
             max_iter = int(args.wait_seconds // max(args.poll_interval, 1.0)) or 30
             state = _drive_ai_loop(
                 client, actor=args.actor, run_id=run_id,
