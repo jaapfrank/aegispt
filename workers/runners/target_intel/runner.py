@@ -275,15 +275,51 @@ def _build_next_step_hints(analysis: dict[str, Any], base_url: str) -> list[dict
         if not tool or tool in seen_tools:
             continue
         seen_tools.add(tool)
+        params = _normalize_hint_target(dict(step.get("params") or {}), base_url)
         hints.append({
             "tool": tool,
             "reason": str(step.get("reason", f"Target-intel planned: {tool}"))[:200],
-            "params": dict(step.get("params") or {}),
+            "params": params,
         })
         if len(hints) >= 6:  # cap total hints to avoid overwhelming the queue
             break
 
     return hints
+
+
+def _normalize_hint_target(params: dict[str, Any], base_url: str) -> dict[str, Any]:
+    """Preserve the canonical base URL's host:port (and path prefix) in any
+    next-step hint URL. 2026-05-29 (operator flagged httpx hitting
+    `http://127.0.0.155` 3x): the LLM/fallback test_plan frequently emits a
+    BARE host (dropping the non-default port, e.g. :8088, or a path-based
+    instance like Gruyere's /<id>/), so httpx/smart-web-probe fire against the
+    wrong endpoint (port 80 → connection refused, or the codelab root instead
+    of the instance). When a hint's url/target shares the base host but is
+    missing the port or instance path, rewrite it to the canonical base_url.
+    Generic — applies to any target, incl. external path-based instances.
+    """
+    base = urlparse(base_url)
+    base_host = (base.hostname or "").lower()
+    if not base_host:
+        return params
+    for key in ("url", "target"):
+        val = params.get(key)
+        if not isinstance(val, str) or not val:
+            continue
+        # nmap takes a bare host:port, leave it; only fix HTTP url-shaped values.
+        if key == "target" and "://" not in val:
+            continue
+        u = urlparse(val if "://" in val else f"http://{val}")
+        if (u.hostname or "").lower() != base_host:
+            continue  # different host — out of our concern (scope guard handles it)
+        # Same host: if the hint dropped the port or the base has a path prefix
+        # the hint lacks, substitute the canonical base URL.
+        hint_has_port = u.port is not None
+        base_has_port = base.port is not None
+        base_path = base.path.rstrip("/")
+        if (base_has_port and not hint_has_port) or (base_path and not u.path.rstrip("/").startswith(base_path)):
+            params[key] = base_url.rstrip("/") + (u.path if u.path not in ("", "/") else "")
+    return params
 
 
 def _port_discovery_required_analysis(base_target: str, context: dict[str, Any]) -> dict[str, Any] | None:
