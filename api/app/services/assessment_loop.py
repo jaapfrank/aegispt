@@ -101,6 +101,42 @@ def _provider_is_local_qwen(provider: Any) -> bool:
     return model in {"local-qwen", "local_qwen"}
 
 
+def _provider_kind(provider: Any) -> str:
+    """Canonical provider kind. Single source of truth so dispatch sites can
+    assert they handle the active provider."""
+    if _provider_is_anthropic(provider):
+        return "anthropic"
+    if _provider_is_chatgpt_oauth(provider):
+        return "chatgpt_oauth"
+    if _provider_is_gemini(provider):
+        return "gemini"
+    if _provider_is_local_qwen(provider):
+        return "local_qwen"
+    return "unknown"
+
+
+def _warn_if_provider_unhandled(*, site: str, provider: Any, handled: set[str]) -> bool:
+    """Provider-dispatch contract (2026-05-29). Recurring bug class: a dispatch
+    site branches on anthropic/chatgpt_oauth and SILENTLY returns None for
+    Gemini/local-qwen, so the whole capability (picker, critic, ...) is dead on
+    that provider with no error — it cost multiple sessions of confusion
+    (legacy picker + script_critic both shipped Gemini-blind). This makes the
+    gap LOUD: returns True (and logs a PROOF_EXEC marker) when the active
+    provider is NOT in this site's handled set, so it shows up immediately in
+    production logs instead of being a silent no-op.
+    """
+    kind = _provider_kind(provider)
+    if kind not in handled:
+        logger.warning(
+            "PROOF_EXEC_PROVIDER_UNHANDLED_2026052914 site=%s provider_kind=%s handled=%s "
+            "— this dispatch site has no branch for the active provider and will no-op; "
+            "add a branch or route to a provider that is handled.",
+            site, kind, sorted(handled),
+        )
+        return True
+    return False
+
+
 def _strip_qwen_reasoning_tokens(text: str) -> str:
     """Qwen3.x emits a `<think>...</think>` block before the answer. Strip
     it so JSON parsers see the actual content. No-op when absent."""
@@ -1247,6 +1283,11 @@ def _maybe_dispatch_script_critic(
                                 continue
             except Exception as exc:  # noqa: BLE001
                 logger.warning("script_critic: Anthropic call failed: %s", exc)
+        else:
+            _warn_if_provider_unhandled(
+                site="script_critic", provider=provider,
+                handled={"gemini", "chatgpt_oauth", "anthropic"},
+            )
         return None
 
     critique = _call_critic()
@@ -2610,9 +2651,13 @@ def _claude_select_next_action(
     provider_is_chatgpt_oauth = _provider_is_chatgpt_oauth(provider)
     provider_is_local_qwen = _provider_is_local_qwen(provider)
     if not (provider_is_anthropic or provider_is_chatgpt_oauth or provider_is_local_qwen):
-        logger.warning(
-            "picker: configured model %s has no governed picker branch. Skipping picker call.",
-            provider.config.model,
+        # Gemini is intentionally handled by the specialists path upstream
+        # (_specialists_select_next_action), not this legacy single-picker.
+        # Make the fall-through LOUD via the dispatch contract so it is never a
+        # silent mystery if a run reaches here on an unhandled provider.
+        _warn_if_provider_unhandled(
+            site="legacy_picker._claude_select_next_action", provider=provider,
+            handled={"anthropic", "chatgpt_oauth", "local_qwen"},
         )
         return None
     if _run_budget_exhausted(run):
