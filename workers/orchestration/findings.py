@@ -442,6 +442,38 @@ def extract_code_exec_attack_findings(
     return out
 
 
+def extract_interactive_exploit_findings(
+    *,
+    target_id: str,
+    task: Task,
+    artifact: EvidenceArtifact,
+    artifact_record: EvidenceArtifactRecord,
+) -> list[NormalizedFinding]:
+    """Extract findings from the interactive-exploit runner's stdout artifact.
+    The runner writes captured flags as `AEGISPT_FINDING: {json}` lines into
+    interactive-exploit-stdout.txt; reuse the same parser as code-exec-attack."""
+    if artifact.name != "interactive-exploit-stdout.txt":
+        return []
+    raw = artifact.data.decode("utf-8", errors="replace")
+    from workers.runners.code_exec_attack.runner import _parse_findings_from_stdout
+    out: list[NormalizedFinding] = []
+    for d in _parse_findings_from_stdout(raw):
+        summary_raw = str(d.get("summary") or "")
+        excerpt_raw = str(d.get("evidence_excerpt") or "")
+        merged = (summary_raw + " " + excerpt_raw).strip() if excerpt_raw and excerpt_raw not in summary_raw else summary_raw
+        out.append(
+            NormalizedFinding(
+                title=str(d.get("title") or "interactive-exploit finding"),
+                severity=normalize_severity(d.get("severity")),
+                target_id=str(d.get("evidence_url") or target_id) or target_id,
+                evidence_ref=artifact_record.uri,
+                summary=merged[:600],
+                methodology_tags=tuple(d.get("methodology_tags") or ("interactive_exploit",)),
+            )
+        )
+    return out
+
+
 def extract_findings(
     *,
     task: Task,
@@ -450,6 +482,13 @@ def extract_findings(
 ) -> list[NormalizedFinding]:
     if task.tool == "code-exec-attack":
         return extract_code_exec_attack_findings(
+            target_id=task.target_id,
+            task=task,
+            artifact=artifact,
+            artifact_record=artifact_record,
+        )
+    if task.tool == "interactive-exploit":
+        return extract_interactive_exploit_findings(
             target_id=task.target_id,
             task=task,
             artifact=artifact,

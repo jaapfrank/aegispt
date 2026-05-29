@@ -250,6 +250,7 @@ SUPPORTED_TOOLS = {
     "auth-flow",
     "recon-deliverable",  # Phase 2 of landscape-plan 2026-05-22 — Shannon-style attack surface map
     "code-exec-attack",   # Phase B 2026-05-22 — AI-emitted Python exploit script with scope-guarded httpx
+    "interactive-exploit",  # 2026-05-29 — stateful tool-use loop (request->observe->decide) replacing blind one-shot CEA
     "pre-recon-source",   # Phase 4 2026-05-22 — Shannon-style white-box source audit (opt-in per run)
     "pre-recon-cpg",      # M3 beat-shannon-pro 2026-05-23 — Joern CPG dataflow scan
     "aws-inventory",
@@ -2354,6 +2355,16 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             # 10s default is too tight; chains time-out before reaching
             # the flag. 60s is the runner's own default.
             timeout_seconds=max(timeout_seconds, 60.0),
+        )
+    if request.tool == "interactive-exploit":
+        from workers.runners.interactive_exploit.runner import execute_interactive_exploit
+        return execute_interactive_exploit(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            recon_context=str(request.params.get("recon_context") or ""),
+            timeout_seconds=max(timeout_seconds, 240.0),
+            model=str(request.params.get("model") or "") or None,
+            max_steps=int(request.params.get("max_steps") or 30),
         )
     if request.tool == "pre-recon-source":
         return execute_pre_recon_source(

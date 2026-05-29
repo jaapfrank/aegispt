@@ -1449,8 +1449,8 @@ def _maybe_dispatch_cpg_seeded_cea(
     recon_text = ""
     for task in (run.tasks or []):
         tool = str(getattr(task, "tool", "") or "")
-        if tool == "code-exec-attack":
-            has_cea = True
+        if tool in {"code-exec-attack", "interactive-exploit"}:
+            has_cea = True  # either exploit engine counts — don't re-seed once one ran
             continue  # keep scanning, want CPG artifact too
         if tool not in {"pre-recon-cpg", "pre-recon-source", "recon-deliverable"}:
             continue
@@ -1720,6 +1720,34 @@ def _maybe_dispatch_cpg_seeded_cea(
         "seed data ACTUALLY created. Sweeping 1..100 will miss IDs like 300198 "
         "or other non-sequential identifiers."
     )
+
+    # ARCHITECTURE SWITCH (2026-05-29): when AEGISPT_INTERACTIVE_EXPLOIT=1,
+    # skip writing a BLIND one-shot script and instead dispatch the stateful
+    # interactive-exploit runner, seeded with the SAME recon facts (CPG sinks,
+    # source-defined gate tokens, internal listen port, target envelope). The
+    # interactive runner sends a request, sees the FULL response, and decides
+    # the next live — the audit's #1 redesign. Captured flags become real
+    # findings via the orchestration's extractor (visible in the UI).
+    import os as _os_ie
+    if str(_os_ie.environ.get("AEGISPT_INTERACTIVE_EXPLOIT", "") or "").strip().lower() in {"1", "true", "yes", "on"}:
+        logger.info(
+            "PROOF_EXEC_INTERACTIVE_DISPATCH_2026052916 run=%s — dispatching interactive-exploit "
+            "(stateful request->observe->decide loop) instead of blind one-shot CEA",
+            str(getattr(run, "id", "?"))[:8],
+        )
+        return {
+            "action": "pick",
+            "tool": "interactive-exploit",
+            "target": target_url,
+            "tier": "active",
+            "confidence": 0.95,
+            "reasoning": (
+                "Interactive stateful exploit loop (request->observe->decide), seeded with "
+                "CPG/source recon facts (sinks, gate tokens, internal port, envelope)."
+            ),
+            "runner_params": {"recon_context": user_content[:14000], "max_steps": 30},
+            "_specialist_metadata": {"specialist": "interactive_exploit", "phase": "interactive"},
+        }
 
     script = ""
     severity = "high"
