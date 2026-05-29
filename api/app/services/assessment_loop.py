@@ -271,6 +271,53 @@ def _summarize_cea_observation(*, script_stdout: str, exit_code: Any) -> str:
     return "\n".join(lines)
 
 
+_ANY_FLAG_RE = __import__("re").compile(
+    r"(?:flag\{[^}\r\n]{1,200}\}|FLAG\{[^}\r\n]{1,200}\}|ctf\{[^}\r\n]{1,200}\}|"
+    r"aegispt\{[^}\r\n]{1,200}\}|xbow-[a-f0-9]{16,128})"
+)
+
+
+def _captured_flags_so_far(run: Any) -> list[str]:
+    """Scan the run's code-exec-attack task outputs for flags ALREADY captured.
+    Used to make the loop pivot AWAY from solved objectives instead of
+    re-attacking them (operator-flagged 2026-05-29: the loop spent 8 CEAs
+    re-doing one already-solved challenge while 4 others were starved). On a
+    multi-objective target (suite/app with many bugs) this is the difference
+    between solving 6 and solving many."""
+    seen: list[str] = []
+    found: set[str] = set()
+    for task in (getattr(run, "tasks", None) or []):
+        if str(getattr(task, "tool", "") or "") != "code-exec-attack":
+            continue
+        for ex in (getattr(task, "executions", None) or []):
+            txt = str(getattr(ex, "stdout_text", "") or "")
+            for m in _ANY_FLAG_RE.finditer(txt):
+                f = m.group(0)
+                if f not in found:
+                    found.add(f)
+                    seen.append(f)
+    return seen
+
+
+def _breadth_pivot_block(run: Any) -> str:
+    """Tell the exploit LLM which flags are ALREADY captured so it pivots to
+    UNsolved endpoints instead of re-attacking a solved one. Generic objective
+    management — applies to any multi-bug target. Empty when nothing captured
+    yet (single-objective targets are unaffected)."""
+    flags = _captured_flags_so_far(run)
+    if len(flags) < 1:
+        return ""
+    return (
+        "=== FLAGS ALREADY CAPTURED THIS RUN (do NOT re-attack these) ===\n"
+        + "\n".join(f"  - {f}" for f in flags[:20])
+        + "\n\nThese objectives are DONE. Do NOT write another script for the same "
+        "route/parameter/vuln that produced them — that is wasted budget. PIVOT to "
+        "a DIFFERENT endpoint/route from the recon inventory that has NOT yet "
+        "produced a flag. Breadth over repetition: each unsolved route is worth more "
+        "than re-confirming a solved one.\n\n"
+    )
+
+
 def _target_envelope_block(run: Any) -> str:
     """Render the harness-detected Target Envelope (operating manual) as a
     prompt block so the exploit-crafting LLM does NOT have to rediscover how to
@@ -1138,6 +1185,7 @@ def _maybe_dispatch_script_critic(
     # Build the user content envelope for the critic.
     user_content = (
         _target_envelope_block(run)
+        + _breadth_pivot_block(run)
         + "=== OBSERVATION SUMMARY (read this FIRST) ===\n"
         f"{observation_summary}\n\n"
         "=== PRIOR EXPLOIT SCRIPT (failed to emit finding) ===\n"
@@ -1652,6 +1700,7 @@ def _maybe_dispatch_cpg_seeded_cea(
 
     user_content = (
         _target_envelope_block(run)
+        + _breadth_pivot_block(run)
         + "=== JOERN CPG TAINT SURVEY (trimmed to sinks/routes) ===\n"
         f"{cpg_trimmed}\n\n"
         "=== SEED CREDENTIALS (from source seed data — USE THESE LITERALLY) ===\n"
