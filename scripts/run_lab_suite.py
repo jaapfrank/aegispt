@@ -184,6 +184,8 @@ def main() -> int:
     parser.add_argument("--source-aware", action="store_true",
                         help="give the agent the lab source (labs/aegispt_lab_suite) for white-box CPG analysis")
     parser.add_argument("--keep-up", action="store_true", help="leave the lab running after the run")
+    parser.add_argument("--reuse-running-lab", action="store_true",
+                        help="assume the lab is already up; skip docker bring-up/teardown (for back-to-back runs)")
     parser.add_argument("--focus", default=None,
                         help="focus a SINGLE challenge id: reset lab state, seed its manifest "
                              "entrypoints as the objective (scope hint, not a recipe), and only "
@@ -209,13 +211,16 @@ def main() -> int:
         logger.info("FOCUS mode: challenge=%s entrypoints=%s", args.focus, eps)
     logger.info("lab challenges: %s", challenge_ids)
 
-    # Idempotent bring-up.
-    _sh(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=LAB_DIR, timeout=120)
-    logger.info("building + starting lab suite ...")
-    up = _sh(["docker", "compose", "up", "-d", "--build", "--wait"], cwd=LAB_DIR, timeout=600)
-    if up.returncode != 0:
-        logger.error("lab up failed: %s", (up.stderr or up.stdout)[:400])
-        return 2
+    # Idempotent bring-up (skipped when reusing an already-running lab).
+    if args.reuse_running_lab:
+        logger.info("reuse-running-lab: skipping docker bring-up")
+    else:
+        _sh(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=LAB_DIR, timeout=120)
+        logger.info("building + starting lab suite ...")
+        up = _sh(["docker", "compose", "up", "-d", "--build", "--wait"], cwd=LAB_DIR, timeout=600)
+        if up.returncode != 0:
+            logger.error("lab up failed: %s", (up.stderr or up.stdout)[:400])
+            return 2
     # Wait for /healthz.
     healthy = False
     for _ in range(30):
@@ -228,7 +233,7 @@ def main() -> int:
             time.sleep(2)
     if not healthy:
         logger.error("lab did not become healthy at %s", lab_base)
-        if not args.keep_up:
+        if not args.keep_up and not args.reuse_running_lab:
             _sh(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=LAB_DIR, timeout=120)
         return 2
     logger.info("lab healthy at %s", lab_base)
@@ -298,7 +303,7 @@ def main() -> int:
                 if cid in solved and _grade(lab_base, cid, flag):
                     solved[cid] = True
     finally:
-        if not args.keep_up:
+        if not args.keep_up and not args.reuse_running_lab:
             _sh(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=LAB_DIR, timeout=120)
 
     n_solved = sum(1 for v in solved.values() if v)
