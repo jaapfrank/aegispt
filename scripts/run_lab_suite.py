@@ -128,23 +128,45 @@ def _grade(base_url: str, challenge_id: str, flag: str) -> bool:
 
 
 def _collect_flags_from_run(client: httpx.Client, actor: str, run_id: str) -> set[str]:
-    """Scan findings + code-exec-attack task outputs for aegispt{...} flags."""
+    """Scan EVERYTHING the run produced for aegispt{...} flags.
+
+    2026-05-29: the API-endpoint-text scan missed a genuine solve — the flag
+    lived in findings.evidence_ref / tool_executions.stdout_text, which the
+    JSON endpoints don't surface in full. A capability meter that misses its
+    own wins is worthless, so scan the DB DIRECTLY (authoritative): every
+    findings text column + every tool_executions.stdout_text/stderr_text for
+    the run. API scan kept as a best-effort supplement.
+    """
     flags: set[str] = set()
+    # API best-effort.
+    for ep in (f"/api/v1/runs/{run_id}/findings", f"/api/v1/runs/{run_id}/tasks"):
+        try:
+            r = client.get(ep, headers=api_headers(actor))
+            if r.status_code == 200:
+                flags.update(m.group(0) for m in _FLAG_RE.finditer(r.text))
+        except httpx.HTTPError:
+            pass
+    # Authoritative DB scan.
     try:
-        fr = client.get(f"/api/v1/runs/{run_id}/findings", headers=api_headers(actor))
-        if fr.status_code == 200:
-            for m in _FLAG_RE.finditer(fr.text):
-                flags.add(m.group(0))
-    except httpx.HTTPError:
-        pass
-    # also scan task stdout envelopes
-    try:
-        tr = client.get(f"/api/v1/runs/{run_id}/tasks", headers=api_headers(actor))
-        if tr.status_code == 200:
-            for m in _FLAG_RE.finditer(tr.text):
-                flags.add(m.group(0))
-    except httpx.HTTPError:
-        pass
+        from sqlalchemy import create_engine, text
+        from api.app.config import get_settings as _gs
+        eng = create_engine(_gs().database_url)
+        with eng.begin() as cx:
+            rows = cx.execute(text(
+                "SELECT COALESCE(title,'')||' '||COALESCE(summary,'')||' '||COALESCE(evidence_ref,'') "
+                "FROM findings WHERE run_id = :rid"
+            ), {"rid": run_id}).fetchall()
+            for (blob,) in rows:
+                flags.update(m.group(0) for m in _FLAG_RE.finditer(blob or ""))
+            rows = cx.execute(text(
+                "SELECT COALESCE(te.stdout_text,'')||' '||COALESCE(te.stderr_text,'') "
+                "FROM tool_executions te JOIN tasks t ON t.id = te.task_id "
+                "WHERE t.run_id = :rid"
+            ), {"rid": run_id}).fetchall()
+            for (blob,) in rows:
+                flags.update(m.group(0) for m in _FLAG_RE.finditer(blob or ""))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("DB flag scan failed (using API results only): %s", exc)
     return flags
 
 
