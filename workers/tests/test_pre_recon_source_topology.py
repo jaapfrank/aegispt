@@ -63,6 +63,32 @@ def test_internal_listen_port_extracted_from_dockerfile(tmp_path):
     assert "8080" in ports
 
 
+def test_gate_tokens_extracted(tmp_path):
+    """Source-defined magic constants that gate sensitive branches must be
+    surfaced verbatim — the class-B unblock (log-lookup token, cgi grammar,
+    binder key, custom headers). CVE-canonical payloads never hit these."""
+    src = _write(
+        tmp_path,
+        "app.py",
+        'def handle(self):\n'
+        '    if self.headers.get("X-Lab-Function", "").startswith("fn:") and "|print_flag" in self.headers.get("X-Lab-Function", ""):\n'
+        '        return self.flag()\n'
+        '    msg = body.get("message", "").replace("${lab:lookup:flag}", self.flag())\n'
+        '    if body.get("profile.class.module.loader.resource") == "flag":\n'
+        '        return self.flag()\n'
+        '    if self.headers.get("X-Frontend-Trust") != "trusted-autodiscover":\n'
+        '        return self.forbidden()\n',
+    )
+    hits = _scan_file(src, tmp_path)
+    toks = {t["token"] for t in hits.get("gate_tokens", [])}
+    assert "${lab:lookup:flag}" in toks  # interpolation token
+    assert "profile.class.module.loader.resource" in toks  # nested binder key
+    assert "X-Lab-Function" in toks  # custom header name
+    assert "X-Frontend-Trust" in toks
+    # grammar prefix / substring captured
+    assert any("fn:" in t for t in toks)
+
+
 def test_flask_run_and_node_listen_ports(tmp_path):
     src = _write(
         tmp_path,

@@ -118,6 +118,30 @@ LISTEN_PORT_PATTERNS = [
     (re.compile(r"\bENV\s+\w*PORT\w*\s*=?\s*(\d{2,5})", re.IGNORECASE), "dockerfile-env-port"),
 ]
 
+# Source-defined GATE TOKENS / magic constants. 2026-05-29: the SSRF win
+# proved that surfacing a source-derived literal the agent can't guess
+# black-box (the internal port) closes solves. A whole class of logic bugs is
+# gated by a custom literal token the handler compares user input against:
+# a custom header NAME, an interpolation token (${lab:lookup:flag}), a nested
+# binder key (profile.class.module.loader.resource), a grammar prefix/substring
+# (fn:...|print_flag), or a magic equality value. CVE-canonical black-box
+# payloads (jndi, Shellshock, Spring4Shell defaults) will NOT hit these. We
+# extract the EXACT literals from source so the exploit LLM submits them
+# verbatim. Generic across apps, not challenge-specific.
+GATE_TOKEN_PATTERNS = [
+    # Custom request headers the app reads (X-* and any headers.get("...")).
+    (re.compile(r"""(?:self\.headers|\bheaders|request\.headers|req\.headers)\.get\s*\(\s*[\"']([A-Za-z][\w-]{2,40})[\"']"""), "custom-request-header"),
+    # Interpolation / lookup tokens: ${...}, #{...}, %{...}, {{...}} literals.
+    (re.compile(r"""[\"'](\$\{[^\"'}]{1,80}\}|\#\{[^\"'}]{1,80}\}|%\{[^\"'}]{1,80}\})[\"']"""), "interpolation-token"),
+    # Nested dotted binder keys (>=2 dots) — Spring4Shell-style property paths.
+    (re.compile(r"""[\"']([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*){2,})[\"']"""), "nested-binder-key"),
+    # Grammar gates: startswith("prefix:") and substring "needle" used as a gate.
+    (re.compile(r"""\.startswith\s*\(\s*[\"']([^\"']{2,40})[\"']"""), "grammar-prefix"),
+    (re.compile(r"""[\"']([|][\w:-]{2,40}|[\w:-]{2,40}[|])[\"']\s+in\b"""), "grammar-substring"),
+    # Magic equality value compared against a header/param/field.
+    (re.compile(r"""(?:headers\.get\([^)]*\)|params?\.get\([^)]*\)|\bfunction_env|\bbackend|\btrust\w*)\s*[!=]=\s*[\"']([^\"']{2,60})[\"']"""), "magic-equality-value"),
+]
+
 # Auth + credentials patterns.
 AUTH_PATTERNS = [
     (re.compile(r"@login_required\b", re.IGNORECASE), "auth-decorator"),
@@ -178,6 +202,7 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
         "auth": [],
         "creds": [],
         "listen_ports": [],
+        "gate_tokens": [],
     }
     lines = text.splitlines()
     for lineno, line in enumerate(lines, 1):
@@ -185,6 +210,16 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
             m = pattern.search(line)
             if m:
                 hits["listen_ports"].append({"file": rel, "line": lineno, "kind": kind, "port": m.group(1), "snippet": line.strip()[:200]})
+        for pattern, kind in GATE_TOKEN_PATTERNS:
+            for m in pattern.finditer(line):
+                tok = m.group(1)
+                # Drop obvious noise: dotted module imports / stdlib paths.
+                if kind == "nested-binder-key" and tok.split(".")[0] in {
+                    "os", "sys", "urllib", "http", "json", "self", "logging",
+                    "datetime", "hashlib", "hmac", "pathlib", "socketserver",
+                }:
+                    continue
+                hits["gate_tokens"].append({"file": rel, "line": lineno, "kind": kind, "token": tok, "snippet": line.strip()[:200]})
         for pattern, kind in ROUTE_PATTERNS:
             m = pattern.search(line)
             if m:
@@ -217,8 +252,10 @@ def _build_markdown(
     auth: list[dict[str, Any]],
     creds: list[dict[str, Any]],
     listen_ports: list[dict[str, Any]] | None = None,
+    gate_tokens: list[dict[str, Any]] | None = None,
 ) -> str:
     listen_ports = listen_ports or []
+    gate_tokens = gate_tokens or []
     def _section(title: str, body: str) -> str:
         return f"## {title}\n\n{body.strip()}\n"
 
@@ -253,6 +290,18 @@ def _build_markdown(
                "container, so target the INTERNAL port here (e.g. `http://127.0.0.1:<port>/...`), "
                "NOT the externally-published port you connect to.")
             if listen_ports else "_(none observed)_",
+        )
+        + _section(
+            "Source-Defined Gate Tokens / Magic Constants (submit these LITERALLY)",
+            (_rows(gate_tokens, "file", "line", "kind", "token", "snippet")
+             + "\n\nNOTE: these are exact literals the code compares user input against to "
+               "gate a sensitive branch — custom header NAMES, interpolation tokens "
+               "(`${...}`), nested binder keys, grammar prefixes/substrings, magic equality "
+               "values. CVE-canonical payloads (jndi, Shellshock, Spring4Shell defaults) will "
+               "NOT match these. To reach the gated branch, submit the EXACT literal verbatim "
+               "(e.g. send the custom header with the magic value, POST the exact interpolation "
+               "token, use the exact dotted binder key).")
+            if gate_tokens else "_(none observed)_",
         )
         + _section("Route Inventory (source-grepped)", _rows(routes, "file", "line", "kind", "path", "snippet"))
         + _section("Dangerous Sinks (CRITICAL = direct RCE candidates)", _rows(sinks, "file", "line", "sink", "severity_hint", "snippet"))
@@ -308,6 +357,7 @@ def execute_pre_recon_source(
     auth: list[dict[str, Any]] = []
     creds: list[dict[str, Any]] = []
     listen_ports: list[dict[str, Any]] = []
+    gate_tokens: list[dict[str, Any]] = []
     hashes_prefix: list[str] = []
 
     for path in files:
@@ -317,6 +367,7 @@ def execute_pre_recon_source(
         auth.extend(hits.get("auth", []))
         creds.extend(hits.get("creds", []))
         listen_ports.extend(hits.get("listen_ports", []))
+        gate_tokens.extend(hits.get("gate_tokens", []))
         try:
             with path.open("rb") as fh:
                 digest = hashlib.sha256(fh.read(FILE_READ_CAP_BYTES)).hexdigest()
@@ -333,6 +384,7 @@ def execute_pre_recon_source(
         auth=auth,
         creds=creds,
         listen_ports=listen_ports,
+        gate_tokens=gate_tokens,
     )
 
     payload = {

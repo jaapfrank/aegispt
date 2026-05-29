@@ -195,6 +195,42 @@ concrete payload that bypasses the observed filter.
   server commits the state change, then read the status endpoint — the
   double-spend/over-redeem unlocks the secret.
 
+- SOURCE-DEFINED GATE TOKENS (magic constants — submit LITERALLY):
+  Many logic bugs are gated by an EXACT literal the handler compares user
+  input against: a custom request-header NAME + magic value, an
+  interpolation/lookup token (`${...}`, `#{...}`), a nested dotted binder
+  key (`a.b.c.d`), a grammar prefix/substring (`fn:`, `|print_flag`), or a
+  magic equality string. The recon "Source-Defined Gate Tokens" facts list
+  these verbatim. CVE-CANONICAL PAYLOADS WILL NOT MATCH THEM — do NOT fuzz
+  jndi/Shellshock/Spring4Shell defaults. Instead submit the EXACT literal:
+  send the named custom header with its magic value, POST the exact
+  interpolation token in the field that gets rendered, use the exact dotted
+  binder key, include the exact grammar substring. The flag returns when the
+  gated branch executes; verify by body.
+
+- LENGTH / COUNT OVER-READ (Heartbleed-class):
+  When an endpoint accepts a length/count/size field SEPARATE from its data
+  payload (e.g. {"payload":"x","length":200}), set that field FAR LARGER
+  than the actual data length. A server that echoes `data[:requested_length]`
+  without bounds-checking leaks adjacent memory/buffer content — scan the
+  over-read response body for a `flag=`/secret literal. Generic: any
+  declared-length-vs-actual-data mismatch is an over-read candidate.
+
+- LEAKED-HINT FORGERY (trust-boundary rebind):
+  A discovery/autodiscover/config endpoint often LEAKS the value of an
+  internal trust header or the internal path it expects (e.g. a
+  `frontend_hint` or `backend_url` field). Feed that leaked value back as a
+  FORGED request header / param on the gated endpoint to impersonate the
+  trusted internal caller. Chain: hit the discovery endpoint, parse the
+  hint, replay it as the trust header.
+
+- CONCURRENT RACE (do it in parallel, not sequentially):
+  For one-time / single-use / balance / claim logic, sequential requests
+  hit the already-consumed guard. Fire N identical requests CONCURRENTLY
+  (threading.Thread / concurrent.futures, ~10-20 at once) so multiple pass
+  the check before any commits the state change, then read the status
+  endpoint for the unlocked secret.
+
 STATEFUL MULTI-REQUEST PROTOCOL (do this — single-shot probes miss
 logic bugs)
 Most non-injection bugs need a SEQUENCE, not one request:
