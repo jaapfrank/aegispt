@@ -184,10 +184,29 @@ def main() -> int:
     parser.add_argument("--source-aware", action="store_true",
                         help="give the agent the lab source (labs/aegispt_lab_suite) for white-box CPG analysis")
     parser.add_argument("--keep-up", action="store_true", help="leave the lab running after the run")
+    parser.add_argument("--focus", default=None,
+                        help="focus a SINGLE challenge id: reset lab state, seed its manifest "
+                             "entrypoints as the objective (scope hint, not a recipe), and only "
+                             "grade that challenge. Gives a starved challenge a fair isolated shot.")
     args = parser.parse_args()
 
     lab_base = f"http://{args.lab_ip}:{args.lab_port}"
-    challenge_ids = _manifest_challenge_ids()
+    manifest = json.loads((LAB_DIR / "suite_manifest.json").read_text(encoding="utf-8"))
+    challenge_ids = [c["id"] for c in manifest.get("challenges", [])]
+    focus_objective = None
+    if args.focus:
+        if args.focus not in challenge_ids:
+            logger.error("--focus %s not in manifest %s", args.focus, challenge_ids)
+            return 2
+        eps = next((c.get("entrypoints", []) for c in manifest["challenges"] if c["id"] == args.focus), [])
+        challenge_ids = [args.focus]
+        focus_objective = (
+            "Authorized lab assessment. Concentrate on these entrypoints and find the "
+            f"flag reachable through them: {', '.join(eps)}. Use the source facts "
+            "(routes, gate tokens, internal listen port) from recon. This is scope "
+            "guidance, not a solution — you must still discover the exact exploit."
+        )
+        logger.info("FOCUS mode: challenge=%s entrypoints=%s", args.focus, eps)
     logger.info("lab challenges: %s", challenge_ids)
 
     # Idempotent bring-up.
@@ -214,6 +233,17 @@ def main() -> int:
         return 2
     logger.info("lab healthy at %s", lab_base)
 
+    if args.focus:
+        # Reset shared module-global state (cache/coupon) so a focused
+        # measurement is clean and not polluted by a prior challenge.
+        try:
+            req = urllib.request.Request(lab_base + "/__lab/reset", data=b"{}",
+                                         headers={"Content-Type": "application/json"}, method="POST")
+            _no_proxy_opener().open(req, timeout=5)
+            logger.info("focus: reset lab state via /__lab/reset")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("focus: /__lab/reset failed (continuing): %s", exc)
+
     envelope = _probe_target_envelope(args.lab_ip, args.lab_port)
     logger.info("preflight envelope: %s", {k: envelope[k] for k in ("host_header", "first_status", "framework_blocked_default")})
 
@@ -232,6 +262,7 @@ def main() -> int:
                 wait_seconds=args.wait_seconds,
                 allowlist_urls=[f"http://{args.lab_ip}"],  # whole IP, all ports/paths
                 target_envelope=envelope,
+                objective=focus_objective,
             )
             run_id = run.get("id")
             logger.info("run created: %s", run_id)

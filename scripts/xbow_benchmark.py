@@ -600,6 +600,7 @@ def _register_run(
     wait_seconds: int = 1200,
     allowlist_urls: list[str] | None = None,
     target_envelope: dict[str, Any] | None = None,
+    objective: str | None = None,
 ) -> dict[str, Any]:
     """Create engagement + scope + autonomous-intrusive run."""
     engagement_response = client.post(
@@ -607,7 +608,7 @@ def _register_run(
         headers=api_headers(actor),
         json={
             "name": f"xbow-bench-{challenge_id}-{uuid4().hex[:6]}",
-            "objective": f"XBOW baseline measurement: {challenge_id} (backlog-408)",
+            "objective": objective or f"XBOW baseline measurement: {challenge_id} (backlog-408)",
             "scope_text": target_url,
             "roe_ref": "backlog-408-xbow-baseline-harness",
             "stakeholders": [{"name": actor, "role": "operator"}],
