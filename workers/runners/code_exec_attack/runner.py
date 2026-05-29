@@ -232,16 +232,24 @@ def _parse_findings_from_stdout(stdout: str) -> list[dict[str, Any]]:
                 if not m:
                     continue
                 excerpt = m.group(0) if pat is _FLAG_LITERAL_RE else m.group(1)
+                # Put the captured flag literal IN THE TITLE so distinct solves
+                # are visibly distinct. Before, every fallback finding was titled
+                # "Flag literal recovered from script stdout", so two solves of
+                # DIFFERENT challenges + a re-find all looked identical in the UI
+                # and hid that progress was being made (operator-flagged
+                # 2026-05-29). The flag literal embeds the challenge id
+                # (aegispt{<challenge-id>:...}, flag{...}, xbow-...).
+                flag_literal = (excerpt or "").strip()
                 findings.append({
-                    "title": f"Flag literal recovered from script stdout ({label})",
+                    "title": f"Flag captured: {flag_literal[:120]}",
                     "severity": "critical",
                     "summary": (
-                        "code-exec-attack runner detected a flag-pattern literal "
-                        "in script stdout without an AEGISPT_FINDING marker. "
-                        "Treating as critical finding (PROOF_EXEC_STDOUT_FLAG_FALLBACK)."
+                        f"code-exec-attack recovered flag literal {flag_literal[:200]!r} "
+                        f"from script stdout (matcher={label}). "
+                        "PROOF_EXEC_STDOUT_FLAG_FALLBACK."
                     ),
                     "evidence_url": None,
-                    "evidence_excerpt": (excerpt or "")[:2000],
+                    "evidence_excerpt": flag_literal[:2000],
                     "type": "code_exec_attack_finding",
                     "methodology_tags": ["code_exec_attack", "stdout_flag_fallback"],
                 })
