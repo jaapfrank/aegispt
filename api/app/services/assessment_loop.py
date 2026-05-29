@@ -1730,11 +1730,26 @@ def _maybe_dispatch_cpg_seeded_cea(
     # findings via the orchestration's extractor (visible in the UI).
     import os as _os_ie
     if str(_os_ie.environ.get("AEGISPT_INTERACTIVE_EXPLOIT", "") or "").strip().lower() in {"1", "true", "yes", "on"}:
+        # Resolve the interactive model from the run's provider so it uses the
+        # SAME backend the operator picked. The runner does tool-use via Gemini
+        # function-calling (free) when the model starts with "gemini", else
+        # Anthropic. Default to the run's gemini model when configured.
+        _ie_model = ""
+        try:
+            _ie_cfg_provider = str((getattr(run, "configuration_json", None) or {}).get("llm_provider") or "").strip().lower()
+            if _ie_cfg_provider.startswith("gemini"):
+                from api.app.services.llm_provider import LLMProviderConfig as _LPC_ie
+                _ie_model = str(_LPC_ie.for_model(_ie_cfg_provider).model or "")
+        except Exception:  # noqa: BLE001
+            _ie_model = ""
         logger.info(
-            "PROOF_EXEC_INTERACTIVE_DISPATCH_2026052916 run=%s — dispatching interactive-exploit "
+            "PROOF_EXEC_INTERACTIVE_DISPATCH_2026052916 run=%s model=%s — dispatching interactive-exploit "
             "(stateful request->observe->decide loop) instead of blind one-shot CEA",
-            str(getattr(run, "id", "?"))[:8],
+            str(getattr(run, "id", "?"))[:8], _ie_model or "(default)",
         )
+        _ie_params = {"recon_context": user_content[:14000], "max_steps": 30}
+        if _ie_model:
+            _ie_params["model"] = _ie_model
         return {
             "action": "pick",
             "tool": "interactive-exploit",
@@ -1745,7 +1760,7 @@ def _maybe_dispatch_cpg_seeded_cea(
                 "Interactive stateful exploit loop (request->observe->decide), seeded with "
                 "CPG/source recon facts (sinks, gate tokens, internal port, envelope)."
             ),
-            "runner_params": {"recon_context": user_content[:14000], "max_steps": 30},
+            "runner_params": _ie_params,
             "_specialist_metadata": {"specialist": "interactive_exploit", "phase": "interactive"},
         }
 
