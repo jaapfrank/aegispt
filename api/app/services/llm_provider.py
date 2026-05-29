@@ -41,11 +41,16 @@ from api.app.observability import traced
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_MODEL = "claude-opus-4-7"
+DEFAULT_MODEL = "claude-opus-4-8"
 
 # Known provider configs the run-config can name. Operators can override
 # by passing an LLMProviderConfig directly.
 KNOWN_PROVIDERS: dict[str, dict[str, Any]] = {
+    "claude-opus-4-8": {
+        "model": "claude-opus-4-8",
+        "litellm_model": "anthropic/claude-opus-4-8",
+        "api_key_env": "ANTHROPIC_API_KEY",
+    },
     "claude-opus-4-7": {
         "model": "claude-opus-4-7",
         "litellm_model": "anthropic/claude-opus-4-7-20260201",

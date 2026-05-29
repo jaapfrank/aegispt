@@ -1179,7 +1179,7 @@ def _maybe_dispatch_script_critic(
             )
             if _provider_is_chatgpt_oauth(provider) and _os.environ.get("ANTHROPIC_API_KEY"):
                 critic_provider = LLMProvider(
-                    LLMProviderConfig.for_model("claude-opus-4-7")
+                    LLMProviderConfig.for_model("claude-opus-4-8")
                 )
                 logger.info(
                     "PROOF_EXEC_M6_CROSS_MODEL_CRITIC_2026052314 swapped picker=chatgpt-oauth -> critic=anthropic"
@@ -1716,7 +1716,7 @@ def _maybe_dispatch_cpg_seeded_cea(
             )
             have_anthropic = False
         elif have_anthropic:
-            provider = LLMProvider(LLMProviderConfig.for_model("claude-opus-4-7"))
+            provider = LLMProvider(LLMProviderConfig.for_model("claude-opus-4-8"))
             logger.info("PROOF_EXEC_CPG_SEEDED_CEA_USING_CLAUDE_2026052407 picked Anthropic")
             use_local_llm = False
         elif use_local_llm:
@@ -3042,7 +3042,7 @@ def _claude_select_next_action(
                 available_tools=available_tools,
             )
             msg = client.messages.create(
-                model="claude-opus-4-7",
+                model="claude-opus-4-8",
                 max_tokens=PICKER_MAX_TOKENS,
                 system=[{
                     "type": "text",
