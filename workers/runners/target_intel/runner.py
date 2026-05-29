@@ -354,30 +354,25 @@ def _port_discovery_required_analysis(base_target: str, context: dict[str, Any])
             "explicit_port_present": False,
             "host_header_candidates": ["localhost", host],
         },
+        # ONLY emit the port-discovery step. 2026-05-29 (operator flagged
+        # httpx-on-bare-host failing repeatedly): previously this also emitted
+        # priority-2 httpx + priority-3 smart-web-probe against `http://{host}`
+        # (bare, port 80) — but the port is UNKNOWN at this stage, so those
+        # fired prematurely and failed with connection-refused, producing the
+        # recurring noise. Emit nmap alone; once it discovers the real port the
+        # next recon iteration probes the correct host:port. No premature
+        # bare-host HTTP hits.
         "test_plan": [
             {
                 "priority": 1,
                 "tool": "nmap",
                 "reason": (
                     "URL has no explicit port and the default-port probe returned no "
-                    "response. Discover which port actually serves BEFORE any HTTP recon."
+                    "response. Discover which port actually serves BEFORE any HTTP recon. "
+                    "Do NOT issue HTTP requests to this host until a port is known."
                 ),
                 "params": {"target": host, "ports": "1-65535", "service_detection": True},
                 "expected_finding": "Open port(s) + service banners identifying the live service.",
-            },
-            {
-                "priority": 2,
-                "tool": "httpx",
-                "reason": "Once a port is found, confirm HTTP and the accepted Host header.",
-                "params": {"url": f"http://{host}", "follow_redirects": True, "timeout": 10},
-                "expected_finding": "HTTP status + headers at the discovered port.",
-            },
-            {
-                "priority": 3,
-                "tool": "smart-web-probe",
-                "reason": "After a working base URL is established, enumerate paths/framework.",
-                "params": {"url": f"http://{host}"},
-                "expected_finding": "Endpoints, framework markers, API surface.",
             },
         ],
     }
