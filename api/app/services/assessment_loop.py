@@ -1504,19 +1504,61 @@ def _maybe_dispatch_cpg_seeded_cea(
                             recon_text = c.data.decode("utf-8", errors="replace")
                     except Exception:  # noqa: BLE001
                         pass
+    # Source-derived GATE TOKENS + internal listen ports — the empirically proven
+    # recon lever (focused lab battery 1/5 -> 3/5 once the agent was given these
+    # exact values; reasoner got 0/2 WITHOUT them, so model strength was not the
+    # bottleneck). Computed BEFORE the gate so interactive-exploit can fire on
+    # robust source recon even when the Joern CPG is empty (Joern is fragile on
+    # some stacks; pre-recon-source is reliable). Source-assisted (white-box)
+    # only; black-box runs have no source_dir and discover via interaction.
+    cfg_run_early = getattr(run, "configuration_json", None) or {}
+    source_dir_for_run = str((cfg_run_early or {}).get("source_dir") or "").strip()
+    gate_tokens_block = "(no source-derived gate tokens found)"
+    listen_ports_block = "(none observed)"
+    source_gate_token_count = 0
+    if source_dir_for_run:
+        try:
+            from pathlib import Path as _PathG  # noqa: E402, I001
+            from workers.runners.pre_recon_source.runner import _scan_file as _scan_src  # noqa: E402
+            _gt: dict[tuple[str, str], dict] = {}
+            _lp: dict[str, dict] = {}
+            _root_g = _PathG(source_dir_for_run)
+            for _pg in _root_g.rglob("*.py"):
+                try:
+                    _h = _scan_src(_pg, _root_g)
+                except Exception:  # noqa: BLE001
+                    continue
+                for _g in _h.get("gate_tokens", []):
+                    _gt.setdefault((_g.get("kind", ""), _g.get("token", "")), _g)
+                for _lpp in _h.get("listen_ports", []):
+                    _lp.setdefault(str(_lpp.get("port", "")), _lpp)
+            source_gate_token_count = len(_gt)
+            if _gt:
+                gate_tokens_block = "\n".join(
+                    f"  - {g.get('kind')}: {g.get('token')!r}" for g in list(_gt.values())[:40]
+                )
+            if _lp:
+                listen_ports_block = ", ".join(sorted(p for p in _lp if p))
+        except Exception as _gt_exc:  # noqa: BLE001
+            logger.warning("source-gate-token extraction failed: %s", _gt_exc)
     logger.info(
-        "PROOF_EXEC_CPG_SEEDED_CEA_GATE_2026052405 run=%s has_cea=%s has_cpg=%s cpg_text_len=%d source_len=%d recon_len=%d",
+        "PROOF_EXEC_CPG_SEEDED_CEA_GATE_2026052405 run=%s has_cea=%s has_cpg=%s cpg_text_len=%d source_len=%d recon_len=%d gate_tokens=%d",
         str(getattr(run, "id", "?"))[:8],
-        has_cea, has_cpg, len(cpg_text), len(pre_recon_source_text), len(recon_text),
+        has_cea, has_cpg, len(cpg_text), len(pre_recon_source_text), len(recon_text), source_gate_token_count,
     )
-    if has_cea or not has_cpg or not cpg_text:
+    cpg_ok = bool(has_cpg and cpg_text)
+    # Fire interactive-exploit when EITHER the Joern CPG has content OR source
+    # recon surfaced gate tokens. Never re-seed once an exploit engine ran.
+    if has_cea or (not cpg_ok and source_gate_token_count == 0):
         logger.info(
-            "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_GATE_2026052613 run=%s has_cea=%s has_cpg=%s cpg_text_empty=%s",
+            "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_GATE_2026052613 run=%s has_cea=%s cpg_ok=%s gate_tokens=%d",
             str(getattr(run, "id", "?"))[:8],
-            has_cea, has_cpg, not cpg_text,
+            has_cea, cpg_ok, source_gate_token_count,
         )
         return None
-    # Sanity: only seed when CPG actually has a non-empty sink section.
+    # Sanity: when relying on the CPG route, require a non-empty sink section.
+    # When source gate tokens are present, those ARE the actionable signal, so
+    # an empty Joern sink section does not block the dispatch.
     sinks_found = []
     for label in ("SQL_SINKS", "FILE_SINKS", "EXEC_SINKS", "TEMPLATE_SINKS", "DESERIALIZE_SINKS"):
         marker = f"== {label} (sample,"
@@ -1525,11 +1567,11 @@ def _maybe_dispatch_cpg_seeded_cea(
             if "(sample, 0)" not in tail and " 0)" not in tail.split(")")[0] + ")":
                 sinks_found.append(label)
     logger.info(
-        "PROOF_EXEC_CPG_SEEDED_CEA_SINKS_2026052405 run=%s sinks_found=%s",
+        "PROOF_EXEC_CPG_SEEDED_CEA_SINKS_2026052405 run=%s sinks_found=%s gate_tokens=%d",
         str(getattr(run, "id", "?"))[:8],
-        sinks_found,
+        sinks_found, source_gate_token_count,
     )
-    if not sinks_found:
+    if not sinks_found and source_gate_token_count == 0:
         logger.info(
             "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_NOSINKS_2026052613 run=%s",
             str(getattr(run, "id", "?"))[:8],
@@ -1563,7 +1605,7 @@ def _maybe_dispatch_cpg_seeded_cea(
     cpg_trimmed = cpg_text
     if "== ROUTES" in cpg_text:
         cpg_trimmed = cpg_text[cpg_text.index("== ROUTES"):]
-    cpg_trimmed = cpg_trimmed[:3500]
+    cpg_trimmed = cpg_trimmed[:3500] or "(no Joern CPG output — rely on the SOURCE-DERIVED GATE TOKENS and pre-recon-source facts above)"
 
     # Read seed credentials directly from source_dir, BYPASSING the
     # artifact-storage redaction pipeline. The pre_recon_source
@@ -1574,8 +1616,7 @@ def _maybe_dispatch_cpg_seeded_cea(
     # gives the critic actual usable creds without leaking them via
     # any persistent artifact (they only live in the in-memory prompt).
     seed_creds_block = "(no seed-cred patterns found in source)"
-    cfg_run = getattr(run, "configuration_json", None) or {}
-    source_dir_for_run = str((cfg_run or {}).get("source_dir") or "").strip()
+    cfg_run = cfg_run_early  # source_dir_for_run already resolved before the gate
     logger.info(
         "PROOF_EXEC_CPG_SEEDED_CEA_CREDS_ATTEMPT_2026052406 source_dir=%r cfg_keys=%s",
         source_dir_for_run,
@@ -1701,6 +1742,12 @@ def _maybe_dispatch_cpg_seeded_cea(
     user_content = (
         _target_envelope_block(run)
         + _breadth_pivot_block(run)
+        + "=== SOURCE-DERIVED GATE TOKENS (custom headers / ${...} interpolation / "
+        "magic constants the app checks — supply these EXACT literals to pass the gate) ===\n"
+        f"{gate_tokens_block}\n\n"
+        "=== INTERNAL LISTEN PORTS (server fetches from INSIDE its container; for "
+        "server-side-fetch/SSRF use http://127.0.0.1:<port>/... via the scoped target) ===\n"
+        f"{listen_ports_block}\n\n"
         + "=== JOERN CPG TAINT SURVEY (trimmed to sinks/routes) ===\n"
         f"{cpg_trimmed}\n\n"
         "=== SEED CREDENTIALS (from source seed data — USE THESE LITERALLY) ===\n"
@@ -1731,13 +1778,18 @@ def _maybe_dispatch_cpg_seeded_cea(
     import os as _os_ie
     if str(_os_ie.environ.get("AEGISPT_INTERACTIVE_EXPLOIT", "") or "").strip().lower() in {"1", "true", "yes", "on"}:
         # Resolve the interactive model from the run's provider so it uses the
-        # SAME backend the operator picked. The runner does tool-use via Gemini
-        # function-calling (free) when the model starts with "gemini", else
-        # Anthropic. Default to the run's gemini model when configured.
+        # SAME backend the operator picked. The provider-agnostic adapter layer
+        # (workers.runners.interactive_exploit.adapters) drives tool-use for
+        # gemini (free), chatgpt-oauth gpt-5.4 (high quota), or anthropic on the
+        # IDENTICAL loop, so we just resolve the model string here.
         _ie_model = ""
         try:
             _ie_cfg_provider = str((getattr(run, "configuration_json", None) or {}).get("llm_provider") or "").strip().lower()
-            if _ie_cfg_provider.startswith("gemini"):
+            if _ie_cfg_provider.startswith("deepseek"):
+                # deepseek-chat / deepseek-reasoner are passed straight through
+                # to the adapter factory (provider_kind_for_model -> deepseek).
+                _ie_model = _ie_cfg_provider
+            elif _ie_cfg_provider.startswith("gemini") or _ie_cfg_provider in {"chatgpt_oauth", "chatgpt-oauth"}:
                 from api.app.services.llm_provider import LLMProviderConfig as _LPC_ie
                 _ie_model = str(_LPC_ie.for_model(_ie_cfg_provider).model or "")
         except Exception:  # noqa: BLE001
@@ -1747,9 +1799,17 @@ def _maybe_dispatch_cpg_seeded_cea(
             "(stateful request->observe->decide loop) instead of blind one-shot CEA",
             str(getattr(run, "id", "?"))[:8], _ie_model or "(default)",
         )
-        _ie_params = {"recon_context": user_content[:14000], "max_steps": 30}
+        _ie_params: dict[str, Any] = {"recon_context": user_content[:14000], "max_steps": 30}
         if _ie_model:
             _ie_params["model"] = _ie_model
+        # The chatgpt-oauth adapter loads its OAuth token by engagement; thread
+        # the run's engagement id so the runner can authenticate.
+        try:
+            _ie_eng = getattr(run, "engagement_id", None)
+            if _ie_eng:
+                _ie_params["engagement_id"] = str(_ie_eng)
+        except Exception:  # noqa: BLE001
+            pass
         return {
             "action": "pick",
             "tool": "interactive-exploit",

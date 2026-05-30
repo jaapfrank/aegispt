@@ -1,0 +1,80 @@
+{
+  "id": "backlog-441-focused-assessment-mode-production",
+  "task_file": "codex/tasks/backlog-441-focused-assessment-mode-production.json",
+  "task_type": "capability",
+  "title": "Focused-assessment mode: per-objective interactive sessions in the production loop (bridge proven recon lever to production solves)",
+  "goal": "Make the production assessment loop run FOCUSED, per-objective interactive-exploit sessions instead of one broad session against a multi-objective target. The focused harness (scripts/focused_interactive_battery.py) proved that giving the agent ONE objective + only that objective's source-derived gate facts takes DeepSeek from 1/5 to 3/5; but the production loop dispatches interactive-exploit ONCE with all of the target's gate tokens (e.g. 52 for the 50-challenge lab) and no single objective, which is breadth-overload and captured 0 (run bbe8fd6f). Bring the per-objective focusing the harness uses into the production loop so production runs actually solve, not just fire.",
+  "scope": "(1) Define an objective enumeration in the loop: derive candidate objectives from CPG sinks + source routes/gate-token clusters (one objective per route/sink/gate cluster). (2) For each objective, build a FOCUSED recon_context (only that objective's routes + gate tokens + listen ports), not the whole-target dump. (3) Dispatch interactive-exploit per objective with stop_on_first_flag, bounded concurrency, and per-objective budgets, reusing the provider-agnostic adapter layer. (4) Aggregate captured flags as findings. (5) Keep the existing single broad dispatch as a fallback when objective enumeration yields nothing. Measure solve-rate on the lab via the production loop, not just the standalone harness.",
+  "status": "queued",
+  "generated_by": "operator-relayed-codex-review-2026-05-30-precommit-hardening",
+  "generation_reason": "Phase 2 of the interactive-exploit work unblocked interactive-exploit in production (fires on source gate tokens, Joern-independent) and delivered the gate tokens to recon_context (live-proven run bbe8fd6f). But the production solve metric did not move: the lab is 50 challenges on one target, so a single broad session with 52 gate tokens and no single objective is breadth-overload (captured 0), whereas the per-challenge focused harness solves 3/5. The honest next lever (codex's 'focused assessment mode') is to run per-objective focused sessions in production. Filed rather than bundled to keep it a properly-validated capability cycle (ANTI_DRIFT: needs a live solve-rate delta).",
+  "source_context": {
+    "queue_index": 391,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "interactive_exploit_production_solve",
+    "key_files": [
+      "api/app/services/assessment_loop.py",
+      "workers/runners/interactive_exploit/runner.py",
+      "workers/runners/interactive_exploit/adapters.py",
+      "scripts/focused_interactive_battery.py",
+      "workers/runners/pre_recon_source/runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "This package must be the single active task in NEXT_TASK.md before completion can be claimed.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add per-objective focusing for the interactive-exploit production dispatch only. Do NOT change the adapter layer, the scope guard, or other runners. Do NOT seed app-specific exploit recipes (emergent discovery only); per-objective recon may surface source-derived gate FACTS, not exploit steps."
+  },
+  "success_criteria": [
+    "Production loop dispatches per-objective focused interactive-exploit sessions with focused recon_context (only that objective's facts).",
+    "Live solve-rate delta: the production loop (not just the standalone harness) captures >=1 grader-verified flag on the lab via focused sessions, with before/after numbers.",
+    "Black-box runs (no source_dir) are unchanged.",
+    "No app-specific exploit recipes introduced (per feedback-no-prescriptive-recipes)."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "workers/runners/interactive_exploit/runner.py"
+  ],
+  "must_not_touch": [
+    "workers/runners/interactive_exploit/adapters.py",
+    "api/app/services/runner_registry.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "scripts/validate_backlog_tasks.py",
+      ".venv/bin/python -m pytest api/tests/test_interactive_exploit_runner.py -q",
+      ".venv/bin/ruff check api/app/services/assessment_loop.py"
+    ],
+    "acceptance_criteria": [
+      "A production-loop run captures a grader-verified flag via a focused per-objective interactive session (cite run id + flag + log markers).",
+      "No regression in the interactive-exploit unit tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Confirm this is the single active task in NEXT_TASK.md.",
+      "Confirm Phase 2 plumbing (gate-token elevation + Joern-independent dispatch) is in place as the prerequisite."
+    ],
+    "after_completion": [
+      "Append a DONE_LOG.md entry citing the production-loop solve (run id + flag + before/after solve-rate).",
+      "Update CURRENT_STATE.md with the focused-assessment-mode result.",
+      "Update NEXT_TASK.md to the next queued task once this is complete."
+    ]
+  },
+  "out_of_scope": [
+    "Changes to the provider adapter layer.",
+    "Black-box (no-source) behaviour changes."
+  ],
+  "expected_output": "Per-objective focused interactive-exploit dispatch in the production loop with a live grader-verified solve and before/after solve-rate.",
+  "validation_status": "pending",
+  "approval_status": "pending"
+}

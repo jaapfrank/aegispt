@@ -1,5 +1,150 @@
 # Current State
 
+## Latest Continuation — Pre-commit hardening + evidence freeze (2026-05-30)
+
+Codex read-only review said the adapter change-set was the right direction but
+NOT yet commit-ready. This pass hardens it to ANTI_DRIFT-committable (no new
+architecture, no Claude A/B):
+
+- **Scope-guard hardened (product-safety):** the interactive runner NEVER
+  implicitly grants `127.0.0.1`/`localhost`. Only hosts explicitly in scope are
+  reachable as a CLIENT. SSRF works via the scoped target's server-side fetch —
+  proven: `ssrf-loopback-metadata` still solves in 3 steps with
+  `allow_loopback=False`. A lab-only `allow_loopback` opt-in (param or
+  `AEGISPT_INTERACTIVE_ALLOW_LOOPBACK`) adds the loopback aliases for local labs.
+- **Capability registry completed:** added metadata for `interactive-exploit`
+  (co-located `workers/runners/interactive_exploit/capabilities.json`) + 5
+  already-dispatched tools that were missing (`code-exec-attack`,
+  `exploit-developer-agent`, `pre-recon-cpg`, `pre-recon-source`,
+  `recon-deliverable`). Registry is now `complete: True` (80/80) and
+  `test_runner_capabilities_cover_registered_runners` passes. Also fixed a
+  pre-existing empty-triggers gap on `content-discovery` needed for that test.
+  (Pre-existing `test_..._planner_gate_signals` drift on
+  sqlmap/jwt/deserialization is unrelated — filed as a backlog follow-up.)
+- **Honest labelling:** the focused harness extracts source-derived gate facts,
+  so its results are **source-assisted lab recon**, NOT black-box pentest
+  performance. Clean reset-isolated DeepSeek result = **3/5**. The remaining 2
+  (`search-index-acl-drift`, `socket-fallback-channel-smuggling`) are a
+  **candidate multi-step-chain bottleneck** (hypothesis — both DeepSeek variants
+  failed; socket-fallback was state-leak sensitive before `--reset-each`), not a
+  proven ceiling.
+- **Evidence frozen** from `/tmp` into `docs/validation/`:
+  `focused-battery-deepseek-clean-3of5-2026-05-29.jsonl`,
+  `focused-battery-reasoner-multistep-0of2-2026-05-29.jsonl`,
+  `focused-battery-gemini-2026-05-29.jsonl`.
+- **Tests added:** `api/tests/test_interactive_exploit_runner.py` (adapter
+  routing, scope guard, JSON-action parser, methodology tag, harness gate-token
+  extraction).
+
+### Phase 2 — bring the proven recon lever into the production loop (live-proven plumbing; solve still needs focusing)
+
+The focused harness proved recon completeness is the solve-rate lever. In the
+production loop, the interactive-exploit `recon_context` is
+`user_content[:14000]` from the CPG-CEA dispatch — and the source gate tokens
+sat in `pre_recon_source_text[:3500]` (deliverable is ~15KB), so they were
+**truncated out** and never reached the agent. Worse, interactive-exploit only
+dispatched when the **Joern CPG** had sinks (`has_cpg`), and Joern is empty for
+the lab's Python source — so it never fired at all.
+
+Two production changes (`api/app/services/assessment_loop.py`):
+1. **Elevated gate tokens** — extract source gate tokens + internal listen ports
+   (reusing `pre_recon_source._scan_file`) into a clean, prominent, UNtruncated
+   block in `recon_context`.
+2. **Relaxed the dispatch gate** — interactive-exploit now fires when EITHER the
+   Joern CPG has content OR source recon surfaced gate tokens (Joern-independent;
+   black-box runs unchanged). Also resolved the deepseek model for the dispatch.
+
+Live-proven (run `bbe8fd6f`, `--source-aware`, deepseek-chat):
+`gate_tokens=52` → `PROOF_EXEC_INTERACTIVE_DISPATCH model=deepseek-chat` →
+interactive-exploit ran (`PROOF_EXEC_INTERACTIVE_DONE provider=deepseek steps=30
+elapsed=42.3s`) with the gate tokens in context — **with `has_cpg=False`**
+(previously impossible). HONEST limit: it `captured=0` because the lab is 50
+challenges on ONE target → 52 tokens / no single objective = the breadth-overload
+the per-challenge focused harness avoids. So production *plumbing* is unblocked,
+but a production *solve* needs per-objective focusing (focused-assessment-mode,
+filed as a backlog follow-up). Not claimed as a solve-rate win per ANTI_DRIFT.
+
+## Latest Continuation — Interactive runner made provider-agnostic (adapter layer) (2026-05-29)
+
+Operator + codex converged on: make the interactive-exploit runner a **general
+function-caller** — one provider-agnostic tool-use loop, providers added as thin
+adapters — instead of bolting gpt-5.4 on as a separate branch. Built
+`workers/runners/interactive_exploit/adapters.py` with `make_adapter()` + five
+adapters: Anthropic (native), Gemini (native), ChatGPT-OAuth gpt-5.4
+(JSON-action over `codex/responses`), **DeepSeek (native OpenAI-compatible
+function-calling)**, and local-qwen (JSON-action). `runner.py` is now one generic
+loop selected by a one-line factory call.
+
+Codex hardening folded in: scope guard no longer implicitly allows localhost on
+an empty/non-loopback scope (only when the scope itself is loopback); interactive
+findings carry `methodology=interactive_exploit`; runner summary adds
+`first_flag_step`/`first_flag_elapsed` telemetry. Added
+`scripts/focused_interactive_battery.py` — parallel focused harness (1
+challenge/run, per-challenge focused recon, concurrency, grader-checked JSONL +
+per-family/p50/failure-cluster report) to replace broad context-overload runs.
+
+Empirical (same generic loop): Gemini solved `ssrf-loopback-metadata`
+grader-verified in 3 steps/8.7s; gpt-5.4 solved it in 3 steps/28.9s (the earlier
+"cyber_policy" reading was a fixed adapter bug, not a block). DeepSeek key was
+**supplied and the adapter is live-proven** (native function-calling). Provider
+constraints on 2026-05-29: Claude credits $0, Gemini 250/day 429 mid-battery,
+gpt-5.4 flaky strict-JSON on an unofficial endpoint, local server down — DeepSeek
+(cheap, stable official API) is the working provider. See the 2026-05-30
+hardening section above for the corrected/source-assisted focused result (3/5).
+Full record: `docs/validation/interactive-adapter-layer-2026-05-29.md`.
+
+## Latest Continuation — AegisPT lab suite score/event log added (2026-05-29)
+
+Operator asked whether the lab/system has a log that can feed scoring and show which exploits actually happened, when, and in order. Added a session-scoped score/event timeline to the standalone `labs/aegispt_lab_suite/` HTTP edge without touching AegisPT runtime behavior.
+
+The lab now exposes `GET /__lab/score`, `GET /__lab/events`, and `POST /__lab/reset`. HTTP responses that disclose a lab flag automatically create `flag_disclosed` events, while `POST /grade` creates `grade_match`, `grade_mismatch`, or `grade_unknown` events. The score snapshot reports unique exploited and byte-verified challenge counts, first-seen ordering, unexploited/unverified challenge lists, and recent ordered events. Score/event responses intentionally do not reprint captured flags; grader attempts store only a short supplied-flag SHA-256 prefix. LAN/service flags are verified into the same timeline through `/grade`, because those toy TCP service containers do not share HTTP response memory with the edge container.
+
+Validation passed: `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -q` (62 tests), collect-only reported 62 tests, compileall, ruff, manifest JSON parse, `git diff --check`, backlog validation, Docker build, all 11 Docker services healthy, and a live Docker score smoke. The score smoke reset the lab, exploited `web-waf-double-decode-admin`, graded it, captured and graded `lan-printer-pjl-job-leak`, then confirmed `exploited_count=2`, `verified_count=2`, event order `lab_reset -> flag_disclosed -> grade_match -> grade_match`, and `flags_reprinted_in_score=false`. Containers were stopped and removed after validation. No AegisPT runtime, picker/provider logic, runner behavior, approval flow, findings schema, task queue, `NEXT_TASK.md`, or XBOW score-lane code was changed.
+
+## Latest Continuation — AegisPT lab suite expanded to 50 cross-layer challenges (2026-05-29)
+
+Operator asked for 20 more good tests across all layers and explicit self-validation that they actually work. Expanded `labs/aegispt_lab_suite/` from 30 to 50 deterministic local flag-capture challenges. The suite now covers web/API, auth/identity, mobile, CI/CD, supply chain, container registry, Kubernetes, cloud storage/metadata, data warehouse, WAF/edge, observability, WAN, and LAN/service layers while staying loopback-only and grader-verifiable.
+
+Added five more LAN-style TCP services/challenges: DNS-like zone transfer, Redis-like queue state manipulation, POP3-like mailbox reset-code takeover, Git-like history secret exposure, and kubelet-like pod secret read. Docker Compose now starts the main HTTP edge plus ten LAN toy services on loopback addresses `127.0.0.156` through `127.0.0.165`.
+
+Added fifteen HTTP-accessible cross-layer scenarios: SSTI sandbox escape, upload polyglot metadata parser confusion, idempotency-key transfer replay, bulk tenant mass assignment, SAML recipient confusion, SCIM dry-run group overwrite, mobile deep-link token leak, CI artifact env leak, dependency confusion, container registry tag confusion, Kubernetes service-account secret read, cloud storage signed-policy confusion, warehouse RLS comment bypass, WAF double-decode admin access, and observability trace baggage leak.
+
+Validation passed: `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -q` (61 tests), `python3 -m compileall -q labs/aegispt_lab_suite scripts/tests/test_aegispt_lab_suite.py`, `.venv/bin/ruff check labs/aegispt_lab_suite/app.py labs/aegispt_lab_suite/grader.py labs/aegispt_lab_suite/network_services.py scripts/tests/test_aegispt_lab_suite.py`, manifest JSON parse, `git diff --check`, `python3 scripts/validate_backlog_tasks.py`, Docker build, all 11 Docker services healthy, `/healthz` and manifest both reporting 50 challenges, and live Docker `grader.py` `match=true` proofs for `lan-dns-zone-transfer-leak`, `web-waf-double-decode-admin`, `auth-saml-recipient-confusion`, `k8s-serviceaccount-secret-read`, and `cloud-storage-policy-confusion`. Containers were stopped and removed after validation. No AegisPT runtime, picker/provider logic, runner behavior, approval flow, findings schema, task queue, `NEXT_TASK.md`, or XBOW score-lane code was changed.
+
+## Latest Continuation — AegisPT lab suite LAN/WAN expansion to 30 challenges (2026-05-29)
+
+Operator asked whether the lab could also include LAN and WAN tests for a full pentest suite. Expanded `labs/aegispt_lab_suite/` from 20 to 30 deterministic local challenges. The lab now includes the original web/API suite plus five LAN-style TCP services and five WAN/edge/cloud HTTP scenarios, all bound to loopback and graded through the same `/grade` / `grader.py` flag-verification contract.
+
+Added `network_services.py` with toy line-protocol TCP services for printer/PJL job-cache exposure, NAS backup-share credential reuse, LDAP-like nested group reset, OT/Modbus-like maintenance-register access, and MQTT-like retained diagnostic tokens. Docker Compose now starts the main HTTP edge on `127.0.0.155:8088` plus LAN services on `127.0.0.156:9100`, `127.0.0.157:4450`, `127.0.0.158:1389`, `127.0.0.159:1502`, and `127.0.0.160:1883`.
+
+Added WAN-style scenarios to the HTTP edge for reverse-proxy origin Host bypass, CDN forwarded-host cache poisoning, staging vhost account reset, OAuth redirect-prefix code leak, and cloud metadata token pivot through a URL previewer. README and manifest now document the expanded web/LAN/WAN challenge set. Validation passed: `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -q` (38 tests), compileall, ruff, JSON manifest parse, `git diff --check`, backlog validator, Docker build, all six Docker services healthy, manifest count 30, and live Docker `grader.py` `match=true` proofs for both `lan-printer-pjl-job-leak` and `wan-cloud-metadata-token-pivot`. Containers were stopped and removed after validation. No AegisPT runtime, picker/provider logic, runner behavior, approval flow, findings schema, task queue, `NEXT_TASK.md`, or XBOW score-lane code was changed.
+
+## Latest Continuation — AegisPT lab suite expanded to 20 challenges (2026-05-29)
+
+Operator clarified that the new work should happen in `labs/aegispt_lab_suite/` and asked for 10 additional tests that are documented, not too easy, and multi-step. Expanded the standalone Docker lab from 10 to 20 deterministic local flag-capture challenges while keeping the same single-image, loopback-bound, manifest-driven, `/grade`-verified shape.
+
+The 10 new scenarios are: JWT `kid`/legacy verifier confusion, OAuth-style device-code tenant confusion, CSV formula preview evaluation, WebSocket-fallback channel smuggling, backup restore target confusion, search-index ACL drift, webhook field-signature mismatch, unsigned cursor tenant leakage, legacy API-version shadow admin field, and theme preview-to-publish template confusion. Documentation lives in `labs/aegispt_lab_suite/README.md` and `suite_manifest.json`; flags remain absent from the manifest and are still verified through `grader.py` / `POST /grade`.
+
+Validation passed: `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -q` (28 tests), `python3 -m compileall -q labs/aegispt_lab_suite scripts/tests/test_aegispt_lab_suite.py`, `.venv/bin/ruff check labs/aegispt_lab_suite/app.py labs/aegispt_lab_suite/grader.py scripts/tests/test_aegispt_lab_suite.py`, `git diff --check`, `python3 scripts/validate_backlog_tasks.py`, Docker image build, container health on `127.0.0.155:8088`, manifest count 20, and a live Docker solve/grade proof for `theme-preview-publish-confusion` with `match=true`. The Docker container was stopped and removed after validation. No AegisPT runtime, picker/provider logic, runner behavior, approval flow, findings schema, task queue, or XBOW score-lane code was changed.
+
+## Latest Continuation — Standalone AegisPT lab suite v1 (2026-05-28)
+
+Operator asked for non-XBOW vulnerability tests and then clarified that the target should be a standalone Docker container so it can grow into a full suite later. Added and expanded `labs/aegispt_lab_suite/` as a self-contained local vulnerable target with one Docker image, compose binding on `127.0.0.155:8088`, `/healthz`, a machine-readable manifest, a `/grade` endpoint, and `grader.py`.
+
+The suite now contains ten local flag-capture scenarios: loopback SSRF to metadata, cache key/header confusion, GraphQL batch authorization confusion, signed URL canonicalization mismatch, coupon double-spend race, toy log lookup expansion, toy CGI environment parser confusion, toy heartbeat length over-read, toy nested data binding exposure, and toy frontend/backend auth-context rebind. Validation is recorded in `docs/validation/aegispt-lab-suite-v1-2026-05-28.md`: 18 lab tests passed, compileall passed, ruff passed, scoped diff-check passed, Docker image built, container became healthy on `127.0.0.155:8088`, manifest returned 10 challenges, and the default grader returned `match=true` against the live container. No AegisPT runtime, picker/provider logic, runner behavior, approval flow, findings schema, task queue, or XBOW score-lane code was changed.
+
+## Latest Continuation — AI pentest competitive deep-dive (2026-05-27)
+
+Operator asked to go deeper and explicitly compare AegisPT against open-source and commercial AI pentest systems including Shannon, PentestGPT, PentAGI, and commercial tools. Added `docs/research/ai-pentest-competitive-deep-dive-2026-05-27.md` as an investigation-only report. No runtime behavior, picker/provider logic, runners, UI, queue state, task packages, benchmark scripts, or provider configuration were changed.
+
+Key conclusion: AegisPT has moved beyond "script-kiddie architecture" because the right governance, score, source-aware, specialist, validator, and evidence components exist, but it has not yet moved beyond script-kiddie output until it repeatedly produces verified exploit proofs. Public/current comparators have sharper evidence: Shannon claims 96.15% on a source-aware XBOW variant, PentestGPT's repo now claims 86.5% on XBOW, Transilience claims 100/104 through Claude Code skill files, XBOW emphasizes parallel autonomous agents plus deterministic validators, and NodeZero/Pentera/Terra/Synack/Cobalt compete on enterprise attack-path validation and delivery. The recommended next move is a narrow daily 5-challenge XBOW scorelane with a reliable provider spine, formalized proof artifacts for any post-baseline solve, a controlled vulnerability-skill-pack A/B test, separate black-box/source-aware scoreboards, and no-exploit-no-report enforcement.
+
+## Latest Continuation — Agentic AI pentesting market/progress diagnosis (2026-05-27)
+
+Operator asked for a broad review of agentic AI, pentesting, AI pentesting resources, and whether AegisPT is still on the right path given little visible progress. Added `docs/research/agentic-ai-pentest-market-progress-diagnosis-2026-05-27.md` as an investigation-only report. No runtime behavior, picker/provider logic, runners, UI, queue state, task packages, or benchmark scripts were changed.
+
+Key conclusion: AegisPT is conceptually on the right path but operationally not moving fast enough toward "best in market". The external pattern from Project Naptime, Mythos/Glasswing, Shannon/XBOW, PentAGI, Strix, NIST CAISI, and OpenAI EVMbench is tool-grounded iterative agents with sandboxed execution, source-aware analysis, deterministic replay/graders, benchmark anti-cheat, memory, observability, and verified PoCs. AegisPT has many of those building blocks, but the hard local score remains `0/25` XBOW solved, 5/25 attempted, 1 total `exec_plan`, and 0 verified-exploited findings. The stagnation is mainly caused by too much infrastructure DONE and too little score-DONE, unequal provider integration, insufficient source-aware defaulting, large god modules, and no tight continuous score-climb loop. Recommended next focus: a single XBOW scorelane that improves attempted rate, exec_plan dispatch rate, verified-exploited count, and solve count on a fixed 5-challenge subset before further product broadening.
+
 ## Latest Continuation — Claude vs ChatGPT-OAuth picker diagnosis (2026-05-26)
 
 Operator asked why Claude appears to work much better inside AegisPT than ChatGPT-OAuth. Added `docs/research/claude-vs-chatgpt-picker-diagnosis-2026-05-26.md` as an investigation-only note. No runtime behavior, provider defaults, picker logic, runner behavior, queue state, or benchmark scripts were changed.
