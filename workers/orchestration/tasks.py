@@ -2365,6 +2365,8 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             timeout_seconds=max(timeout_seconds, 240.0),
             model=str(request.params.get("model") or "") or None,
             max_steps=int(request.params.get("max_steps") or 30),
+            engagement_id=str(request.params.get("engagement_id") or "") or None,
+            allow_loopback=bool(request.params.get("allow_loopback") or False),
         )
     if request.tool == "pre-recon-source":
         return execute_pre_recon_source(

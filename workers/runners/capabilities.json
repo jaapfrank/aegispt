@@ -28,7 +28,9 @@
         "ai-pentest-agent"
       ],
       "required_approvals": 0,
-      "prerequisites": []
+      "prerequisites": [
+        "approved_scope"
+      ]
     },
     {
       "blockers": [
@@ -93,7 +95,9 @@
       "weak_triggers": []
     },
     {
-      "blockers": [],
+      "blockers": [
+        "no_web_target"
+      ],
       "category": "authentication",
       "cost": "low",
       "description": "Validates approved authentication flows with operator-provided access context.",
@@ -507,14 +511,18 @@
       ],
       "required_approvals": 1,
       "risk_tier": "active",
-      "triggers": [],
+      "triggers": [
+        "http_service_present"
+      ],
       "weak_triggers": [
         "hidden_endpoint_found",
         "http_service_present",
         "info_disclosure_found"
       ],
       "trigger_signals": {
-        "strong": [],
+        "strong": [
+          "http_service_present"
+        ],
         "weak": [
           "http_service_present"
         ]
@@ -1332,7 +1340,7 @@
       ],
       "category": "web",
       "cost": "low",
-      "description": "Detects identity-token forging via input-field delimiter injection. Some apps build session cookies by concatenating user-controlled strings with delimiters (pipe, colon, semicolon) without escaping. By registering a username like `foo|admin|author`, an attacker forges a cookie that decodes to an admin identity. This runner attempts delimiter injection during registration and verifies admin context — CRITICAL when successful.",
+      "description": "Detects identity-token forging via input-field delimiter injection. Some apps build session cookies by concatenating user-controlled strings with delimiters (pipe, colon, semicolon) without escaping. By registering a username like `foo|admin|author`, an attacker forges a cookie that decodes to an admin identity. This runner attempts delimiter injection during registration and verifies admin context \u2014 CRITICAL when successful.",
       "estimated_minutes": 1,
       "expected_evidence": [
         "identity_forgery_confirmed",
@@ -1372,7 +1380,7 @@
       ],
       "category": "web",
       "cost": "low",
-      "description": "Detects file upload XSS and path-traversal exploits. Registers as author, uploads HTML payload with a unique marker, then verifies the server serves it back as text/html with payload reflected verbatim (stored XSS). Also tests filename-based path traversal (`../foo.html`) — if uploaded file lands outside the user's directory, the server is writing attacker-chosen paths. CRITICAL findings per success.",
+      "description": "Detects file upload XSS and path-traversal exploits. Registers as author, uploads HTML payload with a unique marker, then verifies the server serves it back as text/html with payload reflected verbatim (stored XSS). Also tests filename-based path traversal (`../foo.html`) \u2014 if uploaded file lands outside the user's directory, the server is writing attacker-chosen paths. CRITICAL findings per success.",
       "estimated_minutes": 2,
       "expected_evidence": [
         "uploaded_html_served_as_text_html",
@@ -2315,7 +2323,9 @@
         "auth-flow"
       ],
       "required_approvals": 0,
-      "prerequisites": []
+      "prerequisites": [
+        "approved_scope"
+      ]
     },
     {
       "name": "xss-proof",
@@ -2346,7 +2356,9 @@
         "idor-bac"
       ],
       "required_approvals": 0,
-      "prerequisites": []
+      "prerequisites": [
+        "approved_scope"
+      ]
     },
     {
       "name": "smart-web-probe",
@@ -2380,7 +2392,9 @@
         "auth-flow"
       ],
       "required_approvals": 0,
-      "prerequisites": []
+      "prerequisites": [
+        "approved_scope"
+      ]
     },
     {
       "name": "ai-pentest-agent",
@@ -2413,7 +2427,9 @@
         "auth-flow"
       ],
       "required_approvals": 0,
-      "prerequisites": []
+      "prerequisites": [
+        "approved_scope"
+      ]
     },
     {
       "name": "lan-intel",
@@ -2434,7 +2450,9 @@
       "weak_triggers": [
         "web_target_present"
       ],
-      "blockers": [],
+      "blockers": [
+        "no_web_target"
+      ],
       "follow_up_tools": [
         "nuclei",
         "ssh-brute",
@@ -2443,8 +2461,161 @@
         "credential-attacks"
       ],
       "required_approvals": 0,
-      "prerequisites": [],
+      "prerequisites": [
+        "approved_scope"
+      ],
       "false_positive_rate": "low"
+    },
+    {
+      "name": "pre-recon-source",
+      "category": "recon",
+      "risk_tier": "passive",
+      "required_approvals": 0,
+      "estimated_minutes": 2,
+      "triggers": [
+        "source_available",
+        "web_target_present"
+      ],
+      "weak_triggers": [],
+      "blockers": [
+        "no_web_target"
+      ],
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "expected_evidence": [
+        "routes",
+        "sinks",
+        "gate_tokens",
+        "listen_ports"
+      ],
+      "follow_up_tools": [
+        "pre-recon-cpg",
+        "interactive-exploit"
+      ],
+      "cost": "low",
+      "false_positive_rate": "low",
+      "description": "Passive source review pre-recon. Scans available target source for HTTP routes, dangerous sinks, authentication/credential references, internal listen ports, and source-defined gate tokens (custom headers, ${...} interpolation tokens, dotted binder keys, magic equality constants). Produces the recon facts the active exploit runners reason from."
+    },
+    {
+      "name": "pre-recon-cpg",
+      "category": "recon",
+      "risk_tier": "passive",
+      "required_approvals": 0,
+      "estimated_minutes": 2,
+      "triggers": [
+        "source_available",
+        "web_target_present"
+      ],
+      "weak_triggers": [],
+      "blockers": [
+        "no_web_target"
+      ],
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "expected_evidence": [
+        "cpg_sinks",
+        "dataflow_paths"
+      ],
+      "follow_up_tools": [
+        "interactive-exploit",
+        "code-exec-attack"
+      ],
+      "cost": "low",
+      "false_positive_rate": "low",
+      "description": "Passive code-property-graph pre-recon (Joern). Builds a CPG over available target source and traces source-to-sink dataflow paths to surface injection/SSRF/deserialization sinks with their reaching inputs, feeding the active exploit runners."
+    },
+    {
+      "name": "recon-deliverable",
+      "category": "recon",
+      "risk_tier": "passive",
+      "required_approvals": 0,
+      "estimated_minutes": 1,
+      "triggers": [
+        "recon_phase_complete"
+      ],
+      "weak_triggers": [
+        "web_target_present"
+      ],
+      "blockers": [
+        "no_web_target"
+      ],
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "expected_evidence": [
+        "attack_surface_map",
+        "recon_summary"
+      ],
+      "follow_up_tools": [],
+      "cost": "low",
+      "false_positive_rate": "low",
+      "description": "Consolidates recon output into a Shannon-style attack-surface deliverable (routes, services, technologies, candidate weaknesses) for the planner and operator."
+    },
+    {
+      "name": "code-exec-attack",
+      "category": "controlled-proof",
+      "risk_tier": "active",
+      "required_approvals": 0,
+      "estimated_minutes": 3,
+      "triggers": [
+        "cpg_sink_identified",
+        "injectable_parameter",
+        "ai_loop_active_phase"
+      ],
+      "weak_triggers": [
+        "web_target_present"
+      ],
+      "blockers": [
+        "no_web_target",
+        "empty_scope"
+      ],
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "expected_evidence": [
+        "code_exec_output",
+        "captured_flag"
+      ],
+      "follow_up_tools": [
+        "interactive-exploit"
+      ],
+      "cost": "medium",
+      "false_positive_rate": "low",
+      "description": "Blind one-shot exploit script: the planner writes a single self-contained Python script anticipating every branch, runs it scope-bounded once, and emits findings from its stdout. Superseded by interactive-exploit for stateful request->observe->decide work; retained for single-shot deterministic exploits."
+    },
+    {
+      "name": "exploit-developer-agent",
+      "category": "controlled-proof",
+      "risk_tier": "active",
+      "required_approvals": 0,
+      "estimated_minutes": 5,
+      "triggers": [
+        "vulnerability_hypothesis",
+        "ai_loop_active_phase"
+      ],
+      "weak_triggers": [
+        "web_target_present"
+      ],
+      "blockers": [
+        "no_web_target",
+        "empty_scope"
+      ],
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "expected_evidence": [
+        "exploit_artifact",
+        "captured_flag"
+      ],
+      "follow_up_tools": [
+        "interactive-exploit",
+        "code-exec-attack"
+      ],
+      "cost": "high",
+      "false_positive_rate": "low",
+      "description": "Agentic exploit developer: given a vulnerability hypothesis, iteratively drafts, runs, and refines an exploit against the scoped target until it produces a working proof or exhausts its budget."
     }
   ],
   "metadata_version": "2026-05-07"

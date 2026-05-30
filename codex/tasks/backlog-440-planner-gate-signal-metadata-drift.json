@@ -1,0 +1,79 @@
+{
+  "id": "backlog-440-planner-gate-signal-metadata-drift",
+  "task_file": "codex/tasks/backlog-440-planner-gate-signal-metadata-drift.json",
+  "task_type": "capability",
+  "title": "Fix pre-existing planner-gate-signal metadata drift (sqlmap/jwt-probe/deserialization-probe)",
+  "goal": "Make api/tests/test_runner_capabilities.py::test_runner_capability_metadata_contains_planner_gate_signals pass by reconciling each runner's capability metadata with the planner-gate signals the test (and the picker) expect. The test currently fails at HEAD independent of the interactive-exploit adapter work: sqlmap is missing the 'no_injectable_parameter' blocker, jwt-probe is missing the 'jwt_in_response' trigger, and deserialization-probe is missing the 'java_indicators' trigger. Decide per signal whether the metadata or the test is authoritative against how the picker actually gates these tools, then align them so the picker fires these tools on the intended evidence.",
+  "scope": "(1) For sqlmap, jwt-probe, and deserialization-probe, compare the capability metadata in workers/runners/capabilities.json against the trigger/blocker signals the picker/specialists actually emit and gate on (api/app/services/picker_specialists/*, assessment_loop signal extraction). (2) For each of the three: either add the missing trigger/blocker to the metadata (if the picker really emits that signal) or correct the test expectation (if the signal name drifted) — whichever matches real picker behavior, with evidence. (3) Confirm the picker still gates these tools correctly (no unintended firing). (4) Make the planner-gate-signals test green without weakening test_runner_capabilities_cover_registered_runners.",
+  "status": "queued",
+  "generated_by": "operator-relayed-codex-review-2026-05-30-precommit-hardening",
+  "generation_reason": "During the interactive-exploit adapter pre-commit hardening pass, completing the runner capability registry (adding interactive-exploit + 5 dispatched tools) made test_runner_capabilities_cover_registered_runners pass but surfaced a SEPARATE pre-existing failure in the same file: test_runner_capability_metadata_contains_planner_gate_signals expects sqlmap.blockers to contain 'no_injectable_parameter', jwt-probe.triggers to contain 'jwt_in_response', and deserialization-probe.triggers to contain 'java_indicators'. Verified these are absent at HEAD (git show HEAD:workers/runners/capabilities.json), so the drift predates and is unrelated to the adapter change-set. Filed as a follow-up rather than folded into the adapter commit to keep that change-set scoped and avoid unvalidated picker-gating behavior changes.",
+  "source_context": {
+    "queue_index": 390,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "capability_registry_integrity",
+    "key_files": [
+      "workers/runners/capabilities.json",
+      "api/tests/test_runner_capabilities.py",
+      "api/app/services/runner_registry.py",
+      "api/app/services/assessment_loop.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "This package must be the single active task in NEXT_TASK.md before completion can be claimed.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only reconcile capability metadata vs planner-gate-signals for sqlmap, jwt-probe, and deserialization-probe (and the matching test). Do NOT restructure the registry, the picker, or other runners' metadata."
+  },
+  "success_criteria": [
+    "api/tests/test_runner_capabilities.py::test_runner_capability_metadata_contains_planner_gate_signals passes.",
+    "test_runner_capabilities_cover_registered_runners still passes (registry stays complete).",
+    "Each of the 3 changes is justified by how the picker actually emits/gates that signal, cited in the commit/DONE_LOG.",
+    "No unintended change to when the picker fires sqlmap / jwt-probe / deserialization-probe."
+  ],
+  "likely_touched_files": [
+    "workers/runners/capabilities.json",
+    "api/tests/test_runner_capabilities.py"
+  ],
+  "must_not_touch": [
+    "workers/runners/interactive_exploit/",
+    "api/app/services/llm_provider.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "scripts/validate_backlog_tasks.py",
+      ".venv/bin/python -m pytest api/tests/test_runner_capabilities.py -q",
+      ".venv/bin/python -m compileall -q workers/runners/capabilities.json || true"
+    ],
+    "acceptance_criteria": [
+      "Both tests in api/tests/test_runner_capabilities.py pass.",
+      "Picker gating for the 3 tools is unchanged or improved with cited evidence."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Confirm this is the single active task in NEXT_TASK.md.",
+      "Confirm the 3 signal reconciliations are evidence-backed against real picker behavior."
+    ],
+    "after_completion": [
+      "Append a DONE_LOG.md entry citing the before/after for each of the 3 metadata/test reconciliations and confirming both capability tests pass.",
+      "Update CURRENT_STATE.md to record the planner-gate-signal reconciliation.",
+      "Update NEXT_TASK.md to the next queued task once this is complete."
+    ]
+  },
+  "out_of_scope": [
+    "Any change to the interactive-exploit adapter layer.",
+    "Any change to the picker architecture or other runners' capability metadata."
+  ],
+  "expected_output": "Reconciled capability metadata (and/or test) so the planner-gate-signals test passes, with per-signal justification.",
+  "validation_status": "pending",
+  "approval_status": "pending"
+}
