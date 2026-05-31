@@ -1,5 +1,13 @@
 # Done Log
 
+- 2026-05-31: full production focused-assessment baseline over all 50 lab challenges (measurement, not committed).
+  - rationale: prove WHERE the product solves and WHY it doesn't, before building more, now that there's a real score meter.
+  - method: run `e010aabe` (real API loop, deepseek-chat, source-assisted), focused per-objective interactive-exploit, solve-early-stop bypassed (measurement env, reverted after), objective cap 60, route-based dispatch dedup.
+  - result (user-value, grader-verified): **10/50 solved** as critical API findings (log-lookup, cache-key, graphql-batch-authz, binder-nested-property, cursor-pagination-tenant-leak, wan-cdn-vary-poison, ssti-sandbox-escape, supply-chain-dependency-confusion, waf-double-decode, observability-trace-baggage). 36/60 objectives reached.
+  - failure clusters (deduped): 14 model_action_failure, 11 recon_gap/multistep, 11 LAN/WAN tool-gap, 7 never-reached (budget), 1 false_positive.
+  - artifact: `docs/validation/focused-baseline-2026-05-31.md` + `.jsonl` (per-objective rows) + ranked next-fix list (Claude A/B on model cluster; cross-handler recon; tcp tool; throughput; verifier).
+  - NOT committed (measurement). The route-based dispatch dedup is a genuine fix flagged for a separate commit.
+
 - 2026-05-31: focused-assessment mode — per-objective interactive-exploit in the production loop (backlog-441).
   - rationale:
     - the per-challenge focused harness proved recon completeness is the solve-rate lever (DeepSeek 1/5 -> 3/5), but the production loop dispatched ONE broad interactive-exploit with all the target's gate tokens -> breadth-overload, captured 0 (run bbe8fd6f)

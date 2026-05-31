@@ -1,5 +1,46 @@
 # Current State
 
+## Latest Continuation — Model A/B on the 14 model_action_failures: frontier lift +2 (2026-05-31)
+
+Measured pure model lift on the 14 baseline `model_action_failure` objectives
+(DeepSeek-chat had the gate facts, 0/14). Same focused recon/scope/budget,
+provider selection only, grader-verified. Result: **deepseek-reasoner 0/5
+(hardest subset, free), claude-opus-4-8 2/14** (`auth-saml-recipient-confusion`,
+`data-warehouse-rls-comment-bypass`, both grader `match:true`). **Net frontier
+lift = +2.** The other **12/14 fail even with Claude + full gate facts → NOT a
+model boundary**; they need cross-handler/multi-step recon or tooling, not a
+bigger model. Strategy shift: model lift is a small lever for this cluster; the
+gains are recon/tooling. Artifact: `docs/validation/model-ab-14-2026-05-31.{md,jsonl}`.
+
+Providers wired in the interactive adapter layer: DeepSeek (chat+reasoner, funded),
+Claude opus-4-8 (€20 restored), Gemini 3.1, ChatGPT-OAuth gpt-5.4, and a NEW
+**Grok (xAI) adapter** (built+wired+compiles, uncommitted) — Grok is blocked on a
+valid `XAI_API_KEY` (current key returns bad-credentials). Nothing committed.
+
+## Latest Continuation — Full production focused-assessment BASELINE: 10/50 (2026-05-31)
+
+First full production baseline of what the real product solves today via
+focused-assessment mode (deepseek-chat, source-assisted), measured before
+building more. Run `e010aabe` (real API loop): **10/50 grader-verified solves**
+as critical API findings: log-lookup, cache-key, graphql-batch-authz,
+binder-nested-property, cursor-pagination-tenant-leak, wan-cdn-vary-poison,
+ssti-sandbox-escape, supply-chain-dependency-confusion, waf-double-decode,
+observability-trace-baggage. 36/60 objectives reached (budget).
+
+Failure clusters (deduped): **14 model_action_failure** (had the gate facts,
+DeepSeek couldn't exploit → frontier-model A/B), **11 recon_gap/multistep** (gate
+lives in another handler → cross-handler state-flow recon), **11 LAN/WAN
+tool-gap** (raw TCP, `http_request` can't reach → safe tcp tool), 7 never-reached
+(throughput), 1 false_positive (k8s-serviceaccount → verifier tightening). Full
+artifact + ranked next-fix list + per-objective JSONL:
+`docs/validation/focused-baseline-2026-05-31.{md,jsonl}`.
+
+Measurement-only deltas (UNCOMMITTED): `AEGISPT_DISABLE_SOLVE_EARLY_STOP` env
+bypass (reverted after the run — product keeps early-stop), objective cap 60,
+and a route-based dispatch dedup (a genuine fix worth a separate commit).
+Source-assisted (white-box), not black-box; no multi-step claimed solved unless
+grader-verified. Next: Claude A/B on the model_action_failure cluster.
+
 ## Latest Continuation — Focused-assessment mode: PRODUCTION SOLVES (backlog-441) (2026-05-31)
 
 The score-moving step: move the production loop from one broad target-level
