@@ -2367,6 +2367,8 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             max_steps=int(request.params.get("max_steps") or 30),
             engagement_id=str(request.params.get("engagement_id") or "") or None,
             allow_loopback=bool(request.params.get("allow_loopback") or False),
+            stop_on_first_flag=bool(request.params.get("stop_on_first_flag") or False),
+            max_tool_errors=int(request.params.get("max_tool_errors") or 8),
         )
     if request.tool == "pre-recon-source":
         return execute_pre_recon_source(

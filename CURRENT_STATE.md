@@ -1,5 +1,35 @@
 # Current State
 
+## Latest Continuation — Focused-assessment mode: PRODUCTION SOLVES (backlog-441) (2026-05-31)
+
+The score-moving step: move the production loop from one broad target-level
+interactive run to per-OBJECTIVE focused runs, bringing the proven recon lever
+into the live loop. Implemented in `_maybe_dispatch_cpg_seeded_cea`
+(`assessment_loop.py`): `_focused_objectives_from_source` enumerates per-route
+objectives (route -> handler -> the gate facts THAT handler inspects, attributed
+across the handler region), ranked by gate-type solvability (interpolation /
+header+magic / magic first). The loop dispatches ONE focused interactive-exploit
+per objective (count-indexed; per-objective target so the (tool,target) dedup
+advances), hard `max_steps=18` + `stop_on_first_flag` + `max_tool_errors`,
+scope guard intact (no implicit loopback). Source-assisted (white-box) only;
+black-box runs unchanged.
+
+**Live-proven production solves** (run `cf33a345`, real assessment loop via API,
+NOT the standalone harness, deepseek-chat, `--source-aware`): **2 grader-verified
+flags as critical API findings**, each captured in 2 steps through focused
+interactive-exploit:
+- `aegispt{log-lookup-expression-expansion:2db1…}` (objective 1, `/logs/ingest`)
+- `aegispt{cache-key-header-confusion:a590…}` (objective 3, `/edge/cache`)
+
+Grader `match:true` for both; findings queryable at
+`GET /api/v1/runs/cf33a345.../findings` (`Flag captured (interactive-exploit)…`,
+severity critical), with transcripts. Three fixes were the path to the solve:
+per-objective distinct target (dedup), precise tool-error counting (app error
+bodies are observations, not tool failures), and **live-port resolution** (scope
+is port-less `http://127.0.0.155`; `_reachable_base_url` probes the open port so
+the agent targets `:8088` instead of a closed port 80). This is the bridge from
+"interactive-exploit fires" to "interactive-exploit SOLVES" in production.
+
 ## Latest Continuation — Pre-commit hardening + evidence freeze (2026-05-30)
 
 Codex read-only review said the adapter change-set was the right direction but

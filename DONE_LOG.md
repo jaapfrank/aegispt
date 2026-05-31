@@ -1,5 +1,257 @@
 # Done Log
 
+- 2026-05-31: focused-assessment mode — per-objective interactive-exploit in the production loop (backlog-441).
+  - rationale:
+    - the per-challenge focused harness proved recon completeness is the solve-rate lever (DeepSeek 1/5 -> 3/5), but the production loop dispatched ONE broad interactive-exploit with all the target's gate tokens -> breadth-overload, captured 0 (run bbe8fd6f)
+  - implementation (`api/app/services/assessment_loop.py`, `workers/orchestration/tasks.py`, `workers/runners/interactive_exploit/runner.py`):
+    - `_focused_objectives_from_source`: enumerate per-route objectives (route -> handler -> the gate facts that handler inspects), ranked by gate-type solvability
+    - dispatch ONE focused interactive-exploit per objective (count-indexed; per-objective target so the (tool,target) dedup advances), hard `max_steps`/`stop_on_first_flag`/`max_tool_errors`, scope guard intact, source-assisted only
+    - `_reachable_base_url`: probe the live port (scope is port-less) so the agent targets `:8088`, not a closed port 80
+    - precise tool-error counting: only the runner's own `{"error":…}` (scope/transport) counts, not app error bodies
+  - metric movement (user-value, live, not mocked):
+    - PRODUCTION loop run `cf33a345` (real API assessment loop, NOT the standalone harness), deepseek-chat, `--source-aware`: **2 grader-verified solves as critical API findings**, each in 2 steps via focused interactive-exploit
+    - `aegispt{log-lookup-expression-expansion:2db1…}` (`/logs/ingest`) and `aegispt{cache-key-header-confusion:a590…}` (`/edge/cache`); grader `match:true` for both
+    - findings at `GET /api/v1/runs/cf33a345-abfa-4b5b-a932-959d7cdf91f3/findings` (`Flag captured (interactive-exploit)…`, severity critical) with transcripts
+    - before: 0 production solves (broad run captured 0). after: 2 grader-verified production solves.
+  - checks: ruff no new errors (assessment_loop 17 / tasks.py 1, both pre-existing baselines), compileall clean, `api/tests/test_interactive_exploit_runner.py` 7 passed, `validate_backlog_tasks` passed.
+
+- 2026-05-29: added session score/event logging to `labs/aegispt_lab_suite/`.
+  - rationale:
+    - operator asked for a way to turn lab activity into a score and see which exploits actually happened, when, and in what order
+    - the safest first step was to add this to the standalone lab scoring surface rather than changing AegisPT runtime, runner, finding, or XBOW score-lane behavior
+  - implementation:
+    - added `GET /__lab/score`, `GET /__lab/events`, and `POST /__lab/reset` to the lab HTTP edge
+    - added an in-memory ordered event timeline with sequence numbers and UTC timestamps
+    - added automatic `flag_disclosed` logging when an HTTP challenge response returns a lab flag
+    - extended `/grade` to log `grade_match`, `grade_mismatch`, and `grade_unknown` events
+    - added unique exploited and byte-verified challenge accounting:
+      - `exploited_count` / `exploited_order` for first flag disclosure or grade match
+      - `verified_count` / `verified_order` for byte-equal grade matches
+      - `unexploited` and `unverified` lists for remaining challenge IDs
+    - kept flags out of score/event responses; grader attempts store only a short supplied-flag SHA-256 prefix
+    - documented the score/event API in `labs/aegispt_lab_suite/README.md`, including the LAN/service behavior where TCP flags become timeline events when submitted to `/grade`
+    - added `test_lab_score_logs_flag_disclosure_grade_match_and_reset_order` to the lab contract tests
+  - files:
+    - `labs/aegispt_lab_suite/app.py`
+    - `labs/aegispt_lab_suite/README.md`
+    - `scripts/tests/test_aegispt_lab_suite.py`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -q` passed with 62 tests
+    - `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py --collect-only -q` reported 62 tests
+    - `python3 -m compileall -q labs/aegispt_lab_suite scripts/tests/test_aegispt_lab_suite.py` passed
+    - `.venv/bin/ruff check labs/aegispt_lab_suite/app.py labs/aegispt_lab_suite/grader.py labs/aegispt_lab_suite/network_services.py scripts/tests/test_aegispt_lab_suite.py` passed
+    - `python3 -m json.tool labs/aegispt_lab_suite/suite_manifest.json` passed
+    - `git diff --check` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed with 389 queued task packages and exactly one active task
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml build` built `aegispt-lab-suite:local`
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml up -d` started the HTTP edge and all ten LAN service containers
+    - Docker health checks reported all 11 services healthy
+    - live Docker score smoke reset the lab, exploited `web-waf-double-decode-admin`, graded it, captured and graded `lan-printer-pjl-job-leak`, and confirmed `exploited_count=2`, `verified_count=2`, event order `lab_reset -> flag_disclosed -> grade_match -> grade_match`, and `flags_reprinted_in_score=false`
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml down --remove-orphans` removed the containers/network after validation
+  - boundaries:
+    - the score/event log is session-scoped in-memory lab state and is reset by `POST /__lab/reset` or container restart
+    - LAN/service containers do not automatically write to the HTTP edge timeline on raw TCP flag disclosure; their successful exploits are recorded when the captured flag is submitted to `/grade`
+    - no AegisPT assessment run was launched against the expanded lab in this change
+    - no claim is made that AegisPT solves the 50-lab suite yet
+    - no runtime behavior, picker/provider logic, runner behavior, approval gate, scope gate, findings schema, task queue, `NEXT_TASK.md`, or XBOW score-lane code changed
+
+- 2026-05-29: expanded `labs/aegispt_lab_suite/` from 30 to 50 cross-layer local pentest challenges.
+  - rationale:
+    - operator asked for 20 additional good tests across all layers, kept documentation up to date, and explicitly required self-testing that the suite actually works
+    - the selected additions broaden the lab beyond web/API and first LAN/WAN coverage into identity, mobile, CI/CD, supply chain, container, Kubernetes, cloud, data, WAF, observability, and more LAN/service primitives while preserving loopback-only safety and deterministic grading
+  - implementation:
+    - extended `network_services.py` with five additional toy line-protocol LAN services:
+      - `lan-dns-zone-transfer-leak`: DNS-like NS/TXT discovery followed by tokened AXFR
+      - `lan-redis-queue-secret`: Redis-like queue discovery, job inspection, approval-key reuse, and artifact read
+      - `lan-mail-reset-code-takeover`: POP3-like mailbox login, reset-code message retrieval, and account reset
+      - `lan-git-history-secret`: Git-like repository listing, clone, commit-log inspection, and removed config secret retrieval
+      - `lan-kubelet-pod-secret`: kubelet-like pod discovery, service-account token retrieval, and namespaced secret read
+    - extended `docker-compose.yml` with five more loopback-only LAN services:
+      - `127.0.0.161:5353` DNS-lite
+      - `127.0.0.162:6379` Redis/queue-lite
+      - `127.0.0.163:1100` POP3/mail-lite
+      - `127.0.0.164:9418` Git-lite
+      - `127.0.0.165:10250` kubelet-lite
+    - extended `app.py` with fifteen HTTP-accessible cross-layer scenarios:
+      - `web-ssti-sandbox-escape`
+      - `web-upload-polyglot-metadata`
+      - `api-idempotency-replay-transfer`
+      - `api-bulk-tenant-mass-assignment`
+      - `auth-saml-recipient-confusion`
+      - `identity-scim-group-overwrite`
+      - `mobile-deeplink-token-leak`
+      - `cicd-artifact-env-leak`
+      - `supply-chain-dependency-confusion`
+      - `container-registry-tag-confusion`
+      - `k8s-serviceaccount-secret-read`
+      - `cloud-storage-policy-confusion`
+      - `data-warehouse-rls-comment-bypass`
+      - `web-waf-double-decode-admin`
+      - `observability-trace-baggage-leak`
+    - updated `suite_manifest.json` from 30 to 50 challenge entries with surface labels for the new cross-layer coverage
+    - updated `README.md` with 50-challenge summary, new loopback ports, expanded challenge table, and cross-layer coverage notes
+    - expanded `scripts/tests/test_aegispt_lab_suite.py` to 61 contract tests with deterministic solve proofs for every new challenge
+  - files:
+    - `labs/aegispt_lab_suite/app.py`
+    - `labs/aegispt_lab_suite/network_services.py`
+    - `labs/aegispt_lab_suite/Dockerfile`
+    - `labs/aegispt_lab_suite/docker-compose.yml`
+    - `labs/aegispt_lab_suite/suite_manifest.json`
+    - `labs/aegispt_lab_suite/README.md`
+    - `scripts/tests/test_aegispt_lab_suite.py`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -q` passed
+    - `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py --collect-only -q` reported 61 tests
+    - `python3 -m compileall -q labs/aegispt_lab_suite scripts/tests/test_aegispt_lab_suite.py` passed
+    - `.venv/bin/ruff check labs/aegispt_lab_suite/app.py labs/aegispt_lab_suite/grader.py labs/aegispt_lab_suite/network_services.py scripts/tests/test_aegispt_lab_suite.py` passed
+    - `python3 -m json.tool labs/aegispt_lab_suite/suite_manifest.json` passed
+    - `git diff --check` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed with 389 queued task packages and exactly one active task
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml build` built `aegispt-lab-suite:local`
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml up -d` started the HTTP edge and all ten LAN service containers
+    - Docker health checks reported all 11 services healthy
+    - live Docker smoke confirmed `/healthz` reported 50 challenges and the manifest returned 50 challenges
+    - live Docker `grader.py` proof returned `match=true` for `lan-dns-zone-transfer-leak`
+    - live Docker `grader.py` proof returned `match=true` for `web-waf-double-decode-admin`
+    - live Docker `grader.py` proof returned `match=true` for `auth-saml-recipient-confusion`
+    - live Docker `grader.py` proof returned `match=true` for `k8s-serviceaccount-secret-read`
+    - live Docker `grader.py` proof returned `match=true` for `cloud-storage-policy-confusion`
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml down` removed the containers/network after validation
+  - boundaries:
+    - all LAN/service protocols remain toy line protocols, not real DNS, Redis, POP3, Git, kubelet, SMB, LDAP, MQTT, Modbus, or printer implementations
+    - all WAN/cloud/container/Kubernetes/data scenarios are local simulations; there is no public internet access, external callback, real OAuth, real cloud metadata access, real Kubernetes API, real package registry, real payment processing, RCE, file writes, or wireless/RF activity
+    - no AegisPT assessment run was launched against the expanded lab in this change
+    - no claim is made that AegisPT solves the 50-lab suite yet
+    - no runtime behavior, picker/provider logic, runner behavior, approval gate, scope gate, findings schema, task queue, `NEXT_TASK.md`, or XBOW score-lane code changed
+
+- 2026-05-29: expanded `labs/aegispt_lab_suite/` from web/API-only coverage to a 30-challenge web/LAN/WAN local pentest lab.
+  - rationale:
+    - operator asked whether the suite could include LAN and WAN tests too, then approved adding them and asked for other interesting full-pentest-suite coverage
+    - the chosen shape keeps every target local, deterministic, loopback-bound, and grader-verifiable while adding non-HTTP service interaction and WAN/edge/cloud reasoning patterns
+  - implementation:
+    - added `labs/aegispt_lab_suite/network_services.py`, a stdlib TCP service simulator with five toy line protocols:
+      - `lan-printer-pjl-job-leak`: printer/PJL banner discovery, PJL ID, storage enumeration, and PIN-gated job-cache read
+      - `lan-nas-backup-share-leak`: NAS/SMB-lite share discovery, public backup-index leak, service-account reuse, protected backup read
+      - `lan-ldap-nested-group-reset`: LDAP-lite bind, user lookup, nested group traversal, reset-token discovery, account reset
+      - `lan-ot-maintenance-register`: OT/Modbus-lite register discovery, maintenance-state write, protected register read
+      - `lan-mqtt-retained-diagnostic`: MQTT-lite connect, retained system-topic discovery, diagnostic publish, result subscribe
+    - extended `docker-compose.yml` to start five loopback-only LAN services beside the existing HTTP edge:
+      - `127.0.0.156:9100` printer/PJL
+      - `127.0.0.157:4450` NAS/SMB-lite
+      - `127.0.0.158:1389` directory/LDAP-lite
+      - `127.0.0.159:1502` OT/Modbus-lite
+      - `127.0.0.160:1883` MQTT-lite
+    - extended `app.py` with five WAN/edge/cloud scenarios:
+      - `wan-origin-host-bypass`: reverse-proxy origin Host and forwarded-for trust bypass
+      - `wan-cdn-vary-poison`: CDN cache key mismatch with forwarded-host-dependent debug content
+      - `wan-staging-vhost-reset`: staging vhost discovery and weaker account-reset flow
+      - `wan-oauth-redirect-code-leak`: OAuth redirect-prefix confusion and code collector pivot
+      - `wan-cloud-metadata-token-pivot`: IMDSv2-like metadata token pivot through URL preview
+    - updated `suite_manifest.json` from 20 to 30 challenge entries, marking the new entries with `surface: lan` or `surface: wan`
+    - updated `README.md` with loopback port mapping, expanded challenge table, and LAN/WAN safety boundaries
+    - expanded `scripts/tests/test_aegispt_lab_suite.py` from 28 to 38 tests, including deterministic solve proofs for all five TCP services and all five WAN scenarios
+  - files:
+    - `labs/aegispt_lab_suite/app.py`
+    - `labs/aegispt_lab_suite/network_services.py`
+    - `labs/aegispt_lab_suite/Dockerfile`
+    - `labs/aegispt_lab_suite/docker-compose.yml`
+    - `labs/aegispt_lab_suite/suite_manifest.json`
+    - `labs/aegispt_lab_suite/README.md`
+    - `scripts/tests/test_aegispt_lab_suite.py`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -q` passed with 38 tests
+    - `python3 -m compileall -q labs/aegispt_lab_suite scripts/tests/test_aegispt_lab_suite.py` passed
+    - `.venv/bin/ruff check labs/aegispt_lab_suite/app.py labs/aegispt_lab_suite/grader.py labs/aegispt_lab_suite/network_services.py scripts/tests/test_aegispt_lab_suite.py` passed
+    - `python3 -m json.tool labs/aegispt_lab_suite/suite_manifest.json` passed
+    - `git diff --check` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed with 389 queued task packages and exactly one active task
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml build` built `aegispt-lab-suite:local`
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml up -d` started the HTTP edge and all five LAN service containers
+    - Docker health checks reported all six services healthy
+    - live Docker smoke confirmed `/healthz` reported 30 challenges and the manifest returned 30 challenges
+    - live Docker `grader.py` proof returned `match=true` for `lan-printer-pjl-job-leak`
+    - live Docker `grader.py` proof returned `match=true` for `wan-cloud-metadata-token-pivot`
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml down` removed the containers/network after validation
+  - boundaries:
+    - the LAN services are toy line protocols and deliberately not real SMB, LDAP, MQTT, Modbus, or printer protocol implementations
+    - the WAN scenarios simulate edge/cloud patterns locally and do not perform public internet access, external callbacks, real OAuth, real cloud metadata access, payment processing, RCE, file writes, or wireless/RF activity
+    - no AegisPT assessment run was launched against the expanded lab in this change
+    - no claim is made that AegisPT solves the 30-lab suite yet
+    - no runtime behavior, picker/provider logic, runner behavior, approval gate, scope gate, findings schema, task queue, `NEXT_TASK.md`, or XBOW score-lane code changed
+
+- 2026-05-29: expanded `labs/aegispt_lab_suite/` with 10 additional documented multi-step lab challenges.
+  - rationale:
+    - operator asked specifically for 10 new tests inside `labs/aegispt_lab_suite`, documented cleanly, and not too easy
+    - the safest shape was to keep the standalone Docker lab local and deterministic while adding harder stateful/tokenized scenarios instead of touching AegisPT runtime behavior
+  - implementation:
+    - extended `labs/aegispt_lab_suite/app.py` with 10 new flag-capture challenge paths: JWT `kid` dev-null admin, device-code tenant confusion, CSV formula preview exfiltration, fallback-channel smuggling, backup restore target confusion, search index ACL drift, billing webhook field-signature mismatch, cursor pagination tenant leak, legacy API-version shadow-admin field, and theme preview/publish confusion
+    - added state reset support for the new device flows, CRM contacts, channels, backups, search index state, billing state, profile shadow-admin state, and theme preview/published state
+    - updated `suite_manifest.json` from 10 to 20 challenge entries with entrypoints and notes while keeping flags out of the manifest
+    - updated `README.md` with the expanded challenge set and a concise multi-step additions section
+    - expanded `scripts/tests/test_aegispt_lab_suite.py` from 18 to 28 tests, including deterministic solve proofs for every new challenge plus updated health/manifest expectations
+  - files:
+    - `labs/aegispt_lab_suite/app.py`
+    - `labs/aegispt_lab_suite/suite_manifest.json`
+    - `labs/aegispt_lab_suite/README.md`
+    - `scripts/tests/test_aegispt_lab_suite.py`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -q` passed with 28 tests
+    - `python3 -m compileall -q labs/aegispt_lab_suite scripts/tests/test_aegispt_lab_suite.py` passed
+    - `.venv/bin/ruff check labs/aegispt_lab_suite/app.py labs/aegispt_lab_suite/grader.py scripts/tests/test_aegispt_lab_suite.py` passed
+    - `git diff --check` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed with 389 queued task packages and exactly one active task
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml build` built `aegispt-lab-suite:local`
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml up -d` produced a healthy container on `127.0.0.155:8088`
+    - live Docker smoke confirmed `/healthz` reported 20 challenges, the manifest returned 20 challenges, and `grader.py` returned `match=true` for a captured `theme-preview-publish-confusion` flag
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml down` removed the container/network after validation
+  - boundaries:
+    - no AegisPT assessment run was launched against the expanded lab in this change
+    - no claim is made that AegisPT solves the 20-lab suite yet
+    - no runtime behavior, picker/provider logic, runner behavior, approval gate, scope gate, findings schema, task queue, `NEXT_TASK.md`, or XBOW score-lane code changed
+
+- 2026-05-28: added standalone AegisPT Lab Suite v1 Docker target for non-XBOW generalization tests.
+  - rationale:
+    - operator asked whether we can create tests for vulnerabilities outside XBOW, then clarified the preferred shape: a standalone Docker container that can grow into a full suite later
+    - keeping the target standalone avoids touching the AegisPT runtime, picker, runner, approval flow, or XBOW score-lane while still giving future runs a legal local benchmark target
+  - implementation:
+    - added `labs/aegispt_lab_suite/` with a stdlib Python HTTP service, Dockerfile, compose file, manifest, README, and grader
+    - exposed `/healthz`, `/.well-known/aegispt-lab-manifest.json`, and `POST /grade`
+    - seeded ten deterministic local flag-capture challenges: loopback SSRF metadata, cache key/header confusion, GraphQL batch authz confusion, signed URL canonicalization mismatch, coupon race double spend, toy log lookup expansion, toy CGI parser confusion, toy heartbeat over-read, toy nested binder exposure, and toy frontend/backend auth rebind
+    - added `scripts/tests/test_aegispt_lab_suite.py` covering manifest hygiene, health/grader contract, negative guardrails, and deterministic solve proof for all ten challenges against a loopback server
+  - files:
+    - `labs/aegispt_lab_suite/README.md`
+    - `labs/aegispt_lab_suite/Dockerfile`
+    - `labs/aegispt_lab_suite/docker-compose.yml`
+    - `labs/aegispt_lab_suite/suite_manifest.json`
+    - `labs/aegispt_lab_suite/app.py`
+    - `labs/aegispt_lab_suite/grader.py`
+    - `scripts/tests/test_aegispt_lab_suite.py`
+    - `docs/validation/aegispt-lab-suite-v1-2026-05-28.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -q` passed with 18 tests
+    - `python3 -m pytest scripts/tests/test_aegispt_lab_suite.py -vv` collected 18 tests and all passed
+    - `python3 -m compileall -q labs/aegispt_lab_suite scripts/tests/test_aegispt_lab_suite.py` passed
+    - `.venv/bin/ruff check labs/aegispt_lab_suite/app.py labs/aegispt_lab_suite/grader.py scripts/tests/test_aegispt_lab_suite.py` passed
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml build` built `aegispt-lab-suite:local`
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml up -d` produced a healthy container on `127.0.0.155:8088`
+    - live container checks confirmed `/healthz`, manifest retrieval with 10 challenges and `default_base_url=http://127.0.0.155:8088/`, and default `grader.py` returning `match=true`
+    - `docker compose -f labs/aegispt_lab_suite/docker-compose.yml down` removed the container/network after validation
+    - `git diff --check -- labs/aegispt_lab_suite scripts/tests/test_aegispt_lab_suite.py` passed
+  - boundaries:
+    - no AegisPT assessment run was launched against the lab in this change
+    - no claim is made that AegisPT solves these labs yet
+    - no runtime behavior, picker/provider logic, runner behavior, approval gate, scope gate, findings schema, task queue, or XBOW score-lane code changed
+
 - 2026-05-28: FIRST AUTONOMOUS XBOW SOLVE SINCE XBEN-002 — XBEN-009 solved end-to-end (run f956c474, smoke 67).
   - rationale:
     - operator pushed to stop patching layers and find the REAL binding constraint; flagged that an LLM should solve XBOW since it has the knowledge, and asked whether the LLM even sees raw tool/script output

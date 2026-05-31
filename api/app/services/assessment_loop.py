@@ -1408,6 +1408,154 @@ from api.app.services.assessment_loop_internals.cpg_seeded_cea_prompts import ( 
 )
 
 
+def _reachable_base_url(base: str) -> str:
+    """Resolve a base URL that actually serves HTTP. The engagement scope is
+    often port-less (whole-IP, all ports), so target_url has no port and a
+    request to it hits port 80 -> connection refused. Probe common web ports and
+    return the first that responds, so the focused agent targets the live port.
+    """
+    from urllib.parse import urlparse as _up
+
+    pr = _up(base)
+    if pr.port:
+        return base.rstrip("/")
+    host = pr.hostname or base.replace("http://", "").replace("https://", "").split("/")[0]
+    scheme = pr.scheme or "http"
+    import httpx as _hx
+    for port in (8088, 80, 8080, 8000, 5000, 3000, 443, 8443):
+        url = f"{scheme}://{host}:{port}"
+        try:
+            with _hx.Client(timeout=2.0, verify=False) as c:
+                c.get(url + "/", follow_redirects=False)
+            return url
+        except Exception:  # noqa: BLE001
+            continue
+    return base.rstrip("/")
+
+
+def _focused_objectives_from_source(
+    source_dir: str, target_url: str, *, max_objectives: int = 16
+) -> list[dict[str, Any]]:
+    """FOCUSED-ASSESSMENT MODE (backlog-441): enumerate per-route objectives from
+    source. Each objective is ONE endpoint + ONLY that endpoint's gate facts
+    (headers / interpolation tokens / magic constants / params / body fields its
+    handler inspects), attributed by mapping route -> handler -> handler region.
+
+    The focused-battery harness proved that ONE objective + ONLY its facts takes
+    the agent from broad-overload to solving; this brings that into the live
+    loop. Source-assisted (white-box) only — caller gates on an explicit
+    source_dir. Returns a STABLE order (flag-emitting + single-gate first) so the
+    loop dispatches the fastest wins first and so a count-based index is stable.
+    """
+    import re
+    from pathlib import Path as _PathO
+
+    src = ""
+    try:
+        for p in _PathO(source_dir).rglob("*.py"):
+            try:
+                src += "\n" + p.read_text(errors="ignore")
+            except OSError:
+                continue
+    except Exception:  # noqa: BLE001
+        return []
+    if not src:
+        return []
+    lines = src.splitlines()
+    handler_of = dict(re.findall(
+        r'parsed\.path == ["\']([^"\']+)["\'][^\n]*\n\s*self\.(_handle_\w+)\(', src))
+
+    def _region(hname: str) -> str:
+        for i, ln in enumerate(lines):
+            if re.match(rf"\s*def {re.escape(hname)}\(", ln):
+                base = len(ln) - len(ln.lstrip())
+                end = i
+                for j in range(i + 1, min(len(lines), i + 70)):
+                    if lines[j].strip().startswith("def ") and (len(lines[j]) - len(lines[j].lstrip())) <= base:
+                        break
+                    end = j
+                return "\n".join(lines[i:end + 1])
+        return ""
+
+    ports = sorted(set(re.findall(r'(?:HTTPServer|run|listen|bind)\([^)]*?(\d{3,5})', src)))[:4]
+    _infra = ("/grade", "/__lab", "/healthz", "/health", "/favicon", "/robots")
+    objectives: list[dict[str, Any]] = []
+    for route, hname in handler_of.items():
+        if any(route.startswith(pfx) for pfx in _infra):
+            continue
+        region = _region(hname)
+        if not region:
+            continue
+        headers = sorted(set(re.findall(r'self\.headers\.get\(\s*["\']([^"\']+)["\']', region)))
+        magic = sorted(set(
+            re.findall(r'==\s*["\']([^"\']{1,48})["\']', region)
+            + re.findall(r'["\']([^"\']{1,48})["\']\s+in\s+\w', region)))
+        interp = sorted(set(re.findall(r'(\$\{[^}]{1,48}\})', region)))
+        params = sorted(set(re.findall(r'params\.get\(\s*["\']([^"\']+)["\']', region)))
+        bodyk = sorted(set(re.findall(r'payload\.get\(\s*["\']([^"\']+)["\']', region)))
+        emits_flag = "expected_flag(" in region
+        facts = []
+        if headers:
+            facts.append(f"request headers it inspects: {headers}")
+        if interp:
+            facts.append(f"interpolation tokens it expands in input: {interp}")
+        if magic:
+            facts.append(f"exact string values it compares input against: {magic}")
+        if params:
+            facts.append(f"query params it reads: {params}")
+        if bodyk:
+            facts.append(f"JSON body fields it reads: {bodyk}")
+        if not facts and not emits_flag:
+            continue
+        # Only surface the loopback/SSRF hint when an internal port was actually
+        # observed — otherwise it tempts the agent to probe 127.0.0.1 (out of
+        # scope) and burn the tool-error budget on scope-guard rejections.
+        ssrf_hint = (
+            f"INTERNAL LISTEN PORT(S) {ports} — for server-side-fetch/SSRF the server "
+            f"fetches from INSIDE its container; put http://127.0.0.1:<port>/... in the "
+            f"request body, do NOT request it directly.\n"
+            if ports else ""
+        )
+        recon = (
+            f"FOCUSED OBJECTIVE: exploit the endpoint {route} on {target_url}.\n"
+            "SOURCE-ASSISTED RECON (WHITE-BOX; what THIS endpoint's handler inspects — "
+            "reason out how to satisfy the gate yourself, this is not an exploit recipe):\n  "
+            + "\n  ".join(facts) + "\n"
+            + ssrf_hint
+            + f"Send ALL requests to {target_url} (the in-scope host) — do not probe other hosts.\n"
+            "GOAL: capture the flag this endpoint emits when its bug fires. Stop as soon as you have it."
+        )
+        objectives.append({
+            "key": route, "route": route, "recon": recon,
+            "fact_count": len(headers) + len(magic) + len(interp), "emits_flag": emits_flag,
+            "has_interp": bool(interp), "has_header_magic": bool(headers and magic),
+            "has_magic": bool(magic),
+        })
+
+    # Rank by GATE-TYPE solvability (general heuristic, not challenge names): an
+    # interpolation gate (submit the ${...} token) or a header+magic gate (set
+    # the header to the constant) is a clear single-step win; a lone magic
+    # constant next; then everything else. Flag-emitting + facts required; 0-fact
+    # flag-emitters (gate lives in another handler) rank last. Within a tier,
+    # fewer gate facts first. This surfaces the clearly-solvable objectives early
+    # so a bounded run reaches them.
+    def _rank(o: dict[str, Any]) -> tuple:
+        if not (o["emits_flag"] and o["fact_count"] > 0):
+            tier = 9
+        elif o["has_interp"]:
+            tier = 0
+        elif o["has_header_magic"]:
+            tier = 1
+        elif o["has_magic"]:
+            tier = 2
+        else:
+            tier = 3
+        return (tier, o["fact_count"], o["route"])
+
+    objectives.sort(key=_rank)
+    return objectives[:max_objectives]
+
+
 def _maybe_dispatch_cpg_seeded_cea(
     *,
     run: Run,
@@ -1546,6 +1694,78 @@ def _maybe_dispatch_cpg_seeded_cea(
         str(getattr(run, "id", "?"))[:8],
         has_cea, has_cpg, len(cpg_text), len(pre_recon_source_text), len(recon_text), source_gate_token_count,
     )
+    # FOCUSED-ASSESSMENT MODE (backlog-441): when source-aware, dispatch ONE
+    # focused interactive-exploit per objective (endpoint), seeded with ONLY that
+    # endpoint's gate facts, instead of one broad run drowning in all the
+    # target's tokens. Count-indexed (n existing interactive-exploit tasks = next
+    # objective) so each loop iteration advances; bypasses the single-shot
+    # has_cea gate so every objective gets its own focused run. Black-box runs
+    # (no source_dir) never enter here. Scope guard stays intact (no implicit
+    # loopback). Hard max_steps + stop-on-proof per objective.
+    import os as _os_focus
+    _focus_on = str(_os_focus.environ.get("AEGISPT_INTERACTIVE_EXPLOIT", "") or "").strip().lower() in {"1", "true", "yes", "on"}
+    if _focus_on and source_dir_for_run and source_gate_token_count > 0:
+        _ftarget = ""
+        for _t in (targets or []):
+            _ftarget = str(_t.get("value") or _t.get("url") or "")
+            if _ftarget:
+                break
+        # Resolve the live port (scope is port-less) so the agent does not hit a
+        # closed port 80 and burn the tool-error budget on connection refusals.
+        _fbase = _reachable_base_url(_ftarget) if _ftarget else ""
+        _objectives = _focused_objectives_from_source(source_dir_for_run, _fbase) if _fbase else []
+        _n_done = sum(1 for _t in (run.tasks or []) if str(getattr(_t, "tool", "")) == "interactive-exploit")
+        if _objectives and _n_done < len(_objectives):
+            _obj = _objectives[_n_done]
+            _fm = ""
+            try:
+                _fp = str((getattr(run, "configuration_json", None) or {}).get("llm_provider") or "").strip().lower()
+                if _fp.startswith("deepseek"):
+                    _fm = _fp
+                elif _fp.startswith("gemini") or _fp in {"chatgpt_oauth", "chatgpt-oauth"}:
+                    from api.app.services.llm_provider import LLMProviderConfig as _LPC_f
+                    _fm = str(_LPC_f.for_model(_fp).model or "")
+            except Exception:  # noqa: BLE001
+                _fm = ""
+            _fparams: dict[str, Any] = {
+                "recon_context": _obj["recon"][:14000], "max_steps": 18,
+                "stop_on_first_flag": True, "objective": _obj["key"],
+                "max_tool_errors": 20,  # give the agent room to probe within scope
+            }
+            if _fm:
+                _fparams["model"] = _fm
+            try:
+                _feng = getattr(run, "engagement_id", None)
+                if _feng:
+                    _fparams["engagement_id"] = str(_feng)
+            except Exception:  # noqa: BLE001
+                pass
+            logger.info(
+                "PROOF_EXEC_FOCUSED_OBJECTIVE_2026053101 run=%s idx=%d/%d route=%s model=%s",
+                str(getattr(run, "id", "?"))[:8], _n_done + 1, len(_objectives), _obj["key"], _fm or "(default)",
+            )
+            # Per-objective target (live-base+route) so the loop's (tool,target)
+            # dedup treats each objective as DISTINCT and the agent hits the live
+            # port — otherwise every objective shares the base URL and only the
+            # first queues, and a port-less base hits a closed port 80.
+            _focus_target = _fbase.rstrip("/") + _obj["route"]
+            return {
+                "action": "pick",
+                "tool": "interactive-exploit",
+                "target": _focus_target,
+                "tier": "active",
+                "confidence": 0.95,
+                "reasoning": (
+                    f"Focused-assessment mode (source-assisted): interactive exploit of "
+                    f"{_obj['key']} — objective {_n_done + 1}/{len(_objectives)}."
+                ),
+                "runner_params": _fparams,
+                "_specialist_metadata": {
+                    "specialist": "interactive_exploit_focused", "phase": "interactive",
+                    "objective": _obj["key"], "source_assisted": True,
+                },
+            }
+
     cpg_ok = bool(has_cpg and cpg_text)
     # Fire interactive-exploit when EITHER the Joern CPG has content OR source
     # recon surfaced gate tokens. Never re-seed once an exploit engine ran.
