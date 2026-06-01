@@ -1,0 +1,396 @@
+{
+  "schema_version": 1,
+  "suite_id": "aegispt-lab-suite-v1",
+  "name": "AegisPT Standalone Lab Suite",
+  "purpose": "Local Docker target for testing AegisPT generalization outside XBOW.",
+  "default_base_url": "http://127.0.0.155:8088/",
+  "public_target_allowed": false,
+  "flag_disclosure_policy": "Flags are never included in this manifest. Use POST /grade for byte-equal verification.",
+  "challenges": [
+    {
+      "id": "ssrf-loopback-metadata",
+      "family": "ssrf",
+      "entrypoints": ["POST /tools/webhook-tester", "GET /internal/metadata"],
+      "proof_type": "flag_capture",
+      "notes": "Local-only metadata service is reachable through the webhook fetcher."
+    },
+    {
+      "id": "cache-key-header-confusion",
+      "family": "cache poisoning",
+      "entrypoints": ["GET /edge/cache"],
+      "proof_type": "flag_capture",
+      "notes": "Cache behavior intentionally differs across request headers."
+    },
+    {
+      "id": "graphql-batch-authz-confusion",
+      "family": "graphql authorization",
+      "entrypoints": ["POST /graphql"],
+      "proof_type": "flag_capture",
+      "notes": "Batched operation handling has an authorization boundary bug."
+    },
+    {
+      "id": "signed-url-canonicalization",
+      "family": "signed URL canonicalization",
+      "entrypoints": ["GET /files/sign", "GET /files/download"],
+      "proof_type": "flag_capture",
+      "notes": "Signature validation and file resolution intentionally disagree."
+    },
+    {
+      "id": "coupon-race-double-spend",
+      "family": "race condition",
+      "entrypoints": ["POST /coupons/redeem", "GET /coupons/status"],
+      "proof_type": "flag_capture",
+      "notes": "One-time coupon redemption is intentionally race-prone."
+    },
+    {
+      "id": "log-lookup-expression-expansion",
+      "family": "log lookup injection",
+      "entrypoints": ["POST /logs/ingest"],
+      "proof_type": "flag_capture",
+      "inspired_by": ["CVE-2021-44228 Log4Shell lookup expansion pattern"],
+      "notes": "Toy lookup expansion in log rendering; no Java, JNDI, LDAP, RCE, or network callback is implemented."
+    },
+    {
+      "id": "cgi-env-parser-confusion",
+      "family": "environment parser confusion",
+      "entrypoints": ["GET /cgi/diagnostic"],
+      "proof_type": "flag_capture",
+      "inspired_by": ["CVE-2014-6271 Shellshock parser-confusion pattern"],
+      "notes": "Toy header parser confusion; no shell is invoked and no commands execute."
+    },
+    {
+      "id": "heartbeat-length-overread",
+      "family": "length-controlled over-read",
+      "entrypoints": ["POST /tls/heartbeat"],
+      "proof_type": "flag_capture",
+      "inspired_by": ["CVE-2014-0160 Heartbleed over-read pattern"],
+      "notes": "Toy heartbeat-like length mismatch; no TLS or OpenSSL implementation is present."
+    },
+    {
+      "id": "binder-nested-property-exposure",
+      "family": "unsafe nested data binding",
+      "entrypoints": ["POST /bind/profile"],
+      "proof_type": "flag_capture",
+      "inspired_by": ["CVE-2022-22965 Spring4Shell data-binding pattern"],
+      "notes": "Toy nested-property binder; no Java, Spring, Tomcat, classloader, file write, or RCE path is implemented."
+    },
+    {
+      "id": "frontend-backend-auth-rebind",
+      "family": "frontend/backend auth-context confusion",
+      "entrypoints": ["GET /exchange/autodiscover", "GET /exchange/proxy"],
+      "proof_type": "flag_capture",
+      "inspired_by": ["CVE-2021-26855 ProxyLogon SSRF/auth-context confusion pattern"],
+      "notes": "Toy frontend trust rebind; no Microsoft Exchange behavior or SSRF to external systems is implemented."
+    },
+    {
+      "id": "jwt-kid-devnull-admin",
+      "family": "JWT key selection confusion",
+      "entrypoints": ["GET /auth/jwks", "POST /auth/login", "GET /auth/admin"],
+      "proof_type": "flag_capture",
+      "notes": "A legacy verifier accepts an unsafe key identifier; solving requires understanding and changing a signed token."
+    },
+    {
+      "id": "device-code-tenant-confusion",
+      "family": "OAuth device-flow tenant confusion",
+      "entrypoints": ["POST /device/start", "POST /device/approve", "POST /device/token"],
+      "proof_type": "flag_capture",
+      "notes": "The device-flow approval path can drift tenant context before token redemption."
+    },
+    {
+      "id": "csv-formula-preview-exfil",
+      "family": "CSV formula evaluation",
+      "entrypoints": ["POST /crm/import", "GET /crm/export"],
+      "proof_type": "flag_capture",
+      "notes": "Imported contact data is safe at rest but evaluated by a preview exporter."
+    },
+    {
+      "id": "socket-fallback-channel-smuggling",
+      "family": "fallback channel method smuggling",
+      "entrypoints": ["POST /socket/negotiate", "POST /socket/fallback/send", "GET /socket/fallback/recv"],
+      "proof_type": "flag_capture",
+      "notes": "A WebSocket-like fallback transport accepts a method override that changes subscription state."
+    },
+    {
+      "id": "backup-restore-target-confusion",
+      "family": "backup restore path confusion",
+      "entrypoints": ["POST /backup/create", "POST /backup/restore"],
+      "proof_type": "flag_capture",
+      "notes": "Backup scope validation and restore target normalization intentionally disagree."
+    },
+    {
+      "id": "search-index-acl-drift",
+      "family": "search index ACL drift",
+      "entrypoints": ["POST /docs/reindex", "GET /docs/search"],
+      "proof_type": "flag_capture",
+      "notes": "Preview indexing can make an admin-only document visible to the public search path."
+    },
+    {
+      "id": "billing-webhook-field-signature",
+      "family": "webhook signature field mismatch",
+      "entrypoints": ["GET /billing/webhook/sample", "POST /billing/webhook", "GET /billing/status"],
+      "proof_type": "flag_capture",
+      "notes": "Webhook signatures cover only one field, allowing a signed sample to be transformed into a privileged event."
+    },
+    {
+      "id": "cursor-pagination-tenant-leak",
+      "family": "cursor trust and tenant leak",
+      "entrypoints": ["GET /inventory/list"],
+      "proof_type": "flag_capture",
+      "notes": "Pagination cursors are trusted as authorization context instead of being signed and server-bound."
+    },
+    {
+      "id": "api-version-shadow-admin",
+      "family": "legacy API version shadow field",
+      "entrypoints": ["POST /api/v2/profile", "GET /api/v2/admin/export"],
+      "proof_type": "flag_capture",
+      "notes": "A legacy version branch accepts a hidden admin field that the modern route normally ignores."
+    },
+    {
+      "id": "theme-preview-publish-confusion",
+      "family": "preview-to-publish template confusion",
+      "entrypoints": ["POST /themes/preview", "POST /themes/publish", "GET /themes/render"],
+      "proof_type": "flag_capture",
+      "notes": "A preview partial can be published without the sanitizer used by the normal theme path."
+    },
+    {
+      "id": "lan-printer-pjl-job-leak",
+      "surface": "lan",
+      "family": "printer/PJL job cache exposure",
+      "entrypoints": ["TCP 127.0.0.156:9100"],
+      "proof_type": "flag_capture",
+      "notes": "Toy JetDirect-like line protocol requires banner discovery, PJL identification, storage enumeration, and PIN-gated file retrieval."
+    },
+    {
+      "id": "lan-nas-backup-share-leak",
+      "surface": "lan",
+      "family": "NAS backup share credential reuse",
+      "entrypoints": ["TCP 127.0.0.157:4450"],
+      "proof_type": "flag_capture",
+      "notes": "Toy SMB-like line protocol requires share discovery, public backup-index read, service-account authentication, and protected backup retrieval."
+    },
+    {
+      "id": "lan-ldap-nested-group-reset",
+      "surface": "lan",
+      "family": "directory nested group privilege drift",
+      "entrypoints": ["TCP 127.0.0.158:1389"],
+      "proof_type": "flag_capture",
+      "notes": "Toy LDAP-like line protocol requires bind, user lookup, nested group traversal, token discovery, and account reset."
+    },
+    {
+      "id": "lan-ot-maintenance-register",
+      "surface": "lan",
+      "family": "OT register state transition",
+      "entrypoints": ["TCP 127.0.0.159:1502"],
+      "proof_type": "flag_capture",
+      "notes": "Toy Modbus-like line protocol requires device/register discovery and a maintenance-mode write before the protected register can be read."
+    },
+    {
+      "id": "lan-mqtt-retained-diagnostic",
+      "surface": "lan",
+      "family": "MQTT retained diagnostic token",
+      "entrypoints": ["TCP 127.0.0.160:1883"],
+      "proof_type": "flag_capture",
+      "notes": "Toy MQTT-like line protocol requires connect, retained system-topic discovery, diagnostic publish, and result subscription."
+    },
+    {
+      "id": "wan-origin-host-bypass",
+      "surface": "wan",
+      "family": "reverse-proxy origin trust bypass",
+      "entrypoints": ["GET /wan/edge-config", "GET /wan/origin/admin"],
+      "proof_type": "flag_capture",
+      "notes": "Edge configuration exposes the origin trust shape; solving requires origin Host and forwarded-for context."
+    },
+    {
+      "id": "wan-cdn-vary-poison",
+      "surface": "wan",
+      "family": "CDN cache key / forwarded-host mismatch",
+      "entrypoints": ["GET /wan/cdn/page"],
+      "proof_type": "flag_capture",
+      "notes": "A debug edge path stores forwarded-host-dependent content in a cache keyed only by path."
+    },
+    {
+      "id": "wan-staging-vhost-reset",
+      "surface": "wan",
+      "family": "staging vhost account reset",
+      "entrypoints": ["GET /wan/robots.txt", "POST /wan/account/reset/request", "POST /wan/account/reset/confirm", "GET /wan/staging/admin"],
+      "proof_type": "flag_capture",
+      "notes": "Robots discovery reveals a staging vhost with a weaker reset flow."
+    },
+    {
+      "id": "wan-oauth-redirect-code-leak",
+      "surface": "wan",
+      "family": "OAuth redirect prefix confusion",
+      "entrypoints": ["GET /wan/oauth/apps", "GET /wan/oauth/authorize", "GET /wan/oauth/collector", "POST /wan/oauth/token"],
+      "proof_type": "flag_capture",
+      "notes": "A redirect-prefix policy can route an authorization code through a collector endpoint before token redemption."
+    },
+    {
+      "id": "wan-cloud-metadata-token-pivot",
+      "surface": "wan",
+      "family": "cloud metadata token pivot",
+      "entrypoints": ["POST /wan/cloud/preview"],
+      "proof_type": "flag_capture",
+      "notes": "A URL previewer can reach a toy metadata service; solving requires first fetching a metadata token and then using it on the credential path."
+    },
+    {
+      "id": "lan-dns-zone-transfer-leak",
+      "surface": "lan",
+      "family": "DNS zone transfer exposure",
+      "entrypoints": ["TCP 127.0.0.161:5353"],
+      "proof_type": "flag_capture",
+      "notes": "Toy DNS-like line protocol requires NS discovery, transfer-token TXT lookup, and AXFR with the discovered token."
+    },
+    {
+      "id": "lan-redis-queue-secret",
+      "surface": "lan",
+      "family": "unauthenticated queue state manipulation",
+      "entrypoints": ["TCP 127.0.0.162:6379"],
+      "proof_type": "flag_capture",
+      "notes": "Toy Redis-like line protocol requires queue discovery, job inspection, approval-key reuse, and artifact retrieval."
+    },
+    {
+      "id": "lan-mail-reset-code-takeover",
+      "surface": "lan",
+      "family": "mailbox reset-code exposure",
+      "entrypoints": ["TCP 127.0.0.163:1100"],
+      "proof_type": "flag_capture",
+      "notes": "Toy POP3-like line protocol requires mailbox login, message enumeration, reset-code retrieval, and account reset."
+    },
+    {
+      "id": "lan-git-history-secret",
+      "surface": "lan",
+      "family": "Git history secret exposure",
+      "entrypoints": ["TCP 127.0.0.164:9418"],
+      "proof_type": "flag_capture",
+      "notes": "Toy Git-like line protocol requires repository listing, clone, commit-log inspection, and old-config retrieval."
+    },
+    {
+      "id": "lan-kubelet-pod-secret",
+      "surface": "lan",
+      "family": "kubelet pod token secret read",
+      "entrypoints": ["TCP 127.0.0.165:10250"],
+      "proof_type": "flag_capture",
+      "notes": "Toy kubelet-like line protocol requires pod discovery, service-account token retrieval, and namespaced secret read."
+    },
+    {
+      "id": "web-ssti-sandbox-escape",
+      "surface": "web",
+      "family": "template sandbox escape",
+      "entrypoints": ["GET /render/helpers", "POST /render/sandbox"],
+      "proof_type": "flag_capture",
+      "notes": "Template rendering requires helper discovery, debug-mode activation, and raw-block wrapping before the protected context value is exposed."
+    },
+    {
+      "id": "web-upload-polyglot-metadata",
+      "surface": "web",
+      "family": "polyglot upload metadata parser confusion",
+      "entrypoints": ["POST /media/upload", "GET /media/metadata"],
+      "proof_type": "flag_capture",
+      "notes": "A media upload is safe until the legacy metadata parser is selected for a polyglot filename and marker."
+    },
+    {
+      "id": "api-idempotency-replay-transfer",
+      "surface": "api",
+      "family": "idempotency key replay",
+      "entrypoints": ["POST /payments/prepare", "POST /payments/transfer", "GET /payments/receipt"],
+      "proof_type": "flag_capture",
+      "notes": "A key prepared for a micro-transfer can be replayed for a larger privileged transfer because amount and recipient are not bound."
+    },
+    {
+      "id": "api-bulk-tenant-mass-assignment",
+      "surface": "api",
+      "family": "bulk tenant mass assignment",
+      "entrypoints": ["POST /api/bulk/users", "GET /api/bulk/audit"],
+      "proof_type": "flag_capture",
+      "notes": "Bulk preview import still persists hidden tenant and role fields that later affect root audit access."
+    },
+    {
+      "id": "auth-saml-recipient-confusion",
+      "surface": "identity",
+      "family": "SAML recipient prefix confusion",
+      "entrypoints": ["GET /sso/metadata", "POST /sso/acs"],
+      "proof_type": "flag_capture",
+      "notes": "Toy SAML ACS validation accepts recipient prefixes instead of exact recipient binding."
+    },
+    {
+      "id": "identity-scim-group-overwrite",
+      "surface": "identity",
+      "family": "SCIM dry-run group overwrite",
+      "entrypoints": ["POST /scim/v2/Users", "POST /scim/v2/Groups/admin", "GET /scim/v2/Audit"],
+      "proof_type": "flag_capture",
+      "notes": "A SCIM dry-run group update mutates admin membership and leaks through audit state."
+    },
+    {
+      "id": "mobile-deeplink-token-leak",
+      "surface": "mobile",
+      "family": "mobile deep-link token leak",
+      "entrypoints": ["GET /mobile/assetlinks", "POST /mobile/link/preview", "GET /mobile/debug"],
+      "proof_type": "flag_capture",
+      "notes": "A deep-link previewer stores reset tokens that the mobile debug endpoint later accepts."
+    },
+    {
+      "id": "cicd-artifact-env-leak",
+      "surface": "ci_cd",
+      "family": "CI artifact environment leak",
+      "entrypoints": ["GET /ci/jobs", "GET /ci/artifacts"],
+      "proof_type": "flag_capture",
+      "notes": "Build logs reveal an environment artifact that becomes readable in preview mode."
+    },
+    {
+      "id": "supply-chain-dependency-confusion",
+      "surface": "supply_chain",
+      "family": "dependency confusion",
+      "entrypoints": ["GET /packages/manifest", "POST /packages/resolve"],
+      "proof_type": "flag_capture",
+      "notes": "A private package can be resolved from a higher-version public registry candidate."
+    },
+    {
+      "id": "container-registry-tag-confusion",
+      "surface": "container",
+      "family": "container registry tag confusion",
+      "entrypoints": ["GET /registry/tags", "POST /deploy/preview", "GET /deploy/status"],
+      "proof_type": "flag_capture",
+      "notes": "A preview deployment resolves latest through a dev mirror and exposes the resulting digest mismatch."
+    },
+    {
+      "id": "k8s-serviceaccount-secret-read",
+      "surface": "kubernetes",
+      "family": "service-account token secret read",
+      "entrypoints": ["GET /k8s/openapi", "POST /k8s/proxy"],
+      "proof_type": "flag_capture",
+      "notes": "The toy Kubernetes proxy exposes a pod token that can read a higher-value backup secret."
+    },
+    {
+      "id": "cloud-storage-policy-confusion",
+      "surface": "cloud",
+      "family": "cloud storage signed-policy confusion",
+      "entrypoints": ["GET /cloud/storage/policy", "GET /cloud/storage/download"],
+      "proof_type": "flag_capture",
+      "notes": "Signed policy validation and object normalization intentionally disagree."
+    },
+    {
+      "id": "data-warehouse-rls-comment-bypass",
+      "surface": "data",
+      "family": "warehouse row-level security bypass",
+      "entrypoints": ["GET /warehouse/schema", "POST /warehouse/query"],
+      "proof_type": "flag_capture",
+      "notes": "A tenant marker in a query comment is trusted by a toy row-level security filter."
+    },
+    {
+      "id": "web-waf-double-decode-admin",
+      "surface": "web",
+      "family": "WAF double-decode normalization gap",
+      "entrypoints": ["GET /waf/rules", "GET /waf/proxy"],
+      "proof_type": "flag_capture",
+      "notes": "The WAF checks one decoded path while the backend routes a second-decoded path."
+    },
+    {
+      "id": "observability-trace-baggage-leak",
+      "surface": "observability",
+      "family": "trace baggage secret leak",
+      "entrypoints": ["GET /trace/search", "GET /trace/detail"],
+      "proof_type": "flag_capture",
+      "notes": "Trace search reveals an ID whose baggage view contains sensitive propagated context."
+    }
+  ]
+}

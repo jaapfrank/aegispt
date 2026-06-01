@@ -2369,6 +2369,13 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             allow_loopback=bool(request.params.get("allow_loopback") or False),
             stop_on_first_flag=bool(request.params.get("stop_on_first_flag") or False),
             max_tool_errors=int(request.params.get("max_tool_errors") or 8),
+            enable_tcp=bool(request.params.get("enable_tcp") or False),
+            tcp_endpoints=(
+                request.params.get("tcp_endpoints")
+                if isinstance(request.params.get("tcp_endpoints"), list)
+                else None
+            ),
+            tcp_max_round_trips=int(request.params.get("tcp_max_round_trips") or 60),
         )
     if request.tool == "pre-recon-source":
         return execute_pre_recon_source(

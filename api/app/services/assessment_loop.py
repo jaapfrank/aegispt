@@ -1501,6 +1501,10 @@ def _focused_objectives_from_source(
             conds.append(f"JSON body field `{mm.group(1)}` must equal '{mm.group(2)}'")
         for mm in re.finditer(r'params\.get\(\s*["\'](\w+)["\']\s*\)\s*==\s*["\']([^"\']{1,40})["\']', region):
             conds.append(f"query param `{mm.group(1)}` must equal '{mm.group(2)}'")
+        # Generic `<var> == "literal"` (e.g. a normalized path the flag is gated
+        # on) — the field.get() forms above end in ')', so this does not duplicate.
+        for mm in re.finditer(r'\b([a-z_]\w*)\s*==\s*["\']([^"\']{1,48})["\']', region):
+            conds.append(f"the computed value `{mm.group(1)}` must equal '{mm.group(2)}'")
         for mm in re.finditer(r'["\']([^"\']{1,40})["\']\s+in\s+(\w+)', region):
             conds.append(f"`{mm.group(2)}` must contain the substring '{mm.group(1)}'")
         for mm in re.finditer(r'(\$\{[^}]{1,48}\})', region):
@@ -1532,13 +1536,68 @@ def _focused_objectives_from_source(
     # handler that READS STATE.<key> (set elsewhere) is a multi-step objective:
     # the agent must call the writer route FIRST. Source-assisted facts + the
     # writer->reader edge, NOT an exploit recipe.
+    # CROSS-ROUTE VALUE-DATA-FLOW: a gate validates a value it does NOT generate
+    # (e.g. compare_digest(input, sign_X(arg))) while a DIFFERENT route RETURNS
+    # that exact value in a response field (make_response({"sig": sign_X(arg)})).
+    # The agent must fetch the value from the producer route, then replay it.
+    # Map the deriving function -> (producer_route, response_field). Source-
+    # assisted facts (the producer/consumer + binding), NOT an exploit recipe.
+    _IGNORE_FUNCS = {"expected_flag", "make_response", "query_params", "parse_body",
+                     "int", "str", "len", "json", "get", "format"}
+    value_producers: dict[str, tuple[str, str]] = {}
+    for _pr, _ph in handler_of.items():
+        _preg = _region(_ph)
+        for _pm in re.finditer(r'["\'](\w+)["\']\s*:\s*(\w+)\(', _preg):
+            _field, _func = _pm.group(1), _pm.group(2)
+            if _func not in _IGNORE_FUNCS and _func not in value_producers:
+                value_producers[_func] = (_pr, _field)
+
+    def _value_flow_of(region: str, self_route: str) -> list[str]:
+        funcs = set(re.findall(r'compare_digest\(\s*\w+\s*,\s*(\w+)\(', region))
+        funcs |= set(re.findall(r'==\s*(\w+)\(', region))
+        out = []
+        for fn in sorted(funcs):
+            vp = value_producers.get(fn)
+            if vp and vp[0] != self_route and fn not in _IGNORE_FUNCS:
+                out.append((fn, vp[0], vp[1]))
+        return out
+
+    def _writer_brief(region: str, self_route: str) -> str:
+        brief = _facts_brief(region)
+        vfe = _value_flow_of(region, self_route)
+        if vfe:
+            extra = "; ".join(
+                f"a valid `{fn}(...)` value that route {pr} returns in field `{pf}`"
+                for fn, pr, pf in vfe)
+            brief = (brief + "; " if brief else "") + extra
+        return brief
+
     state_writers: dict[str, tuple[str, str]] = {}
     for _wr, _wh in handler_of.items():
         _wreg = _region(_wh)
         for _wm in re.finditer(r'STATE\.(\w+)\s*=(?!=)', _wreg):
             _wkey = _wm.group(1)
             if _wkey not in state_writers:
-                state_writers[_wkey] = (_wr, _facts_brief(_wreg))
+                state_writers[_wkey] = (_wr, _writer_brief(_wreg, _wr))
+
+    # Phase 1 (objective enumeration gap): flag-bearing HELPER functions — the
+    # flag is served INDIRECTLY via a resolver / signing-oracle (the handler has
+    # no direct expected_flag). A handler that CALLS such a helper is a
+    # flag-bearing objective. Map helper -> (challenge_id, trigger keys). Exclude
+    # the score aggregator (many cids) and expected_flag itself.
+    flag_helpers: dict[str, tuple[str, list[str]]] = {}
+    for _hm in re.finditer(r'^def (\w+)\(', src, re.M):
+        _hn = _hm.group(1)
+        if _hn.startswith("_handle") or _hn in ("expected_flag", "score_snapshot"):
+            continue
+        _hs = _hm.start()
+        _hnx = src.find("\ndef ", _hs + 1)
+        _hbody = src[_hs:_hnx if _hnx > 0 else len(src)]
+        if "expected_flag(" in _hbody:
+            _hcids = list(dict.fromkeys(re.findall(r'expected_flag\(\s*["\']([^"\']+)["\']', _hbody)))
+            if 1 <= len(_hcids) <= 3:  # skip the score aggregator
+                _hkeys = re.findall(r'["\']([^"\']+)["\']\s*:\s*expected_flag', _hbody)
+                flag_helpers[_hn] = (_hcids[0], _hkeys)
 
     objectives: list[dict[str, Any]] = []
     for route, hname in handler_of.items():
@@ -1551,6 +1610,19 @@ def _focused_objectives_from_source(
         emits_flag = "expected_flag(" in region
         _cid_m = re.search(r'expected_flag\(\s*["\']([^"\']+)["\']', region)
         challenge_id = _cid_m.group(1) if _cid_m else ""
+        # Phase 1: indirect flag served via a resolver/signing-oracle helper.
+        helper_block = ""
+        for _hn, (_hcid, _hkeys) in flag_helpers.items():
+            if re.search(rf'\b{re.escape(_hn)}\s*\(', region):
+                emits_flag = True
+                if not challenge_id:
+                    challenge_id = _hcid
+                helper_block = (
+                    f"INDIRECT FLAG (source-assisted): this endpoint serves `{_hn}(...)`, which "
+                    f"returns the flag when its input resolves to one of {_hkeys}. Supply an input "
+                    "that normalizes to that (satisfying the gate above), to release the flag.\n"
+                )
+                break
         own_conds = _gate_conditions(region)
         facts = []
         if own_conds:
@@ -1570,8 +1642,23 @@ def _focused_objectives_from_source(
             wr = state_writers.get(_k)
             if wr and wr[0] != route:
                 state_flow_edges.append((_k, wr[0], wr[1]))
-        if not facts and not emits_flag and not state_flow_edges:
+        # Value-data-flow: gate funcs this handler validates against, matched to a
+        # producer route that returns that exact value.
+        value_flow_edges = _value_flow_of(region, route)
+        if not facts and not emits_flag and not state_flow_edges and not value_flow_edges:
             continue
+        value_flow_block = ""
+        if value_flow_edges:
+            value_flow_block = (
+                "VALUE-DATA-FLOW (source-assisted; this endpoint VALIDATES a value it does NOT "
+                "generate — fetch it from the producer route first, then replay it here):\n"
+            )
+            for _fn, _proute, _pfield in value_flow_edges:
+                value_flow_block += (
+                    f"  - the value checked here is `{_fn}(...)`; the route {_proute} RETURNS that "
+                    f"exact value in its response field `{_pfield}`. Call {_proute} first to obtain a "
+                    f"valid value (and the matching input it was derived from), then supply both here.\n"
+                )
         state_flow_block = ""
         if state_flow_edges:
             state_flow_block = (
@@ -1600,6 +1687,8 @@ def _focused_objectives_from_source(
             "reason out how to satisfy the gate yourself, this is not an exploit recipe):"
             + facts_str + "\n"
             + state_flow_block
+            + value_flow_block
+            + helper_block
             + ssrf_hint
             + f"Send ALL requests to {target_url} (the in-scope host) — do not probe other hosts.\n"
             "GOAL: capture the flag this endpoint emits when its bug fires. Stop as soon as you have it."
@@ -1609,6 +1698,7 @@ def _focused_objectives_from_source(
             "fact_count": len(headers) + len(magic) + len(interp), "emits_flag": emits_flag,
             "has_interp": bool(interp), "has_header_magic": bool(headers and magic),
             "has_magic": bool(magic), "has_stateflow": bool(state_flow_edges),
+            "has_valueflow": bool(value_flow_edges),
         })
 
     # Rank by GATE-TYPE solvability (general heuristic, not challenge names): an
@@ -1625,8 +1715,8 @@ def _focused_objectives_from_source(
             tier = 0
         elif o["has_header_magic"]:
             tier = 1
-        elif o.get("has_stateflow"):
-            tier = 2  # multi-step, but the writer->reader dependency is now spelled out
+        elif o.get("has_stateflow") or o.get("has_valueflow"):
+            tier = 2  # multi-step: the writer->reader / producer->consumer dep is now spelled out
         elif o["has_magic"]:
             tier = 3
         elif o["fact_count"] > 0:
@@ -1637,6 +1727,272 @@ def _focused_objectives_from_source(
 
     objectives.sort(key=_rank)
     return objectives[:max_objectives]
+
+
+def _clean_lit_expr(expr: str) -> str:
+    """Strip an outer string-literal/f-string wrapper, keeping the inner text."""
+    import re
+    expr = expr.strip()
+    m = re.match(r'^f?(["\'])(.*)\1$', expr, re.S)
+    return m.group(2).strip() if m else expr
+
+
+def _parse_line_protocol(
+    hbody: str,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]], str, str]:
+    """Parse a line-protocol `handle()` body into (grammar, state_sets,
+    gate_var_of_flag, flag_cmd). Module-level (not nested in the per-class loop)
+    so the per-command flush does not close over loop-mutated variables.
+
+    grammar: ordered (command, effect) pairs; state_sets: (command, var) for
+    commands that SET session state; gate_var_of_flag/flag_cmd: the state the
+    flag command is gated on and the command that releases it.
+    """
+    import re
+    grammar: list[tuple[str, str]] = []
+    state_sets: list[tuple[str, str]] = []
+    gate_var_of_flag = ""
+    flag_cmd = ""
+
+    def _flush(c: str | None, blk: list[str]) -> None:
+        nonlocal gate_var_of_flag, flag_cmd
+        if not c:
+            return
+        text = "\n".join(blk)
+        wl = re.search(r"write_line\(\s*(.+?)\)\s*$", text, re.S)
+        resp = wl.group(1).strip() if wl else ""
+        if "expected_flag(" in resp:
+            eff = "RELEASES THE FLAG"
+            gm = re.search(r"if\s+([\w .]+?)\s+else", resp)
+            if gm:
+                gate_var_of_flag = gm.group(1).strip().split(".")[-1]
+                eff += f" (only when `{gate_var_of_flag}` holds)"
+            flag_cmd = c
+        elif resp:
+            eff = "responds: " + _clean_lit_expr(resp)[:130]
+        else:
+            eff = ""
+        # Payload membership gates (`"literal" in parts[...]` / `in payload`): the
+        # source REQUIRES these substrings in this command's payload (e.g. an
+        # MQTT publish must carry `action=dump`). Surface them as facts — they
+        # are otherwise buried in the branch body, not the command literal.
+        reqs: list[str] = []
+        for rm in re.finditer(r'(?:f)?["\']([^"\']{1,40})["\']\s+in\s+(?:parts|payload|command|raw)\b', text):
+            if rm.group(1) and rm.group(1) not in reqs:
+                reqs.append(rm.group(1))
+        if reqs:
+            eff = (eff + " — " if eff else "") + "payload must contain: " + ", ".join(f"`{r}`" for r in reqs)
+        grammar.append((c, eff))
+        for sm in re.finditer(r"(?:self\.)?(\w+)\s*=\s*(?:True|parts\b|\w+\s*==)", text):
+            var = sm.group(1)
+            if var not in {"upper", "parts", "command", "raw", "token"}:
+                state_sets.append((c, var))
+
+    cur: str | None = None
+    block: list[str] = []
+    for ln in hbody.splitlines():
+        s = ln.strip()
+        cond = re.match(r"(?:el)?if\s+(.+?):$", s)
+        if cond:
+            _flush(cur, block)
+            block = [s]
+            cexpr = cond.group(1)
+            lit = re.search(r'==\s*f?(["\'])(.+?)\1', cexpr)
+            multi = re.search(r'parts\[0\]\.upper\(\)\s*==\s*(["\'])(.+?)\1', cexpr)
+            sw = re.search(r'startswith\(\s*(["\'])(.+?)\1', cexpr)
+            if multi:
+                cur = multi.group(2) + " <args>"
+            elif lit:
+                cur = lit.group(2)
+            elif sw:
+                cur = sw.group(2) + "<...>"
+            else:
+                cur = None  # a pure guard (e.g. `not authed`) — skip as a command
+        elif cur is not None:
+            block.append(s)
+    _flush(cur, block)
+    return grammar, state_sets, gate_var_of_flag, flag_cmd
+
+
+def _focused_tcp_objectives_from_source(
+    source_dir: str, *, max_objectives: int = 16
+) -> list[dict[str, Any]]:
+    """FOCUSED LAN/WAN MODE: enumerate per-service objectives for the non-HTTP
+    line-protocol services (printer/PJL, NAS, LDAP, Modbus, MQTT, DNS, Redis,
+    POP3, Git, kubelet 'lite'). These are the `non_http_lan_tool_gap` objectives
+    — solvable only with the bounded `tcp_request` tool.
+
+    Generic source-assisted recon (white-box, NOT a per-challenge recipe): it
+    parses the line-protocol handler source for, per service: the on-connect
+    banner, the command grammar (command -> effect), which command RELEASES the
+    flag and the state it is gated on, which command SETS that state (sequencing
+    edge), and the values a response REVEALS that a later command must replay
+    (value-flow). Host/port come from the engagement manifest's TCP entrypoints.
+    The agent still has to drive the persistent connection, carry runtime tokens,
+    and order the steps itself.
+    """
+    import json as _json
+    import re
+    from pathlib import Path as _PathT
+
+    net_src = ""
+    manifest: dict[str, Any] = {}
+    try:
+        for p in _PathT(source_dir).rglob("*.py"):
+            try:
+                t = p.read_text(errors="ignore")
+            except OSError:
+                continue
+            if "LineProtocolHandler" in t or "StreamRequestHandler" in t:
+                net_src += "\n" + t
+        for p in _PathT(source_dir).rglob("*.json"):
+            try:
+                m = _json.loads(p.read_text(errors="ignore"))
+            except Exception:  # noqa: BLE001
+                continue
+            if isinstance(m, dict) and isinstance(m.get("challenges"), list):
+                manifest = m
+                break
+    except Exception:  # noqa: BLE001
+        return []
+    if not net_src or not manifest:
+        return []
+
+    # challenge_id -> (host, port, family, notes) from manifest TCP entrypoints
+    endpoints: dict[str, tuple[str, int, str, str]] = {}
+    for ch in manifest.get("challenges", []):
+        if not isinstance(ch, dict) or ch.get("surface") != "lan":
+            continue
+        for ep in (ch.get("entrypoints") or []):
+            mm = re.match(r"TCP\s+(\d{1,3}(?:\.\d{1,3}){3}):(\d+)", str(ep).strip())
+            if mm:
+                endpoints[str(ch.get("id", ""))] = (
+                    mm.group(1), int(mm.group(2)),
+                    str(ch.get("family", "")), str(ch.get("notes", "")),
+                )
+                break
+    if not endpoints:
+        return []
+
+    net_lines = net_src.splitlines()
+
+    def _class_region(cls_name: str) -> str:
+        # Bound a class body at the next COLUMN-0 line (handles the LAST class,
+        # whose body would otherwise absorb trailing module-level code).
+        for i, ln in enumerate(net_lines):
+            if re.match(rf"class {re.escape(cls_name)}\(", ln):
+                end = len(net_lines)
+                for j in range(i + 1, len(net_lines)):
+                    if net_lines[j] and not net_lines[j][0].isspace():
+                        end = j
+                        break
+                return "\n".join(net_lines[i:end])
+        return ""
+
+    objectives: list[dict[str, Any]] = []
+    for cm in re.finditer(r"class (\w+)\(\w*(?:Handler)\):", net_src):
+        cbody = _class_region(cm.group(1))
+        if not cbody:
+            continue
+        cidm = re.search(r'expected_flag\(\s*["\']([^"\']+)["\']', cbody)
+        if not cidm:
+            continue
+        cid = cidm.group(1)
+        if cid not in endpoints:
+            continue
+        host, port, family, notes = endpoints[cid]
+        hm = re.search(r"def handle\(self\)[^\n]*:\n", cbody)
+        hbody = cbody[hm.end():] if hm else cbody
+        bm = re.search(r'write_line\(\s*(f?["\'].*?["\'])\s*\)', hbody, re.S)
+        banner = _clean_lit_expr(bm.group(1)) if bm else ""
+
+        grammar, state_sets, gate_var_of_flag, flag_cmd = _parse_line_protocol(hbody)
+        if not flag_cmd and not grammar:
+            continue
+
+        # sequencing edge: which command sets the flag's gating state
+        setter_cmd = ""
+        if gate_var_of_flag:
+            for c, var in state_sets:
+                if var == gate_var_of_flag:
+                    setter_cmd = c
+                    break
+
+        # values a response reveals that a later command must replay (value-flow).
+        # Only the genuinely actionable ones: keys that look like a token / code /
+        # credential / hint, or a runtime-derived `{placeholder}` value.
+        _vf_key = re.compile(
+            r"([A-Za-z_][\w-]*(?:token|code|secret|key|pin|pass|cred|reset|transfer|"
+            r"session|ticket|otp|account|hint)[\w-]*)=(\{?[\w-]+\}?)", re.I)
+        _vf_runtime = re.compile(r"([A-Za-z_][\w-]*)=(\{[\w]+\})")
+        revealed: list[str] = []
+        for c, eff in grammar:
+            if "RELEASES THE FLAG" in eff:
+                continue
+            for vm in list(_vf_key.finditer(eff)) + list(_vf_runtime.finditer(eff)):
+                revealed.append(f"`{c}` reveals `{vm.group(1)}={vm.group(2)}`")
+
+        gram_lines = "\n".join(f"  - `{c}` -> {eff}" for c, eff in grammar if eff)
+        seq_lines = ""
+        if flag_cmd and gate_var_of_flag and setter_cmd:
+            seq_lines += (
+                f"  - the flag command `{flag_cmd}` only works once `{gate_var_of_flag}` is set; "
+                f"`{gate_var_of_flag}` is set by `{setter_cmd}` — send it first.\n"
+            )
+        elif flag_cmd and gate_var_of_flag:
+            seq_lines += (
+                f"  - the flag command `{flag_cmd}` requires `{gate_var_of_flag}` to be set by an "
+                "earlier command in this session.\n"
+            )
+        if revealed:
+            seq_lines += (
+                "  - VALUE-FLOW: some responses reveal a token/credential a later command must "
+                "replay verbatim (read it at runtime, then send it): "
+                + "; ".join(dict.fromkeys(revealed))[:400] + "\n"
+            )
+        _service_label = family or cid.replace("lan-", "").replace("-", " ")
+        recon = (
+            f"FOCUSED OBJECTIVE (LAN/TCP): exploit the {_service_label} service at "
+            f"TCP {host}:{port}.\n"
+            "SOURCE-ASSISTED RECON (WHITE-BOX line protocol — facts + sequencing, NOT a recipe; "
+            "reason out the chain yourself):\n"
+            "  - Transport: raw TCP, newline-delimited text. Use the tcp_request tool against "
+            f"{host}:{port}. The connection is PERSISTENT — session state set by one command "
+            "persists for later commands.\n"
+            f"  - On-connect banner: \"{banner}\"\n"
+            "  - Command grammar (the server upper-cases input; command -> effect):\n"
+            f"{gram_lines}\n"
+            + ("  - State / sequencing constraints:\n" + seq_lines if seq_lines else "")
+            + f"GOAL: drive the persistent connection, satisfy the sequence, capture the flag this "
+            f"service ({cid}) emits. Stop as soon as you have it."
+        )
+        objectives.append({
+            "key": f"tcp://{host}:{port}",
+            "route": f"tcp://{host}:{port}",
+            "recon": recon,
+            "challenge_id": cid,
+            "transport": "tcp",
+            "tcp_host": host,
+            "tcp_port": port,
+            "tcp_endpoint": f"{host}:{port}",
+            "emits_flag": True,
+            "has_stateflow": bool(setter_cmd),
+            "has_valueflow": bool(revealed),
+            "fact_count": len(grammar),
+        })
+
+    objectives.sort(key=lambda o: (0 if o["has_stateflow"] or o["has_valueflow"] else 1, o["route"]))
+    return objectives[:max_objectives]
+
+
+# In-process synchronous memo of focused objectives already dispatched per run,
+# keyed run_id -> {objective_key: {models}}. The DB dedup alone is racy under
+# INLINE_DISPATCH_BACKGROUND: the just-picked objective's task ROW is created by
+# a background thread and can lag behind the next iterate's dedup query, causing
+# a re-pick (observed: ot/dns/mail dispatched twice in run 7e589aea). This memo
+# is written SYNCHRONOUSLY at decision time so the next iterate sees it
+# immediately; the DB query remains the backstop after a process restart.
+_FOCUS_DISPATCHED_OBJECTIVES: dict[str, dict[str, set[str]]] = {}
 
 
 def _maybe_dispatch_cpg_seeded_cea(
@@ -1797,43 +2153,136 @@ def _maybe_dispatch_cpg_seeded_cea(
         # closed port 80 and burn the tool-error budget on connection refusals.
         _fbase = _reachable_base_url(_ftarget) if _ftarget else ""
         _objectives = _focused_objectives_from_source(source_dir_for_run, _fbase, max_objectives=60) if _fbase else []
-        # Track dispatched objectives by ROUTE (from existing task params), not a
-        # bare count — the count races (two loop advances before the first task
-        # is counted -> same objective dispatched twice). Pick the first
-        # not-yet-dispatched objective.
-        _dispatched_routes = set()
-        for _t in (run.tasks or []):
-            if str(getattr(_t, "tool", "")) == "interactive-exploit":
-                _tp = getattr(_t, "params_json", None) or {}
-                _o = _tp.get("objective") if isinstance(_tp, dict) else None
+        # LAN/WAN tool-gap: append the non-HTTP line-protocol TCP objectives
+        # (printer/NAS/LDAP/Modbus/MQTT/DNS/Redis/POP3/Git/kubelet 'lite'),
+        # solvable only with the bounded tcp_request tool. Derived from the
+        # engagement source + manifest, independent of the HTTP base.
+        try:
+            _objectives = _objectives + _focused_tcp_objectives_from_source(
+                source_dir_for_run, max_objectives=16)
+        except Exception as _tcp_enum_exc:  # noqa: BLE001
+            logger.warning("focused tcp objective enumeration failed: %s", _tcp_enum_exc)
+        # Optional measurement knob (default unset = both): isolate one transport
+        # so a validation run targets only the HTTP or only the LAN/TCP subset
+        # instead of churning through every HTTP objective first.
+        _focus_transport = str(
+            _os_focus.environ.get("AEGISPT_FOCUS_TRANSPORT", "") or ""
+        ).strip().lower()
+        if _focus_transport in {"tcp", "http"}:
+            _objectives = [
+                o for o in _objectives
+                if (o.get("transport", "http") == "tcp") == (_focus_transport == "tcp")
+            ]
+        # Phase 3 (throughput): dedup dispatched objectives by ROUTE from a FRESH
+        # DB query (the run.tasks ORM relationship can be stale within a tight
+        # loop, causing the loop to re-pick the same objective and the (tool,
+        # target) dedup to reject it = a wasted iterate). Track models tried per
+        # route so the optional Claude fallback can retry once.
+        _dispatched: dict[str, set] = {}
+        try:
+            from sqlalchemy import select as _sel_f  # noqa: E402
+
+            from api.app.models import Task as _TaskM  # noqa: E402
+            for (_tp,) in session.execute(
+                _sel_f(_TaskM.params_json).where(_TaskM.run_id == run.id, _TaskM.tool == "interactive-exploit")
+            ).all():
+                _o = (_tp or {}).get("objective") if isinstance(_tp, dict) else None
                 if _o:
-                    _dispatched_routes.add(_o)
+                    _dispatched.setdefault(_o, set()).add(str((_tp or {}).get("model") or ""))
+        except Exception:  # noqa: BLE001
+            for _t in (run.tasks or []):
+                if str(getattr(_t, "tool", "")) == "interactive-exploit":
+                    _tp = getattr(_t, "params_json", None) or {}
+                    _o = _tp.get("objective") if isinstance(_tp, dict) else None
+                    if _o:
+                        _dispatched.setdefault(_o, set()).add(str(_tp.get("model") or ""))
+        # Merge the synchronous in-process memo so a just-picked objective whose
+        # background task row has not committed yet is still treated as dispatched
+        # (eliminates the background-dispatch re-pick race; target double-dispatch=0).
+        _run_key = str(getattr(run, "id", "") or "")
+        for _mk, _mv in _FOCUS_DISPATCHED_OBJECTIVES.get(_run_key, {}).items():
+            _dispatched.setdefault(_mk, set()).update(_mv)
+        _dispatched_routes = set(_dispatched)
         _n_done = len(_dispatched_routes)
         _next_obj = next((o for o in _objectives if o["key"] not in _dispatched_routes), None)
+
+        # Phase 3 (opt-in, default-off, objective-scoped Claude frontier retry):
+        # once every objective has had a (deepseek) pass, retry a still-unsolved,
+        # recon-complete objective ONCE with Claude. Measured separately (model=
+        # claude + frontier_fallback flag).
+        _is_fallback = False
+        if _next_obj is None and str(
+            _os_focus.environ.get("AEGISPT_FOCUSED_CLAUDE_FALLBACK", "") or ""
+        ).strip().lower() in {"1", "true", "yes", "on"}:
+            import re  # local: module has no top-level `re` import
+            _solved_cids = set()
+            try:
+                for _fnd in (getattr(run, "findings", None) or []):
+                    _fmm = re.search(r"aegispt\{([^:}]+)", str(getattr(_fnd, "title", "") or ""))
+                    if _fmm:
+                        _solved_cids.add(_fmm.group(1))
+            except Exception:  # noqa: BLE001
+                pass
+            for o in _objectives:
+                _tried = _dispatched.get(o["key"], set())
+                if o["challenge_id"] and o["challenge_id"] in _solved_cids:
+                    continue
+                if any(m.startswith("claude") for m in _tried):
+                    continue  # already retried with Claude
+                if not any("deepseek" in m for m in _tried):
+                    continue  # only after a baseline (deepseek) pass
+                if not (o["emits_flag"] and (o["fact_count"] > 0 or o.get("has_stateflow") or o.get("has_valueflow"))):
+                    continue  # recon-complete objectives only (clear model_action_failure)
+                _next_obj = o
+                _is_fallback = True
+                break
+
         if _objectives and _next_obj is not None:
             _obj = _next_obj
             _fm = ""
-            try:
-                _fp = str((getattr(run, "configuration_json", None) or {}).get("llm_provider") or "").strip().lower()
-                if _fp.startswith("deepseek"):
-                    _fm = _fp
-                elif _fp.startswith("gemini") or _fp in {"chatgpt_oauth", "chatgpt-oauth"}:
-                    from api.app.services.llm_provider import LLMProviderConfig as _LPC_f
-                    _fm = str(_LPC_f.for_model(_fp).model or "")
-            except Exception:  # noqa: BLE001
-                _fm = ""
+            if _is_fallback:
+                _fm = "claude-opus-4-8"
+            else:
+                try:
+                    _fp = str((getattr(run, "configuration_json", None) or {}).get("llm_provider") or "").strip().lower()
+                    if _fp.startswith("deepseek"):
+                        _fm = _fp
+                    elif _fp.startswith("gemini") or _fp in {"chatgpt_oauth", "chatgpt-oauth"}:
+                        from api.app.services.llm_provider import LLMProviderConfig as _LPC_f
+                        _fm = str(_LPC_f.for_model(_fp).model or "")
+                except Exception:  # noqa: BLE001
+                    _fm = ""
             _fparams: dict[str, Any] = {
-                "recon_context": _obj["recon"][:14000], "max_steps": 18,
+                "recon_context": _obj["recon"][:14000],
+                "max_steps": 26 if _is_fallback else 18,  # frontier retry gets room for multi-hop
                 "stop_on_first_flag": True, "objective": _obj["key"],
-                "max_tool_errors": 20,  # give the agent room to probe within scope
+                "max_tool_errors": 24 if _is_fallback else 20,
                 "challenge_id": _obj.get("challenge_id", ""),
-                "fact_profile": {  # for baseline failure-clustering (measurement only)
+                "frontier_fallback": _is_fallback,
+                "fact_profile": {  # for failure-clustering (measurement only)
                     "has_interp": _obj.get("has_interp"), "has_header_magic": _obj.get("has_header_magic"),
                     "has_magic": _obj.get("has_magic"), "fact_count": _obj.get("fact_count"),
+                    "transport": _obj.get("transport", "http"),
+                    "has_stateflow": _obj.get("has_stateflow"), "has_valueflow": _obj.get("has_valueflow"),
                 },
             }
+            # LAN/TCP objective: enable the bounded tcp_request tool with the
+            # explicit endpoint allowlist, give the multi-step line chain room,
+            # and force a NATIVE function-calling model (JSON-action providers
+            # cannot drive a second tool).
+            if _obj.get("transport") == "tcp":
+                _fparams["enable_tcp"] = True
+                _fparams["tcp_endpoints"] = [_obj.get("tcp_endpoint")]
+                _fparams["tcp_max_round_trips"] = 60
+                _fparams["max_steps"] = 26 if _is_fallback else 22
+                if not (_fm and _fm.lower().startswith(("deepseek", "claude", "gemini", "grok", "xai"))):
+                    _fm = "deepseek-chat"
             if _fm:
                 _fparams["model"] = _fm
+            # Record synchronously so the NEXT iterate's dedup sees this pick
+            # immediately, before its (backgrounded) task row commits.
+            _FOCUS_DISPATCHED_OBJECTIVES.setdefault(_run_key, {}).setdefault(
+                _obj["key"], set()).add(str(_fm or ""))
             try:
                 _feng = getattr(run, "engagement_id", None)
                 if _feng:
@@ -1841,14 +2290,20 @@ def _maybe_dispatch_cpg_seeded_cea(
             except Exception:  # noqa: BLE001
                 pass
             logger.info(
-                "PROOF_EXEC_FOCUSED_OBJECTIVE_2026053101 run=%s idx=%d/%d route=%s model=%s",
-                str(getattr(run, "id", "?"))[:8], _n_done + 1, len(_objectives), _obj["key"], _fm or "(default)",
+                "PROOF_EXEC_FOCUSED_OBJECTIVE_2026053101 run=%s idx=%d/%d route=%s model=%s fallback=%s",
+                str(getattr(run, "id", "?"))[:8], _n_done + 1, len(_objectives), _obj["key"],
+                _fm or "(default)", _is_fallback,
             )
             # Per-objective target (live-base+route) so the loop's (tool,target)
             # dedup treats each objective as DISTINCT and the agent hits the live
             # port — otherwise every objective shares the base URL and only the
             # first queues, and a port-less base hits a closed port 80.
-            _focus_target = _fbase.rstrip("/") + _obj["route"]
+            if _obj.get("transport") == "tcp":
+                # Keep the in-scope HTTP host (for the runner's scope guard) but
+                # make the dedup target unique per TCP endpoint.
+                _focus_target = (_fbase.rstrip("/") or "http://127.0.0.1") + "/__tcp__/" + str(_obj.get("tcp_endpoint"))
+            else:
+                _focus_target = _fbase.rstrip("/") + _obj["route"]
             return {
                 "action": "pick",
                 "tool": "interactive-exploit",
@@ -1856,13 +2311,17 @@ def _maybe_dispatch_cpg_seeded_cea(
                 "tier": "active",
                 "confidence": 0.95,
                 "reasoning": (
-                    f"Focused-assessment mode (source-assisted): interactive exploit of "
-                    f"{_obj['key']} — objective {_n_done + 1}/{len(_objectives)}."
+                    (f"Focused frontier-retry (Claude, opt-in) of {_obj['key']} after a "
+                     f"recon-complete DeepSeek pass failed."
+                     if _is_fallback else
+                     f"Focused-assessment mode (source-assisted): interactive exploit of "
+                     f"{_obj['key']} — objective {_n_done + 1}/{len(_objectives)}.")
                 ),
                 "runner_params": _fparams,
                 "_specialist_metadata": {
                     "specialist": "interactive_exploit_focused", "phase": "interactive",
                     "objective": _obj["key"], "source_assisted": True,
+                    "frontier_fallback": _is_fallback,
                 },
             }
 

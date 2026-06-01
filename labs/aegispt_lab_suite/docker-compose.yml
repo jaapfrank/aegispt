@@ -1,0 +1,221 @@
+services:
+  aegispt-lab-suite:
+    build: .
+    image: aegispt-lab-suite:local
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+      AEGISPT_LAB_HOST: 0.0.0.0
+      AEGISPT_LAB_PORT: 8080
+    ports:
+      - "127.0.0.155:8088:8080"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import json, urllib.request; print(json.load(urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2))['status'])",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-printer:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "printer", "0.0.0.0", "9100"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.156:9100:9100"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 9100), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-nas:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "nas", "0.0.0.0", "4450"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.157:4450:4450"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 4450), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-directory:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "directory", "0.0.0.0", "1389"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.158:1389:1389"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 1389), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-ot:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "ot", "0.0.0.0", "1502"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.159:1502:1502"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 1502), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-mqtt:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "mqtt", "0.0.0.0", "1883"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.160:1883:1883"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 1883), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-dns:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "dns", "0.0.0.0", "5353"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.161:5353:5353"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 5353), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-redis:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "redis", "0.0.0.0", "6379"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.162:6379:6379"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 6379), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-mail:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "mail", "0.0.0.0", "1100"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.163:1100:1100"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 1100), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-git:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "git", "0.0.0.0", "9418"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.164:9418:9418"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 9418), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegispt-lab-kubelet:
+    build: .
+    image: aegispt-lab-suite:local
+    command: ["python3", "network_services.py", "kubelet", "0.0.0.0", "10250"]
+    environment:
+      AEGISPT_LAB_FLAG_SEED: ${AEGISPT_LAB_FLAG_SEED:-aegispt-local-lab-suite-default-seed}
+    ports:
+      - "127.0.0.165:10250:10250"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 10250), 2); print(s.recv(80).decode())",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20

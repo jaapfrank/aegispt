@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,10 +35,20 @@ M2_GATE_ENV_VAR = "AEGISPT_M2_VERDICT_GATE_ENABLED"
 PROOF_EXEC_MARKER = "PROOF_EXEC_M2_VERDICT_GATE_2026052313"
 
 VERDICT_EXPLOITED = "EXPLOITED"
+VERDICT_DETERMINISTIC_PROOF = "DETERMINISTIC_PROOF"
 VERDICT_BLOCKED_BY_SECURITY = "BLOCKED_BY_SECURITY"
 VERDICT_OUT_OF_SCOPE_INTERNAL = "OUT_OF_SCOPE_INTERNAL"
 VERDICT_FALSE_POSITIVE = "FALSE_POSITIVE"
 VERDICT_UNCLASSIFIED = "UNCLASSIFIED"
+
+# Bounded deterministic-proof class: a captured flag literal is itself the
+# proof — it either byte-matches the grader or it does not, with no model or
+# re-prober judgment. Such a finding must NOT be dropped just because the
+# HTTP-oriented re-prober cannot reproduce it (e.g. raw-TCP line protocols).
+# This is the canonical flag shape only; nothing else is exempted, so the gate
+# is NOT generically bypassed.
+_FLAG_PROOF_RE = re.compile(r"(?:aegispt|flag|FLAG)\{[^}]{1,200}\}|xbow-[0-9a-fA-F]{6,}")
+_DETERMINISTIC_PROOF_METHODOLOGIES = {"interactive_exploit", "code_exec_attack"}
 
 
 @dataclass(frozen=True)
@@ -61,8 +72,36 @@ def _has_replay_recipe(finding: Any) -> bool:
     return isinstance(steps, list) and len(steps) > 0
 
 
+def is_deterministic_flag_proof(finding: Any) -> bool:
+    """True for the bounded deterministic-proof class: a finding whose evidence
+    carries a canonical flag literal AND has the provenance that makes it a
+    real solve (an evidence artifact ref, an in-scope target, and an exploit
+    methodology tag). Grader-matchable proof — exempt from the re-prober verdict,
+    but only when fully provenanced (mirrors the canonical-solve definition)."""
+    text = " ".join(
+        str(getattr(finding, attr, "") or "")
+        for attr in ("title", "summary", "evidence_excerpt")
+    )
+    if not _FLAG_PROOF_RE.search(text):
+        return False
+    if not str(getattr(finding, "evidence_ref", "") or "").strip():
+        return False  # transcript/evidence artifact provenance required
+    if not str(getattr(finding, "target_id", "") or "").strip():
+        return False  # scope provenance required
+    tags = getattr(finding, "methodology_tags", None) or []
+    return any(str(t) in _DETERMINISTIC_PROOF_METHODOLOGIES for t in tags)
+
+
 def classify(*, finding: Any, verifier_verdict: Any) -> GateDecision:
-    """Map verifier signal + replay-recipe presence to one of the 4 verdicts."""
+    """Map verifier signal + replay-recipe presence to one of the verdicts."""
+    # Bounded exemption FIRST: a provenanced flag-literal capture is
+    # deterministic proof and is never a re-prober false positive.
+    if is_deterministic_flag_proof(finding):
+        return GateDecision(
+            verdict=VERDICT_DETERMINISTIC_PROOF,
+            drop=False,
+            reason="deterministic flag-literal proof (grader-matchable, provenanced) — exempt from re-prober verdict",
+        )
     if verifier_verdict is None:
         return GateDecision(
             verdict=VERDICT_UNCLASSIFIED,
