@@ -101,6 +101,29 @@ SINK_PATTERNS = [
     (re.compile(r"\bplaywright\b", re.IGNORECASE), "headless-playwright", "high"),
     (re.compile(r"\bheadless[\s_-]?chrome\b", re.IGNORECASE), "headless-chrome", "high"),
     (re.compile(r"\bwebdriver\b", re.IGNORECASE), "headless-webdriver", "high"),
+    # PHP dangerous sinks. 2026-06-01: the table had NO PHP-specific sinks —
+    # pickle.loads covered Python deserialization but `unserialize()` (PHP
+    # object injection / insecure deserialization) was absent, plus the PHP
+    # command-exec and dynamic-include families. So PHP challenges whose vuln is
+    # not a web-probe signature reported sink_count=0 and the loop chased
+    # false positives (XBEN-014: `unserialize($_COOKIE['creds'])` was invisible,
+    # so smart-web-probe's bogus "SQLi auth bypass" won). These are generic PHP
+    # sink CLASSES (function names PHP-exclusive), not challenge-specific. Note
+    # eval()/exec()/system()/popen() above already match the PHP forms too.
+    (re.compile(r"\bunserialize\s*\("), "php-unserialize", "critical"),
+    (re.compile(r"\bshell_exec\s*\("), "php-shell_exec", "critical"),
+    (re.compile(r"\bpassthru\s*\("), "php-passthru", "critical"),
+    (re.compile(r"\bproc_open\s*\("), "php-proc_open", "critical"),
+    (re.compile(r"\bpcntl_exec\s*\("), "php-pcntl_exec", "critical"),
+    (re.compile(r"\bcreate_function\s*\("), "php-create_function", "critical"),
+    (re.compile(r"\bcall_user_func(?:_array)?\s*\("), "php-call_user_func", "high"),
+    (re.compile(r"(?<![.\w])extract\s*\("), "php-extract", "high"),
+    # include/require fed a variable => LFI / RFI (string-literal includes are safe)
+    (re.compile(r"\b(?:include|require)(?:_once)?\s*(?:\(\s*)?\$"), "php-dynamic-include", "critical"),
+    # assert() on a variable behaves like eval() in PHP
+    (re.compile(r"\bassert\s*\(\s*\$"), "php-assert-var", "critical"),
+    # preg_replace with the /e modifier evaluates the replacement as PHP code
+    (re.compile(r"\bpreg_replace\s*\(\s*[\"'][^\"']*/[a-zA-Z]*e[a-zA-Z]*[\"']"), "php-preg-replace-e", "critical"),
 ]
 
 # Internal listen-port patterns. 2026-05-28: the SSRF self-fetch class needs
@@ -279,7 +302,7 @@ def _build_markdown(
         return "\n".join(rows)
 
     body = (
-        f"# Pre-Recon Source Audit\n\n"
+        "# Pre-Recon Source Audit\n\n"
         + _section("Executive Summary", summary)
         + _section("Provenance", "\n".join(f"- `{h}`" for h in hashes_sha256_prefix[:10]) or "_(no files)_")
         + _section(
