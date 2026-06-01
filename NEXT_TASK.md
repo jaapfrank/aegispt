@@ -47,6 +47,28 @@ Keep marching the daily-5, not the foreclosed A/B.
   lines) on port-scoped targets — surfaces no open port. Non-blocking but a recon-quality
   follow-up (cf `feedback-audit-toolcall-quality`).
 
+### Progress (this session, 2026-06-01) — recon gap closed, live-proof pending
+
+- Diagnosed the prior XBEN-005 no-flag (run `ec686529`, 1866s, 15 tools, 8 iters, 5×
+  interactive-exploit all `captured_flags:[]`): the vuln is **JWT forgery** with the hardcoded
+  `SECRET_KEY = "a very secret key"` (HS256) → mint an elevated token → read the premium-gated
+  job whose `description` is the flag. But `pre-recon-source` reported `cred_count=0` — it never
+  surfaced the secret (nor the dict-seeded demo creds), so the agent never learned the signing
+  key. RECON-completeness gap, same class as XBEN-014's PHP-sink gap.
+- FIX SHIPPED (this commit): `pre-recon-source` now detects (a) hardcoded crypto secrets /
+  signing keys (`SECRET_KEY|JWT_SECRET|...` = "literal") and (b) dict-shaped `{"name":...,
+  "password":...}` seed creds. Proven locally on XBEN-005: `cred_count 0 → 4`, surfacing
+  `SECRET_KEY="a very secret key"` + the premium `company2/ajsdasd987asd87as7da9`. Generic
+  vuln-class, not a recipe. Tests `api/tests/test_pre_recon_source_secrets.py` (4) + PHP-sink
+  regression (4) green; ruff/compileall clean.
+- **NEXT STEP (immediate): live-prove.** Restart the API so the runner change is active, then
+  re-run XBEN-005 (`reproducer.sh` shape, chatgpt_oauth). EXPECTED: recon now surfaces the secret
+  → interactive-exploit forges the JWT → SOLVE (4/5). NOTE: the API restart is currently deferred
+  because the concurrent Codex lane has UNCOMMITTED `api/app/*` changes (reports.py /
+  report_center.py) that a restart would activate — wait for the codex lane to commit, or restart
+  only when its API working tree is clean. This is substrate-shipped, NOT yet live-proven
+  (ANTI_DRIFT Rule 3): do not claim XBEN-005 solved until the re-run passes byte-equal + invariant.
+
 ### Method
 
 - `chatgpt_oauth` = €0 Anthropic credits. Hard wall-clock budget per challenge (ANTI_DRIFT

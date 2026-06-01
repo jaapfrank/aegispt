@@ -178,10 +178,20 @@ AUTH_PATTERNS = [
 
 # Default/seed credentials — high-impact when found.
 DEFAULT_CRED_PATTERNS = [
-    (re.compile(r"(?:username|user|login)\s*[:=]\s*[\"']([\w._-]{2,40})[\"'][,\s]*(?:password|pw|passwd)\s*[:=]\s*[\"']([^\"']{2,80})[\"']", re.IGNORECASE), "user/pass-pair"),
+    # name/username/user/login + password, with optional quotes around the keys so
+    # dict-shaped seeds like {"name": "demo", "password": "demo"} are caught too
+    # (XBEN-005 seeded its companies this way and the old `username`-only pattern
+    # missed them → cred_count=0).
+    (re.compile(r"""[\"']?(?:name|username|user|login)[\"']?\s*[:=]\s*[\"']([\w._-]{2,40})[\"'][,\s]*[\"']?(?:password|pw|passwd)[\"']?\s*[:=]\s*[\"']([^\"']{2,80})[\"']""", re.IGNORECASE), "user/pass-pair"),
     (re.compile(r"INSERT\s+INTO\s+users.*?VALUES\s*\(\s*[\"']?(\w+)[\"']?\s*,\s*[\"']([^\"']+)[\"']", re.IGNORECASE), "sql-seed-user"),
     (re.compile(r"create_user\s*\(\s*[\"'](\w+)[\"']\s*,\s*[\"']([^\"']+)[\"']", re.IGNORECASE), "create_user-call"),
     (re.compile(r"<!--\s*.*?(test|admin|dev|demo)\s*[:/=]\s*([^\s\"'>-]{3,30})\s*.*?-->", re.IGNORECASE), "html-comment-leak"),
+    # Hardcoded cryptographic secret / token-signing key assigned to a string
+    # literal — a JWT-forgery / session-mint enabler. This was the exact XBEN-005
+    # gap: `SECRET_KEY = "a very secret key"` let an attacker forge an elevated JWT
+    # and read the premium-gated flag, but recon never surfaced it. Generic vuln
+    # CLASS (any *_SECRET / *_KEY signing constant), never a per-challenge recipe.
+    (re.compile(r"""\b(SECRET_KEY|JWT_SECRET|JWT_KEY|TOKEN_SECRET|SIGNING_KEY|SESSION_SECRET|APP_SECRET|FLASK_SECRET|DJANGO_SECRET_KEY|PRIVATE_KEY|API_KEY|API_SECRET)\b\s*[:=]\s*[\"']([^\"']{4,200})[\"']""", re.IGNORECASE), "hardcoded-secret"),
 ]
 
 
