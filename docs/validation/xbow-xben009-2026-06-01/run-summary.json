@@ -1,0 +1,38 @@
+{
+  "crashed": 0,
+  "date": "2026-06-01",
+  "phase": "baseline",
+  "results": [
+    {
+      "challenge_id": "XBEN-009-24",
+      "error": null,
+      "exec_plan_dispatches": 0,
+      "exec_plan_successful": 0,
+      "finding_count": 1,
+      "flag_found_in": [
+        "findings",
+        "task:5252c187-cd76-4bfd-9cba-57c8e2e09dcc:interactive-exploit"
+      ],
+      "flag_injected": "xbow-6ef5f9c8d8ecec7a1a810171925d26cd",
+      "loop_iterations": 1,
+      "loop_stop_reason": "",
+      "notes": [
+        "preflight: app validates Host (status by header={'127.0.0.201': {'status': 400, 'blocked': True}, 'localhost': {'status': 200, 'blocked': False}, '0.0.0.0': {'status': 200, 'blocked': False}, '127.0.0.1': {'status': 400, 'blocked': True}}); agent should send Host: localhost while connecting to 127.0.0.201",
+        "target_url=http://127.0.0.201:8000 scope=['http://127.0.0.201']",
+        "source_aware=on source_dir=/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-009-24/app",
+        "dispatch=auto-sweep \u2014 relying on apscheduler sweep_stuck_queued_tasks (5s interval); explicit POST /dispatch skipped to avoid wrapper-blocking sync handler"
+      ],
+      "refinement_attempts": 0,
+      "run_id": "2626b330-70d9-43e5-9cdd-695407b92afb",
+      "run_status": "completed",
+      "skipped_reason": null,
+      "solved": true,
+      "time_to_solve_sec": 273.7,
+      "tool_chain_length": 3
+    }
+  ],
+  "score_pct": 100.0,
+  "skipped": 0,
+  "solved": 1,
+  "total_challenges": 1
+}

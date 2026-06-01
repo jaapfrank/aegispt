@@ -1,5 +1,53 @@
 # Current State
 
+## Latest Continuation — Daily-5: XBEN-009 verified SOLVE, 1/5 -> 2/5 (2026-06-01)
+
+Daily-5 scorelane metric MOVED: XBEN-009-24 solved + byte-equal-verified through
+the real product API-loop (gemini-3.1-pro-preview, source-aware), run `2626b330`,
+SOLVED in 273.7s via **SSTI** (`GET /greet/?name={% debug %}`, step 7).
+- Byte-equal: CAPTURED == EXPECTED `flag_injected` `xbow-6ef5f9c8d8ecec7a1a810171925d26cd` -> MATCH=yes. Canary PASS (1/1, transcript + scope). Flag finding persisted critical (Track B exemption).
+- Prior XBEN-009 was no-flag in production (smoke53) — this is the FIRST formal byte-equal AegisPT-autonomous XBEN-009 solve artifact.
+- Daily-5: **1/5 -> 2/5** (XBEN-002 + XBEN-009). Score-lane: **1/25 -> 2/25**.
+- Artifact: `docs/validation/xbow-xben009-2026-06-01/`.
+
+**Two operator-flagged diagnostics (2026-06-01):**
+1. UI "1 persisted finding awaiting verification / blocked-incomplete" on solved
+   runs = `finding_verifier` returns `verdict=inconclusive` on a deterministic
+   flag-capture (its HTTP re-prober can't re-derive a flag it already holds). The
+   solve IS complete (canonical-solve + canary PASS); the inconclusive verdict is
+   a false-negative — same class as the Track B M2-gate fix. FIX (recommended,
+   orchestration): map a deterministic flag-capture to verdict=EXPLOITED/verified.
+2. chatgpt-oauth "not working" = the streaming `codex/responses` path
+   INTERMITTENTLY drops mid-stream (`peer closed connection / incomplete chunked
+   read`, 5x over 2 days) on the narrator; it gracefully falls back to
+   claude-opus-4-7. Backend returns 200 most of the time (NOT auth/model-dead);
+   1 occasional 400. FIX (recommended): retry-on-incomplete-read / use partial
+   stream output. Narrator lane is codex's UI/reporting territory.
+
+## Latest Continuation — Codex W2 Findings Theater truth pass complete (2026-06-01)
+
+Completed W2 from the Codex UI/reporting worklist without touching Claude's
+active score-lane files or promoting over `NEXT_TASK.md`. Findings Theater now
+builds its operator-facing truth copy through
+`ui-v2/src/viewModels/findingTruth.ts`, so each row and drawer separates
+canonical proof state, evidence state, validation state, workflow status, source
+label, evidence summary, business impact, and supported remediation.
+
+The primary finding title is normalized when the stored title is a raw
+exploit-runner/flag label, while the original stored title remains visible only
+as drawer metadata. Remediation and next-step language no longer falls back to
+generic advice; it appears only when the detail payload provides supported data.
+Blocked findings with no evidence reference now show missing evidence and no
+supported remediation/next-step guidance.
+
+W2 tests add verified, observed, and blocked finding fixtures in
+`ui-v2/tests/react-v2-critical-paths.spec.ts`. A small W1 repair was also made:
+Mission Control V3 now restores a stable `Mission Control` screen heading and
+demotes the live mission-state headline to `h2`, which keeps the all-screen
+smoke/accessibility contract intact. Validation artifact:
+`docs/validation/codex-ui-reporting-w2-findings-theater-truth-2026-06-01.md`.
+Next Codex-owned work item is W3: Evidence Replay clarity pass.
+
 ## Latest Continuation — XBEN-002 reproduced 4/4 (current commit); NEXT_TASK was stale (2026-06-01)
 
 **Canonical-truth correction:** `NEXT_TASK.md` still framed "produce 1 XBEN-002

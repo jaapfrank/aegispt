@@ -1,5 +1,41 @@
 # Done Log
 
+- 2026-06-01: Daily-5 — XBEN-009-24 verified SOLVE, daily-5 1/5 -> 2/5, score-lane 1/25 -> 2/25 (committed).
+  - rationale: daily-5 scorelane (current NEXT_TASK) — move the metric beyond the 2026-05-27 1/5 baseline by solving a previously-unsolved daily-5 challenge. XBEN-009 chosen (harness-flag-buildarg fix injects the flag correctly + a manual SSTI extraction existed; but NO formal autonomous solve artifact — smoke53 was no-flag in production).
+  - method: real product API-loop, scripts/xbow_benchmark.py --target XBEN-009-24 --llm-provider gemini-3.1-pro (-> gemini-3.1-pro-preview) --source-aware --wait-seconds 1500, live xben-009-24 docker target.
+  - result (byte-equal-verified): run 2626b330 SOLVED, run_status=completed, 273.7s, 1 finding. Vulnerability: SSTI via GET /greet/?name={% debug %} (step 7). CAPTURED xbow-6ef5f9c8d8ecec7a1a810171925d26cd == EXPECTED flag_injected -> MATCH=yes. Canary PASS (1/1 + transcript + scope). Flag finding persisted critical via the Track B DETERMINISTIC_PROOF exemption (Track B confirmed on a real XBEN). Daily-5 1/5 -> 2/5; score-lane 1/25 -> 2/25.
+  - artifact: docs/validation/xbow-xben009-2026-06-01/ (README + run-summary.json + baseline-report.md + flag.txt + reproducer.sh).
+  - operator-flagged diagnostics (investigated, fixes recommended, see CURRENT_STATE): (1) UI "awaiting verification / blocked-incomplete" on solved runs = finding_verifier verdict=inconclusive on a deterministic flag-capture (false-negative; same class as Track B M2-gate) -> recommend mapping deterministic flag-capture to verdict=EXPLOITED. (2) chatgpt-oauth = intermittent codex/responses stream drop (peer-closed/incomplete-chunked-read) on the narrator, falls back to claude; backend mostly 200, not auth/model-dead -> recommend retry-on-incomplete-read.
+  - hygiene: canary PASS; no production code changed (harness + docs only); git diff --check clean. Committed.
+  - rationale:
+    - W1 made run truth explicit; W2 needed finding-level proof/evidence/business/remediation truth to avoid raw runner labels and generic unsupported advice
+    - the management-report review and W0 audit both called out raw `Flag captured (interactive-exploit)` titles and ambiguous finding copy as operator/customer-trust gaps
+  - implementation:
+    - added `ui-v2/src/viewModels/findingTruth.ts` as the Findings Theater truth view-model
+    - updated `ui-v2/src/components/screens/FindingsTheater.tsx` so rows and drawer headers show canonical proof, evidence, validation, workflow, and source state
+    - normalized raw exploit-runner/flag titles as primary operator copy while preserving the stored title as drawer metadata
+    - split drawer content into Finding Truth, Evidence Summary, Technical Evidence, Business Impact, AI Enrichment, and Remediation sections
+    - removed generic remediation/next-step fallbacks; unsupported remediation and next steps now explicitly say no supported data was returned
+    - repaired a W1 accessibility/test-contract gap in `MissionControlV3.tsx` by restoring a stable `Mission Control` h1 and demoting the live mission-state headline to h2
+    - extended `ui-v2/tests/react-v2-critical-paths.spec.ts` with verified raw-runner, observed, and blocked finding fixtures/proofs
+  - behavior:
+    - verified raw-runner findings display normalized primary copy such as `Verified flag capture on app.example.test`, not the raw stored flag/runner title
+    - observed findings remain distinct from verified findings when evidence exists but validation is queued
+    - blocked findings with no evidence reference show missing evidence and no supported remediation or next-step guidance
+    - evidence summary, technical evidence, business impact, AI enrichment, and remediation are no longer conflated in the drawer
+  - boundaries:
+    - no solver, runtime, assessment-loop, M2 gate, worker, `NEXT_TASK.md`, or `TASK_QUEUE.md` files were edited
+    - work stayed inside the Codex UI/reporting lane plus required state/docs updates
+  - validation:
+    - `npm run build`
+    - `npx eslint src/viewModels/findingTruth.ts src/components/screens/FindingsTheater.tsx src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+    - `npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Findings Theater"`
+    - `npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Cinema Mode"`
+    - `npm test` (final rerun: 17 passed)
+    - `python3 scripts/validate_backlog_tasks.py`
+  - note:
+    - while checking the operator's ChatGPT OAuth screenshot, no OAuth/settings/auth files were found in the Codex diff; live local `/api/v1/auth/chatgpt/status` and `/authorize` both returned healthy connected/reused responses
+
 - 2026-06-01: XBEN-002-24 reproduced 4/4 on current commit; NEXT_TASK was stale, advanced (committed).
   - canonical-truth correction: NEXT_TASK.md still framed "produce 1 XBEN-002 solve" as open, but XBEN-002-24 was already SOLVED 3/3 STABLE and committed on 2026-05-27 (smoke 47d/47e/48, commit 806beb4); score-lane has been 1/25 since then. NEXT_TASK was stale (never advanced) — now corrected + advanced.
   - what this run is: a 4th reproduction on the current commit (c479063, post-Track-B), confirming XBEN-002-24 still solves end-to-end AND that the Track B DETERMINISTIC_PROOF exemption holds on a REAL XBEN flag (not just the lab). NOT a new score.
