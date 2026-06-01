@@ -1,5 +1,23 @@
 # Done Log
 
+- 2026-06-01: pre-recon-cpg MADE TO WORK for PHP (not skipped) — root cause was missing `php` binary. [CAPABILITY]
+  - operator-flagged (twice): pre-recon-cpg "failed" for PHP, burning ~184s. Root cause was NOT a Joern
+    defect: Joern's php2cpg shells out to a `php` binary (PHP 7.1+) to build the AST, and PHP was simply
+    not installed (`php --version` → "No such file or directory" → "php not found or version not supported").
+  - operator product call: a skip is WRONG for a product — a customer wants the analysis to RUN, not be
+    silently skipped. So the fix is to INSTALL the dependency, not skip the step.
+  - fix: (1) `scripts/install_security_tools.sh` now installs `php-cli` alongside `openjdk-17-jre-headless`
+    (both are Joern CPG-frontend deps) — guaranteed on every deployment; (2) the Joern Scala query now
+    detects PHP sinks: `unserialize` added to DESERIALIZE_SINKS, and passthru/proc_open/pcntl_exec/
+    create_function/assert added to EXEC_SINKS; (3) a defensive fast guard skips ONLY when `php` is truly
+    absent (clear "install php-cli" message + exit 78) instead of hanging 184s — not the normal path.
+  - PROVEN: with php-cli installed (8.3.6), `execute_pre_recon_cpg` on XBEN-014 returns exit_code=0
+    (skipped=None) and the CPG query surfaces `DESERIALIZE_SINKS: unserialize(base64_decode($_COOKIE["creds"]))
+    index.php:82`. So BOTH pre-recon-source (regex) and pre-recon-cpg (Joern dataflow) now surface the
+    deserialization vuln. Tests: api/tests/test_pre_recon_cpg_php_skip.py (4). ruff/compile/bash-n clean.
+  - NOTE: php is installed at the system level now, so it takes effect immediately; the new CPG QUERY
+    (unserialize) is live for runs after the next API restart.
+
 - 2026-06-01: PHP source-sink detection + zombie-run task cascade + environment cleanup. [CAPABILITY + DB HYGIENE]
   - pre-recon-source (commit 8dfa0e5): added generic PHP dangerous-sink CLASSES — `unserialize`
     (insecure deserialization / object injection), `shell_exec`/`passthru`/`proc_open`/`pcntl_exec`,
@@ -18085,6 +18103,16 @@
 - Added a compact AI story panel to Overview that uses ChatGPT narrator panels
   when available, falls back to task-event story beats, and links into History
   and Evidence Replay for follow-up.
+- Reworked the Live first viewport again after operator review so it is
+  visually led: `Mission path` branching timeline with a `Decision` node,
+  proof route, red dead-end branch, `The test story` done/now/next board, and
+  `Run picture` progress/severity chart appear before CLI/log detail. Long
+  explanation panels are collapsed by default and repeated queue rows are
+  grouped.
+- Aligned the Mission Control first viewport with Dashboard's blue visual
+  language by reusing `neon-panel`, blue surface backgrounds, cyan borders, and
+  dashboard-like glow accents on the timeline, story, run picture, and queue
+  panels.
 - Reworked completed error/no-finding copy and empty states so they say that no
   reportable finding was created, group repeated failed activity rows, and avoid
   making output-only tool logs look like persisted findings.

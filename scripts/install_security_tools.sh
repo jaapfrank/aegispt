@@ -123,9 +123,12 @@ case "${ARCH}" in
 esac
 
 $SUDO apt update
+# openjdk-17 runs Joern; php-cli is REQUIRED by Joern's php2cpg frontend to build
+# a CPG from PHP source. Without it pre-recon-cpg cannot analyse PHP apps (it fails
+# after ~184s) — so it is a platform dependency, NOT something to skip at runtime.
 $SUDO apt install -y \
   curl unzip tar ca-certificates pipx git python3-venv python3-aioquic \
-  openjdk-17-jre-headless \
+  openjdk-17-jre-headless php-cli \
   nmap ffuf gobuster nikto sqlmap hydra testssl.sh hashcat ssh-audit sshpass ldap-utils \
   snmp tcpdump iw aircrack-ng wireless-tools
 

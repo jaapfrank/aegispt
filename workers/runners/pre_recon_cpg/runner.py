@@ -83,7 +83,7 @@ def _detect_dominant_language(root: Path) -> str | None:
     """Walk the source tree, count files per language extension, return
     the language with the most files. None when no recognised files exist."""
     counts: dict[str, int] = {}
-    for dirpath, dirnames, filenames in os.walk(root):
+    for _dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SCAN_SKIP_DIRS]
         for fn in filenames:
             ext = Path(fn).suffix.lower()
@@ -127,8 +127,9 @@ import io.shiftleft.semanticcpg.language._
   // `executemany`. PHP: `mysqli_query`, `PDO::query`. JS: `db.query`.
   val SQL_SINKS = cpg.call.name("(?i)(execute|executemany|raw|query|filter_by|filter|where|select_from|text|fetchall|fetchone|sql)").l.take(80)
 
-  // Command exec sinks across languages.
-  val EXEC_SINKS = cpg.call.name("(?i)(exec|popen|spawn|system|subprocess_run|subprocess_call|subprocess_popen|os_system|shell_exec|eval|compile)").l.take(80)
+  // Command exec sinks across languages (incl. PHP: shell_exec/passthru/
+  // proc_open/pcntl_exec/system/exec/popen, and assert/create_function = eval-like).
+  val EXEC_SINKS = cpg.call.name("(?i)(exec|popen|spawn|system|subprocess_run|subprocess_call|subprocess_popen|os_system|shell_exec|eval|compile|passthru|proc_open|pcntl_exec|create_function|assert)").l.take(80)
 
   // File I/O: `open`, `read`, `write`, file send. CRITICAL — read-from-
   // disk often is the flag retrieval primitive in CTFs.
@@ -137,8 +138,9 @@ import io.shiftleft.semanticcpg.language._
   // Template SSTI sinks: Jinja `render_template_string`, Django Template.
   val TEMPLATE_SINKS = cpg.call.name("(?i)(render_template_string|render_to_string|from_string|jinja_render|escape_off)").l.take(40)
 
-  // Deserialization: pickle.loads, yaml.unsafe_load, marshal.loads — RCE classics.
-  val DESERIALIZE_SINKS = cpg.call.name("(?i)(loads|unsafe_load|load_all|unmarshal|json_load|pickle_loads|yaml_load)").l.take(40)
+  // Deserialization: pickle.loads, yaml.unsafe_load, marshal.loads (Python) and
+  // PHP `unserialize` (object injection — XBEN-014 win condition) — RCE classics.
+  val DESERIALIZE_SINKS = cpg.call.name("(?i)(loads|unsafe_load|load_all|unmarshal|json_load|pickle_loads|yaml_load|unserialize)").l.take(40)
 
   // Hardcoded credentials / secrets — useful default-cred + leak intel.
   val LITERAL_SECRETS = cpg.literal.code(".*(?i)(password|secret|api[_-]?key|token|admin)[\\\\s=:'\\\"]+.*").l.take(40)
@@ -227,6 +229,38 @@ def execute_pre_recon_cpg(
             metadata={"skipped": True, "skip_reason": "source_dir_invalid"},
         )
 
+    language = _detect_dominant_language(root)
+    if language is None:
+        return RunnerExecution(
+            tool="pre-recon-cpg",
+            exit_code=0,
+            stdout=json.dumps({"tool": "pre-recon-cpg", "skipped": True, "reason": "no_recognized_files"}),
+            stderr="pre-recon-cpg: no recognised source files in tree.",
+            artifacts=[],
+            metadata={"skipped": True, "skip_reason": "no_recognized_files"},
+        )
+
+    # Joern's php2cpg shells out to a `php` binary (PHP 7.1+) to build the AST;
+    # without it php2cpg fails after burning ~184s (operator-flagged 2026-06-01 —
+    # root cause was simply that PHP was not installed, NOT a Joern defect). With
+    # php present it works (verified: 38KB CPG for XBEN-014). Guard: if PHP is the
+    # dominant language but no php binary is on PATH, skip FAST with an actionable
+    # hint instead of hanging; otherwise fall through and build the CPG normally.
+    # Checked BEFORE the Joern install check so it short-circuits cleanly.
+    if language == "php" and shutil.which("php") is None:
+        return RunnerExecution(
+            tool="pre-recon-cpg",
+            exit_code=78,
+            stdout=json.dumps({"tool": "pre-recon-cpg", "skipped": True, "reason": "php_binary_missing"}),
+            stderr=(
+                "pre-recon-cpg skipped: Joern php2cpg needs a `php` binary (PHP 7.1+) on PATH "
+                "(install php-cli — see scripts/install_security_tools.sh). PHP sinks are also "
+                "covered by pre-recon-source (regex)."
+            ),
+            artifacts=[],
+            metadata={"skipped": True, "skip_reason": "php_binary_missing"},
+        )
+
     joern_parse = JOERN_INSTALL_DIR / "joern-parse"
     joern_bin = JOERN_INSTALL_DIR / "joern"
     if not joern_parse.exists() or not joern_bin.exists():
@@ -240,17 +274,6 @@ def execute_pre_recon_cpg(
             ),
             artifacts=[],
             metadata={"skipped": True, "skip_reason": "joern_missing"},
-        )
-
-    language = _detect_dominant_language(root)
-    if language is None:
-        return RunnerExecution(
-            tool="pre-recon-cpg",
-            exit_code=0,
-            stdout=json.dumps({"tool": "pre-recon-cpg", "skipped": True, "reason": "no_recognized_files"}),
-            stderr="pre-recon-cpg: no recognised source files in tree.",
-            artifacts=[],
-            metadata={"skipped": True, "skip_reason": "no_recognized_files"},
         )
 
     frontend = LANGUAGE_FRONTENDS.get(language)
