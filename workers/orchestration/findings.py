@@ -2501,6 +2501,17 @@ def store_findings(
                 control_family=finding.control_family,
                 status="open",
             )
+            # Deterministic flag-literal proof is self-validated by the captured
+            # flag (grader-matchable) — mark validation_status confirmed so the
+            # run-truth UI renders it "verified", not "awaiting verification /
+            # blocked" (the UI reads finding.validation_status first). Bounded to
+            # the same flag+provenance class as the M2-gate DETERMINISTIC_PROOF
+            # exemption — non-flag/unprovenanced findings are untouched.
+            from api.app.services.m2_verdict_gate import (
+                is_deterministic_flag_proof as _is_det_flag_proof,
+            )
+            if _is_det_flag_proof(created_finding):
+                created_finding.validation_status = "validated_confirmed"
             # #344 — pre-persistence verifier: for critical/high findings,
             # run the cross-runner verifier BEFORE the row is flushed so the
             # severity that lands in the DB is already verdict-adjusted. The
@@ -2511,6 +2522,8 @@ def store_findings(
             )
             from api.app.services.m2_verdict_gate import (
                 evaluate_for_persistence as _m2_evaluate,
+            )
+            from api.app.services.m2_verdict_gate import (
                 gate_enabled as _m2_gate_enabled,
             )
             _m2_decision = _m2_evaluate(

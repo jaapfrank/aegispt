@@ -460,6 +460,23 @@ def verify_finding(
     Pass ``http_client`` for tests (httpx.MockTransport). On None, the
     verifier creates a transient client.
     """
+    # Deterministic flag-literal proof is self-verifying: the captured flag is
+    # grader-matchable and IS the independent confirmation, so it must NOT fall
+    # through to the "no strategy -> inconclusive" path (which a re-prober uses
+    # for HTTP claims it cannot reproduce — meaningless for a flag we already
+    # hold). Same bounded class as the M2-gate DETERMINISTIC_PROOF exemption.
+    # Without this, a real solved flag finding shows as inconclusive ->
+    # "awaiting verification / blocked" in the run-truth UI.
+    from api.app.services.m2_verdict_gate import is_deterministic_flag_proof
+    if is_deterministic_flag_proof(finding):
+        _sev = str(finding.severity or "")
+        return VerifierVerdict(
+            verdict="confirmed",
+            note="deterministic flag-literal proof (grader-matchable) — verified by the captured flag itself",
+            original_severity=_sev,
+            new_severity=_sev,
+            verifier_used="deterministic_flag_proof",
+        )
     sev = str(finding.severity or "").lower()
     if sev not in VERIFIABLE_SEVERITIES:
         return _make_inconclusive(
