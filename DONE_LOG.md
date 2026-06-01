@@ -1,5 +1,53 @@
 # Done Log
 
+- 2026-06-01: XBOW harness — dedicated-IP bind now covers short-form int ports (81/104 challenges). [HARNESS FIX]
+  - root cause (surfaced by the mandatory tool-call audit, operator-flagged): PyYAML parses the
+    common compose short form `- 80` as a Python `int`, but `_rewrite_port_entry_to_bind_ip` only
+    handled `str`/`dict` — the int fell through unchanged. The container then auto-published
+    `0.0.0.0:<random>` instead of binding `127.0.0.X:80:80`, so (a) nmap could not discover the
+    random port on the loopback alias (`0 hosts up`), (b) the port-less scope `http://127.0.0.X`
+    defaulted exec-plan's `${target}` to a dead port 80 → every HTTP step `Connection refused`.
+  - blast radius: 81/104 challenges use short-form int ports (XBEN-002/005/014/... ). They only
+    "worked" before when interactive-exploit (which uses the full `target_url:port`) happened to
+    dispatch; anything on the port-less scope (exec-plan, recon) hit a dead port. XBEN-014's
+    chatgpt_oauth run (941c975e) no-flagged precisely this way: target was live at 127.0.0.150:46625
+    but exec-plan probed port 80 → ConnectionRefused on every step.
+  - fix: `_rewrite_port_entry_to_bind_ip` now binds int short-form ports to the dedicated IP at the
+    NATIVE port (`- 80` → `127.0.0.150:80:80`). Also removed an unused `urlparse` import (touched-file
+    lint clean).
+  - PROOF (live): brought XBEN-014 up with the normalized compose → `docker ps` shows
+    `127.0.0.150:80->80/tcp` (was `0.0.0.0:46625`), host listener `LISTEN 127.0.0.150:80`, and
+    `curl http://127.0.0.150` (the exact port-less scope exec-plan resolves) → HTTP 200 (Apache log
+    `GET / 200`). Regression test `tests/test_xbow_compose_bind_ip.py` (6 cases incl. the int case).
+    compile + ruff clean, `git diff --check` clean.
+  - open (separate gaps, not this fix): nmap host-discovery returns `0 hosts up` on 127.0.0.X
+    loopback aliases (the native-port bind makes this matter less — service is now on standard 80);
+    interactive-exploit not dispatched on the run (`auto_queue_active=False`).
+
+- 2026-06-01: Codex W1 Mission Control clarity repair complete (NOT committed).
+  - operator-flagged: Mission Control was still not live-followable as a full page. It mixed truth cards, narrative panels, charts, next-move copy, live events, and terminal-like output in the default view, creating clutter and making queued/running/signal-only states hard for non-pentest users to understand.
+  - reference patterns reviewed: Burp Dashboard separates automated tasks, issue activity, and event log; Nessus/Tenable separates dashboard/hosts/vulnerabilities; Metasploit separates statistics from task log; ZAP keeps essential tabs/alerts/history separated. Applied the same principle locally: one live status, task activity separate from findings, raw details opt-in.
+  - implementation:
+    - compressed `RunTruthStrip` from six large cards into four compact chips: Work, Signals, Findings, Attention
+    - replaced the default Mission Control Story page with a compact scan-monitor layout: Now, Progress, Latest activity, Findings
+    - moved ChatGPT/narrative panels behind `Show narrative details`
+    - made the Technical tab quieter by collapsing risk trajectory, live event feed, task terminal output, proof inventory, and raw log tail by default
+    - removed/avoided stale metaphor-heavy copy from active Mission Control panels; queued/signal-only runs now say waiting/running and explain that tool output is signal until a finding is persisted
+  - behavior:
+    - a queued run with completed tool output and no findings is shown as "waiting" / "signal-only", not hard-blocked
+    - active runs lead with the currently running task and persisted finding count
+    - non-technical users see the live assessment state without opening terminal feeds
+  - validation:
+    - `npm run build`
+    - `npx eslint src/viewModels/runTruth.ts src/components/RunTruthStrip.tsx src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+    - `npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission Control"` (5 passed)
+    - `npm test` (20 passed)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - boundaries:
+    - no solver, runtime, assessment-loop, M2 gate, worker, `NEXT_TASK.md`, or `TASK_QUEUE.md` files were edited
+    - W4 Report Center work was paused until this previous Codex-owned UI behavior was repaired
+
 - 2026-06-01: nmap URL-target fix + tool-call-quality audit of "solved" runs (fix committed 38c4f80).
   - operator caught: nmap -n -oX ... -sn http://127.0.0.165 -> "0 IP addresses scanned" (URL passed to nmap, which scans hosts). Operator critique: I was verifying solve-status only, not the individual tool calls inside a run.
   - fix (committed 38c4f80): build_nmap_command._split_nmap_target reduces a URL/host:port target to the bare host (nmap scans hosts; ports via -p) and scans a port carried in the target. CIDR/bare-IP unchanged. Regression test api/tests/test_nmap_target_normalization.py; ruff clean.

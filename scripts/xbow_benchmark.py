@@ -54,7 +54,6 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
@@ -370,6 +369,14 @@ def _rewrite_port_entry_to_bind_ip(entry: Any, bind_ip: str) -> Any:
     IP keeps the real port numbers (no remap confusion) AND isolates the
     challenge from the harness on 127.0.0.1.
     """
+    if isinstance(entry, int):
+        # PyYAML parses the short form ``- 80`` as a Python int, NOT a string.
+        # This branch is the common case for XBOW challenges (bare container
+        # port) — without it the entry fell through unchanged, docker
+        # auto-published 0.0.0.0:<random>, the dedicated-IP bind never took
+        # effect, and recon could not find the service (operator-flagged
+        # 2026-06-01: XBEN-014 ran on 0.0.0.0:46625 instead of 127.0.0.150:80).
+        return f"{bind_ip}:{entry}:{entry}"
     if isinstance(entry, str):
         proto = ""
         body = entry
