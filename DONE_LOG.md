@@ -1,5 +1,12 @@
 # Done Log
 
+- 2026-06-01: cross-handler state-flow recon for the focused-assessment production path (measurement, not committed).
+  - rationale: the Claude A/B showed model lift is small (+2/14); the remaining HTTP failures are recon/tooling-bound. Highest-ROI HTTP lever is surfacing cross-handler state transitions.
+  - method (recon-only, `_focused_objectives_from_source`): (1) cross-handler STATE-FLOW — when a flag handler reads `STATE.<key>` written by a different route, name the writer route + its gate facts + the writer->reader edge; (2) precise `field == value` gate conditions (tie each value to its field). No provider/tool/core-loop change.
+  - metric movement (user-value, grader-verified): targeted HTTP subset 0/21 (deepseek-chat baseline) -> 2/21 new solves standalone; PRODUCTION-loop confirmation (run f748b25b, real API loop): 2 NEW grader-verified solves as critical findings — search-index-acl-drift (finding 40426a2f, was unsolved by DeepSeek AND Claude) + api-version-shadow-admin (finding 17972f53). Both grader match:true.
+  - ≥3 target NOT reliably met (got +2); residual blockers documented (req 10): multi-step execution flakiness (model frontier), billing-webhook HMAC value-data-flow (next recon increment), coupon-race concurrency (tcp/loop tool).
+  - artifact: docs/validation/cross-handler-stateflow-2026-05-31.{md,jsonl}. checks: ruff 17 baseline (no new), 7 interactive tests pass. NOT committed; early-stop bypass reverted.
+
 - 2026-05-31: full production focused-assessment baseline over all 50 lab challenges (measurement, not committed).
   - rationale: prove WHERE the product solves and WHY it doesn't, before building more, now that there's a real score meter.
   - method: run `e010aabe` (real API loop, deepseek-chat, source-assisted), focused per-objective interactive-exploit, solve-early-stop bypassed (measurement env, reverted after), objective cap 60, route-based dispatch dedup.

@@ -1479,13 +1479,8 @@ def _focused_objectives_from_source(
 
     ports = sorted(set(re.findall(r'(?:HTTPServer|run|listen|bind)\([^)]*?(\d{3,5})', src)))[:4]
     _infra = ("/grade", "/__lab", "/healthz", "/health", "/favicon", "/robots")
-    objectives: list[dict[str, Any]] = []
-    for route, hname in handler_of.items():
-        if any(route.startswith(pfx) for pfx in _infra):
-            continue
-        region = _region(hname)
-        if not region:
-            continue
+
+    def _facts_of(region: str) -> tuple[list[str], list[str], list[str], list[str], list[str]]:
         headers = sorted(set(re.findall(r'self\.headers\.get\(\s*["\']([^"\']+)["\']', region)))
         magic = sorted(set(
             re.findall(r'==\s*["\']([^"\']{1,48})["\']', region)
@@ -1493,20 +1488,102 @@ def _focused_objectives_from_source(
         interp = sorted(set(re.findall(r'(\$\{[^}]{1,48}\})', region)))
         params = sorted(set(re.findall(r'params\.get\(\s*["\']([^"\']+)["\']', region)))
         bodyk = sorted(set(re.findall(r'payload\.get\(\s*["\']([^"\']+)["\']', region)))
+        return headers, magic, interp, params, bodyk
+
+    def _gate_conditions(region: str) -> list[str]:
+        # Precise field==value pairs from the source's gate conditions, so the
+        # agent does not have to guess WHICH value belongs to WHICH field. Source-
+        # assisted facts (the source literally checks these), not an exploit recipe.
+        conds = []
+        for mm in re.finditer(r'self\.headers\.get\(\s*["\']([\w-]+)["\']\s*\)\s*==\s*["\']([^"\']{1,40})["\']', region):
+            conds.append(f"header `{mm.group(1)}` must equal '{mm.group(2)}'")
+        for mm in re.finditer(r'(?:payload|body|data)\.get\(\s*["\'](\w+)["\']\s*\)\s*==\s*["\']([^"\']{1,40})["\']', region):
+            conds.append(f"JSON body field `{mm.group(1)}` must equal '{mm.group(2)}'")
+        for mm in re.finditer(r'params\.get\(\s*["\'](\w+)["\']\s*\)\s*==\s*["\']([^"\']{1,40})["\']', region):
+            conds.append(f"query param `{mm.group(1)}` must equal '{mm.group(2)}'")
+        for mm in re.finditer(r'["\']([^"\']{1,40})["\']\s+in\s+(\w+)', region):
+            conds.append(f"`{mm.group(2)}` must contain the substring '{mm.group(1)}'")
+        for mm in re.finditer(r'(\$\{[^}]{1,48}\})', region):
+            conds.append(f"input may include the interpolation token '{mm.group(1)}'")
+        # de-dup preserving order
+        seen, out = set(), []
+        for c in conds:
+            if c not in seen:
+                seen.add(c)
+                out.append(c)
+        return out
+
+    def _facts_brief(region: str) -> str:
+        conds = _gate_conditions(region)
+        if conds:
+            return "; ".join(conds)
+        h, m, ip, pr, bd = _facts_of(region)
+        parts = []
+        if h:
+            parts.append(f"headers {h}")
+        if pr:
+            parts.append(f"params {pr}")
+        if bd:
+            parts.append(f"body {bd}")
+        return "; ".join(parts)
+
+    # CROSS-HANDLER STATE FLOW (state-flow recon): precompute which route WRITES
+    # each STATE.<key> + the gate facts to trigger that write. A flag-emitting
+    # handler that READS STATE.<key> (set elsewhere) is a multi-step objective:
+    # the agent must call the writer route FIRST. Source-assisted facts + the
+    # writer->reader edge, NOT an exploit recipe.
+    state_writers: dict[str, tuple[str, str]] = {}
+    for _wr, _wh in handler_of.items():
+        _wreg = _region(_wh)
+        for _wm in re.finditer(r'STATE\.(\w+)\s*=(?!=)', _wreg):
+            _wkey = _wm.group(1)
+            if _wkey not in state_writers:
+                state_writers[_wkey] = (_wr, _facts_brief(_wreg))
+
+    objectives: list[dict[str, Any]] = []
+    for route, hname in handler_of.items():
+        if any(route.startswith(pfx) for pfx in _infra):
+            continue
+        region = _region(hname)
+        if not region:
+            continue
+        headers, magic, interp, params, bodyk = _facts_of(region)
         emits_flag = "expected_flag(" in region
+        _cid_m = re.search(r'expected_flag\(\s*["\']([^"\']+)["\']', region)
+        challenge_id = _cid_m.group(1) if _cid_m else ""
+        own_conds = _gate_conditions(region)
         facts = []
+        if own_conds:
+            facts.append("gate conditions (ALL must hold): " + "; ".join(own_conds))
         if headers:
             facts.append(f"request headers it inspects: {headers}")
-        if interp:
-            facts.append(f"interpolation tokens it expands in input: {interp}")
-        if magic:
-            facts.append(f"exact string values it compares input against: {magic}")
         if params:
             facts.append(f"query params it reads: {params}")
         if bodyk:
             facts.append(f"JSON body fields it reads: {bodyk}")
-        if not facts and not emits_flag:
+        # Cross-handler state-flow: STATE.<key> this handler READS but does not
+        # write here -> the writer route must be called first (multi-step).
+        _written_here = set(re.findall(r'STATE\.(\w+)\s*=(?!=)', region))
+        _read_keys = set(re.findall(r'STATE\.(\w+)', region)) - _written_here
+        state_flow_edges = []
+        for _k in sorted(_read_keys):
+            wr = state_writers.get(_k)
+            if wr and wr[0] != route:
+                state_flow_edges.append((_k, wr[0], wr[1]))
+        if not facts and not emits_flag and not state_flow_edges:
             continue
+        state_flow_block = ""
+        if state_flow_edges:
+            state_flow_block = (
+                "STATE-FLOW (source-assisted; this endpoint's flag is gated on state SET by a "
+                "DIFFERENT endpoint — call that writer FIRST, then this one):\n"
+            )
+            for _k, _wroute, _wfacts in state_flow_edges:
+                state_flow_block += (
+                    f"  - state `{_k}` is set by {_wroute}"
+                    + (f" when it sees {_wfacts}" if _wfacts else "")
+                    + f"; then {route} reads it to release the flag.\n"
+                )
         # Only surface the loopback/SSRF hint when an internal port was actually
         # observed — otherwise it tempts the agent to probe 127.0.0.1 (out of
         # scope) and burn the tool-error budget on scope-guard rejections.
@@ -1516,20 +1593,22 @@ def _focused_objectives_from_source(
             f"request body, do NOT request it directly.\n"
             if ports else ""
         )
+        facts_str = ("\n  " + "\n  ".join(facts)) if facts else " (none directly on this handler)"
         recon = (
             f"FOCUSED OBJECTIVE: exploit the endpoint {route} on {target_url}.\n"
             "SOURCE-ASSISTED RECON (WHITE-BOX; what THIS endpoint's handler inspects — "
-            "reason out how to satisfy the gate yourself, this is not an exploit recipe):\n  "
-            + "\n  ".join(facts) + "\n"
+            "reason out how to satisfy the gate yourself, this is not an exploit recipe):"
+            + facts_str + "\n"
+            + state_flow_block
             + ssrf_hint
             + f"Send ALL requests to {target_url} (the in-scope host) — do not probe other hosts.\n"
             "GOAL: capture the flag this endpoint emits when its bug fires. Stop as soon as you have it."
         )
         objectives.append({
-            "key": route, "route": route, "recon": recon,
+            "key": route, "route": route, "recon": recon, "challenge_id": challenge_id,
             "fact_count": len(headers) + len(magic) + len(interp), "emits_flag": emits_flag,
             "has_interp": bool(interp), "has_header_magic": bool(headers and magic),
-            "has_magic": bool(magic),
+            "has_magic": bool(magic), "has_stateflow": bool(state_flow_edges),
         })
 
     # Rank by GATE-TYPE solvability (general heuristic, not challenge names): an
@@ -1540,16 +1619,20 @@ def _focused_objectives_from_source(
     # fewer gate facts first. This surfaces the clearly-solvable objectives early
     # so a bounded run reaches them.
     def _rank(o: dict[str, Any]) -> tuple:
-        if not (o["emits_flag"] and o["fact_count"] > 0):
+        if not o["emits_flag"]:
             tier = 9
         elif o["has_interp"]:
             tier = 0
         elif o["has_header_magic"]:
             tier = 1
+        elif o.get("has_stateflow"):
+            tier = 2  # multi-step, but the writer->reader dependency is now spelled out
         elif o["has_magic"]:
-            tier = 2
-        else:
             tier = 3
+        elif o["fact_count"] > 0:
+            tier = 4
+        else:
+            tier = 9
         return (tier, o["fact_count"], o["route"])
 
     objectives.sort(key=_rank)
@@ -1713,10 +1796,22 @@ def _maybe_dispatch_cpg_seeded_cea(
         # Resolve the live port (scope is port-less) so the agent does not hit a
         # closed port 80 and burn the tool-error budget on connection refusals.
         _fbase = _reachable_base_url(_ftarget) if _ftarget else ""
-        _objectives = _focused_objectives_from_source(source_dir_for_run, _fbase) if _fbase else []
-        _n_done = sum(1 for _t in (run.tasks or []) if str(getattr(_t, "tool", "")) == "interactive-exploit")
-        if _objectives and _n_done < len(_objectives):
-            _obj = _objectives[_n_done]
+        _objectives = _focused_objectives_from_source(source_dir_for_run, _fbase, max_objectives=60) if _fbase else []
+        # Track dispatched objectives by ROUTE (from existing task params), not a
+        # bare count — the count races (two loop advances before the first task
+        # is counted -> same objective dispatched twice). Pick the first
+        # not-yet-dispatched objective.
+        _dispatched_routes = set()
+        for _t in (run.tasks or []):
+            if str(getattr(_t, "tool", "")) == "interactive-exploit":
+                _tp = getattr(_t, "params_json", None) or {}
+                _o = _tp.get("objective") if isinstance(_tp, dict) else None
+                if _o:
+                    _dispatched_routes.add(_o)
+        _n_done = len(_dispatched_routes)
+        _next_obj = next((o for o in _objectives if o["key"] not in _dispatched_routes), None)
+        if _objectives and _next_obj is not None:
+            _obj = _next_obj
             _fm = ""
             try:
                 _fp = str((getattr(run, "configuration_json", None) or {}).get("llm_provider") or "").strip().lower()
@@ -1731,6 +1826,11 @@ def _maybe_dispatch_cpg_seeded_cea(
                 "recon_context": _obj["recon"][:14000], "max_steps": 18,
                 "stop_on_first_flag": True, "objective": _obj["key"],
                 "max_tool_errors": 20,  # give the agent room to probe within scope
+                "challenge_id": _obj.get("challenge_id", ""),
+                "fact_profile": {  # for baseline failure-clustering (measurement only)
+                    "has_interp": _obj.get("has_interp"), "has_header_magic": _obj.get("has_header_magic"),
+                    "has_magic": _obj.get("has_magic"), "fact_count": _obj.get("fact_count"),
+                },
             }
             if _fm:
                 _fparams["model"] = _fm

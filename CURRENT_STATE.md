@@ -1,5 +1,26 @@
 # Current State
 
+## Latest Continuation — Cross-handler state-flow recon: +2 new production solves (2026-06-01)
+
+Recon-only improvement (no provider/tool/loop change) to the focused-assessment
+production path, targeting the baseline's unsolved HTTP multi-step failures.
+`_focused_objectives_from_source` now (1) surfaces cross-handler STATE-FLOW
+(when a flag handler reads `STATE.<key>` set by a different route, name the
+writer route + its gate facts + the writer->reader edge) and (2) emits precise
+`field == value` gate conditions (so the agent stops shuffling values across
+fields). Source-assisted facts, not exploit recipes.
+
+Recon lift (same deepseek-chat): targeted HTTP subset 0/21 -> 2/21 new solves.
+PRODUCTION-loop confirmation (run `f748b25b`, real API loop, early-stop bypassed):
+**2 NEW grader-verified solves as critical API findings** —
+`search-index-acl-drift` (finding `40426a2f`, unsolved by BOTH DeepSeek AND Claude
+before) and `api-version-shadow-admin` (finding `17972f53`), both grader
+`match:true`. Below the ≥3 target; residual blockers documented per req 10:
+multi-step execution flakiness (model frontier), billing-webhook needs HMAC
+value-data-flow (next recon increment), coupon-race needs concurrency (tcp/loop
+tool). Artifact: `docs/validation/cross-handler-stateflow-2026-05-31.{md,jsonl}`.
+Measurement-only deltas uncommitted; early-stop bypass reverted (product keeps it).
+
 ## Latest Continuation — Model A/B on the 14 model_action_failures: frontier lift +2 (2026-05-31)
 
 Measured pure model lift on the 14 baseline `model_action_failure` objectives
