@@ -75,12 +75,16 @@ provenance (target_id). Score source is canonical (grader-flag = persisted findi
 
 ```
 docs/validation/xbow-smoke38-replay-2026-06-01/
-├── README.md          ← this filled doc
-├── run-summary.json   ← /tmp/xbow-out-smoke38-replay/xbow-2026-06-01-baseline.json
-├── harness.log        ← xbow_benchmark harness output tail (build -> SOLVED)
-├── flag.txt           ← captured flag (one line)
-└── reproducer.sh      ← the exact replay_smoke38_xben002.sh that ran
+├── README.md           ← this filled doc
+├── run-summary.json    ← /tmp/xbow-out-smoke38-replay/xbow-2026-06-01-baseline.json
+├── baseline-report.md  ← harness markdown report (build -> SOLVED); tracked evidence
+├── flag.txt            ← captured flag (one line)
+└── reproducer.sh       ← the exact replay_smoke38_xben002.sh that ran
 ```
+
+(`harness.log` — the full harness stdout tail — is kept locally but NOT committed:
+`*.log` is gitignored by repo convention, same as the 2026-05-27 smoke 47d/47e/48
+archives, which track the `.md` report + `run-summary.json` as the harness evidence.)
 
 ## Score-lane delta
 
