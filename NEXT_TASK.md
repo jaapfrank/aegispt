@@ -8,41 +8,52 @@
 
 ## Title
 
-Skill-pack A/B integration (open-work B.1): env-gate `AEGISPT_SKILL_PACK_ENABLED` into the AI picker system prompt and measure with-vs-without on the daily-5 subset.
+Daily-5 score-lane: solve XBEN-005-24 (then XBEN-020-24) — daily-5 3/5 → 4/5, byte-equal-verified, committed on metric delta.
 
 ## Goal
 
-Wire the existing `docs/skills/` scaffold into `_AI_PICKER_SYSTEM_PROMPT` behind the
-`AEGISPT_SKILL_PACK_ENABLED` env-gate (default OFF), then run a controlled A/B on the same
-daily-5 XBENs ({002, 005, 009, 014, 020}) with the same provider — once with the gate OFF
-(control) and once ON (treatment). Acceptance = a `docs/validation/xbow-skillpack-ab-<date>/`
-artifact with a measured delta on a user-value metric (solve count, exec_plan dispatch rate,
-time-to-first-proof, or crash/stuck rate), commit ONLY on a real delta (ANTI_DRIFT Rule 3:
-substrate-shipped ≠ live-proven).
+Solve the next unsolved daily-5 member, **XBEN-005-24**, via the proven recon→exploit lever
+(`scripts/xbow_benchmark.py`, `chatgpt_oauth` = €0). Diagnose the prior no-flag first (it
+"reached code-exec-attack" per the 2026-05-27 baseline), fix the binding recon/exploit gap if
+one exists (as PHP-sink detection unblocked XBEN-014), then prove a canonical SOLVE. Acceptance =
+`docs/validation/xbow-daily5-005-<date>/` with byte-equal CAPTURED == `flag_injected`, persisted
+critical finding, transcript + scope provenance, `check_finding_persistence_invariant.py` PASS.
+Commit ONLY on the real metric delta (ANTI_DRIFT Rule 3).
+
+## Why not B.1/B.2 (drift-check, 2026-06-01 — still applies)
+
+- **B.1 (skill-pack A/B) — FORECLOSED.** Memory `feedback-skill-pack-duplicates-cpg-cea`: smoke
+  63 ($7.57) empirically showed picker-prompt skill injection (B.1's mechanism) does NOT move
+  SOLVE. Don't burn budget on a known null result.
+- **B.2 (M2 verdict-gate DROP-PATH) — DONE.** Drop-path exercised in prod (10 FALSE_POSITIVE
+  drops); the over-drop bug (raw-TCP flag captures dropped) was fixed by Track B `7cb6650`
+  (0 flag-drops after; `DETERMINISTIC_PROOF` 26×; `test_m2_verdict_gate.py` 7/7).
+
+The north-star is XBOW solve-rate (ANTI_DRIFT Rule 1); the proven lever is RECON completeness.
+Keep marching the daily-5, not the foreclosed A/B.
 
 ## Notes
 
-### Baseline to beat (canonical truth — updated 2026-06-01)
+### Baseline (canonical truth — 2026-06-01)
 
-- Daily-5 solved = **2/5**: XBEN-002-24 (SOLVED + STABLE, score-lane `1/25`) **and XBEN-014-24**
-  (NEW canonical SOLVE 2026-06-01, run `3669cbc7`, byte-equal verified, invariant PASS — see
-  `docs/validation/xbow-daily5-2026-06-01/`). Score-lane = `2/25`.
-- XBEN-014 flipped because the PHP-sink-detection task (commits 8dfa0e5 + 2b898d9) is now
-  live-proven: `pre-recon-source sink_count 0→1` + `pre-recon-cpg returncode 0` surfaced the
-  `unserialize($_COOKIE)` deserialization sink, redirecting the loop off a false-positive SQLi.
-- Still unsolved daily-5: XBEN-005, XBEN-009 (re-measure: a 2026-05-28 autonomous XBEN-009 solve
-  was recorded — formalize/confirm), XBEN-020.
+- Daily-5 solved = **3/5**: XBEN-002-24, XBEN-014-24
+  (`docs/validation/xbow-daily5-2026-06-01/`), XBEN-009-24
+  (`docs/validation/xbow-daily5-009-2026-06-01/`, run `584542d3`, byte-equal, invariant PASS).
+- Remaining unsolved: **XBEN-005-24** (no-flag, reached code-exec-attack) and **XBEN-020-24**
+  (no-flag, wrapper deadline). Per open-work section A, the bottleneck on the unsolved is
+  exploit-craft sophistication (Phase B), NOT infrastructure — but verify per challenge (XBEN-014
+  proved the real blocker was recon detection, not exploit-craft).
+- Known tool-quality gap seen in the 009 solve: `nmap` runs host-discovery only (0.00s, no port
+  lines) on port-scoped targets — surfaces no open port. Non-blocking but a recon-quality
+  follow-up (cf `feedback-audit-toolcall-quality`).
 
 ### Method
 
-- Env-gate `AEGISPT_SKILL_PACK_ENABLED` default OFF (ANTI_DRIFT Rule 2/3 — no always-on creep).
-- Empirical backing for skill packs: transilience 89%→100% on Claude Sonnet 4.6; AWE paper
-  +30.5% XSS / +33.3% blind-SQLi with vuln-class pipelines.
-- One provider per A/B leg. `chatgpt_oauth` = €0 Anthropic credits (proven 2026-06-01). Hard
-  wall-clock budget per challenge (ANTI_DRIFT Rule 4).
-- Beware the known quality debt surfaced 2026-06-01: `smart-web-probe` emits FALSE-POSITIVE SQLi
-  findings → dead `sqlmap` dispatches. The M2 FALSE_POSITIVE drop-gate (open-work B.2) is the
-  fix; do not let A/B noise be confused with skill-pack signal.
+- `chatgpt_oauth` = €0 Anthropic credits. Hard wall-clock budget per challenge (ANTI_DRIFT
+  Rule 4). Source-aware allowed (white-box near-term lever). Diagnose-before-rerun: read the
+  challenge source + the prior no-flag run's tool-call trace before spending a fresh run.
+- Verify every claimed SOLVE: byte-equal CAPTURED vs `flag_injected`, persisted finding,
+  transcript, scope; audit the individual tool calls (not just solve-status).
 
 ### Hard rules (operator-set)
 
@@ -57,8 +68,13 @@ substrate-shipped ≠ live-proven).
 
 ## When does this active task end?
 
-When `docs/validation/xbow-skillpack-ab-<date>/` exists with a documented measured delta
-(with-vs-without skill pack) on a user-value metric over the `2/5` daily-5 baseline, committed
-score-lane-only. At that point promote the next open-work section B item (B.2 — M2 verdict-gate
-FALSE_POSITIVE drop-path live test, which also fixes the smart-web-probe false-positive SQLi
-noise observed in the XBEN-014 solve run).
+When `docs/validation/xbow-daily5-005-<date>/` exists with a byte-equal-verified XBEN-005 SOLVE
+(invariant PASS), daily-5 at 4/5, committed score-lane-only. Next active task = XBEN-020-24
+(the last unsolved daily-5 member).
+
+## Carry-over (deferred, blocked by concurrent codex lane)
+
+The XBEN-014 + XBEN-009 DONE_LOG.md entries are pending: DONE_LOG.md / CURRENT_STATE.md remain
+held by the live Codex UI lane. Content is preserved in the score-lane commit messages
+(`496656c` for 014, this commit for 009) + the artifact READMEs; land them into DONE_LOG.md once
+the codex lane releases the file.
