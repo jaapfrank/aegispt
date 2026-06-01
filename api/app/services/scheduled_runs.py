@@ -509,13 +509,30 @@ def finalize_zombie_runs_tick(app: Any, settings: Settings) -> int:
                 )
             )
             rows = res.fetchall()
+            # A terminal run must not leave non-terminal tasks behind (operator-
+            # flagged 2026-06-01: queued tasks on a completed_with_errors run are
+            # inconsistent DB state). Cascade any non-terminal task of ANY terminal
+            # run to 'cancelled'. Self-healing: reconciles orphans from THIS sweep
+            # AND from any other finalize path (force-kill, crash) within one tick.
+            # 'cancelled' is the established terminal task status for "terminated
+            # without completing" (matches cancel_run_tasks()).
+            cascade = session.execute(
+                _text_zombie(
+                    "UPDATE tasks SET status='cancelled', updated_at=NOW() "
+                    "WHERE status IN ('queued','running','dispatching','prepared') "
+                    "AND run_id IN (SELECT id FROM runs WHERE status IN "
+                    "('completed','completed_with_errors','failed','cancelled','rejected','stopped'))"
+                )
+            )
+            orphans = cascade.rowcount or 0
             session.commit()
             n = len(rows)
-            if n:
+            if n or orphans:
                 logger.info(
                     "PROOF_EXEC_ZOMBIE_SWEEP_2026052815 zombie-sweeper: finalized %d "
-                    "stale run(s) (no activity >10min) status=completed_with_errors ids=%s",
-                    n,
+                    "stale run(s) (no activity >10min) status=completed_with_errors + "
+                    "cascaded %d orphaned task(s) to cancelled ids=%s",
+                    n, orphans,
                     [str(r[0])[:8] for r in rows],
                 )
             return n

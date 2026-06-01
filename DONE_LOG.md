@@ -1,5 +1,26 @@
 # Done Log
 
+- 2026-06-01: PHP source-sink detection + zombie-run task cascade + environment cleanup. [CAPABILITY + DB HYGIENE]
+  - pre-recon-source (commit 8dfa0e5): added generic PHP dangerous-sink CLASSES — `unserialize`
+    (insecure deserialization / object injection), `shell_exec`/`passthru`/`proc_open`/`pcntl_exec`,
+    dynamic `include`/`require` ($var = LFI/RFI), `assert($var)`, `create_function`, `call_user_func`,
+    `extract`, `preg_replace /e`. The table previously had `pickle.loads` (Python deser) but NO PHP
+    sinks, so PHP challenges whose vuln is not a web-probe signature showed `sink_count=0`. Proven:
+    XBEN-014 `unserialize($_COOKIE['creds'])` now surfaces (sink_count 0→1, critical, $_COOKIE snippet
+    visible). Tests: `api/tests/test_pre_recon_source_php_sinks.py` (4 cases incl. negatives). Generic,
+    not challenge-specific.
+  - zombie-sweeper task cascade (`api/app/services/scheduled_runs.py`, `finalize_zombie_runs_tick`):
+    operator-flagged — `finalize_zombie_runs_tick` flipped a hung run to `completed_with_errors` but
+    left its tasks `queued`, leaving inconsistent DB state (a terminal run with non-terminal tasks).
+    Now cascades any non-terminal task (queued/running/dispatching/prepared) of ANY terminal run to
+    `cancelled` in the same transaction — self-healing across all finalize paths (force-kill, crash).
+    Proven: live cleanup cancelled the 1 existing orphan (1→0); function executes post-edit (returns 0
+    on clean DB). compile + ruff clean.
+  - environment cleanup (non-destructive, no row deletes): 0 dangling runs, orphaned tasks 1→0,
+    removed leftover XBEN containers (none), cleared `/tmp/xbow-out-*` `/tmp/xbow-mem-*` + 16
+    `docker-compose.normalized.yml` from challenge dirs. Historical run/finding rows KEPT (referenced
+    by docs/validation). DB now consistent: 0 non-terminal runs, 0 orphaned tasks.
+
 - 2026-06-01: XBOW harness — dedicated-IP bind now covers short-form int ports (81/104 challenges). [HARNESS FIX]
   - root cause (surfaced by the mandatory tool-call audit, operator-flagged): PyYAML parses the
     common compose short form `- 80` as a Python `int`, but `_rewrite_port_entry_to_bind_ip` only
@@ -18051,23 +18072,35 @@
 - Repaired the previous Codex-owned Mission Control W1 work before advancing to
   W4 because operator feedback showed the page was still not live-followable for
   non-specialists.
-- Changed the default Mission Control tab from narrative `Story` framing to
-  `Status`, moved the run truth strip and canonical score card into `Technical`,
-  and left raw logs, terminal output, proof inventory, risk charts, event feed,
-  and API tail as opt-in diagnostics.
-- Reworked the default page copy and empty states so terminal error/no-finding
-  runs say `Run ended with errors. No findings were created.`, show `Last task`,
-  group repeated failed activity rows, and use `No reportable findings` instead
-  of debug vocabulary.
+- Split Mission Control into three operator screens plus diagnostics:
+  `Live` shows what is happening now with queue and CLI context, `Results`
+  shows what happened and the outcome, `Overview` shows total test state and
+  what is coming next, and `Technical` keeps raw truth-chain diagnostics.
+- Added interactive drilldowns so queue/task rows focus the live task details,
+  findings/evidence actions deep-link into their owning screens, and overview
+  actions jump to Surface Map, History, Reports, Findings, and Evidence Replay.
+- Added plain-language panels alongside technical fact panels so the same state
+  is understandable for non-specialists while still preserving technical proof
+  for operators.
+- Added a compact AI story panel to Overview that uses ChatGPT narrator panels
+  when available, falls back to task-event story beats, and links into History
+  and Evidence Replay for follow-up.
+- Reworked completed error/no-finding copy and empty states so they say that no
+  reportable finding was created, group repeated failed activity rows, and avoid
+  making output-only tool logs look like persisted findings.
 - Updated the W1 truth model and strip language from `Signals` to `Output` where
   operator-facing, while retaining the persisted-finding/canonical terminology
   only in Technical.
 - Updated static locale strings for English, Dutch, German, and French so the
-  tab/detail labels match the new `Status`/diagnostics split.
-- Added Playwright coverage proving the default Status view hides the technical
-  truth strip and canonical score card, keeps queued output-only runs out of
-  hard-blocked state, and groups completed-with-errors/no-finding activity.
+  tab/detail labels match the new `Live`/`Results`/`Overview`/`Technical` split.
+- Changed Cinema Mode command focus so clicking a command pauses playback and
+  leaves the selected details visible.
+- Added Playwright coverage proving the default Live screen exposes queue and
+  CLI context, Results and Overview provide click-through actions, Technical
+  keeps diagnostics isolated, queued output-only runs stay out of hard-blocked
+  state, and completed-with-errors/no-finding activity is grouped clearly.
 - Files changed for this repair include:
+  - `ui-v2/src/components/CinemaMode.tsx`
   - `ui-v2/src/components/screens/MissionControlV3.tsx`
   - `ui-v2/src/components/RunTruthStrip.tsx`
   - `ui-v2/src/viewModels/runTruth.ts`
@@ -18078,10 +18111,10 @@
   - `CURRENT_STATE.md`
   - `DECISIONS.md`
 - Validation completed:
-  - `npx eslint src/viewModels/runTruth.ts src/components/RunTruthStrip.tsx src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+  - `npx eslint src/components/CinemaMode.tsx src/viewModels/runTruth.ts src/components/RunTruthStrip.tsx src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
   - `node scripts/check-i18n.mjs`
   - `npm run build`
-  - `npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission Control"` (6 passed)
+  - `npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Cinema Mode|Mission Control"` (7 passed)
   - `npm test` (21 passed)
 - No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`, runtime runner
   code, scoring code, or active benchmark validation artifacts were changed.
