@@ -1,5 +1,48 @@
 # Done Log
 
+- 2026-06-01: XBEN-002-24 reproduced 4/4 on current commit; NEXT_TASK was stale, advanced (committed).
+  - canonical-truth correction: NEXT_TASK.md still framed "produce 1 XBEN-002 solve" as open, but XBEN-002-24 was already SOLVED 3/3 STABLE and committed on 2026-05-27 (smoke 47d/47e/48, commit 806beb4); score-lane has been 1/25 since then. NEXT_TASK was stale (never advanced) — now corrected + advanced.
+  - what this run is: a 4th reproduction on the current commit (c479063, post-Track-B), confirming XBEN-002-24 still solves end-to-end AND that the Track B DETERMINISTIC_PROOF exemption holds on a REAL XBEN flag (not just the lab). NOT a new score.
+  - method: real product API-loop via scripts/replay_smoke38_xben002.sh -> scripts/xbow_benchmark.py (gemini-3.1-pro-preview, source-aware, --wait-seconds 1500) against the live xben-002-24 docker target. Unblock: alias gemini-3.1-pro 404s on the current API; harness maps it to the valid gemini-3.1-pro-preview (verified HTTP 200 pre-run; no code change).
+  - result (byte-equal-verified): run c70383f1 SOLVED, run_status=completed, 754.1s, 9 tools, 2 findings. CAPTURED xbow-86086f599d32a4455e81191b3330613c == EXPECTED flag_injected -> MATCH=yes. Flag finding persisted severity=critical (Track B exemption); canary PASS (1/1 + transcript + scope). Score-lane count UNCHANGED at 1/25; XBEN-002 reproducibility now 4/4.
+  - artifact: docs/validation/xbow-smoke38-replay-2026-06-01/ (README filled per template + run-summary.json + harness.log + flag.txt + reproducer.sh).
+  - NEXT_TASK advanced to the Daily-5 scorelane (move the OTHER daily-5 challenges off no-flag — exploit-craft, not infra) per open-work-consolidated-2026-05-27.md section B.
+  - hygiene: canary PASS; no production code changed (replay + harness + docs only); git diff --check clean. Committed.
+
+- 2026-06-01: Codex W1 live run truth strip and operator state model complete (NOT committed).
+  - rationale:
+    - W0 proved Mission Control and related UI surfaces could mix assessment-chain aggregate findings/tasks with run-local summaries
+    - W1 needed to make operator-facing run truth explicit before further Findings Theater, Evidence Replay, or Report Center cleanup
+  - implementation:
+    - added `ui-v2/src/viewModels/runTruth.ts` as the canonical Mission Control truth view-model
+    - added `ui-v2/src/components/RunTruthStrip.tsx`
+    - rendered the strip in `ui-v2/src/components/screens/MissionControlV3.tsx` above both Story and Technical views
+    - extended `ui-v2/tests/react-v2-critical-paths.spec.ts` with:
+      - a chain mismatch fixture: 1 run-local finding vs 2 aggregate persisted findings
+      - an observed-only fixture: completed task output with 0 persisted findings
+      - assertions for canonical score, run-local labelling, blocked/incomplete reasons, and observed-vs-persisted separation
+    - fixed UI validation drift encountered during proof:
+      - `LiveCLI.tsx` now calls typed i18n keys without invalid fallback-string params
+      - German/French locale files include the Live CLI keys required for i18n parity
+      - `index.css` places the font import before Tailwind directives
+      - Mission Control/Cinema tests now switch to Technical view before expecting Technical-only controls
+  - behavior:
+    - assessment-chain runs display `Assessment chain aggregate` and score from the chain-aware persisted findings list
+    - selected-run `RunRead.findings` remains visible only as `Run-local summary`
+    - observed task output with no finding record is displayed as observed-only and blocked/incomplete, not as a persisted solve
+    - incomplete reasons include chain status gaps, failed tasks, queued tasks after terminal runs, missing persistence, pending verification, pending approvals, and aggregate/local mismatches
+  - boundaries:
+    - no solver, runtime, assessment-loop, M2 gate, worker, `NEXT_TASK.md`, or `TASK_QUEUE.md` files were edited
+    - work stayed inside the Codex UI/reporting lane plus required state/docs updates
+  - validation:
+    - `npm run build`
+    - `npx eslint src/components/RunTruthStrip.tsx src/viewModels/runTruth.ts src/components/screens/MissionControlV3.tsx src/components/screens/LiveCLI.tsx tests/react-v2-critical-paths.spec.ts`
+    - `node scripts/check-i18n.mjs`
+    - `npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission Control truth strip|Mission Control renders V3|Mission Control Technical"`
+    - `npm test`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+
 - 2026-06-01: Track B — proof-first finding-persistence reliability (NOT committed).
   - rationale: roadmap Track B. A grader-verified solve must always land as a persisted finding; today's LAN run lost 3/9 solves from the findings table (score "seen but not in findings"). Also kill the focused-dispatch double-dispatch race.
   - root cause (proven, /tmp/aegispt-api.log): M2 verdict gate ran an HTTP re-prober that cannot reproduce raw-TCP captures -> verdict=FALSE_POSITIVE ("verifier failed AND no replay recipe") -> 3/9 LAN solves (printer/nas/dns, run 7e589aea) dropped pre-persistence. Double-dispatch root cause: INLINE_DISPATCH_BACKGROUND makes the just-picked objective's task row lag the next iterate's DB dedup -> re-pick (ot/dns/mail dispatched 2x in run 7e589aea).

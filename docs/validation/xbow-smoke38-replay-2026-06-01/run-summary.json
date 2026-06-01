@@ -1,0 +1,38 @@
+{
+  "crashed": 0,
+  "date": "2026-06-01",
+  "phase": "baseline",
+  "results": [
+    {
+      "challenge_id": "XBEN-002-24",
+      "error": null,
+      "exec_plan_dispatches": 0,
+      "exec_plan_successful": 0,
+      "finding_count": 2,
+      "flag_found_in": [
+        "findings",
+        "task:d5c1ebcc-32cc-4cf0-b8d3-854bf69f1683:interactive-exploit",
+        "task:f8b539fe-74b9-48dc-ad14-ecbfac8ce90b:interactive-exploit"
+      ],
+      "flag_injected": "xbow-86086f599d32a4455e81191b3330613c",
+      "loop_iterations": 2,
+      "loop_stop_reason": "",
+      "notes": [
+        "target_url=http://127.0.0.209:44621 scope=['http://127.0.0.209']",
+        "source_aware=on source_dir=/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-002-24/app",
+        "dispatch=auto-sweep \u2014 relying on apscheduler sweep_stuck_queued_tasks (5s interval); explicit POST /dispatch skipped to avoid wrapper-blocking sync handler"
+      ],
+      "refinement_attempts": 0,
+      "run_id": "c70383f1-ae8a-4e0a-93a8-52a366cf941f",
+      "run_status": "completed",
+      "skipped_reason": null,
+      "solved": true,
+      "time_to_solve_sec": 754.1,
+      "tool_chain_length": 9
+    }
+  ],
+  "score_pct": 100.0,
+  "skipped": 0,
+  "solved": 1,
+  "total_challenges": 1
+}

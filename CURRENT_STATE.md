@@ -1,5 +1,57 @@
 # Current State
 
+## Latest Continuation — XBEN-002 reproduced 4/4 (current commit); NEXT_TASK was stale (2026-06-01)
+
+**Canonical-truth correction:** `NEXT_TASK.md` still framed "produce 1 XBEN-002
+solve" as open, but XBEN-002-24 was already SOLVED **3/3 STABLE** and committed on
+2026-05-27 (smoke 47d/47e/48, commit `806beb4`); the score-lane has been `1/25`
+since then. NEXT_TASK was stale and is now advanced.
+
+Today's run is a **4th reproduction** on the current commit (`c479063`, post-Track-B):
+- Run `c70383f1` (real product API-loop, `replay_smoke38_xben002.sh` ->
+  `xbow_benchmark.py`, **gemini-3.1-pro-preview**, source-aware, live `xben-002-24`):
+  **SOLVED**, run_status=completed, 754.1s, 9 tools, 2 findings.
+- Byte-equal flag: CAPTURED == EXPECTED `flag_injected`
+  `xbow-86086f599d32a4455e81191b3330613c` -> **MATCH=yes**. Flag finding persisted
+  severity=critical via the Track B DETERMINISTIC_PROOF exemption (confirms Track B
+  on a real XBEN, not just the lab); canary PASS (1/1, transcript + scope).
+- gemini drift handled: alias `gemini-3.1-pro` 404s; harness maps to the valid
+  `gemini-3.1-pro-preview` (no code change).
+- Artifact: `docs/validation/xbow-smoke38-replay-2026-06-01/`. Score-lane count
+  unchanged at `1/25`; XBEN-002 reproducibility now **4/4**.
+
+NEXT_TASK advanced to the **Daily-5 scorelane** — move the OTHER daily-5 challenges
+off `no-flag` (the real frontier per open-work section A: exploit-craft, not infra),
+same 5 XBENs / one provider / commit only on metric delta, per
+`docs/research/open-work-consolidated-2026-05-27.md` section B.
+
+## Latest Continuation — Codex W1 live run truth strip complete (2026-06-01)
+
+Completed W1 from the Codex UI/reporting worklist without touching Claude's
+active score-lane files or promoting over `NEXT_TASK.md`. Mission Control now
+renders a live run truth strip above both Story and Technical views, backed by
+`ui-v2/src/viewModels/runTruth.ts` and
+`ui-v2/src/components/RunTruthStrip.tsx`. The strip separates queued, running,
+observed, verified, persisted, and blocked/incomplete state, and it labels
+run-local summaries separately from the chain-aware canonical truth loaded by
+`getTasksForRunContext()` and `getFindingsForRunContext()`.
+
+The React v2 critical-path fixture now intentionally includes the W0 truth-gap
+case: selected run summary says 1 local finding while the assessment-chain
+aggregate contains 2 persisted findings. W1 tests prove Mission Control displays
+the aggregate as canonical (`2 persisted / 2 high+`) while flagging the
+run-local mismatch and incomplete chain reasons. A second fixture proves that
+completed task output with zero persisted findings is displayed as observed-only
+and not counted as persisted truth.
+
+Supporting UI hygiene completed in the same Codex lane: fixed stale Live CLI
+translation calls, added missing German/French Live CLI locale keys, moved the
+CSS font import before Tailwind directives, and updated Mission Control tests to
+follow the actual Story -> Technical path for Cinema/Kill controls. Validation
+artifact:
+`docs/validation/codex-ui-reporting-w1-run-truth-strip-2026-06-01.md`. Next
+Codex-owned work item is W2: Findings Theater truth pass.
+
 ## Latest Continuation — Codex W0 UI/reporting truth audit complete (2026-06-01)
 
 Completed W0 from the Codex UI/reporting worklist without touching Claude's
