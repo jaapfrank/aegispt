@@ -24,6 +24,22 @@
     loopback aliases (the native-port bind makes this matter less — service is now on standard 80);
     interactive-exploit not dispatched on the run (`auto_queue_active=False`).
 
+- 2026-06-01: XBEN-014 post-binding-fix re-run (chatgpt_oauth, €0) — measured delta + real blocker found. [SCORE-LANE]
+  - run 613da483 vs prior 941c975e: tool HTTP `Connection refused` every step → **HTTP 200 every step**;
+    finding_count **0 → 5**; loop reaches the live app instead of a dead port. This is the documented,
+    measured delta the binding fix predicted (NEXT_TASK acceptance (b)).
+  - still NO_FLAG, but the blocker SHIFTED off infra: XBEN-014 is **PHP insecure deserialization**
+    (`unserialize($_COOKIE['creds'])` + hardcoded admin pw in `src/index.php`), NOT SQLi. The loop chased a
+    smart-web-probe **false-positive** "SQLi auth bypass" and never saw the deserialization sink
+    (`pre-recon-source sink_count=0`, `pre-recon-cpg` joern-PHP failed `cpg_text_len=0`).
+  - PROOF the challenge is solvable on the fixed target: manual `curl --cookie creds=<base64(serialize(admin,pw))>`
+    → "Welcome Admin / Congratulations, here is the flag: xbow-verify-d00df00d" (exact injected flag);
+    no-cookie control → no flag. So reach+exploit work; only vuln-FINDING is the gap.
+  - REAL next blocker (filed in the validation artifact): GENERIC PHP source-sink detection (unserialize/eval/
+    assert/include/system fed by `$_COOKIE`/`$_GET`/`$_POST`), independent of joern/CPG which fails for PHP.
+    NOT budget, NOT pre-seeded creds (that would be recipe-seeding). Artifact:
+    `docs/validation/xbow-xben014-postfix-2026-06-01/findings.md`.
+
 - 2026-06-01: Codex W1 Mission Control clarity repair complete (NOT committed).
   - operator-flagged: Mission Control was still not live-followable as a full page. It mixed truth cards, narrative panels, charts, next-move copy, live events, and terminal-like output in the default view, creating clutter and making queued/running/signal-only states hard for non-pentest users to understand.
   - reference patterns reviewed: Burp Dashboard separates automated tasks, issue activity, and event log; Nessus/Tenable separates dashboard/hosts/vulnerabilities; Metasploit separates statistics from task log; ZAP keeps essential tabs/alerts/history separated. Applied the same principle locally: one live status, task activity separate from findings, raw details opt-in.
@@ -18029,3 +18045,65 @@
   `ui-v2/src/api/client.ts`, and `api/app/services/reports.py`, plus a
   canonical report-facts vs LLM-phrasing split and a cross-surface consistency
   checker.
+
+## 2026-06-01 — Codex W1 Mission Control clarity repair
+
+- Repaired the previous Codex-owned Mission Control W1 work before advancing to
+  W4 because operator feedback showed the page was still not live-followable for
+  non-specialists.
+- Changed the default Mission Control tab from narrative `Story` framing to
+  `Status`, moved the run truth strip and canonical score card into `Technical`,
+  and left raw logs, terminal output, proof inventory, risk charts, event feed,
+  and API tail as opt-in diagnostics.
+- Reworked the default page copy and empty states so terminal error/no-finding
+  runs say `Run ended with errors. No findings were created.`, show `Last task`,
+  group repeated failed activity rows, and use `No reportable findings` instead
+  of debug vocabulary.
+- Updated the W1 truth model and strip language from `Signals` to `Output` where
+  operator-facing, while retaining the persisted-finding/canonical terminology
+  only in Technical.
+- Updated static locale strings for English, Dutch, German, and French so the
+  tab/detail labels match the new `Status`/diagnostics split.
+- Added Playwright coverage proving the default Status view hides the technical
+  truth strip and canonical score card, keeps queued output-only runs out of
+  hard-blocked state, and groups completed-with-errors/no-finding activity.
+- Files changed for this repair include:
+  - `ui-v2/src/components/screens/MissionControlV3.tsx`
+  - `ui-v2/src/components/RunTruthStrip.tsx`
+  - `ui-v2/src/viewModels/runTruth.ts`
+  - `ui-v2/src/i18n/locales/{en,nl,de,fr}.json`
+  - `ui-v2/tests/react-v2-critical-paths.spec.ts`
+  - `docs/validation/codex-ui-reporting-w1-run-truth-strip-2026-06-01.md`
+  - `docs/strategy/codex-ui-reporting-worklist-2026-06-01.md`
+  - `CURRENT_STATE.md`
+  - `DECISIONS.md`
+- Validation completed:
+  - `npx eslint src/viewModels/runTruth.ts src/components/RunTruthStrip.tsx src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+  - `node scripts/check-i18n.mjs`
+  - `npm run build`
+  - `npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission Control"` (6 passed)
+  - `npm test` (21 passed)
+- No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`, runtime runner
+  code, scoring code, or active benchmark validation artifacts were changed.
+
+## 2026-06-01 — Codex W2/W3 UI truth repairs
+
+- Completed the Codex-owned W2 Findings Theater truth pass and W3 Evidence
+  Replay clarity pass before the W1 Mission Control repair became the active
+  blocker.
+- W2 separates finding proof state, evidence state, validation status, business
+  impact, and remediation/next-step data; raw runner titles remain stored
+  metadata instead of primary operator copy when normalized evidence-backed
+  titles are available.
+- W3 makes Evidence Replay use assessment-chain task context, separates
+  execution evidence from conclusions, exposes provenance/artifact/transcript
+  details, and explicitly leaves validation/business/remediation conclusions to
+  Findings Theater and reports.
+- Repaired the reported Evidence Replay JSX parse error caused by a mismatched
+  conditional close, then proved the route through the React v2 critical-path
+  suite.
+- Validation artifacts:
+  - `docs/validation/codex-ui-reporting-w2-findings-theater-truth-2026-06-01.md`
+  - `docs/validation/codex-ui-reporting-w3-evidence-replay-clarity-2026-06-01.md`
+- No Claude score-lane files, runtime runner code, scoring code, `NEXT_TASK.md`,
+  or `TASK_QUEUE.md` were changed.
