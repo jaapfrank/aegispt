@@ -72,6 +72,8 @@ Not done:
 - one log line seen
 - "should work"
 - "likely fixed"
+- "all tests green" / "run SOLVED" / exit_code 0 — WITHOUT auditing the
+  individual tool calls inside the run (see "Tool-call quality audit")
 
 Done:
 
@@ -129,6 +131,34 @@ when the end-to-end chain is complete:
 - finding persisted where applicable
 - transcript / scope provenance exists where applicable
 - the score source is canonical and non-contradictory
+
+### Tool-call quality audit (MANDATORY — never skip)
+
+A run that "succeeds" (solved=true / all-green / exit_code 0) can still be full of
+broken or no-op tool calls. exit_code 0 is NOT proof a tool did anything useful.
+A run may solve via ONE tool while every other tool silently fails — and that does
+NOT count as a clean run.
+
+Before claiming ANY run / task done you MUST inspect the INDIVIDUAL tool calls,
+not just the terminal status:
+
+- enumerate every tool execution in the run (e.g. `tool_executions` joined to
+  `tasks` for the run_id): per tool, its exit_code AND a sample of its stdout.
+- audit INPUTS: malformed args? a URL where a host/IP is expected? a port-less or
+  scheme-prefixed target? wrong flags for the intent (e.g. `-sn` when a port scan
+  was wanted)?
+- audit OUTPUTS for silent no-ops / failures, including (non-exhaustive):
+  - nmap: `0 hosts up` / `0 IP addresses scanned`, or host-up with no ports.
+  - target-intel: `service_port_unknown` / empty technology_stack / empty analysis.
+  - content-discovery / recon: `finding_count: 0` with no explanation.
+  - interactive-exploit: rising `tool_errors`, `stop=too_many_tool_errors`.
+  - any tool output beginning `{"error":` or an empty/blank body.
+- if a tool call is broken or no-op, REPORT IT explicitly (even when the run
+  solved) and fix it or log it as an open gap with evidence — do not bury it under
+  "SOLVED / done". "All tests green" is a claim about tests, not about the run's
+  tool calls; verify both.
+
+This audit is part of the definition of done and the mandatory final check.
 
 ### Canonical truth
 
@@ -211,6 +241,9 @@ Before stopping, explicitly verify:
 - is the current task now truly complete and proven?
 - does the requested behavior work on the relevant path?
 - is the evidence complete?
+- **did I audit the individual tool calls inside the run (inputs + outputs), not
+  just solve-status / exit_code / "tests green"? did I report any broken or no-op
+  tool call instead of burying it?** (see "Tool-call quality audit")
 - are docs and state files updated?
 - are findings / score / transcript / artifacts consistent?
 - are lint / tests / validations clean?
