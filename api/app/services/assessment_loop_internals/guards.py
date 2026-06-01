@@ -88,6 +88,12 @@ def check_early_stop_on_flag(
     ``store_loop_state(configuration, loop_state)`` writes the loop state
     back into configuration[LOOP_CONFIG_KEY].
     """
+    # Measurement-only bypass (default OFF -> unchanged product behaviour): when
+    # running a FULL focused-assessment baseline we want every objective to run,
+    # not stop the whole run on the first flag. Gated by an explicit env flag.
+    import os as _os_es
+    if str(_os_es.environ.get("AEGISPT_DISABLE_SOLVE_EARLY_STOP", "") or "").strip().lower() in {"1", "true", "yes", "on"}:
+        return None
     try:
         for finding in (getattr(run, "findings", None) or []):
             sev = str(getattr(finding, "severity", "") or "").lower()
