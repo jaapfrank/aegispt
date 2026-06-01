@@ -1,5 +1,37 @@
 # Done Log
 
+- 2026-06-01: nmap URL-target fix + tool-call-quality audit of "solved" runs (fix committed 38c4f80).
+  - operator caught: nmap -n -oX ... -sn http://127.0.0.165 -> "0 IP addresses scanned" (URL passed to nmap, which scans hosts). Operator critique: I was verifying solve-status only, not the individual tool calls inside a run.
+  - fix (committed 38c4f80): build_nmap_command._split_nmap_target reduces a URL/host:port target to the bare host (nmap scans hosts; ports via -p) and scans a port carried in the target. CIDR/bare-IP unchanged. Regression test api/tests/test_nmap_target_normalization.py; ruff clean.
+  - audit of recent "solved" XBEN runs c70383f1/2626b330/0db9037a (ALL exit_code=0, yet): nmap ran with a URL -> "0 hosts up" in every run (wasted); even bare-IP nmaps were -sn (host-up only) -> NO service port ever discovered; target-intel returned service_port_unknown / empty analysis in all 3; content-discovery finding_count=0 on XBEN-005. The runs solved ONLY via interactive-exploit (gemini + source-aware), masking the dead recon chain.
+  - OPEN recon-strategy gap (documented, not fixed): the picker never dispatches an nmap PORT scan (assessment_loop _goal_tool_sequence puts nmap first but always default discovery_only=True -> -sn; no place sets top_ports/discovery_only=False). Fix = dispatch a bounded port scan for ip_or_host targets so the service port is found + fed to target-intel. Needs a deliberate picker change + its own validation.
+  - process change: verify tool-call OUTPUTS (not just exit_code/solve-status) before claiming done — recorded in memory feedback_audit_toolcall_quality.
+
+- 2026-06-01: Codex W3 Evidence Replay clarity pass complete (NOT committed).
+  - rationale:
+    - W0 identified Evidence Replay as a chain-truth gap: it used selected-run local tasks while Mission Control and Findings Theater had moved to chain-aware context
+    - W3 needed evidence surfaces to show execution/provenance facts without implying validation or business conclusions
+  - implementation:
+    - added `ui-v2/src/viewModels/evidenceReplay.ts`
+    - updated `ui-v2/src/components/screens/EvidenceReplay.tsx` to load tasks through `getTasksForRunContext(run)`
+    - added Evidence Replay metric cards for evidence scope, evidence state, provenance, and conclusion state
+    - expanded task rows with execution provenance, runner digest, task id, transcript stdout/stderr labels, artifact SHA-256, hash/timestamp/redaction status, and artifact download labels
+    - extended `ui-v2/tests/react-v2-critical-paths.spec.ts` with an assessment-chain Evidence Replay fixture where the selected run has one local task but the chain has two tasks
+  - behavior:
+    - assessment-chain Evidence Replay now renders sibling task evidence instead of omitting it
+    - execution/transcript/artifact evidence is separated from finding verdicts and business conclusions
+    - artifact provenance remains visible before download, including hash and redaction/timestamp state
+  - boundaries:
+    - no solver, runtime, assessment-loop, M2 gate, worker, `NEXT_TASK.md`, or `TASK_QUEUE.md` files were edited
+    - work stayed inside the Codex UI/reporting lane plus required state/docs updates
+  - validation:
+    - `npm run build`
+    - `npx eslint src/viewModels/evidenceReplay.ts src/components/screens/EvidenceReplay.tsx tests/react-v2-critical-paths.spec.ts`
+    - `npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Evidence Replay"`
+    - `npm test` (19 passed)
+  - note:
+    - an initial JSX parse error in `EvidenceReplay.tsx` was caught by build/lint and fixed immediately before final validation
+
 - 2026-06-01: Fixed solved-run "blocked/awaiting verification" UI false-negative (committed b76d626).
   - operator-flagged: run-truth UI marked a SOLVED run "blocked/incomplete: 1 persisted finding awaiting verification". Root cause was two-layer: (a) codex's new run-truth viewModels (findingTruth.ts:94 / runTruth.ts:124) treat any finding whose validation_status is not in VERIFIED_STATUSES as blocked + a verification gap; (b) the backend left a deterministic flag-capture as verdict=inconclusive (no HTTP verifier strategy for a flag it already holds) + validation_status=unvalidated.
   - fix (backend, bounded by is_deterministic_flag_proof): finding_verifier.verify_finding short-circuits to verdict=confirmed for a deterministic flag-capture; store_findings sets validation_status=validated_confirmed for the same flag+provenance class. Non-flag/unprovenanced findings unchanged.
