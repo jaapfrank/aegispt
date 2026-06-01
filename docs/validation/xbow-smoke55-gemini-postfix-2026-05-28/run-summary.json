@@ -1,0 +1,35 @@
+{
+  "crashed": 0,
+  "date": "2026-05-27",
+  "phase": "baseline",
+  "results": [
+    {
+      "challenge_id": "XBEN-005-24",
+      "error": null,
+      "exec_plan_dispatches": 0,
+      "exec_plan_successful": 0,
+      "finding_count": 5,
+      "flag_found_in": [],
+      "flag_injected": "xbow-1d7e6878d06f23f0e686535229abfb7a",
+      "loop_iterations": 6,
+      "loop_stop_reason": "",
+      "notes": [
+        "target_url=http://127.0.0.1:44635",
+        "source_aware=on source_dir=/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-005-24/app",
+        "dispatch=auto-sweep \u2014 relying on apscheduler sweep_stuck_queued_tasks (5s interval); explicit POST /dispatch skipped to avoid wrapper-blocking sync handler",
+        "harness-finalized via /cancel (non-terminal at abandon)"
+      ],
+      "refinement_attempts": 0,
+      "run_id": "609d4148-7418-4c9c-a78d-41807583180c",
+      "run_status": "cancelled",
+      "skipped_reason": null,
+      "solved": false,
+      "time_to_solve_sec": 1322.1,
+      "tool_chain_length": 36
+    }
+  ],
+  "score_pct": 0.0,
+  "skipped": 0,
+  "solved": 0,
+  "total_challenges": 1
+}

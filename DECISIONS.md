@@ -20,6 +20,31 @@ Prompt 1 and Prompt 2 are authoritative for:
 
 Future work must integrate with those foundations rather than redefining them.
 
+## Session execution contract
+
+- the long-form Claude execution contract for AegisPT sessions lives in
+  `docs/strategy/claude-universal-execution-contract.md`
+- operators should use the short launcher prompt from that file rather than
+  pasting the full long-form contract inline each time
+- the in-repo markdown file is the canonical source so future edits are versioned
+  and reviewable in git
+
+## Parallel Codex lane for UI/reporting
+
+- Codex may keep a separate non-promoted worklist for UI, accessibility,
+  reporting, and evidence-surface work when the active `NEXT_TASK.md` is owned
+  by a different score-lane effort
+- the initial coordination artifact for this lane is
+  `docs/strategy/codex-ui-reporting-worklist-2026-06-01.md`
+- the session execution contract for this Codex-owned lane is
+  `docs/strategy/codex-universal-execution-contract.md`
+- this parallel lane must not silently overlap with active score-lane files such
+  as `assessment_loop.py`, `workers/orchestration/tasks.py`, or
+  `workers/runners/interactive_exploit/**` without explicit operator approval
+- management-report drafting may use an LLM only to phrase structured,
+  evidence-backed facts; the LLM must not invent scope, tested components,
+  findings, business impact, or remediation facts
+
 ## Runtime safety
 
 - no uncontrolled plugin installation during runs
@@ -89,6 +114,33 @@ Future work must integrate with those foundations rather than redefining them.
 - The first WiFi slice must be passive-first and require explicit site, SSID/BSSID, adapter/interface, exclusions, and ROE context.
 - RF-disruptive or intrusive techniques such as deauthentication, jamming, evil-twin simulation, WPS brute force, handshake capture, or credential cracking require a separate future intrusive task and explicit authorization gates.
 - WiFi support must not be claimed complete from fixture tests alone; adapter readiness and safe lab validation evidence are required before product-level support claims.
+
+## Canonical-solve definition + deterministic-proof gate exemption (2026-06-01)
+
+- A challenge counts as a canonical SOLVE only when ALL four hold: (1) grader-verified
+  flag (byte-equal), (2) persisted as a finding, (3) transcript present (finding
+  `evidence_ref`), (4) scope provenance present (finding `target_id`). The score
+  source is this canonical finding — stdout/grader and the findings table must NOT
+  disagree.
+- The M2 verdict gate (`api/app/services/m2_verdict_gate.py`) must NOT drop a
+  captured flag-literal finding as a re-prober false positive. A flag literal is
+  deterministic, grader-matchable proof; the HTTP-oriented re-prober cannot
+  reproduce non-HTTP (raw-TCP) captures and was dropping real LAN solves
+  (3/9 in run 7e589aea). The gate now has an explicit, BOUNDED `DETERMINISTIC_PROOF`
+  class: exempt ONLY a finding that carries a canonical flag literal AND full
+  provenance (evidence_ref + target_id + an exploit methodology tag). This is NOT a
+  generic gate bypass — non-flag hypotheses and unprovenanced flags still go through
+  the full verdict logic (proven by gate tests cases 8/9/10).
+- Focused-objective dispatch dedup must be race-free under
+  `INLINE_DISPATCH_BACKGROUND`: the just-picked objective's task row is created by a
+  background thread and can lag the next iterate's DB dedup query. A synchronous
+  in-process memo of dispatched (objective, model) per run is the authoritative
+  dedup; the DB query is the restart backstop. Target: double-dispatch = 0.
+- The frozen, comparable result format for the public-truth lane (Track A) is
+  `docs/validation/SCORELANE_FORMAT.md` (black-box + source-aware columns,
+  byte-equality, reproduced-≥2-runs, local-provider baseline, failure-classes).
+- Roadmap of record: `docs/strategy/aegispt-execution-roadmap-2026-06-01.md`
+  (3-way consensus; track order B → A+C1 → C2 → D → E → F → G; metrics-gated refactor).
 
 ## Future hooks
 

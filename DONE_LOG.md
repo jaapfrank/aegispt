@@ -1,6 +1,72 @@
 # Done Log
 
-- 2026-06-01: cross-handler state-flow recon for the focused-assessment production path (measurement, not committed).
+- 2026-06-01: Track B — proof-first finding-persistence reliability (NOT committed).
+  - rationale: roadmap Track B. A grader-verified solve must always land as a persisted finding; today's LAN run lost 3/9 solves from the findings table (score "seen but not in findings"). Also kill the focused-dispatch double-dispatch race.
+  - root cause (proven, /tmp/aegispt-api.log): M2 verdict gate ran an HTTP re-prober that cannot reproduce raw-TCP captures -> verdict=FALSE_POSITIVE ("verifier failed AND no replay recipe") -> 3/9 LAN solves (printer/nas/dns, run 7e589aea) dropped pre-persistence. Double-dispatch root cause: INLINE_DISPATCH_BACKGROUND makes the just-picked objective's task row lag the next iterate's DB dedup -> re-pick (ot/dns/mail dispatched 2x in run 7e589aea).
+  - fix (narrow, bounded): (1) api/app/services/m2_verdict_gate.py — explicit DETERMINISTIC_PROOF class: a flag literal WITH provenance (evidence_ref + target_id + exploit methodology tag) is grader-matchable proof, exempt from the re-prober verdict; NOT a generic bypass (non-flag hypotheses + unprovenanced flags still drop — unit tests cases 8/9/10). (2) api/app/services/assessment_loop.py — synchronous in-process dispatched-(objective,model) memo unioned into the focused dedup; DB query is the restart backstop. (3) scripts/check_finding_persistence_invariant.py — canonical-solve invariant canary (grader-flag + persisted + transcript + scope), exit 1 on violation.
+  - metric movement (user-value, real product API-loop, 2 runs): findings-persistence 66.7% (old run 7e589aea, 3 violations) -> 100% (run 5b8aa552 9/9; run 95847b80 7/7), double-dispatch 3 -> 0 (clean idx sequences). Canary PASS on both new runs, FAIL (detects 3) on the old run. Canonical truth (grader/stdout vs findings) reconciled.
+  - scope note (honest): severity LABEL of rescued flag-captures may be verdict-downgraded (high/medium) by the deliberate multi-layer verdict system; does NOT affect the canonical solve (severity-agnostic) or persistence. A pre-persistence severity guard was trialled + reverted (insufficient alone — a post-persistence retest also adjusts; severity not in Track B's acceptance). Tracked as a separate refinement.
+  - hygiene: gate unit test 10/10 pass; ruff — m2_verdict_gate clean, findings.py reverted to pristine, runner/adapters clean, assessment_loop baseline 17 (all pre-existing, none in edited regions, 0 new); compileall OK; git diff --check clean. Measurement toggles (AEGISPT_DISABLE_SOLVE_EARLY_STOP, AEGISPT_FOCUS_TRANSPORT) reverted -> production defaults restored. Scorelane format frozen (docs/validation/SCORELANE_FORMAT.md). NOT committed (build-lane governance; awaiting explicit commit go-ahead). Active next: Track A (public XBEN number) = standing NEXT_TASK score-lane.
+
+- 2026-06-01: Codex W0 UI/reporting truth audit complete (NOT committed).
+  - rationale:
+    - the Codex execution contract requires previous-task-first verification and then progress on the separate UI/reporting worklist without touching Claude's active score-lane files
+    - W0 needed a concrete source map before changing UI/report behavior, because current run/findings/evidence/report surfaces can display different scopes
+  - implementation:
+    - added `docs/validation/codex-ui-reporting-truth-audit-2026-06-01.md`
+    - updated `docs/strategy/codex-ui-reporting-worklist-2026-06-01.md` to mark W0 complete and record the validation artifact
+    - updated `CURRENT_STATE.md` with the W0 outcome and next Codex-owned work item
+  - findings:
+    - app shell and Findings Theater use chain-aware findings/tasks through `getFindingsForRunContext` and `getTasksForRunContext`, but several summaries still display run-local `RunRead.findings` or `run.tasks`
+    - Report Center catalog/export uses chain-aware report context while its severity chart uses selected-run summary counts
+    - Evidence Replay reads only selected-run `runPayload.tasks`, so chain sibling task evidence can be omitted
+    - Report Center direct `fetch()` calls for briefing and Dutch management exports bypass shared API tenant/header handling
+    - the Report Center label `Evidence hash: verified` currently describes a report content hash, not evidence-integrity verification
+  - boundaries:
+    - no runtime, solver, assessment-loop, worker, M2 gate, task queue, or `NEXT_TASK.md` files were edited
+    - W0 is a documentation/audit artifact only; W1 is the next implementation target
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+
+- 2026-06-01: documented a universal Claude execution contract and short launcher prompt (NOT committed).
+  - rationale:
+    - operator asked to stop pasting the full long-form execution prompt inline and instead keep the canonical version in a markdown file with a much shorter reusable launcher prompt
+    - the contract needed to preserve the stricter behavior already discussed: previous-task-first verification, proof-over-code closure, keep-going-until-proven execution, canonical score/finding truth, mandatory lint/validation hygiene, and tidy repo bookkeeping
+  - implementation:
+    - added `docs/strategy/claude-universal-execution-contract.md`
+    - included both:
+      - a short launcher prompt for new Claude sessions
+      - the full long-form execution contract as the canonical in-repo reference
+    - updated `CURRENT_STATE.md` to record the new operator utility and note that no runtime/product behavior changed
+    - updated `DECISIONS.md` so the repo now explicitly treats the in-repo execution contract as the canonical long-form source for future Claude sessions
+  - boundaries:
+    - no runtime, assessment-loop, runner, scoring, benchmark, or validation behavior changed
+    - active task in `NEXT_TASK.md` was intentionally NOT advanced; this was an operator utility/documentation request, not completion of the score-lane task
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+
+- 2026-06-01: cross-layer slice — HTTP closeout + LAN/WAN tcp_request capability (NOT committed).
+  - rationale: convert the focused-assessment HTTP path into a CROSS-LAYER production scorer — first close the remaining source-assisted HTTP residuals, then attack the 10 `non_http_lan_tool_gap` line-protocol services that were unsolvable because the interactive-exploit loop had only an HTTP tool.
+  - HTTP closeout (run 1bad53e9, deepseek-chat, real API-loop): 8 grader-verified production solves in one run incl signed-url-canonicalization (flag-helper/enum-gap, finding c81093bc), search-index-acl-drift (state-flow, 661e29a9), cloud-storage-policy-confusion (value-flow, eb6aede6). Min >=2 / both stretch classes MET. Artifact: docs/validation/http-closeout-phase4-2026-06-01.md.
+  - Phase 1 (capability): bounded tcp_request tool on the provider-agnostic loop (native models only; adapters gained extra_tools, dispatch by tool name, core loop unchanged). Safety envelope: TCP-stream-only (no UDP/raw/TLS), explicit host:port allowlist + loopback/RFC1918 guard, per-call connect+read timeout, max-bytes, max round-trips, max-tool-errors; PERSISTENT connection across tool-calls (the LAN protocols are stateful + reveal tokens mid-session). Live-proven on the printer service (banner/persistent-state/flag/scope-guard/round-trip cap).
+  - Phase 2 (recon): _focused_tcp_objectives_from_source — generic source-parse of the manifest TCP entrypoints + network_services.py handler grammar; surfaces per service the banner, command->effect grammar, flag-releasing command + its gating state, the command that SETS that state (sequencing edge), value-flow tokens to replay, and payload membership gates (`"literal" in parts`). Source-assisted (white-box), facts + sequencing, not a recipe. Wired into the focused dispatch + an AEGISPT_FOCUS_TRANSPORT measurement knob.
+  - Phase 3 metric movement (user-value, grader-verified): LAN subset 0/10 -> 9/10 SOLVED in PRODUCTION round 1 (run 7e589aea, deepseek-chat via real API-loop): printer/nas/ldap/ot/dns/redis/mail/git/kubelet. Target >=3 MET 3x. Triple-verified (grader /grade match + tool_executions stdout stop=solved + transcript artifact); 6/9 promoted to critical findings (e0a4516d ldap, fe602ecc ot, a1fcbfb7 redis, 03e6f536 mail, b68bf82c kubelet, 9ae4159d git).
+  - Phase 4 residual: lan-mqtt-retained-diagnostic — both deepseek-chat AND claude-opus-4-8 (opt-in objective-scoped fallback, measured separately, 26 steps max_steps) failed with the original recon => confirmed RECON GAP (the publish payload must contain `action=dump`, a membership gate buried in the branch body). Closed it (enumerator now surfaces `"literal" in parts` membership gates); PRODUCTION round 2 (run 74017f96, after fix): **10/10 LAN solved** (mqtt captured). Net LAN: 0/10 -> 10/10.
+  - measurement toggles (AEGISPT_DISABLE_SOLVE_EARLY_STOP, AEGISPT_FOCUS_TRANSPORT) reverted; production defaults restored.
+  - strategy recorded: docs/strategy/aegispt-execution-roadmap-2026-06-01.md (A->Z roadmap; codex eval; north-star confirmed; active Track B then A; finding-promotion gap = Track B work item, seam = M2 verdict gate).
+  - follow-up documented (queue frozen, not committed): finding-promotion gap — printer/nas/dns were captured (execution captured_count=1) AND grader-verified (-> SOLVED) but not promoted to the findings table (shared orchestration path, not the LAN code; 6/9 promoted normally in the same run). To file against the finding-pipeline when next touched.
+  - artifact: docs/validation/lan-wan-vertical-slice-2026-06-01.md. checks: ruff baseline 17 (no new), interactive + lab-suite pytest green, backlog validation passes, git diff --check clean, compileall OK. NOT committed; measurement toggles (AEGISPT_DISABLE_SOLVE_EARLY_STOP, AEGISPT_FOCUS_TRANSPORT) reverted at session end.
+
+- 2026-06-01: value-data-flow recon for the focused-assessment production path (recon-only, NOT committed).
+  - rationale: after state-flow recon (+2), the remaining billing-webhook-class HTTP failures are value-flow recon problems (a value produced in one route/response, consumed/validated in another) — not provider problems.
+  - method (recon-only, `_focused_objectives_from_source`): (1) detect gate funcs validated via compare_digest/== and match to the route that returns that value in a response field -> producer route + field + binding; (2) fold value-flow into state-flow writer facts for 3-hop chains; (3) recover generic `var == "literal"` gate conditions that the precise-conditions pass had dropped.
+  - metric movement (user-value, grader-verified): value-data-flow class 0/2 -> cloud-storage-policy-confusion SOLVED (deepseek-chat, standalone 5 steps; PRODUCTION run 810a7536: grader match:true, critical finding f3c5bba2). ≥1 target MET in production.
+  - residual (req 10): billing-webhook-field-signature = 3-hop multi-condition chain (signature + account + action + amount>=9000), recon spells it out but deepseek-chat does not execute it -> model-execution frontier; sign_file signing-oracle unenumerated (flag via resolve_virtual_file).
+  - artifact: docs/validation/value-data-flow-2026-06-01.md. checks: ruff 17 baseline (no new), 7 interactive tests pass. NOT committed; early-stop bypass reverted.
+
+- 2026-06-01: cross-handler state-flow recon for the focused-assessment production path (committed b261410).
   - rationale: the Claude A/B showed model lift is small (+2/14); the remaining HTTP failures are recon/tooling-bound. Highest-ROI HTTP lever is surfacing cross-handler state transitions.
   - method (recon-only, `_focused_objectives_from_source`): (1) cross-handler STATE-FLOW — when a flag handler reads `STATE.<key>` written by a different route, name the writer route + its gate facts + the writer->reader edge; (2) precise `field == value` gate conditions (tie each value to its field). No provider/tool/core-loop change.
   - metric movement (user-value, grader-verified): targeted HTTP subset 0/21 (deepseek-chat baseline) -> 2/21 new solves standalone; PRODUCTION-loop confirmation (run f748b25b, real API loop): 2 NEW grader-verified solves as critical findings — search-index-acl-drift (finding 40426a2f, was unsolved by DeepSeek AND Claude) + api-version-shadow-admin (finding 17972f53). Both grader match:true.
@@ -17760,3 +17826,38 @@
   - remaining risks:
     - no new open product risk was added; remaining live provider-login proof is tracked as an extra test
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-274 `React v2 remaining screens`, from `codex/tasks/backlog-274-react-v2-remaining-screens.json`
+
+## 2026-06-01 — Codex universal execution contract documented
+
+- Added `docs/strategy/codex-universal-execution-contract.md` as the canonical
+  execution contract for future Codex sessions in the separate UI/reporting
+  lane.
+- Kept it distinct from the Claude contract because Codex must respect the
+  active score-lane in `NEXT_TASK.md` while still making progress on the
+  Codex-owned worklist.
+- Recorded the durable reference in `DECISIONS.md` and summarized the setup in
+  `CURRENT_STATE.md`.
+
+## 2026-06-01 — Management report review (`aegispt-management-rapport-74017f96.pdf`)
+
+- Reviewed the generated management PDF for run `74017f96` from a management-audience perspective.
+- Confirmed the report has a usable high-level structure, but still exposes internal benchmark/lab context and raw flag artifacts that make it read more like proof export than executive reporting.
+- Noted likely truth-gap: visible report findings appear fewer than known run-level solve evidence for the same run, so reporting/finding-persistence consistency remains important.
+- No code/runtime/docs beyond state logging were changed as part of this review.
+
+## 2026-06-01 — Separate Codex UI/reporting worklist prepared
+
+- Added `docs/strategy/codex-ui-reporting-worklist-2026-06-01.md` as a
+  Codex-owned parallel worklist for UI accessibility, product-truth, report
+  center, evidence surfaces, and evidence-backed LLM reporting.
+- Kept it intentionally outside `NEXT_TASK.md` so it does not collide with
+  Claude's active score-lane task.
+- Defined file-ownership boundaries, non-overlap rules, ordered workstreams,
+  and git hygiene expectations for parallel dirty-worktree collaboration.
+- Recorded the durable coordination rule in `DECISIONS.md` and summarized the
+  setup in `CURRENT_STATE.md`.
+- Extended the same worklist with safe modularization targets inside the
+  Codex-owned lane: `ui-v2/src/App.tsx`, `ui-v2/src/store/index.ts`,
+  `ui-v2/src/api/client.ts`, and `api/app/services/reports.py`, plus a
+  canonical report-facts vs LLM-phrasing split and a cross-surface consistency
+  checker.
