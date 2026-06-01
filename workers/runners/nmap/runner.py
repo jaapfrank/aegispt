@@ -143,6 +143,31 @@ def normalize_script_args(script_args: dict[str, object] | None) -> str | None:
     return ",".join(normalized) if normalized else None
 
 
+def _split_nmap_target(target: str) -> tuple[str, str | None]:
+    """Normalize an nmap target to (host, port|None).
+
+    nmap scans HOSTS (ports are passed via ``-p``), so a URL or ``host:port``
+    target must be reduced to the bare host/IP — otherwise nmap rejects e.g.
+    ``http://127.0.0.165`` with "0 IP addresses scanned". A port found in the
+    target is returned separately so the caller can scan it via ``-p`` instead
+    of throwing it away.
+    """
+    from urllib.parse import urlparse
+
+    t = (target or "").strip()
+    if not t:
+        return "", None
+    if "://" in t:
+        pr = urlparse(t)
+        return (pr.hostname or "").strip(), (str(pr.port) if pr.port else None)
+    # bare ``host:port`` (single colon; leave bracketed IPv6 alone)
+    if t.count(":") == 1 and not t.startswith("["):
+        host, _, port = t.partition(":")
+        if port.isdigit():
+            return host.strip(), port
+    return t, None
+
+
 def build_nmap_command(
     binary: str,
     *,
@@ -164,7 +189,14 @@ def build_nmap_command(
 ) -> list[str]:
     if not binary.strip():
         raise ValueError("binary must not be blank")
-    normalized_targets = [target.strip() for target in targets if target.strip()]
+    normalized_targets: list[str] = []
+    derived_ports: list[str] = []
+    for raw in targets:
+        host, port = _split_nmap_target(raw)
+        if host:
+            normalized_targets.append(host)
+            if port:
+                derived_ports.append(port)
     if not normalized_targets:
         raise ValueError("at least one target is required")
 
@@ -186,6 +218,11 @@ def build_nmap_command(
             command.append("-p-")
         elif normalized_ports:
             command.extend(["-p", normalized_ports])
+        elif derived_ports:
+            # A port carried in the target (e.g. tcp 127.0.0.165:10250 or a
+            # host:port URL) is the intended scan target — use it rather than
+            # discarding it and falling back to top-ports.
+            command.extend(["-p", ",".join(dict.fromkeys(derived_ports))])
         elif isinstance(top_ports, int) and top_ports > 0:
             command.extend(["--top-ports", str(top_ports)])
         normalized_scripts = normalize_nse_scripts(scripts)
