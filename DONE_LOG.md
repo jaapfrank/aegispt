@@ -1,5 +1,12 @@
 # Done Log
 
+- 2026-06-01: Fixed solved-run "blocked/awaiting verification" UI false-negative (committed b76d626).
+  - operator-flagged: run-truth UI marked a SOLVED run "blocked/incomplete: 1 persisted finding awaiting verification". Root cause was two-layer: (a) codex's new run-truth viewModels (findingTruth.ts:94 / runTruth.ts:124) treat any finding whose validation_status is not in VERIFIED_STATUSES as blocked + a verification gap; (b) the backend left a deterministic flag-capture as verdict=inconclusive (no HTTP verifier strategy for a flag it already holds) + validation_status=unvalidated.
+  - fix (backend, bounded by is_deterministic_flag_proof): finding_verifier.verify_finding short-circuits to verdict=confirmed for a deterministic flag-capture; store_findings sets validation_status=validated_confirmed for the same flag+provenance class. Non-flag/unprovenanced findings unchanged.
+  - proven real-path: API returns validation_status=validated_confirmed for run 2626b330 XBEN-009 flag finding (existing finding backfilled) -> UI renders verified, gap clears. Tests: api/tests/test_finding_verifier_deterministic.py + test_m2_verdict_gate.py (9 pass); ruff clean; compileall OK; git diff --check clean.
+  - codex UI lane note (their call, not changed): findingTruth.ts:94 defaulting non-verified findings to blocked (vs observed) is harsh for legitimate non-flag findings.
+  - also diagnosed (not fixed): chatgpt-oauth "not working" = intermittent codex/responses stream drop (peer-closed/incomplete-chunked-read) on the narrator path, falls back to claude-opus-4-7; backend mostly 200, not auth/model-dead. Recommend retry-on-incomplete-read (narrator is codex's UI lane).
+
 - 2026-06-01: Daily-5 — XBEN-009-24 verified SOLVE, daily-5 1/5 -> 2/5, score-lane 1/25 -> 2/25 (committed).
   - rationale: daily-5 scorelane (current NEXT_TASK) — move the metric beyond the 2026-05-27 1/5 baseline by solving a previously-unsolved daily-5 challenge. XBEN-009 chosen (harness-flag-buildarg fix injects the flag correctly + a manual SSTI extraction existed; but NO formal autonomous solve artifact — smoke53 was no-flag in production).
   - method: real product API-loop, scripts/xbow_benchmark.py --target XBEN-009-24 --llm-provider gemini-3.1-pro (-> gemini-3.1-pro-preview) --source-aware --wait-seconds 1500, live xben-009-24 docker target.
@@ -7,6 +14,8 @@
   - artifact: docs/validation/xbow-xben009-2026-06-01/ (README + run-summary.json + baseline-report.md + flag.txt + reproducer.sh).
   - operator-flagged diagnostics (investigated, fixes recommended, see CURRENT_STATE): (1) UI "awaiting verification / blocked-incomplete" on solved runs = finding_verifier verdict=inconclusive on a deterministic flag-capture (false-negative; same class as Track B M2-gate) -> recommend mapping deterministic flag-capture to verdict=EXPLOITED. (2) chatgpt-oauth = intermittent codex/responses stream drop (peer-closed/incomplete-chunked-read) on the narrator, falls back to claude; backend mostly 200, not auth/model-dead -> recommend retry-on-incomplete-read.
   - hygiene: canary PASS; no production code changed (harness + docs only); git diff --check clean. Committed.
+
+- 2026-06-01: Codex W2 Findings Theater truth pass complete (NOT committed).
   - rationale:
     - W1 made run truth explicit; W2 needed finding-level proof/evidence/business/remediation truth to avoid raw runner labels and generic unsupported advice
     - the management-report review and W0 audit both called out raw `Flag captured (interactive-exploit)` titles and ambiguous finding copy as operator/customer-trust gaps

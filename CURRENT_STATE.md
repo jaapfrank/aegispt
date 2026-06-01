@@ -1,5 +1,25 @@
 # Current State
 
+## Latest Continuation — Fixed: solved runs no longer show "blocked/awaiting verification" (2026-06-01)
+
+Operator saw the run-truth UI mark a SOLVED run "blocked/incomplete: 1 persisted
+finding awaiting verification". Root cause (two layers): codex's new run-truth UI
+(`findingTruth.ts`/`runTruth.ts`) renders any finding whose `validation_status` is
+not in VERIFIED_STATUSES as `blocked` (line 94 default) and counts it as a
+verification gap — AND the backend left a deterministic flag-capture as
+`verdict=inconclusive` + `validation_status=unvalidated` (the verifier has no HTTP
+strategy for a flag it already holds). Fix (backend, committed `b76d626`):
+- `finding_verifier.verify_finding`: deterministic flag-capture short-circuits to
+  `verdict=confirmed` (was inconclusive).
+- `store_findings`: sets `validation_status=validated_confirmed` for the same
+  bounded flag+provenance class (the column the UI reads first).
+Bounded by `is_deterministic_flag_proof` (non-flag/unprovenanced unchanged).
+**Proven real-path:** API now returns `validation_status=validated_confirmed` for
+run `2626b330`'s XBEN-009 flag finding (existing finding backfilled) -> UI renders
+"verified", gap clears. Tests: `test_finding_verifier_deterministic.py` + m2 gate
+(9 pass). Codex UI lane note (their call): `findingTruth.ts:94` defaulting
+non-verified findings to `blocked` (vs `observed`) is harsh for legitimate findings.
+
 ## Latest Continuation — Daily-5: XBEN-009 verified SOLVE, 1/5 -> 2/5 (2026-06-01)
 
 Daily-5 scorelane metric MOVED: XBEN-009-24 solved + byte-equal-verified through
