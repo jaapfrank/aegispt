@@ -100,6 +100,18 @@ _NON_WEB_PORTS = frozenset({
 DEFAULT_PROFILE_NAME = "autonomous-web"  # seeds target-intel; AI loop drives the rest via /iterate
 TERMINAL_STATUSES = {"completed", "completed_with_errors", "failed", "cancelled", "stopped", "errored"}
 LOOP_TERMINAL_STATUSES = {"stopped", "completed", "completed_with_errors", "failed", "cancelled"}
+# Post-loop finalize reads (scan-for-flag / aggregate-metrics / final status GET)
+# must NOT inherit the 1800s iterate-client timeout. Open-work E#11: on XBEN-053
+# (run b81be9cf) the wrapper hung ~22 min in post-flag finalize — a finalize GET
+# blocked on a server still wedged completing the run — so it never wrote
+# baseline.json and left the container up. These reads are lightweight; if one
+# takes >120s the server is wedged and failing fast is strictly better: the
+# httpx.ReadTimeout propagates (or is swallowed to a partial result), the
+# `_docker_challenge` context manager's `finally` tears the challenge down, and
+# `main` still writes baseline.json. The run remains independently
+# DB-verifiable (byte-equal + finding-persistence invariant), so a partial
+# finalize scan never loses a real solve.
+FINALIZE_TIMEOUT = 120.0
 
 
 @dataclass
@@ -781,14 +793,14 @@ def _scan_for_flag(client: httpx.Client, actor: str, run_id: str, flag: str) -> 
     """Look for the injected flag in findings + per-task stdout. Return list of locations."""
     hits: list[str] = []
     try:
-        findings_resp = client.get(f"/api/v1/runs/{run_id}/findings", headers=api_headers(actor))
+        findings_resp = client.get(f"/api/v1/runs/{run_id}/findings", headers=api_headers(actor), timeout=FINALIZE_TIMEOUT)
         findings_resp.raise_for_status()
         if flag in findings_resp.text:
             hits.append("findings")
     except Exception:
         pass
     try:
-        run_resp = client.get(f"/api/v1/runs/{run_id}", headers=api_headers(actor))
+        run_resp = client.get(f"/api/v1/runs/{run_id}", headers=api_headers(actor), timeout=FINALIZE_TIMEOUT)
         run_resp.raise_for_status()
         run_payload = run_resp.json()
         for task in run_payload.get("tasks") or []:
@@ -798,7 +810,7 @@ def _scan_for_flag(client: httpx.Client, actor: str, run_id: str, flag: str) -> 
             if not tid:
                 continue
             try:
-                task_resp = client.get(f"/api/v1/tasks/{tid}", headers=api_headers(actor))
+                task_resp = client.get(f"/api/v1/tasks/{tid}", headers=api_headers(actor), timeout=FINALIZE_TIMEOUT)
                 task_resp.raise_for_status()
                 task_payload = task_resp.json()
             except Exception:
@@ -824,7 +836,7 @@ def _aggregate_metrics(client: httpx.Client, actor: str, run_id: str) -> dict[st
         "tool_chain_length": 0,
     }
     try:
-        run_resp = client.get(f"/api/v1/runs/{run_id}", headers=api_headers(actor))
+        run_resp = client.get(f"/api/v1/runs/{run_id}", headers=api_headers(actor), timeout=FINALIZE_TIMEOUT)
         run_resp.raise_for_status()
         run_payload = run_resp.json()
         for task in run_payload.get("tasks") or []:
@@ -837,7 +849,7 @@ def _aggregate_metrics(client: httpx.Client, actor: str, run_id: str) -> dict[st
                     counters["exec_plan_successful"] += 1
             loop_state = task.get("loop_state") or {}
             counters["refinement_attempts"] += int(loop_state.get("refinement_attempts") or 0)
-        findings_resp = client.get(f"/api/v1/runs/{run_id}/findings", headers=api_headers(actor))
+        findings_resp = client.get(f"/api/v1/runs/{run_id}/findings", headers=api_headers(actor), timeout=FINALIZE_TIMEOUT)
         findings_resp.raise_for_status()
         findings_payload = findings_resp.json()
         counters["finding_count"] = len(findings_payload if isinstance(findings_payload, list) else findings_payload.get("items") or [])
@@ -1012,10 +1024,10 @@ def _run_one_challenge(
                             poll_interval=poll_interval,
                         )
                     except TimeoutError:
-                        run_resp = client.get(f"/api/v1/runs/{run['id']}", headers=api_headers(actor))
+                        run_resp = client.get(f"/api/v1/runs/{run['id']}", headers=api_headers(actor), timeout=FINALIZE_TIMEOUT)
                         run = run_resp.json() if run_resp.status_code == 200 else run
                 else:
-                    run_resp = client.get(f"/api/v1/runs/{run['id']}", headers=api_headers(actor))
+                    run_resp = client.get(f"/api/v1/runs/{run['id']}", headers=api_headers(actor), timeout=FINALIZE_TIMEOUT)
                     run = run_resp.json() if run_resp.status_code == 200 else run
                 result.run_status = run.get("status")
                 # Belt-and-braces: never abandon a run in non-terminal state.
