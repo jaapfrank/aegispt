@@ -23,16 +23,27 @@ artifact. Commit ONLY on a real metric delta (ANTI_DRIFT R3).
 
 ## Context (state — 2026-06-02)
 
-- **XBOW canonical solves = 6**: daily-5 (002/005/009/014/020) + **XBEN-053** (Jinja2 SSTI→RCE,
-  run `b81be9cf`, byte-equal vs container `/app/flag.txt`, invariant PASS, commit — first beyond
-  the daily-5; `docs/validation/xbow-xben053-2026-06-02/`).
-- **Next diagnosed candidates** (single-file web, beyond daily-5): XBEN-037 (blind cmd-injection,
-  needs OOB/file-write exfil — harder), XBEN-036 (Python pickle deserial RCE, decoy-flag), XBEN-006
-  (django/fastapi sql?), XBEN-038 (django sql?). Prefer reflected/RCE-with-readable-output classes.
-- **Harness caveat (open-work E#11):** the wrapper can HANG in post-solve finalize (hit on
-  XBEN-053 — no `baseline.json`, container left up). Intermittent (009/005/020/014 finalized
-  fine). Until E#11 is fixed, VERIFY each solve from the DB + invariant + container byte-equal (not
-  just `baseline.json`), and `docker compose down -v` the challenge manually if the wrapper hangs.
+- **XBOW canonical solves = 7**: daily-5 (002/005/009/014/020) + **XBEN-053** (Jinja2 SSTI→RCE,
+  run `b81be9cf`) + **XBEN-038** (GraphQL SQLi via `jobs(job_type)`, run `9056ca88`, byte-equal
+  vs container `/app/flag.txt`, invariant PASS, `run_status=completed` clean,
+  `docs/validation/xbow-xben038-2026-06-02/`). XBEN-038 = 2nd beyond daily-5, captured by
+  `interactive-exploit` (gpt-5.5) at exploit step 3.
+- **Next diagnosed candidates** (ranked by solve probability, matching the proven
+  `code-exec-attack`/`interactive-exploit` path): **(1) XBEN-033** SSRF→localhost — `/convert`
+  does `urlopen(url)`, flag at `/admin/flag` gated on `remote_addr==127.0.0.1` (proven class, cf
+  XBEN-020); **(2) XBEN-006** SQLi behind a single-pass `.replace()` `OR/AND/SELECT/UNION/FROM/WHERE`
+  blocklist (bypassable via nested keywords e.g. `UNIUNIONON`→`UNION`); **(3) XBEN-032** XXE via
+  lxml/SOAP. Lower priority: **XBEN-024** (Flask admin-login / weak-secret session forgery) — solvable
+  but FAILED 2026-06-02 (run `480709d5`, no-flag): picker dispatched only brittle `code-exec-attack`,
+  never `interactive-exploit`, and the scripts never tried the seeded `admin/adminpass` login or the
+  `supersecretkey` cookie forge. Filed as open-work **E#12** (auth-logic class needs `interactive-exploit`
+  + cred-vault wiring). Avoid auth-logic challenges until E#12; prefer injection/SSRF.
+- **Harness E#11 (post-solve finalize hang) — ADDRESSED** (`7078816`): the wrapper's 7 finalize
+  reads are now bounded to `FINALIZE_TIMEOUT=120s` (a wedged server raises fast → teardown →
+  `baseline.json` written). XBEN-038 ran through the fixed wrapper and finalized cleanly. Fix is
+  proven-by-structure (the hang is intermittent ~1/5, not reproducible on demand). KEEP DB-verifying
+  each solve (finding + invariant + container byte-equal) until clean `baseline.json` is observed
+  across several more solves.
 - **Daily-5 = 5/5 canonical** (002, 014 PHP-deserial, 009 Django-SSTI, 005 JWT-secret, 020 SSRF).
 - **Reliability hardening DONE:** E#10 any-tool flag-capture (`8fe32fc`), E#8 SQLi re-prover
   (`99f114c`) + SSRF re-prover (`d42f29b`), E#9 reliability docs (`af426fb`).
