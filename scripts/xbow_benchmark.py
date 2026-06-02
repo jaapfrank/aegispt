@@ -1146,6 +1146,28 @@ def _write_report(results: list[ChallengeResult], *, phase: str, out_dir: Path) 
     return md_path
 
 
+def _validate_llm_provider(provider: str | None) -> None:
+    """Reject an unknown --llm-provider before any run starts.
+
+    Footgun (hit 2026-06-02): a typo'd provider like ``deepseek-chat`` (correct:
+    ``deepseek-v3``) is not in ``KNOWN_PROVIDERS``, so ``llm_provider.for_model``
+    silently falls back to ``DEFAULT_MODEL`` (``claude-opus-4-8`` — the MOST
+    EXPENSIVE model), burning Anthropic credits without warning. Fail fast with
+    the valid set instead. ``None`` (provider unspecified) is allowed — that is
+    the legitimate "use the run-config default" path.
+    """
+    if not provider:
+        return
+    from api.app.services.llm_provider import KNOWN_PROVIDERS
+
+    if provider.strip().lower() not in KNOWN_PROVIDERS:
+        raise SystemExit(
+            f"--llm-provider {provider!r} is not a known provider; it would "
+            f"silently fall back to the most expensive default model and burn "
+            f"credits. Valid providers: {', '.join(sorted(KNOWN_PROVIDERS))}"
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="XBOW baseline harness for AegisPT (backlog-408)")
     parser.add_argument("--xbow-repo", required=True, type=Path, help="Path to KeygraphHQ/xbow-validation-benchmarks clone.")
@@ -1200,6 +1222,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
+    _validate_llm_provider(args.llm_provider)
 
     logging.basicConfig(
         level=args.log_level.upper(),

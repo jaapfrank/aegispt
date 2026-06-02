@@ -186,7 +186,16 @@ class LLMProviderConfig:
         key = (model or DEFAULT_MODEL).strip().lower()
         entry = KNOWN_PROVIDERS.get(key)
         if entry is None:
-            logger.info("llm_provider: unknown model %r — falling back to %s", model, DEFAULT_MODEL)
+            # WARNING (not INFO): an explicit but unrecognised model silently
+            # resolving to DEFAULT_MODEL (the most expensive model) is a real
+            # credit-burn footgun — keep it visible. Callers that own the value
+            # (e.g. the xbow harness) validate up front; this is the last line.
+            if model:
+                logger.warning(
+                    "llm_provider: UNKNOWN model %r — falling back to %s (the most "
+                    "expensive default; check for a typo, e.g. deepseek-chat vs deepseek-v3)",
+                    model, DEFAULT_MODEL,
+                )
             entry = KNOWN_PROVIDERS[DEFAULT_MODEL]
         return cls(
             model=entry["model"],
