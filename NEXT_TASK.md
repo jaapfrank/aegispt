@@ -4,42 +4,46 @@
 >
 > **Read SECOND:** [`SESSION_PROMPT.md`](SESSION_PROMPT.md) — kickoff discipline voor AegisPT sessies.
 >
-> **Read THIRD:** [`docs/research/open-work-consolidated-2026-05-27.md`](docs/research/open-work-consolidated-2026-05-27.md) section E#8 (remaining classes). Do NOT promote from `TASK_QUEUE.md` (frozen).
+> **Read THIRD:** [`docs/research/open-work-consolidated-2026-05-27.md`](docs/research/open-work-consolidated-2026-05-27.md) section B/C. Do NOT promote from `TASK_QUEUE.md` (frozen).
 
 ## Title
 
-Injection-class re-prover strategies — remaining classes (continued open-work E#8): add SSTI / insecure-deserialization / SSRF / command-injection re-provers to `finding_verifier.py`.
+Broaden the score-lane beyond the daily-5: solve the next tranche of XBOW challenges (canonical solves), growing the metric past 5.
 
 ## Goal
 
-E#8's SQLi re-prover (`99f114c`) is DONE; the other injection classes still fall to
-`inconclusive` → `UNCLASSIFIED` → kept (false positives leak). Add bounded, scope-gated,
-independent re-prover strategies for: **SSTI** (benign `{{7*7}}`→`49` differential vs a control
-literal — clean + deterministic), **SSRF** (re-issue the URL param against a known-internal vs an
-out-of-scope/blocked control and compare), **insecure-deserialization** (hard to re-prove
-generically — likely `inconclusive`-by-default unless a replay recipe exists; document why),
-**command-injection** (benign `;echo <nonce>` / `$(echo <nonce>)` reflection of the nonce).
-Mirror `_verify_sqli`'s conservative contract: `confirmed` on a clear signal, `failed` ONLY when
-demonstrably inert, else `inconclusive` (never drop on doubt). Wire each into `_select_strategy`
-+ `verify_finding`. Acceptance = per class, a unit test (failed-on-inert / confirmed-on-signal /
-inconclusive-on-ambiguous) + at least one live FALSE_POSITIVE or confirmed observation where a
-real target produces that class (e.g. SSTI on XBEN-009). Commit score-lane-only.
+The daily-5 subset is fully + canonically solved (5/5) and the reliability layer is hardened
+(E#8 SQLi+SSRF re-provers, E#9 docs, E#10 any-tool flag-capture). The north-star is XBOW
+solve-rate, so the next lever is **breadth**: pick the next batch of unsolved XBOW challenges
+(start with web-class ones similar to the solved set — PHP/Django/FastAPI/SSRF) and apply the
+proven **diagnose-first → recon-completeness → strong-model-exploit** lever. Acceptance = ≥1 NEW
+canonical solve outside the daily-5 (byte-equal CAPTURED == `flag_injected`, persisted finding,
+`check_finding_persistence_invariant.py` PASS), with a `docs/validation/xbow-<challenge>-<date>/`
+artifact. Commit ONLY on a real metric delta (ANTI_DRIFT R3).
 
 ## Context (state — 2026-06-02)
 
-- Daily-5 is FULLY + CANONICALLY solved 5/5 (002, 014, 009, 005, 020).
-- Reliability hardening DONE: **E#10** any-tool flag-capture (`8fe32fc`), **E#8 SQLi** re-prover
-  (`99f114c`), **E#9** reliability docs (`af426fb`, `docs/reliability-and-false-positives.md`).
-  This task is the REMAINING E#8 injection classes.
-- Pattern to mirror: `api/app/services/finding_verifier.py` `_verify_sqli` + `_select_strategy`
-  + the `verify_finding` dispatch; tests `api/tests/test_sqli_reprover.py`.
+- **Daily-5 = 5/5 canonical** (002, 014 PHP-deserial, 009 Django-SSTI, 005 JWT-secret, 020 SSRF).
+- **Reliability hardening DONE:** E#10 any-tool flag-capture (`8fe32fc`), E#8 SQLi re-prover
+  (`99f114c`) + SSRF re-prover (`d42f29b`), E#9 reliability docs (`af426fb`).
+  SSTI/command-injection/insecure-deserialization re-provers are DEFERRED — not emitted by any
+  runner (would be dead code); add them WITH the runner that first emits them.
+- Proven lever (5×): diagnose the source/no-flag → close the recon-completeness gap (surface the
+  vuln in `pre-recon-source`) → strong model (gpt-5.5, chatgpt_oauth €0) exploits → canonical solve.
+
+## Method / environment notes
+
+- `chatgpt_oauth` (gpt-5.5) = €0; OAuth connected. Footgun guard `ecc2666`: use `deepseek-v3`
+  (not `deepseek-chat`), `gemini-3.1-pro`, `chatgpt_oauth` — unknown → hard error.
+- DB purge discipline: preserve `secrets_refs` + `instance_settings` (`feedback-db-purge-preserve-secrets`).
+- Per challenge: diagnose source first (cheap), then a budget-bounded run; verify byte-equal +
+  invariant + audit the individual tool calls.
 
 ## Hard rules (operator-set)
 
 1. No 4th overhaul. Discipline, not architecture.
 2. No idle waiting — finish inline OR hand a concrete next-action.
-3. `substrate-shipped` ≠ `live-proven`. No DONE on substrate-only (N/A for a docs task —
-   acceptance is the doc matching the code).
+3. `substrate-shipped` ≠ `live-proven`. No DONE on substrate-only.
 4. Hard wall-clock budget on every cloud-LLM run.
 5. Commit after a task is done.
 6. Lane separation: do NOT touch the concurrent Codex UI/reporting lane's files
@@ -48,13 +52,12 @@ real target produces that class (e.g. SSTI on XBEN-009). Commit score-lane-only.
 
 ## When does this active task end?
 
-When the SSTI/SSRF/command-injection re-prover strategies exist (deserial documented as
-inconclusive-by-default), each unit-tested + at least one live confirmed/FALSE_POSITIVE
-observation, committed score-lane-only. Next = broaden the benchmark set beyond the daily-5
-(now fully + canonically solved), or pick the next open-work section B/C item.
+When ≥1 NEW canonical XBOW solve outside the daily-5 exists (byte-equal + invariant PASS) with a
+committed `docs/validation/` artifact. Then pick the next tranche, or a section C strategic item
+(e.g. LiteLLM migration #367) if breadth plateaus.
 
 ## Carry-over (deferred, blocked by concurrent codex lane)
 
-XBEN-014/009/005/020 + E#10 + E#8 DONE_LOG.md entries are pending: DONE_LOG.md / CURRENT_STATE.md
-remain held by the live Codex UI lane. Content is preserved in the score-lane commit messages +
-artifact READMEs; land them once codex releases the file.
+XBEN-014/009/005/020 + E#10 + E#8 + E#9 DONE_LOG.md entries are pending: DONE_LOG.md /
+CURRENT_STATE.md remain held by the live Codex UI lane. Content is preserved in the score-lane
+commit messages + artifact READMEs; land them once codex releases the file.
