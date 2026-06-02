@@ -1,5 +1,11 @@
 # Methodology Mapping for AegisPT
 
+> **See also:** [`reliability-and-false-positives.md`](reliability-and-false-positives.md) —
+> how reliable results actually are, how false positives are handled, the
+> emergent-not-checklist coverage caveat, and the "compliance frameworks are
+> mapping views, not certifications" boundary. Read it before stating what a
+> result proves to a customer or auditor.
+
 ## 1. Purpose
 
 This document defines the additive methodology layer for AegisPT.

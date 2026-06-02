@@ -1,5 +1,11 @@
 # AegisPT: AI‑ondersteund evidence‑first penetration testing en internal adversary validation op Kali Linux
 
+> **Betrouwbaarheid & false positives:** zie [`docs/reliability-and-false-positives.md`](docs/reliability-and-false-positives.md) —
+> hoe betrouwbaar de resultaten zijn (gelaagd), hoe false positives worden afgevangen,
+> waarom dekking emergent is (geen WSTG-checklist), en waarom compliance-frameworks
+> mapping-views zijn en géén certificeringen. Lees dit vóór je claims maakt richting
+> klant of auditor. Methodology-mapping: [`docs/methodology_mapping.md`](docs/methodology_mapping.md).
+
 ## Executive summary
 
 AegisPT is te ontwerpen als een **AI‑assisted orkestratie‑ en bewijsplatform** dat bestaande pentesttools op **Kali Linux** samenbrengt, resultaten normaliseert, en vooral: elke bevinding **herleidbaar** maakt naar ruwe, reproduceerbare evidence (inputs, toolversies, configs, outputs, request/response‑artefacten). Kali Linux is expliciet bedoeld voor penetration testing en security auditing, en levert veel van de benodigde tooling als pakketten. citeturn16search20turn2search4
