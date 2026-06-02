@@ -4,36 +4,35 @@
 >
 > **Read SECOND:** [`SESSION_PROMPT.md`](SESSION_PROMPT.md) — kickoff discipline voor AegisPT sessies.
 >
-> **Read THIRD:** [`docs/research/open-work-consolidated-2026-05-27.md`](docs/research/open-work-consolidated-2026-05-27.md) section E#9. Do NOT promote from `TASK_QUEUE.md` (frozen).
+> **Read THIRD:** [`docs/research/open-work-consolidated-2026-05-27.md`](docs/research/open-work-consolidated-2026-05-27.md) section E#8 (remaining classes). Do NOT promote from `TASK_QUEUE.md` (frozen).
 
 ## Title
 
-Honest reliability + false-positive + coverage documentation (open-work E#9): write `docs/reliability-and-false-positives.md`.
+Injection-class re-prover strategies — remaining classes (continued open-work E#8): add SSTI / insecure-deserialization / SSRF / command-injection re-provers to `finding_verifier.py`.
 
 ## Goal
 
-Write `docs/reliability-and-false-positives.md` (NL+EN) — a single honest reference the operator
-can cite (and not over-claim from), cross-checked against the code. Cover: (1) the tiered
-reliability model — captured-flag/`DETERMINISTIC_PROOF` = hard grader-matchable proof; the
-re-prover-confirmed classes (admin_access/stored_xss/info_disclosure/**sqli** after E#8) = high;
-everything else = `UNCLASSIFIED`/operator-review; (2) the 3 false-positive mechanisms
-(pre-persistence re-prover `finding_verifier.py`, M2 verdict gate `m2_verdict_gate.py`, manual
-`false_positive_reason`/`validation_status` fields) AND the remaining `inconclusive→UNCLASSIFIED`
-leak for classes without a re-prover yet (SSTI/deserial/SSRF/cmd-injection — see E#8 remaining);
-(3) the coverage-honesty caveat — test execution is AI-picker + tool-orchestration driven
-(emergent), NOT a systematic WSTG-checklist engine, so coverage is not exhaustive-by-construction;
-(4) compliance frameworks (SOC2/ISO27001/PCI/NIS2/DORA/TIBER) are report-time mapping VIEWS, not
-certifications; (5) an explicit customer-facing "do NOT claim" list. Acceptance = the doc exists,
-is consistent with `finding_verifier.py` strategies + `m2_verdict_gate.py` verdicts +
-`methodology_mapping.md`, and is linked from `AegisPT.md` + `docs/methodology_mapping.md`. Commit
-score-lane-only.
+E#8's SQLi re-prover (`99f114c`) is DONE; the other injection classes still fall to
+`inconclusive` → `UNCLASSIFIED` → kept (false positives leak). Add bounded, scope-gated,
+independent re-prover strategies for: **SSTI** (benign `{{7*7}}`→`49` differential vs a control
+literal — clean + deterministic), **SSRF** (re-issue the URL param against a known-internal vs an
+out-of-scope/blocked control and compare), **insecure-deserialization** (hard to re-prove
+generically — likely `inconclusive`-by-default unless a replay recipe exists; document why),
+**command-injection** (benign `;echo <nonce>` / `$(echo <nonce>)` reflection of the nonce).
+Mirror `_verify_sqli`'s conservative contract: `confirmed` on a clear signal, `failed` ONLY when
+demonstrably inert, else `inconclusive` (never drop on doubt). Wire each into `_select_strategy`
++ `verify_finding`. Acceptance = per class, a unit test (failed-on-inert / confirmed-on-signal /
+inconclusive-on-ambiguous) + at least one live FALSE_POSITIVE or confirmed observation where a
+real target produces that class (e.g. SSTI on XBEN-009). Commit score-lane-only.
 
 ## Context (state — 2026-06-02)
 
 - Daily-5 is FULLY + CANONICALLY solved 5/5 (002, 014, 009, 005, 020).
-- Reliability follow-ups: **E#8 SQLi re-prover DONE** (commit `99f114c`; SSTI/deserial/SSRF/
-  cmd-injection re-provers remain), **E#10 any-tool flag-capture DONE** (commit `8fe32fc`).
-  This task (E#9) is the documentation capstone.
+- Reliability hardening DONE: **E#10** any-tool flag-capture (`8fe32fc`), **E#8 SQLi** re-prover
+  (`99f114c`), **E#9** reliability docs (`af426fb`, `docs/reliability-and-false-positives.md`).
+  This task is the REMAINING E#8 injection classes.
+- Pattern to mirror: `api/app/services/finding_verifier.py` `_verify_sqli` + `_select_strategy`
+  + the `verify_finding` dispatch; tests `api/tests/test_sqli_reprover.py`.
 
 ## Hard rules (operator-set)
 
@@ -49,9 +48,10 @@ score-lane-only.
 
 ## When does this active task end?
 
-When `docs/reliability-and-false-positives.md` exists, is code-consistent, and is linked from
-`AegisPT.md` + `docs/methodology_mapping.md`, committed score-lane-only. Next = the remaining E#8
-injection-class re-provers (SSTI/deserial/SSRF/cmd-injection), or broaden the benchmark set.
+When the SSTI/SSRF/command-injection re-prover strategies exist (deserial documented as
+inconclusive-by-default), each unit-tested + at least one live confirmed/FALSE_POSITIVE
+observation, committed score-lane-only. Next = broaden the benchmark set beyond the daily-5
+(now fully + canonically solved), or pick the next open-work section B/C item.
 
 ## Carry-over (deferred, blocked by concurrent codex lane)
 
