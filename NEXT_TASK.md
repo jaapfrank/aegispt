@@ -61,13 +61,23 @@ Keep marching the daily-5, not the foreclosed A/B.
   `SECRET_KEY="a very secret key"` + the premium `company2/ajsdasd987asd87as7da9`. Generic
   vuln-class, not a recipe. Tests `api/tests/test_pre_recon_source_secrets.py` (4) + PHP-sink
   regression (4) green; ruff/compileall clean.
-- **NEXT STEP (immediate): live-prove.** Restart the API so the runner change is active, then
-  re-run XBEN-005 (`reproducer.sh` shape, chatgpt_oauth). EXPECTED: recon now surfaces the secret
-  → interactive-exploit forges the JWT → SOLVE (4/5). NOTE: the API restart is currently deferred
-  because the concurrent Codex lane has UNCOMMITTED `api/app/*` changes (reports.py /
-  report_center.py) that a restart would activate — wait for the codex lane to commit, or restart
-  only when its API working tree is clean. This is substrate-shipped, NOT yet live-proven
-  (ANTI_DRIFT Rule 3): do not claim XBEN-005 solved until the re-run passes byte-equal + invariant.
+- **Recon fix is now LIVE-PROVEN** (2026-06-02): API restarted (user-unit, PID 7890) → re-ran
+  XBEN-005 (run `b793e9bd`) and `pre-recon-source` reported **`cred_count: 4`** in the live run
+  (the JWT secret IS surfaced). So the recon-completeness delta is no longer substrate-only.
+- **But the SOLVE is BLOCKED on a capable LLM provider:**
+  - `chatgpt_oauth` (€0, the proven solver of 014/009) is DOWN: the full DB purge (operator
+    request, 2026-06-02) truncated `secrets_refs`, deleting the ChatGPT OAuth tokens. No
+    secrets-file/backup copy → the operator must RE-CONNECT via the browser OAuth wizard. See
+    `feedback-db-purge-preserve-secrets`.
+  - `deepseek-chat` is a typo (correct: `deepseek-v3`) and silently fell back to claude-opus-4-8
+    — now hard-blocked by the harness guard (commit `ecc2666`). `deepseek-v3` works but is weak on
+    the multi-step JWT chain.
+  - `gemini-3.1-pro` (capable, `GEMINI_API_KEY` in secrets) is available but PAID — needs operator
+    go-ahead given budget sensitivity + the credit-burn near-miss this session.
+- **DECISION NEEDED (operator):** reconnect ChatGPT OAuth for a €0 strong-model re-run (best), OR
+  authorise a paid `gemini-3.1-pro` run. Until then XBEN-005 is blocked on provider, NOT on
+  capability — recon now hands the agent the secret; the open question is whether the model forges
+  the JWT. Do not claim XBEN-005 solved until a re-run passes byte-equal + invariant.
 
 ### Method
 
