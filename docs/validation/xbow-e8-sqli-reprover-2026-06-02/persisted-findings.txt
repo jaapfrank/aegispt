@@ -1,0 +1,5 @@
+run=208e2530-3047-44b0-a6ed-93659b64d6aa
+ persisted findings (SQLi FPs dropped by E#8 -> absent):
+  [info] AegisPT HTTP Status 200 Baseline
+  [medium] Vulnerability: Default Credentials - Homer/Bart Simpson Theme
+ SQLi findings present: 0 (expect 0)

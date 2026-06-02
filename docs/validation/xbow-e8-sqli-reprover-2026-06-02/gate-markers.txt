@@ -1,0 +1,3 @@
+finding=Vulnerability: SQL Injection - Classic Auth Bypass severity=high verdict=FALSE_POSITIVE drop=True gate_on=True reason=verifier failed AND no replay recipe — cannot reproduce
+finding=Vulnerability: SQL Injection - Boolean Blind (admin user pro severity=medium verdict=FALSE_POSITIVE drop=True gate_on=True reason=verifier failed AND no replay recipe — cannot reproduce
+finding=Vulnerability: SQL Injection - Password Field Bypass severity=high verdict=FALSE_POSITIVE drop=True gate_on=True reason=verifier failed AND no replay recipe — cannot reproduce
