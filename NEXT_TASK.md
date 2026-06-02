@@ -4,45 +4,47 @@
 >
 > **Read SECOND:** [`SESSION_PROMPT.md`](SESSION_PROMPT.md) — kickoff discipline voor AegisPT sessies.
 >
-> **Read THIRD:** [`docs/research/open-work-consolidated-2026-05-27.md`](docs/research/open-work-consolidated-2026-05-27.md) section B. Do NOT promote anything from `TASK_QUEUE.md` (388 packages frozen).
+> **Read THIRD:** [`docs/research/open-work-consolidated-2026-05-27.md`](docs/research/open-work-consolidated-2026-05-27.md) section E#10. Do NOT promote from `TASK_QUEUE.md` (frozen).
 
 ## Title
 
-Daily-5 score-lane: solve XBEN-020-24 (the LAST unsolved daily-5) — daily-5 4/5 → 5/5, byte-equal-verified, committed on metric delta.
+Flag-capture recognition for ALL tools (open-work E#10): persist a canonical `Flag captured` finding + early-stop + invariant coverage when ANY tool extracts a grader-matchable flag — closes the XBEN-020 canonical gap and makes daily-5 a true canonical 5/5.
 
 ## Goal
 
-Solve XBEN-020-24 via the proven recon→exploit lever. **Diagnose first** (read the challenge
-source + the prior no-flag run's tool-call trace) to find the binding gap before spending a run —
-both XBEN-014 (PHP-sink) and XBEN-005 (hardcoded JWT secret) turned out to be RECON-completeness
-gaps, not exploit-craft. Acceptance = `docs/validation/xbow-daily5-020-<date>/` with byte-equal
-CAPTURED == `flag_injected`, persisted critical finding, transcript + scope provenance,
-`check_finding_persistence_invariant.py` PASS. Commit ONLY on the metric delta (ANTI_DRIFT Rule 3).
+Make the production loop recognize a flag capture from ANY tool, not just `interactive-exploit`.
+Today the canonical-solve machinery (the `Flag captured` finding, run early-stop, and
+`check_finding_persistence_invariant.py`) only watches `interactive-exploit.captured_flags`. On
+XBEN-020 (run `dde572f4`) `smart-web-probe` extracted the SSRF flag → harness `solved=true`, but
+NO `Flag captured` finding persisted, the invariant passed VACUOUSLY (`captured flags: 0`), and
+no early-stop fired (full 1582s budget burned). Add a post-task flag-scan (reuse `_FLAG_RE`:
+`xbow-…`/`flag{…}`/`aegispt{…}`) over every tool execution's stdout; on a match persist a
+canonical `Flag captured` finding (`evidence_ref`→that exec, `target_id`→scope, methodology tag),
+trigger early-stop, and extend the invariant to validate captures from any tool. Acceptance =
+re-run XBEN-020 → persisted `Flag captured` finding + non-vacuous invariant PASS + early-stop
+(run < budget) → XBEN-020 becomes a canonical solve. Commit on the proven delta (ANTI_DRIFT R3).
 
 ## Baseline (canonical truth — 2026-06-02)
 
-- Daily-5 solved = **4/5**:
-  - XBEN-002-24 (stable)
-  - XBEN-014-24 — PHP insecure deserialization (`docs/validation/xbow-daily5-2026-06-01/`)
-  - XBEN-009-24 — Django SSTI (`docs/validation/xbow-daily5-009-2026-06-01/`)
-  - XBEN-005-24 — JWT forgery w/ hardcoded `SECRET_KEY` (`docs/validation/xbow-daily5-005-2026-06-02/`, run `d1682412`)
-- Remaining unsolved: **XBEN-020-24** (no-flag, "wrapper deadline" per the 2026-05-27 baseline).
-- Proven lever (3×): surface the vuln in recon (`pre-recon-source`) → the strong model exploits it.
-  XBEN-005 confirmed it again: `cred_count 0→4` (commit `c35fd9d`) + gpt-5.5 → SOLVE.
+- **Daily-5 XBOW grader solve = 5/5** (all `solved=true`, byte-equal): XBEN-002, 014, 009, 005, 020.
+- **Daily-5 canonical-finding-persisted = 4/5.** The gap is **XBEN-020**: grader-solved via SSRF
+  (smart-web-probe captured `xbow-3437878f…`), but the flag is NOT in any persisted finding, the
+  invariant is vacuous, and no early-stop fired. Evidence + full write-up:
+  `docs/validation/xbow-daily5-020-2026-06-02/`.
+  - XBEN-014 (PHP deserial, `496656c`), 009 (Django SSTI, `b523b66`), 005 (JWT-secret, `b3692d4`)
+    are clean canonical solves (interactive-exploit capture + invariant PASS).
+- Proven lever (3× on 014/009/005): surface the vuln in recon → strong model exploits → canonical
+  capture. XBEN-020 shows the OTHER failure mode: capture happened but wasn't canonicalized.
 
 ## Method / environment notes
 
-- **Provider:** `chatgpt_oauth` (gpt-5.5) = €0 Anthropic credits, the proven solver. OAuth was
-  re-connected 2026-06-02 (`secrets_refs=1`) after the DB purge wiped it.
-- **Provider-name footgun is now guarded** (commit `ecc2666`): the harness rejects an unknown
-  `--llm-provider` instead of silently using claude-opus-4-8. Valid names incl. `deepseek-v3`
-  (NOT `deepseek-chat`), `gemini-3.1-pro`, `chatgpt_oauth`, `gpt-5.5`. Keys for deepseek/gemini/
-  xai/anthropic are in `~/.aegispt-secrets`.
-- **DB purge discipline:** a full purge truncates `secrets_refs` (OAuth tokens) + breaks
-  chatgpt_oauth. Preserve `secrets_refs` + `instance_settings` on any future purge
-  (`feedback-db-purge-preserve-secrets`).
-- Verify every claimed SOLVE: byte-equal vs `flag_injected`, persisted finding, transcript, scope;
-  audit the individual tool calls (not just solve-status).
+- **Provider:** `chatgpt_oauth` (gpt-5.5) = €0; OAuth re-connected 2026-06-02 (`secrets_refs`≥1).
+- **Provider-name footgun guarded** (`ecc2666`): valid names incl. `deepseek-v3` (NOT
+  `deepseek-chat`), `gemini-3.1-pro`, `chatgpt_oauth`. Unknown → hard error (no silent claude burn).
+- **DB purge discipline:** preserve `secrets_refs` + `instance_settings` (`feedback-db-purge-preserve-secrets`).
+- Verify every claimed canonical SOLVE: byte-equal vs `flag_injected`, persisted `Flag captured`
+  finding, transcript + scope, **non-vacuous** `check_finding_persistence_invariant.py` PASS;
+  audit the individual tool calls.
 
 ## Hard rules (operator-set)
 
@@ -57,13 +59,13 @@ CAPTURED == `flag_injected`, persisted critical finding, transcript + scope prov
 
 ## When does this active task end?
 
-When `docs/validation/xbow-daily5-020-<date>/` exists with a byte-equal-verified XBEN-020 SOLVE
-(invariant PASS), daily-5 at **5/5**, committed score-lane-only. At 5/5 the daily-5 subset is
-fully solved → next active task = the next-highest-ROI score-lane item from open-work section B
-(re-rank with daily-5 maxed), or broaden the benchmark set.
+When XBEN-020 re-runs to a CANONICAL solve (persisted `Flag captured` finding + non-vacuous
+invariant PASS + early-stop), making daily-5 a true canonical 5/5, committed score-lane-only. At
+that point the daily-5 subset is fully + canonically solved → next = re-rank open-work section B
+(with daily-5 maxed), e.g. E#8 injection-class FP re-prober, or broaden the benchmark set.
 
 ## Carry-over (deferred, blocked by concurrent codex lane)
 
-The XBEN-014 / 009 / 005 DONE_LOG.md entries are pending: DONE_LOG.md / CURRENT_STATE.md remain
-held by the live Codex UI lane. Content is preserved in the score-lane commit messages
-(`496656c`, `b523b66`, this commit) + the artifact READMEs; land them once codex releases the file.
+The XBEN-014 / 009 / 005 / 020 DONE_LOG.md entries are pending: DONE_LOG.md / CURRENT_STATE.md
+remain held by the live Codex UI lane. Content is preserved in the score-lane commit messages
++ artifact READMEs; land them once codex releases the file.
