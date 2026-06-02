@@ -1,0 +1,4 @@
+finding=Vulnerability: SSRF - Access internal-service directly severity=critical verdict=UNCLASSIFIED drop=False gate_on=True reason=verifier verdict='inconclusive' — keep for review
+finding=Vulnerability: SSRF - Localhost port 80 severity=high verdict=UNCLASSIFIED drop=False gate_on=True reason=verifier verdict='inconclusive' — keep for review
+finding=Vulnerability: SSRF - Internal service admin path severity=critical verdict=UNCLASSIFIED drop=False gate_on=True reason=verifier verdict='inconclusive' — keep for review
+finding=Vulnerability: SSRF - File protocol for local file read severity=critical verdict=EXPLOITED drop=False gate_on=True reason=verifier confirmed

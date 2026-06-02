@@ -40,7 +40,7 @@ transcript, hashes) so a human can verify. Reliability is NOT uniform:
 | Tier | Finding type | How it is established | Trust |
 |---|---|---|---|
 | **Deterministic proof** | Captured flag / exploited (`DETERMINISTIC_PROOF`, `EXPLOITED`) | A grader-matchable flag literal (`xbow-…`/`flag{…}`/`aegispt{…}`) captured by any tool (E#10) **and** persisted as a finding with transcript (`evidence_ref`) + scope (`target_id`). Enforced by `scripts/check_finding_persistence_invariant.py`. | **Hard** — the flag either byte-matches the grader or it does not; no model judgment. |
-| **Re-prover confirmed** | classes with an independent verifier strategy: `sqli` (E#8), `admin_access`, `stored_xss`, `info_disclosure` | `finding_verifier.verify_finding` re-runs an **independent** HTTP check (a different code path than the originating runner) on critical/high findings → `confirmed`. | **High** — independently reproduced. |
+| **Re-prover confirmed** | classes with an independent verifier strategy: `sqli` + `ssrf` (E#8), `admin_access`, `stored_xss`, `info_disclosure` | `finding_verifier.verify_finding` re-runs an **independent** HTTP check (a different code path than the originating runner) on critical/high findings → `confirmed`. | **High** — independently reproduced. |
 | **Re-prover failed → dropped** | same classes, but not reproducible | verifier `failed` + no replay recipe → M2 gate `FALSE_POSITIVE` → dropped (when the gate is enabled). | n/a (removed) |
 | **Unclassified / operator-review** | **everything else** (most tool findings) | no verifier strategy → `inconclusive` → M2 gate `UNCLASSIFIED` → **kept**. | **Variable** — real false positives live here. |
 
@@ -56,7 +56,7 @@ re-prover, so they are now conclusively `FALSE_POSITIVE` and dropped
    `critical`/`high` findings (`VERIFIABLE_SEVERITIES`) a strategy is selected by
    `_select_strategy` and an independent HTTP re-check runs (bounded, scope-gated,
    evidence-attached). Verdict ∈ `confirmed` / `failed` / `inconclusive`.
-   Strategies today: `sqli`, `admin_access`, `stored_xss`, `info_disclosure`
+   Strategies today: `sqli`, `ssrf`, `admin_access`, `stored_xss`, `info_disclosure`
    (+ the deterministic flag-proof exemption). All other titles → `inconclusive`.
 2. **M2 verdict gate** (`m2_verdict_gate.py`). Maps verdict + replay-recipe to
    `EXPLOITED` / `DETERMINISTIC_PROOF` / `BLOCKED_BY_SECURITY` /
@@ -69,12 +69,23 @@ re-prover, so they are now conclusively `FALSE_POSITIVE` and dropped
 
 ### The remaining gap (be explicit)
 
-The re-prover only covers `sqli` + 3 other classes today. **Injection classes
-without a strategy — SSTI, insecure-deserialization, SSRF, command-injection —
-still return `inconclusive` → `UNCLASSIFIED` → kept.** So false positives in those
-classes still reach the operator. Tracked as the remaining part of open-work E#8.
-The conservative design rule: a re-prover returns `failed` (→ droppable) **only**
-when the issue is demonstrably not reproducible; on any doubt it returns
+Re-provers exist for exactly the injection classes that a runner actually emits
+as findings: **`sqli`** and **`ssrf`** (smart-web-probe), plus `admin_access` /
+`stored_xss` / `info_disclosure`. The SSRF re-prover is conservative: it
+conclusively drops only the cloud-metadata variant on a non-cloud target (a
+recurring false positive); real internal-service/file variants stay `inconclusive`
+(kept) unless content confirms them.
+
+**SSTI, insecure-deserialization, and command-injection have NO re-prover — by
+design, not omission: no runner currently emits findings of those classes**, so a
+re-prover for them would be dead code (ANTI_DRIFT Rule 2). When a runner starts
+emitting them, the re-prover should be added in the same change. Any finding class
+without a re-prover (today: everything except the five above) returns `inconclusive`
+→ `UNCLASSIFIED` → **kept** for operator review — that is where residual false
+positives live.
+
+The conservative design rule (all re-provers): return `failed` (→ droppable)
+**only** when the issue is demonstrably not reproducible; on any doubt return
 `inconclusive` (kept) — the system never drops a finding on uncertainty.
 
 ## 3. Coverage honesty — emergent, not a checklist
