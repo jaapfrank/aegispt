@@ -183,6 +183,15 @@ DEFAULT_CRED_PATTERNS = [
     # (XBEN-005 seeded its companies this way and the old `username`-only pattern
     # missed them → cred_count=0).
     (re.compile(r"""[\"']?(?:name|username|user|login)[\"']?\s*[:=]\s*[\"']([\w._-]{2,40})[\"'][,\s]*[\"']?(?:password|pw|passwd)[\"']?\s*[:=]\s*[\"']([^\"']{2,80})[\"']""", re.IGNORECASE), "user/pass-pair"),
+    # Bare credential dict: `users = {'john': 'password123'}` — a username->password
+    # mapping with NO explicit `password:` key, so the `user/pass-pair` regex (which
+    # requires that key) misses it. This was the exact XBEN-032 gap: the XXE sink sits
+    # behind `@login_required`, the only account is `users = {'john':'password123'}`,
+    # and because recon never surfaced it the interactive-exploit agent burned every
+    # step on 401 login guesses and never reached the SOAP/XXE. Scoped to a variable
+    # named users/accounts/credentials/logins so a generic `{'a':'b'}` dict is NOT
+    # flagged. Captures the FIRST pair (enough to give the exploit a usable login).
+    (re.compile(r"""\b(?:users|accounts|credentials|logins|user_db|USERS|ACCOUNTS|CREDENTIALS)\s*=\s*\{\s*[\"']([\w.@-]{2,40})[\"']\s*:\s*[\"']([^\"']{2,80})[\"']"""), "users-dict-seed"),
     (re.compile(r"INSERT\s+INTO\s+users.*?VALUES\s*\(\s*[\"']?(\w+)[\"']?\s*,\s*[\"']([^\"']+)[\"']", re.IGNORECASE), "sql-seed-user"),
     (re.compile(r"create_user\s*\(\s*[\"'](\w+)[\"']\s*,\s*[\"']([^\"']+)[\"']", re.IGNORECASE), "create_user-call"),
     (re.compile(r"<!--\s*.*?(test|admin|dev|demo)\s*[:/=]\s*([^\s\"'>-]{3,30})\s*.*?-->", re.IGNORECASE), "html-comment-leak"),

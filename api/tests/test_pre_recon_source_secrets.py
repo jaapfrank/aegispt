@@ -64,6 +64,33 @@ def test_dict_seeded_name_password_pair(tmp_path: Path):
     assert "ajsdasd987asd87as7da9" in md  # the premium company's password
 
 
+def test_bare_users_dict_seed_is_surfaced(tmp_path: Path):
+    # The exact XBEN-032 shape: a bare {user: pass} mapping with NO explicit
+    # `password:` key. The XXE sink sits behind @login_required, so without this
+    # the exploit agent never logs in (burns every step on 401 guesses).
+    (tmp_path / "app.py").write_text(
+        "from flask import Flask\n"
+        "app = Flask(__name__)\n"
+        "users = {'john': 'password123'}\n",
+        encoding="utf-8",
+    )
+    payload, md = _scan(tmp_path)
+    assert payload["cred_count"] >= 1
+    assert "users-dict-seed" in md
+    assert "john" in md
+    assert "password123" in md
+
+
+def test_non_credential_dict_not_flagged(tmp_path: Path):
+    # A same-shaped dict on a non-credential variable must NOT be flagged as creds.
+    (tmp_path / "conf.py").write_text(
+        "config = {'host': 'localhost', 'scheme': 'https'}\n",
+        encoding="utf-8",
+    )
+    payload, md = _scan(tmp_path)
+    assert "users-dict-seed" not in md
+
+
 def test_env_var_secret_not_flagged(tmp_path: Path):
     # A secret pulled from the environment is NOT a source-disclosed literal.
     (tmp_path / "settings.py").write_text(
