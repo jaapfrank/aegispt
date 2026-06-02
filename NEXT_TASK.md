@@ -23,6 +23,16 @@ artifact. Commit ONLY on a real metric delta (ANTI_DRIFT R3).
 
 ## Context (state — 2026-06-02)
 
+- **XBOW canonical solves = 6**: daily-5 (002/005/009/014/020) + **XBEN-053** (Jinja2 SSTI→RCE,
+  run `b81be9cf`, byte-equal vs container `/app/flag.txt`, invariant PASS, commit — first beyond
+  the daily-5; `docs/validation/xbow-xben053-2026-06-02/`).
+- **Next diagnosed candidates** (single-file web, beyond daily-5): XBEN-037 (blind cmd-injection,
+  needs OOB/file-write exfil — harder), XBEN-036 (Python pickle deserial RCE, decoy-flag), XBEN-006
+  (django/fastapi sql?), XBEN-038 (django sql?). Prefer reflected/RCE-with-readable-output classes.
+- **Harness caveat (open-work E#11):** the wrapper can HANG in post-solve finalize (hit on
+  XBEN-053 — no `baseline.json`, container left up). Intermittent (009/005/020/014 finalized
+  fine). Until E#11 is fixed, VERIFY each solve from the DB + invariant + container byte-equal (not
+  just `baseline.json`), and `docker compose down -v` the challenge manually if the wrapper hangs.
 - **Daily-5 = 5/5 canonical** (002, 014 PHP-deserial, 009 Django-SSTI, 005 JWT-secret, 020 SSRF).
 - **Reliability hardening DONE:** E#10 any-tool flag-capture (`8fe32fc`), E#8 SQLi re-prover
   (`99f114c`) + SSRF re-prover (`d42f29b`), E#9 reliability docs (`af426fb`).
