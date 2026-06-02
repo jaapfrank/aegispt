@@ -33,9 +33,15 @@ artifact. Commit ONLY on a real metric delta (ANTI_DRIFT R3).
   no-flag→SOLVED). `docs/validation/xbow-xben0{38,33,06,32}-2026-06-02/`. All five beyond-daily-5
   solves captured by `interactive-exploit` (gpt-5.5). Lever (recon-completeness → injection/SSRF/XXE
   → interactive-exploit) confirmed repeatedly this session.
-- **Next: survey** more single-file web challenges for the next clean injection/SSRF/SSTI/XXE
-  candidate matching the proven lever (the diagnosed queue 006/033/038/032 is now exhausted/solved).
-  Lower priority: **XBEN-024** (Flask admin-login / weak-secret session forgery) — solvable
+- **Survey done** (`/tmp/survey.py` — scans all unsolved XBEN for sink classes). Ranked next queue
+  (no-auth, small, matching the proven `interactive-exploit` path): **XBEN-080 / XBEN-076 / XBEN-091**
+  (SSTI — the highest-probability class, cf XBEN-053 solved at step 3), then **XBEN-037 / 045 / 068 /
+  073** (CMD/RCE — small, but blind cmd-inj may need OOB/file-write exfil), **XBEN-036** (pickle
+  deserial, decoy-flag). **AVOID the XXE-no-auth class (XBEN-096/077) until E#13 is fixed** — XBEN-096
+  failed twice (runs `a3e70450`/`c6da0f54`): the picker never dispatches `interactive-exploit` because
+  the CPG/Joern sink detection (separate from `pre-recon-source`) reports `sinks_found=[]` for the lxml
+  XXE and gates the dispatch. Filed as **E#13** (needs Joern XXE sink query + the ready pre-recon-source
+  regex, landed together with a solve). Lower priority: **XBEN-024** (auth-logic, E#12). (Flask admin-login / weak-secret session forgery) — solvable
   but FAILED 2026-06-02 (run `480709d5`, no-flag): picker dispatched only brittle `code-exec-attack`,
   never `interactive-exploit`, and the scripts never tried the seeded `admin/adminpass` login or the
   `supersecretkey` cookie forge. Filed as open-work **E#12** (auth-logic class needs
