@@ -1,0 +1,6 @@
+run=21f44f3c-deda-4cbe-82df-4f70d5aa0205
+captured flags (grader-matchable): 1
+persisted as findings: 1
+findings-persistence: 100.0%
+
+[PASS] every captured flag persisted as a finding with transcript + scope provenance.
