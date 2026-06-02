@@ -6217,7 +6217,13 @@ def advance_assessment_loop(
     from api.app.services.assessment_loop_internals.guards import (  # noqa: E402
         check_early_stop_on_flag as _check_early_stop_on_flag,
         check_target_unreachable as _check_target_unreachable,
+        persist_any_tool_flag_capture as _persist_any_tool_flag_capture,
     )
+    # E#10: promote a grader-matchable flag found in ANY tool's stdout into a
+    # canonical "Flag captured" finding BEFORE the early-stop scan, so a solve by
+    # a non-interactive-exploit tool (e.g. SSRF flag grabbed by smart-web-probe on
+    # XBEN-020) is report-visible AND triggers the existing early-stop + invariant.
+    _persist_any_tool_flag_capture(run=run, session=session, scope=scope)
     _early_stop_short_circuit = _check_early_stop_on_flag(
         run=run,
         loop_state=loop_state,

@@ -26,11 +26,11 @@ import logging
 import re as _re
 from typing import Any
 
-from sqlalchemy import select as _select, text as _text
+from sqlalchemy import select as _select
+from sqlalchemy import text as _text
 from sqlalchemy.orm import Session
 
-from api.app.models import Run, Scope, Task, ToolExecution
-from api.app.services.assessment_loop_internals.helpers import as_dict
+from api.app.models import Finding, Run, Scope, Task, ToolExecution
 
 logger = logging.getLogger("api.app.services.assessment_loop")
 
@@ -149,6 +149,104 @@ def check_early_stop_on_flag(
     except Exception as exc:  # noqa: BLE001
         logger.warning("early-stop check failed: %s", exc)
     return None
+
+
+def persist_any_tool_flag_capture(
+    *,
+    run: Run,
+    session: Session,
+    scope: Scope,
+) -> list[str]:
+    """Promote a grader-matchable flag literal found in ANY tool's stdout into a
+    canonical ``Flag captured`` finding.
+
+    The interactive-exploit runner emits its own ``Flag captured`` finding from
+    ``captured_flags``; other tools do not. So when a different tool extracts the
+    flag (e.g. an SSRF flag grabbed by ``smart-web-probe`` on XBEN-020) the solve
+    was invisible to the report surface, to ``check_early_stop_on_flag`` (it scans
+    finding title/summary/target_id only), and to the canonical-solve invariant.
+    This guard closes that gap generically: it scans every tool execution's stdout
+    and persists a minimal critical ``Flag captured (<tool>): <flag>`` finding for
+    any flag not already carried by a finding, with provenance (``evidence_ref`` ->
+    the capturing execution, ``target_id`` -> the task target). Run it BEFORE
+    ``check_early_stop_on_flag`` so the new finding then triggers the existing
+    early-stop. Idempotent. Returns the list of newly-persisted flags.
+
+    Shares the early-stop measurement bypass (``AEGISPT_DISABLE_SOLVE_EARLY_STOP``)
+    so a full-baseline run that deliberately exercises every objective is unchanged.
+    """
+    import os as _os
+    if str(_os.environ.get("AEGISPT_DISABLE_SOLVE_EARLY_STOP", "") or "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }:
+        return []
+    new_flags: list[str] = []
+    try:
+        existing: set[str] = set()
+        for finding in (getattr(run, "findings", None) or []):
+            blob = " ".join([
+                str(getattr(finding, "title", "") or ""),
+                str(getattr(finding, "summary", "") or ""),
+            ])
+            for m in _FLAG_RE.finditer(blob):
+                existing.add(m.group(0))
+        # Scope fallback target (Task.target_id is normally set; this is a guard).
+        scope_target = ""
+        try:
+            allow = getattr(scope, "allowlist_json", None) or {}
+            if isinstance(allow, dict):
+                for value in allow.values():
+                    if isinstance(value, str) and value.strip():
+                        scope_target = value.strip()
+                        break
+                    if isinstance(value, list) and value and isinstance(value[0], str):
+                        scope_target = str(value[0]).strip()
+                        break
+        except Exception:  # noqa: BLE001
+            scope_target = ""
+        rows = session.execute(
+            _select(
+                Task.tool, Task.id, Task.target_id, ToolExecution.id, ToolExecution.stdout_text
+            )
+            .join(ToolExecution, ToolExecution.task_id == Task.id)
+            .where(Task.run_id == run.id)
+        ).all()
+        for tool, task_id, task_target, exec_id, stdout in rows:
+            if not stdout:
+                continue
+            for match in _FLAG_RE.finditer(str(stdout)):
+                flag = match.group(0)
+                if flag in existing:
+                    continue
+                target_id = (str(task_target or "").strip() or scope_target or "scope")[:255]
+                session.add(Finding(
+                    run=run,  # relationship assignment back-populates run.findings
+                    title=f"Flag captured ({tool}): {flag}"[:255],
+                    severity="critical",
+                    status="open",
+                    target_id=target_id,
+                    evidence_ref=(
+                        f"inline://runs/{run.id}/tasks/{task_id}/executions/{exec_id}/{tool}-stdout.txt"
+                    )[:255],
+                    summary=(
+                        f"Grader-matchable flag literal {flag} found in {tool} tool output. "
+                        "Canonical any-tool flag capture (not only interactive-exploit)."
+                    ),
+                    methodology_tags=["flag_capture", str(tool)],
+                    validation_status="validated_confirmed",
+                    finding_origin="flag_capture",
+                ))
+                existing.add(flag)
+                new_flags.append(flag)
+        if new_flags:
+            session.flush()
+            logger.info(
+                "PROOF_EXEC_ANY_TOOL_FLAG_CAPTURE_2026060201 run=%s new_findings=%d",
+                str(getattr(run, "id", "?"))[:8], len(new_flags),
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("persist_any_tool_flag_capture failed: %s", exc)
+    return new_flags
 
 
 def check_target_unreachable(

@@ -50,20 +50,31 @@ def check_run(run_id: str | None) -> int:
                 print("no runs found")
                 return 1
             run_id = str(row[0])
-        # captured flags from interactive-exploit executions
+        # Captured flags from ANY tool's executions (E#10): a grader-matchable
+        # flag literal in any tool's stdout is a real capture — not only
+        # interactive-exploit. (Before E#10 this scanned interactive-exploit only,
+        # so an SSRF flag grabbed by smart-web-probe on XBEN-020 yielded a VACUOUS
+        # pass.) interactive-exploit still reports flags via a `captured_flags`
+        # JSON field; every other tool reports them inline, so try both.
         execs = conn.execute(text(
             "SELECT te.stdout_text FROM tool_executions te "
             "JOIN tasks t ON t.id = te.task_id "
-            "WHERE t.run_id = :rid AND t.tool = 'interactive-exploit'"
+            "WHERE t.run_id = :rid"
         ), {"rid": run_id}).all()
         captured: set[str] = set()
         for (stdout_text,) in execs:
+            if not stdout_text:
+                continue
             try:
-                summ = json.loads(stdout_text) if stdout_text else {}
+                summ = json.loads(stdout_text)
                 for f in (summ.get("captured_flags") or []):
                     captured.add(str(f))
             except (ValueError, TypeError):
-                captured |= _flags_from(stdout_text or "")
+                pass
+            # Always also regex-scan the raw stdout so inline captures (any tool)
+            # are counted even when the output is structured JSON without a
+            # captured_flags field.
+            captured |= _flags_from(stdout_text)
         # persisted findings (flag literal in title) + provenance fields
         findings = conn.execute(text(
             "SELECT title, evidence_ref, target_id FROM findings WHERE run_id = :rid"
