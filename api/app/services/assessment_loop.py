@@ -4996,6 +4996,66 @@ def _goal_tool_sequence(objective_type: str, target_type: str) -> list[str]:
     return ["httpx", "content-discovery", "api-assessment", "auth-flow", "session-security"]
 
 
+def _recon_tools_for_run(
+    *,
+    run: Run,
+    session: Any,
+    objective_type: str,
+    target_type: str,
+    targets: list[dict[str, str]],
+    supported_tools: set[str] | list[str],
+) -> list[str]:
+    """T-AI1 (AI-elective recon): let the MODEL choose the recon set + order — it may
+    SKIP tools that add nothing (nmap on a known web port) instead of the hardcoded
+    `_goal_tool_sequence` rule. Behind AEGISPT_AI_ELECTIVE_RECON; when the flag is OFF
+    this returns the hardcoded sequence verbatim (zero behaviour change). The planner
+    is fallback-safe, and any wiring failure also falls back here, so dispatch can
+    never break."""
+    default_seq = _goal_tool_sequence(objective_type, target_type)
+    import os as _os_recon  # noqa: E402
+    if str(_os_recon.environ.get("AEGISPT_AI_ELECTIVE_RECON", "") or "").strip().lower() not in {
+        "1", "true", "yes", "on",
+    }:
+        return default_seq
+    call_llm = None
+    provider = str((getattr(run, "configuration_json", None) or {}).get("llm_provider") or "").strip().lower()
+    eng_id = getattr(run, "engagement_id", None)
+    if provider in {"chatgpt_oauth", "chatgpt-oauth"} and session is not None and eng_id is not None:
+        def call_llm(prompt: str) -> str:  # noqa: ANN001
+            from api.app.config import get_settings  # noqa: E402
+            from api.app.services.chatgpt_oauth import (  # noqa: E402
+                send_chatgpt_backend_streaming_json_request,
+            )
+            settings = get_settings()
+            payload = send_chatgpt_backend_streaming_json_request(
+                session=session,
+                engagement_id=eng_id,
+                settings=settings,
+                model=str(settings.chatgpt_oauth_model or "gpt-5.4"),
+                instructions="You are a recon planner. Output STRICT JSON only, no prose.",
+                input_items=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+            )
+            return json.dumps(payload)
+    source_available = bool((getattr(run, "configuration_json", None) or {}).get("source_dir"))
+    try:
+        from api.app.services.recon_planner import plan_recon_tools  # noqa: E402
+        tools, prov = plan_recon_tools(
+            default_sequence=default_seq,
+            targets=targets,
+            supported_tools=supported_tools,
+            source_available=source_available,
+            call_llm=call_llm,
+        )
+        logger.info(
+            "PROOF_EXEC_RECON_PLANNER_WIRE_2026060301 run=%s provenance=%s tools=%s",
+            str(getattr(run, "id", "?"))[:8], prov, tools,
+        )
+        return tools
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("recon planner wiring failed, using default sequence: %s", exc)
+        return default_seq
+
+
 def _target_candidates_for_tool(tool: str, targets: list[dict[str, str]]) -> list[dict[str, str]]:
     candidates = planned_targets_for_tool(tool, targets, derive_url_hosts_for_nmap=True)
     return [
@@ -5131,13 +5191,21 @@ def _build_goal_oriented_reasoning(
     objective: str,
     actor: str,
     operator_note: str | None,
+    session: Any = None,
 ) -> dict[str, Any]:
     objective_type = _objective_type(objective)
     target_type = _target_type(targets)
     supported_tools = supported_execution_tools()
     evidence_links = _goal_evidence_links(run=run, scope=scope, context_document=context_document)
     path: list[dict[str, Any]] = []
-    for tool in _goal_tool_sequence(objective_type, target_type):
+    for tool in _recon_tools_for_run(
+        run=run,
+        session=session,
+        objective_type=objective_type,
+        target_type=target_type,
+        targets=targets,
+        supported_tools=supported_tools,
+    ):
         if tool not in supported_tools:
             continue
         candidates = [
@@ -6194,6 +6262,7 @@ def record_assessment_loop_goal(
         objective=normalized_objective,
         actor=actor,
         operator_note=operator_note,
+        session=session,
     )
     reasoning = store_agent_reasoning_record(
         session=session,
