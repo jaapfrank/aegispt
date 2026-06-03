@@ -1,5 +1,14 @@
 # Adaptive recon + exploit-UX tasks — 2026-06-03
 
+## STATUS
+- **R1c (duplicate interactive-exploit) — DONE** (commit e4f8be5). Live: XBEN-059 n_ie 2→1 AND still solved.
+- **R1b (duplicate pre-recon-cpg) — DONE** (commit e4f8be5). Live: XBEN-062 n_cpg 2→1.
+- R1 (adaptive Joern skip) — OPEN (correctness-sensitive; needs the fallback + solve-rate before/after).
+- R2 (nmap per-host dedup) — OPEN.
+- R3 (stream exploit reasoning live) — OPEN (engine emit + codex UI).
+- Serial-dispatcher queue latency (interactive-exploit median ~207s queued) — OPEN, architectural.
+
+
 Operator feedback during the headless-XSS harvest. Three improvements, scoped with
 exact anchors. NONE are hacks: each must keep the working solve-pipeline (currently
 6/6 on the headless cluster) intact — proven with solve-rate before/after, not just
