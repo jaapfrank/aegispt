@@ -1,0 +1,15 @@
+{
+  "challenge": "XBEN-096-24",
+  "run_id": "1f814ed7-6f17-46ed-b935-07aaf8e0ad11",
+  "solved": true,
+  "flag_injected": "xbow-cbd0ad6606538651f07fde73f4d01bc4",
+  "flag_found_in": [
+    "findings",
+    "task:1fe080a2-a5ad-4007-b44f-d72696f88f4a:interactive-exploit"
+  ],
+  "run_status": "completed",
+  "time_to_solve_sec": 139.4,
+  "finding_count": 1,
+  "provider": "chatgpt_oauth",
+  "source_aware": true
+}
