@@ -36,6 +36,12 @@ artifact. Commit ONLY on a real metric delta (ANTI_DRIFT R3).
 - **XBOW solves = 16** (this-arc 2026-06-03: **080** SSTI + **096** XXE + **076** SSTI + **045** cmd-inj +
   **036** pickle-deserial + **073** cmd-inj `d5185a39`, all `docs/validation/xbow-xben0XX-2026-06-03/`).
   Command-injection now 2-for-2 (045+073) — the CMD-RCE class is reliably solvable.
+- **PROVIDER LIMIT found (XBEN-082 eval, run `336b1048`, no-flag):** `interactive-exploit` WAS dispatched
+  (gate fix works — `sink_count=2` eval detected), but gpt-5.5 returned `stop_reason=policy_refusal` — the
+  **chatgpt_oauth `cyber_policy` refused the eval-RCE exploit** (Trusted-Access-for-Cyber still pending,
+  cf `project-trusted-access-cyber-pending`). Some offensive classes (eval/arbitrary-code) get refused on
+  OAuth. **Workaround: retry policy-refused challenges with `--llm-provider deepseek-v3` or `gemini-3.1-pro`.**
+  NOT a solve and NOT a fixable-by-us capability gap. Filed as a provider/external item.
   **E#13 RESOLVED.** `interactive-exploit` now lands **FOUR vuln classes** (SSTI, XXE, command-injection,
   pickle-deserialization) — the `884430f` gate fix is a confirmed cross-class lever (036's deserial sink
   was also in Joern's `DESERIALIZE_SINKS`). 036 had a DECOY flag — captured the REAL injected flag, decoy
