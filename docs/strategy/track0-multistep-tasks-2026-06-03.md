@@ -8,6 +8,22 @@ Operator diagnosis (Gruyere run `15357dd6`): the system finds things, records th
 Goal: a finding/discovery TRIGGERS targeted follow-up that is pursued to `EXPLOITED`
 (impact), and the loop does not terminate while untested surface / open hypotheses remain.
 
+## REFINED SCOPE (2026-06-03, after reading the loop)
+
+The picture is more advanced than the initial diagnosis — and the gap is precise:
+- **Hypothesis QUEUE + depth-first pursue: ALREADY BUILT** (`assessment_loop.py:3310-3351`
+  "Refinement #1": cache queue in run.configuration_json; `has_open_work()` → `pick_next_open()`
+  pursues open hypotheses BEFORE re-fanning-out). So T0.2's "(a)" exists.
+- **Endpoints → specialists: DONE** (`cd1ac81`, T0.1) — the specialists now SEE the discovered
+  endpoints, so they generate endpoint-TARGETED hypotheses that the existing queue pursues.
+  This was the real gap that fed the queue.
+- **EXPLOITED-verification ("(c)"): UNBUILT — the precise remaining gap.** `success_condition`
+  appears ONLY in the docstring (2879); it is passed to the exploit task but NEVER consumed
+  post-task, and nowhere is `validation_status` set to confirmed/exploited from it. So every
+  finding stays `unvalidated` and the agent stops at "detected" (Gruyere: 29× unvalidated).
+
+So the high-leverage remaining work is T0.2-(c) + T0.3, NOT a new queue system.
+
 ## Tasks (ROI-ordered, each independently verifiable)
 
 ### T0.1 — Continuous discovery→hypothesis feedback  [START HERE]
