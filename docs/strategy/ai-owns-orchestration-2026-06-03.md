@@ -43,7 +43,33 @@ running ("single web app on a known port -> skip nmap, go to source + content-di
 
 ## Ordered task backlog (captured 2026-06-03)
 
-### T-AI1 — AI-elective recon  [BUILDING NOW]
+### T-AI1 EMPIRICAL FINDING (2026-06-03) — recon dispatch is SPRAWLED, no chokepoint
+Built `recon_planner.py` (10 tests, fallback-safe, commit bd8cff1) + wired it behind
+AEGISPT_AI_ELECTIVE_RECON into `_build_goal_oriented_reasoning`. Live test (flag ON,
+XBEN-008): the planner marker NEVER fired and nmap STILL dispatched — because
+`_build_goal_oriented_reasoning` is NOT on the hot path for these runs. Tracing the
+nmap task's `source` field showed it came from **`next_step_hint`**: the
+**target_intel runner** (`workers/runners/target_intel/runner.py:370`) emits a
+"run nmap" hint when "URL has no explicit port and the default-port probe got no
+response" — it probes port 80, fails (app is on :5000, which IS already in scope),
+and asks for nmap. `_maybe_queue_next_step_hints` (workers/orchestration/tasks.py:5068)
+auto-queues it.
+
+=> Recon dispatch is sprawled across ≥4 hardcoded sources: `_goal_tool_sequence`,
+`_seed_candidate` (LOOP_SEED_TOOLS_BY_TARGET_KIND), the plan, AND runner-emitted
+next_step_hints — there is NO single point to inject AI control. THIS sprawl is the
+concrete reason it behaves like a "dumb script." The planner is the right capability
+but needs a CHOKEPOINT, not one more wire.
+
+REFINED T-AI1: add a single pre-dispatch recon-decision chokepoint (e.g. in the
+inline dispatcher / `_maybe_queue_next_step_hints` + the candidate-merge in
+assessment_loop) that, when AI-elective, asks the planner whether a recon tool is
+worth running for THIS target before it is queued — regardless of which source
+proposed it. Quick deterministic sub-win available immediately: target_intel should
+NOT emit the nmap hint when the port is already known from scope/envelope (it probes
+:80 instead of the scoped :5000). Keep recon_planner.py as the decision brain.
+
+### T-AI1 — AI-elective recon  [planner built; chokepoint wiring next]
 Replace the hardcoded `_goal_tool_sequence` first-tool rule with an AI recon planner:
 given the target envelope (single web URL w/ known port vs IP/CIDR vs unknown) +
 whether source is available + the available tool menu, the model chooses the recon
@@ -71,3 +97,16 @@ fixed lists become pure fallback. The model drives recon→exploit→pivot end t
   deeper cause of queue wait); needs care re: the no-parallel-runs contention.
 - Headless-XSS breadth — finish the untested cluster (062/064/065/070/074/087 + the
   remaining ~17 fire-dialog challenges) once the loop is faster + leaner.
+
+### T-DECOMP — keep decomposing assessment_loop.py (7407 lines)  [continuous]
+The loop is a god-module; decomposition is already UNDERWAY (assessment_loop_internals/
+{guards,picker_schema,picker_system_prompt,picker_decoder,recall,...} + service modules
+attack_surface/finding_verifier/picker_specialists/recon_planner). Continue INCREMENTAL
+extraction (NOT a big-bang rewrite of the solve-critical path): each time we touch an
+area, pull the cohesive logic into a focused, unit-tested module and leave
+assessment_loop.py as the thin orchestrator. Candidates to extract next: the goal/seed
+candidate builders (`_goal_tool_sequence`/`_build_goal_oriented_reasoning`/
+`_goal_oriented_candidate` -> a `goal_planner` module, naturally alongside T-AI1), the
+CPG-CEA dispatch (`_maybe_dispatch_cpg_seeded_cea` -> its own module), and the
+finalization path. Acceptance per extraction: behaviour-preserving (tests green) +
+assessment_loop.py shrinks.
