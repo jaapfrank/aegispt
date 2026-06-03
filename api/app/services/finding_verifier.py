@@ -845,7 +845,18 @@ def apply_verifier_verdict(
     md["verifier"] = verdict.to_metadata()
     enrichment.metadata_json = md
 
-    if verdict.verdict == "failed":
+    if verdict.verdict == "confirmed":
+        # Track 0 / T0.2-(c) 2026-06-03: when the INDEPENDENT cross-runner verifier
+        # re-proves the exploit, flip the finding's validation_status to
+        # validated_confirmed (= EXPLOITED). Previously the verdict lived ONLY in
+        # enrichment.metadata_json['verifier'] and validation_status stayed
+        # 'unvalidated', so even re-proven exploits showed as un-exploited (the
+        # operator's "stops at detected" symptom). This is honest: it flips ONLY on
+        # an actual independent confirmation — 'inconclusive'/'failed' do NOT flip
+        # (e.g. stored-XSS/cookie-theft that needs the OOB victim chain stays
+        # unvalidated until that capability lands).
+        finding.validation_status = "validated_confirmed"
+    elif verdict.verdict == "failed":
         # Only downgrade if the current severity matches what the verdict
         # was computed against (defensive — don't double-downgrade).
         if str(finding.severity or "") == verdict.original_severity:

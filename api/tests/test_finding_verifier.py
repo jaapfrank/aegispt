@@ -819,3 +819,49 @@ def test_assessment_loop_post_advance_hook_stays_as_backstop() -> None:
         "the in-orchestration pre-persistence hook is the primary path, "
         "but this is the defensive net for findings that bypass store_findings."
     )
+
+
+# === Track 0 / T0.2-(c): confirmed verdict flips validation_status -> EXPLOITED ===
+
+class _StubSession:
+    """apply_verifier_verdict only calls .add() in the no-enrichment branch."""
+    def add(self, _obj):  # noqa: D401
+        pass
+
+
+def _stub_finding(*, validation_status="unvalidated", severity="high"):
+    from types import SimpleNamespace
+    return SimpleNamespace(
+        id="ffffffff-0000-0000-0000-000000000000",
+        validation_status=validation_status,
+        severity=severity,
+        ai_enrichment=SimpleNamespace(metadata_json={}),
+    )
+
+
+def _verdict(kind: str, *, original="high", new="info"):
+    return VerifierVerdict(
+        verdict=kind, note="", original_severity=original, new_severity=new,
+        verifier_used="sqli",
+    )
+
+
+def test_confirmed_verdict_flips_validation_status_to_exploited():
+    f = _stub_finding()
+    apply_verifier_verdict(_StubSession(), finding=f, verdict=_verdict("confirmed"))
+    assert f.validation_status == "validated_confirmed"  # was 'unvalidated'
+
+
+def test_inconclusive_verdict_does_not_flip_validation_status():
+    # Honest: stored-XSS/cookie-theft the httpx verifier cannot re-prove stays
+    # unvalidated until the OOB chain-to-impact capability lands.
+    f = _stub_finding()
+    apply_verifier_verdict(_StubSession(), finding=f, verdict=_verdict("inconclusive"))
+    assert f.validation_status == "unvalidated"
+
+
+def test_failed_verdict_downgrades_severity_not_validation():
+    f = _stub_finding(severity="high")
+    apply_verifier_verdict(_StubSession(), finding=f, verdict=_verdict("failed", original="high", new="info"))
+    assert f.severity == "info"
+    assert f.validation_status == "unvalidated"
