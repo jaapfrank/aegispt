@@ -1997,6 +1997,77 @@ def _focused_tcp_objectives_from_source(
 # immediately; the DB query remains the backstop after a process restart.
 _FOCUS_DISPATCHED_OBJECTIVES: dict[str, dict[str, set[str]]] = {}
 
+# In-process memo of the NON-focused single-shot CPG-CEA exploit dispatch per run,
+# keyed run_id -> monotonic dispatch time. Same INLINE_DISPATCH_BACKGROUND race as
+# the focused memo above, but on the regular path (which lacked a guard): two
+# overlapping iterate calls both read run.tasks BEFORE the first exploit task row
+# is committed, both see has_cea=False, and both dispatch the EXPENSIVE
+# interactive-exploit (gpt-5.5) on the SAME target — observed as
+# "interactive-exploit x2", same second, identical params (2026-06-03). Data shows
+# the 1st shot is the one that solves (XBEN-015/016: exploit_order=1 captured, the
+# 2nd was pure waste), and the loop stops on flag_extracted — so we run ONE exploit
+# IN-FLIGHT at a time and retry only after a completed MISS. Written synchronously
+# at decision time so the next iterate sees it before the task row commits.
+_CEA_DISPATCHED_AT: dict[str, float] = {}
+# Commit-lag window for the memo above; the fresh-DB in-flight check covers the
+# rest of the (long) exploit runtime.
+_CEA_INFLIGHT_MEMO_WINDOW_S = 90.0
+# Max sequential exploit attempts per run (retry-on-miss safety net). The 1st shot
+# usually solves, so this is rarely reached; it matches the prior race's effective
+# 2-shot ceiling but sequential + only-when-the-prior-missed (no wasted parallel).
+_MAX_CEA_ATTEMPTS = 2
+
+
+def _count_exploit_tasks(session: Any, run_id: Any) -> tuple[int, int]:
+    """Fresh-DB count of exploit tasks for a run -> (in_flight, completed).
+
+    run.tasks (ORM relationship) is stale within a tight iterate loop — the exact
+    cause of the double-dispatch race — so query the DB directly. Unknown/non-
+    terminal statuses are counted as in_flight (fail safe: never double-dispatch)."""
+    _TERMINAL = ("completed", "failed", "skipped", "error", "cancelled")
+    try:
+        from sqlalchemy import func as _func_cea  # noqa: E402
+        from sqlalchemy import select as _sel_cea  # noqa: E402
+
+        from api.app.models import Task as _TaskCea  # noqa: E402
+        rows = session.execute(
+            _sel_cea(_TaskCea.status, _func_cea.count())
+            .where(
+                _TaskCea.run_id == run_id,
+                _TaskCea.tool.in_(("interactive-exploit", "code-exec-attack")),
+            )
+            .group_by(_TaskCea.status)
+        ).all()
+    except Exception:  # noqa: BLE001
+        return (0, 0)
+    in_flight = sum(int(c) for s, c in rows if str(s) not in _TERMINAL)
+    completed = sum(int(c) for s, c in rows if str(s) in _TERMINAL)
+    return (in_flight, completed)
+
+
+# Same INLINE_DISPATCH_BACKGROUND race on the pre-recon-cpg bootstrap (operator-
+# observed "pre-recon-cpg x2"): two overlapping iterates read a stale run.tasks
+# (no cpg task yet) and both dispatch Joern, doubling the ~94s on the exploit's
+# critical path. CPG runs EXACTLY ONCE so the guard only needs existence, not a
+# retry count. Keyed run_id -> monotonic dispatch time.
+_CPG_DISPATCHED_AT: dict[str, float] = {}
+
+
+def _run_has_task(session: Any, run_id: Any, tool: str) -> bool:
+    """Fresh-DB existence check for a task of ``tool`` in a run. run.tasks (the
+    ORM relationship) is stale within a tight iterate loop — the exact cause of
+    the double-dispatch race — so query the DB directly. Fail-open (False on
+    error) so a transient DB hiccup never permanently blocks a needed bootstrap."""
+    try:
+        from sqlalchemy import select as _sel_ht  # noqa: E402
+
+        from api.app.models import Task as _TaskHt  # noqa: E402
+        return session.execute(
+            _sel_ht(_TaskHt.id).where(_TaskHt.run_id == run_id, _TaskHt.tool == tool).limit(1)
+        ).first() is not None
+    except Exception:  # noqa: BLE001
+        return False
+
 
 def _maybe_dispatch_cpg_seeded_cea(
     *,
@@ -2330,14 +2401,40 @@ def _maybe_dispatch_cpg_seeded_cea(
 
     cpg_ok = bool(has_cpg and cpg_text)
     # Fire interactive-exploit when EITHER the Joern CPG has content OR source
-    # recon surfaced gate tokens. Never re-seed once an exploit engine ran.
-    if has_cea or (not cpg_ok and source_gate_token_count == 0):
+    # recon surfaced gate tokens. No usable recon to seed -> nothing to dispatch.
+    if not cpg_ok and source_gate_token_count == 0:
         logger.info(
-            "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_GATE_2026052613 run=%s has_cea=%s cpg_ok=%s gate_tokens=%d",
+            "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_GATE_2026052613 run=%s has_cea=%s cpg_ok=%s gate_tokens=%d (no-recon)",
             str(getattr(run, "id", "?"))[:8],
             has_cea, cpg_ok, source_gate_token_count,
         )
         return None
+    # Race-safe exploit dispatch control (2026-06-03). The old `has_cea` gate
+    # (block once ANY exploit task exists in the stale run.tasks) was bypassed by
+    # the iterate race — two overlapping iterates double-fired the EXPENSIVE gpt-5.5
+    # exploit on the same target ("interactive-exploit x2"). Replace it with: at
+    # most ONE exploit IN-FLIGHT at a time (fresh DB + commit-lag memo) and
+    # retry-on-miss up to _MAX_CEA_ATTEMPTS. The 1st shot is the one that solves
+    # (XBEN-015/016 data) and the loop stops on flag_extracted, so this preserves
+    # solve-rate while killing the wasteful parallel duplicate.
+    _cea_run_id = str(getattr(run, "id", "") or "")
+    import time as _time_cea  # noqa: E402
+    _cea_now = _time_cea.monotonic()
+    if (_cea_now - _CEA_DISPATCHED_AT.get(_cea_run_id, 0.0)) < _CEA_INFLIGHT_MEMO_WINDOW_S:
+        return None  # a just-decided dispatch whose task row may not be committed yet
+    _cea_inflight, _cea_completed = _count_exploit_tasks(session, getattr(run, "id", None))
+    if _cea_inflight > 0:
+        logger.info(
+            "PROOF_EXEC_CEA_INFLIGHT_GUARD_2026060301 run=%s inflight=%d completed=%d — suppressing duplicate exploit dispatch",
+            _cea_run_id[:8], _cea_inflight, _cea_completed,
+        )
+        return None  # one exploit at a time — kills the parallel duplicate
+    if _cea_completed >= _MAX_CEA_ATTEMPTS:
+        logger.info(
+            "PROOF_EXEC_CEA_RETRY_CAP_2026060301 run=%s completed=%d cap=%d — no more exploit retries",
+            _cea_run_id[:8], _cea_completed, _MAX_CEA_ATTEMPTS,
+        )
+        return None  # retry-on-miss cap reached
     # Sanity: when relying on the CPG route, require a non-empty sink section.
     # When source gate tokens are present, those ARE the actionable signal, so
     # an empty Joern sink section does not block the dispatch.
@@ -2607,6 +2704,9 @@ def _maybe_dispatch_cpg_seeded_cea(
                 _ie_params["engagement_id"] = str(_ie_eng)
         except Exception:  # noqa: BLE001
             pass
+        # Race guard: record this dispatch synchronously so an overlapping iterate
+        # (whose run.tasks read predates this task's commit) suppresses a duplicate.
+        _CEA_DISPATCHED_AT[_cea_run_id] = _cea_now
         return {
             "action": "pick",
             "tool": "interactive-exploit",
@@ -2842,6 +2942,9 @@ def _maybe_dispatch_cpg_seeded_cea(
         str(getattr(run, "id", "?"))[:8], severity, len(script), rationale[:120],
     )
 
+    # Race guard (same as the interactive return): record this dispatch so an
+    # overlapping iterate suppresses a duplicate code-exec-attack.
+    _CEA_DISPATCHED_AT[_cea_run_id] = _cea_now
     return {
         "action": "pick",
         "tool": "code-exec-attack",
@@ -3037,9 +3140,20 @@ def _specialists_select_next_action(
         # additive to the regex audit. Skipped when Joern isn't installed —
         # the runner returns exit_code=78 in that case, and the picker will
         # simply continue past it.
-        has_pre_recon_cpg_task = any(
-            str(getattr(t, "tool", "") or "") == "pre-recon-cpg"
-            for t in (getattr(run, "tasks", None) or [])
+        # Race-safe existence check (2026-06-03): the stale run.tasks read alone
+        # double-dispatched Joern under overlapping iterates ("pre-recon-cpg x2").
+        # Add a synchronous in-process memo + a fresh-DB existence check so CPG
+        # bootstraps EXACTLY once.
+        _cpg_run_id = str(getattr(run, "id", "") or "")
+        import time as _time_cpg  # noqa: E402
+        _cpg_now = _time_cpg.monotonic()
+        has_pre_recon_cpg_task = (
+            any(
+                str(getattr(t, "tool", "") or "") == "pre-recon-cpg"
+                for t in (getattr(run, "tasks", None) or [])
+            )
+            or (_cpg_now - _CPG_DISPATCHED_AT.get(_cpg_run_id, 0.0)) < _CEA_INFLIGHT_MEMO_WINDOW_S
+            or _run_has_task(session, getattr(run, "id", None), "pre-recon-cpg")
         )
         if has_pre_recon_source_task and not has_pre_recon_cpg_task:
             target_url_for_cpg = ""
@@ -3048,6 +3162,7 @@ def _specialists_select_next_action(
                 if target_url_for_cpg:
                     break
             if target_url_for_cpg:
+                _CPG_DISPATCHED_AT[_cpg_run_id] = _cpg_now
                 logger.info(
                     "PROOF_EXEC_M3_CPG_BOOTSTRAP_2026052401 source_dir=%s dispatching pre-recon-cpg run=%s",
                     source_dir,
