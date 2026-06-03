@@ -3382,6 +3382,10 @@ def _specialists_select_next_action(
             available_tools=available_tools,
             prior_findings_summary=prior_findings_summary,
             prior_episodes_block=prior_episodes_block_for_specialists,
+            # Track 0: direct the specialists at the DISCOVERED-but-untested endpoints
+            # (black-box path — the CPG-CEA injection is source-aware-only). Empty until
+            # endpoints are discovered, so no noise on early iterations.
+            attack_surface_block=_attack_surface_block_for_run(run),
         )
 
         new_hypotheses = assign_ids_to_hypotheses(result.get("hypothesis_queue") or [])

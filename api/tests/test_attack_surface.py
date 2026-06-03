@@ -50,3 +50,23 @@ def test_render_block_lists_endpoints_and_is_empty_when_none():
     assert "/admin" in block and "/upload.gtl" in block
     # no discoveries yet -> no block (no noise on a fresh run)
     assert render_attack_surface_block([{"title": "Session Cookie Theft via XSS", "target_id": "https://x/"}]) == ""
+
+
+def test_specialist_context_includes_attack_surface_block():
+    # Track 0: the backlog must reach the SPECIALISTS (black-box exploitation path),
+    # not only the source-aware CPG-CEA context.
+    from api.app.services.picker_specialists.orchestrator import (
+        _build_user_content_for_specialist,
+    )
+    block = render_attack_surface_block(GRUYERE_FINDINGS)
+    uc = _build_user_content_for_specialist(
+        recon_deliverable="r", available_tools=["x"],
+        prior_findings_summary="f", attack_surface_block=block,
+    )
+    assert "PENDING ATTACK SURFACE" in uc
+    assert "/admin" in uc
+    # no block passed -> no section (default empty, no noise)
+    uc0 = _build_user_content_for_specialist(
+        recon_deliverable="r", available_tools=["x"], prior_findings_summary="f",
+    )
+    assert "PENDING ATTACK SURFACE" not in uc0

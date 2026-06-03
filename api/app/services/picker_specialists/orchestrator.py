@@ -26,12 +26,10 @@ and either keeps the finding or downgrades it to info.
 """
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Awaitable, Callable
+from typing import Any, Callable
 
 from . import (
     VULN_AUTH_HYPOTHESIS_SCHEMA,
@@ -64,6 +62,7 @@ def _build_user_content_for_specialist(
     available_tools: list[str],
     prior_findings_summary: str,
     prior_episodes_block: str = "",
+    attack_surface_block: str = "",
 ) -> str:
     """Same user-content envelope for every specialist; only the
     instructions (system prompt) differ. Keeps the orchestrator simple
@@ -81,6 +80,10 @@ def _build_user_content_for_specialist(
         f"{', '.join(sorted(available_tools)) or '(none)'}\n\n"
         "=== PRIOR FINDINGS (this run) ===\n"
         f"{prior_findings_summary or '(none yet)'}\n\n"
+        # Track 0 (recon→action): discovered-but-untested endpoints, so specialists
+        # generate endpoint-TARGETED hypotheses instead of generic OWASP-class ones.
+        # Empty on a fresh run (no endpoints yet) so it adds no noise.
+        f"{attack_surface_block}"
         f"{episodes_section}"
         "Now produce your ranked hypothesis list per your category's schema."
     )
@@ -93,6 +96,7 @@ def run_specialists_parallel(
     available_tools: list[str],
     prior_findings_summary: str,
     prior_episodes_block: str = "",
+    attack_surface_block: str = "",
     max_workers: int = 5,
     per_specialist_timeout_s: float = 120.0,
 ) -> dict[str, Any]:
@@ -115,6 +119,7 @@ def run_specialists_parallel(
         available_tools=available_tools,
         prior_findings_summary=prior_findings_summary,
         prior_episodes_block=prior_episodes_block,
+        attack_surface_block=attack_surface_block,
     )
 
     results: list[dict[str, Any]] = []
