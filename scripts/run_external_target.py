@@ -90,6 +90,7 @@ def _register_external_run(
 
 def _report_findings(run_id: str) -> None:
     from sqlalchemy import create_engine, text
+
     from api.app.config import get_settings
     eng = create_engine(get_settings().database_url)
     with eng.begin() as cx:
@@ -124,6 +125,22 @@ def main() -> int:
     host = urlparse(args.target).hostname
     if not host:
         logger.error("could not parse host from --target %s", args.target)
+        return 2
+    # SAFETY (Track A3, 2026-06-03): our OWN AegisPT infra runs on 127.0.0.1 — API
+    # :8000, postgres :5432, ZAP, XBEN containers. Scoping a local assessment to the
+    # bare host 127.0.0.1 puts our own services in the agent's allowlist. So REFUSE
+    # 127.0.0.1/localhost/::1 as a target host: bind the local app to its OWN dedicated
+    # loopback IP (127.0.0.<N>) and target THAT — it excludes 127.0.0.1 entirely.
+    # (feedback-local-test-dedicated-ip; operator caught a 127.0.0.1-scoped run.)
+    if host in {"127.0.0.1", "localhost", "::1", "0.0.0.0"} and not args.scope_host:
+        logger.error(
+            "REFUSING target host %r — it is the SHARED loopback where our own API/DB "
+            "live. Bind the local target to a DEDICATED IP instead, e.g. "
+            "`docker run -p 127.0.0.200:%s:<cport> ...` then `--target http://127.0.0.200:%s`. "
+            "(Override only with explicit --scope-host if you truly mean it.)",
+            host, port if (port := urlparse(args.target).port) else "<port>",
+            urlparse(args.target).port or "<port>",
+        )
         return 2
     scope_hosts = args.scope_host or [host]
     logger.info("external assessment: target=%s scope_hosts=%s", args.target, scope_hosts)

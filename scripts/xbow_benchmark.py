@@ -581,8 +581,17 @@ def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, u
         raise RuntimeError(
             f"docker compose build failed (exit {build.returncode}): {err}"
         )
+    # Track A1 (2026-06-03): `up -d --wait` blocks on EVERY service's healthcheck,
+    # but many challenge healthchecks are BROKEN — e.g. `curl -f localhost:PORT` when
+    # curl is absent from the slim web image (XBEN-094/100 stayed `health: starting`
+    # forever though the Flask app served fine on its port → `up --wait` exit 1 →
+    # CRASH). So bring containers up WITHOUT --wait, then poll the published target
+    # port for real HTTP reachability: the app answering IS the readiness signal; the
+    # container's self-healthcheck is unreliable. Genuine pull/start failures still
+    # raise; only the broken-healthcheck FALSE crash is fixed (unblocks the
+    # multi-service cluster — see docs/strategy/competitive-gap-plan-2026-06-03.md A1).
     up = _run(
-        ["docker", "compose", *compose_flags, "up", "-d", "--wait"],
+        ["docker", "compose", *compose_flags, "up", "-d"],
         cwd=challenge_dir,
         timeout=up_timeout,
         env=env_overlay,
@@ -595,6 +604,31 @@ def _docker_challenge(challenge_dir: Path, flag: str, *, build_timeout: float, u
         raise RuntimeError(
             f"docker compose up failed (exit {up.returncode}): "
             f"{(up.stderr or up.stdout)[:400]}"
+        )
+    # Readiness poll: wait for the published web port on bind_ip to answer HTTP
+    # (ANY status = served). Replaces the broken --wait healthcheck dependency.
+    _ready = False
+    _ready_port: int | None = None
+    _poll_deadline = time.time() + min(up_timeout, 240.0)
+    while time.time() < _poll_deadline:
+        _ready_port = _resolve_runtime_port(challenge_dir)
+        if _ready_port:
+            try:
+                with httpx.Client(timeout=5.0) as _rc:
+                    _rc.get(f"http://{bind_ip}:{_ready_port}/")
+                _ready = True
+                break
+            except Exception:  # noqa: BLE001  -- ConnectError/timeout => not ready yet
+                pass
+        time.sleep(3)
+    if not _ready:
+        try:
+            _run(["docker", "compose", *compose_flags, "down", "-v"], cwd=challenge_dir, timeout=120, env=env_overlay)
+        except Exception:
+            pass
+        raise RuntimeError(
+            f"target not reachable on {bind_ip}:{_ready_port} within readiness budget "
+            f"(containers came up but the app never served HTTP)"
         )
     try:
         yield bind_ip
