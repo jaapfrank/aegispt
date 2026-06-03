@@ -34,7 +34,6 @@ import json
 import logging
 import os
 import re
-import shlex
 import subprocess
 import sys
 import tempfile
@@ -267,11 +266,17 @@ def execute_code_exec_attack(
 ) -> RunnerExecution:
     """Run an AI-emitted Python script with httpx scope-guard preamble."""
     if not script.strip():
+        # An empty script means the upstream composer (CPG-CEA) had nothing to
+        # generate — typically a BLACK-BOX target with no source/sinks. That is
+        # "not applicable here", NOT a runner failure. Return the skip exit code
+        # (78 = RUNNER_EXIT_CODE_SKIPPED) so the task maps to status="skipped"
+        # instead of "failed" (which showed misleading FAILED rows on external
+        # black-box runs, e.g. google-gruyere, and burned refinement attempts).
         return RunnerExecution(
             tool="code-exec-attack",
-            exit_code=2,
+            exit_code=78,
             stdout="",
-            stderr="empty script — refusing to run",
+            stderr="empty script — nothing to execute (skipped: no source/sinks to compose from)",
             artifacts=[],
             metadata={"skipped": True, "skip_reason": "empty_script"},
         )
