@@ -13,12 +13,18 @@
 
 ## Title
 
-**ACTIVE: Track A1 — harness robustness (multi-service `up --wait` fix).** Replace
-`up -d --wait` with `up -d` + target-port poll in `scripts/xbow_benchmark.py::_docker_challenge`
-(root cause `1e3e31d`: app works, `curl` missing from the healthcheck image). Acceptance:
-XBEN-094 + XBEN-100 BUILD instead of CRASH (run_status != None), then re-measure the
-solve-rate across the multi-service cluster. This is the cheapest prerequisite that
-unblocks ~20 multi-service challenges before Track B (auth, biggest ROI).
+**Track A1 + A3 DONE (`ecf0db9`).** A1: `up -d` + target-port poll replaces the broken
+`--wait` healthcheck dependency → XBEN-100 (mongo+web) goes CRASH→running (proven). A3:
+`run_external_target.py` refuses bare `127.0.0.1` (the dedicated-IP safety the operator
+caught). Diverse-target proof DONE: Juice Shop (23 findings) + WebGoat (26), both isolated.
+
+**ACTIVE NEXT — Track B: reliable authentication (biggest ROI, ~30 challenges).** We
+already exploit SSTI/jwt/injection post-auth; we just can't get PAST the login. Generalize
+E#12: (B1) cred-vault wiring so seeded creds auto-login, (B2) JWT/Flask-session forgery on a
+leaked secret, (B3) stateful login→exploit in ONE interactive-exploit session. Acceptance:
+≥5 NEW auth-gated solves (001/003/021/058-class). Also still open in Track A: A2 (pre-pull DB
+images) if more multi-svc challenges stall on first-pull. See
+`docs/strategy/competitive-gap-plan-2026-06-03.md`.
 
 (Superseded the old "broaden the score-lane" framing — see the strategy doc for Tracks A-E.)
 

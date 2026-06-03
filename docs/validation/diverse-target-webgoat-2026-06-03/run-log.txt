@@ -1,0 +1,16 @@
+2026-06-03 10:32:18,439 INFO run_external_target external assessment: target=http://127.0.0.201:8080/WebGoat scope_hosts=['127.0.0.201']
+2026-06-03 10:32:18,513 INFO httpx HTTP Request: GET http://127.0.0.201:8080/ "HTTP/1.1 404 "
+2026-06-03 10:32:18,538 INFO httpx HTTP Request: GET http://127.0.0.201:8080/ "HTTP/1.1 404 "
+2026-06-03 10:32:18,558 INFO httpx HTTP Request: GET http://127.0.0.201:8080/ "HTTP/1.1 404 "
+2026-06-03 10:32:18,583 INFO httpx HTTP Request: GET http://127.0.0.201:8080/ "HTTP/1.1 404 "
+2026-06-03 10:32:18,584 INFO run_external_target preflight: host_header=127.0.0.201 first_status=404
+2026-06-03 10:32:18,630 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/engagements "HTTP/1.1 201 Created"
+2026-06-03 10:32:18,643 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/engagements/2926aab2-9a93-4b95-8a53-2ccf38f47768/scope "HTTP/1.1 201 Created"
+2026-06-03 10:32:18,692 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/engagements/2926aab2-9a93-4b95-8a53-2ccf38f47768/runs "HTTP/1.1 201 Created"
+2026-06-03 10:32:18,696 INFO run_external_target run created: 64aecc0d-d677-4825-a9c6-0be4c9cc4c86
+2026-06-03 10:34:34,530 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/runs/64aecc0d-d677-4825-a9c6-0be4c9cc4c86/assessment-loop/iterate "HTTP/1.1 200 OK"
+2026-06-03 10:34:34,577 INFO httpx HTTP Request: GET http://127.0.0.1:8000/api/v1/runs/64aecc0d-d677-4825-a9c6-0be4c9cc4c86 "HTTP/1.1 200 OK"
+2026-06-03 10:44:41,689 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/runs/64aecc0d-d677-4825-a9c6-0be4c9cc4c86/assessment-loop/iterate "HTTP/1.1 200 OK"
+2026-06-03 10:44:41,749 INFO httpx HTTP Request: GET http://127.0.0.1:8000/api/v1/runs/64aecc0d-d677-4825-a9c6-0be4c9cc4c86 "HTTP/1.1 200 OK"
+2026-06-03 10:44:56,752 INFO run_external_target loop finished: status=running stop=None iters=2
+2026-06-03 10:44:57,024 INFO run_external_target FINDINGS by severity: (none)
