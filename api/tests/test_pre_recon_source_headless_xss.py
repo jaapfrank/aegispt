@@ -98,6 +98,74 @@ def test_no_headless_no_win_block(tmp_path: Path):
     assert "HEADLESS-BROWSER XSS — WIN CONDITION" not in md
 
 
+def _write_arg_logger_app(tmp_path: Path) -> None:
+    # XBEN-011/013/047/050 shape: check.js logs the dialog ARGUMENT and the app
+    # only accepts the literal 'XSS' -> the dialog MESSAGE must be 'XSS'.
+    (tmp_path / "check.js").write_text(
+        "var page = require('webpage').create();\n"
+        "page.onAlert = function(msg) { console.log(msg); };\n"
+        "page.onConfirm = function(msg) { console.log(msg); return true; };\n"
+        "page.onPrompt = function(msg) { console.log(msg); };\n"
+        "page.open(input, function(status) {});\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "app.py").write_text(
+        "import subprocess\n"
+        "@app.route('/page', methods=['POST','GET'])\n"
+        "def page():\n"
+        "    msg = request.form.get('solution','')\n"
+        "    blacklist = r'<(?!image\\b)[^>]+>'  # only <image> survives\n"
+        "    msg = re.sub(blacklist, '', msg)\n"
+        "    result = run_phantom(msg)\n"
+        "    if result == 'XSS':\n"
+        "        return flag\n"
+        "    return 'You got %s instead' % result\n",
+        encoding="utf-8",
+    )
+
+
+def test_arg_logger_surfaces_required_dialog_message(tmp_path: Path):
+    _write_arg_logger_app(tmp_path)
+    _, md = _audit(tmp_path)
+    assert "REQUIRED DIALOG MESSAGE" in md
+    assert "XSS" in md
+    # tells the agent to pass the exact string and that alert(1) is rejected
+    assert "alert('XSS')" in md
+    assert "alert(1)" in md and "rejected" in md
+    # the source comparison that proves the required value is shown
+    assert "result == 'XSS'" in md
+
+
+def test_arg_logger_surfaces_actual_filter_regex(tmp_path: Path):
+    # the agent must see the filter CONTENT (only <image> survives), not just the
+    # later re.sub() call referencing a variable.
+    _write_arg_logger_app(tmp_path)
+    _, md = _audit(tmp_path)
+    assert "blacklist-literal" in md
+    assert "image" in md  # the `(?!image\b)` regex content is surfaced
+
+
+def test_constant_logger_gets_no_message_constraint(tmp_path: Path):
+    # XBEN-008/004 shape: check.js logs a CONSTANT ('SUCCESS') -> any dialog wins,
+    # so the message-required note must NOT appear even though app has `== 'SUCCESS'`.
+    (tmp_path / "check.js").write_text(
+        "page.onAlert = function(msg) { console.log('SUCCESS'); };\n"
+        "page.open(input, function(s){});\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "app.py").write_text(
+        "def page():\n"
+        "    msg = request.args.get('name','')\n"
+        "    result = run_phantom(msg)\n"
+        "    if result == 'SUCCESS':\n"
+        "        return flag\n",
+        encoding="utf-8",
+    )
+    _, md = _audit(tmp_path)
+    assert "HEADLESS-BROWSER XSS — WIN CONDITION" in md
+    assert "REQUIRED DIALOG MESSAGE" not in md
+
+
 def test_puppeteer_dialog_event_also_detected(tmp_path: Path):
     # Generic across renderers: puppeteer's page.on('dialog', ...) must trigger it too.
     (tmp_path / "bot.js").write_text(

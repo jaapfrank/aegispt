@@ -167,7 +167,11 @@ HEADLESS_DIALOG_PATTERNS = [
 # no-prescriptive-recipes rule). XBEN-008 uses a token blacklist list-literal;
 # XBEN-047 a `re.sub` regex strip; others use escape()/strip_tags().
 INPUT_FILTER_PATTERNS = [
-    (re.compile(r"\b(?:black|block|deny|forbidden|banned|filtered|disallowed)[_a-z]*\s*=\s*[\[\(]", re.IGNORECASE), "blacklist-literal"),
+    # var named blacklist/blocklist/... assigned a list/tuple ([, () OR a string/
+    # regex literal (r'...', '...', "..."). The string form matters: XBEN-011's
+    # filter is `blacklist = r'<(?!image\b)[^>]+>'` (only <image> survives) — the
+    # agent needs the regex content itself, not just the later re.sub() call.
+    (re.compile(r"\b(?:black|block|deny|forbidden|banned|filtered|disallowed)[_a-z]*\s*=\s*[rbf]?[\[\('\"]", re.IGNORECASE), "blacklist-literal"),
     (re.compile(r"\bre\.sub\s*\("), "regex-substitution-filter"),
     (re.compile(r"\b(?:bleach\.clean|sanitize|sanitise|purify|clean_html)\s*\(", re.IGNORECASE), "html-sanitizer"),
     (re.compile(r"\b(?:cgi\.escape|html\.escape|htmlspecialchars|htmlentities|escapeHtml)\s*\(", re.IGNORECASE), "html-escape"),
@@ -182,6 +186,27 @@ REFLECTED_INPUT_PATTERNS = [
     (re.compile(r"""request\.(?:args|form|values)\.get\s*\(\s*[\"']([\w-]+)[\"']"""), "flask-request-param"),
     (re.compile(r"""\$_(?:GET|POST|REQUEST)\s*\[\s*[\"']([\w-]+)[\"']"""), "php-request-param"),
     (re.compile(r"""req\.(?:query|body|params)\.([\w]+)"""), "express-request-param"),
+]
+
+# Arg-logger signal: the headless checker logs the DIALOG'S ARGUMENT
+# (console.log(msg)) rather than a constant (console.log('SUCCESS')). In that
+# variant the app compares the dialog message to a required literal, so the
+# message MATTERS — alert('XSS') wins, alert(1) does not. 2026-06-03: XBEN-011
+# run bdaec040 fired alert(1) 11x and `alert('XSS')` 0x though it saw 7x "you got
+# X instead of the expected value" — it never deduced the expected literal. We
+# detect the arg-logging form and (below) the required literal, then surface both
+# (observation, like GATE_TOKEN; the agent still crafts the firing vector itself).
+HEADLESS_ARG_LOG_PATTERNS = [
+    # console.log(<bareIdentifier>) — logs a variable (the dialog message), NOT a
+    # quoted constant. Distinguishes arg-logger from constant-logger.
+    (re.compile(r"console\.log\s*\(\s*[A-Za-z_]\w*\s*\)"), "dialog-arg-logged"),
+]
+
+# The literal the app requires the headless OUTPUT (== the dialog message, in the
+# arg-logger variant) to equal. Matches both `result == 'XSS'` and `'XSS' == result`.
+REQUIRED_RESULT_VALUE_PATTERNS = [
+    (re.compile(r"""\b(?:result|output|res|outcome|stdout|stripped|value)\s*(?:\.\w+\([^)]*\))?\s*==\s*[\"']([^\"']{1,40})[\"']""", re.IGNORECASE), "result-eq-value"),
+    (re.compile(r"""[\"']([^\"']{1,40})[\"']\s*==\s*(?:result|output|res|outcome|stdout|stripped|value)\b""", re.IGNORECASE), "value-eq-result"),
 ]
 
 # Internal listen-port patterns. 2026-05-28: the SSRF self-fetch class needs
@@ -306,6 +331,8 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
         "headless_dialog": [],
         "input_filters": [],
         "reflected_inputs": [],
+        "headless_arg_log": [],
+        "required_result_values": [],
     }
     lines = text.splitlines()
     for lineno, line in enumerate(lines, 1):
@@ -352,6 +379,13 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
             m = pattern.search(line)
             if m:
                 hits["reflected_inputs"].append({"file": rel, "line": lineno, "kind": kind, "param": m.group(1), "snippet": line.strip()[:200]})
+        for pattern, kind in HEADLESS_ARG_LOG_PATTERNS:
+            if pattern.search(line):
+                hits["headless_arg_log"].append({"file": rel, "line": lineno, "kind": kind, "snippet": line.strip()[:200]})
+        for pattern, kind in REQUIRED_RESULT_VALUE_PATTERNS:
+            m = pattern.search(line)
+            if m:
+                hits["required_result_values"].append({"file": rel, "line": lineno, "kind": kind, "value": m.group(1), "snippet": line.strip()[:200]})
     return hits
 
 
@@ -369,12 +403,16 @@ def _build_markdown(
     headless_dialog: list[dict[str, Any]] | None = None,
     input_filters: list[dict[str, Any]] | None = None,
     reflected_inputs: list[dict[str, Any]] | None = None,
+    headless_arg_log: list[dict[str, Any]] | None = None,
+    required_result_values: list[dict[str, Any]] | None = None,
 ) -> str:
     listen_ports = listen_ports or []
     gate_tokens = gate_tokens or []
     headless_dialog = headless_dialog or []
     input_filters = input_filters or []
     reflected_inputs = reflected_inputs or []
+    headless_arg_log = headless_arg_log or []
+    required_result_values = required_result_values or []
     def _section(title: str, body: str) -> str:
         return f"## {title}\n\n{body.strip()}\n"
 
@@ -407,6 +445,25 @@ def _build_markdown(
         renderer = ("phantomjs" if "phantomjs-dialog-hook" in kinds else
                     "puppeteer/headless-chrome" if "puppeteer-dialog-event" in kinds else
                     "selenium" if "selenium-alert" in kinds else "a headless browser")
+        # Arg-logger variant: the checker logs the dialog's ARGUMENT and the app
+        # only accepts a specific literal — so the dialog MESSAGE must equal it
+        # (alert('XSS'), not alert(1)). Only surfaced when BOTH the arg-logging
+        # form AND a required literal were found, so the constant-logger variant
+        # (008/004 — any dialog wins) gets no misleading message constraint.
+        req_msg_note = ""
+        if headless_arg_log and required_result_values:
+            req_vals = sorted({str(v.get("value")) for v in required_result_values if v.get("value")})
+            if req_vals:
+                quoted = " or ".join(f"`{v}`" for v in req_vals)
+                req_msg_note = (
+                    "\n\n**=> REQUIRED DIALOG MESSAGE:** the checker logs the dialog's ARGUMENT "
+                    "(`console.log(msg)`) and the app accepts ONLY a specific literal — so the "
+                    f"message you pass to the dialog MUST equal exactly {quoted}. "
+                    f"Call `alert('{req_vals[0]}')` / `confirm('{req_vals[0]}')` / `prompt('{req_vals[0]}')` "
+                    "(the EXACT string) — `alert(1)` or any other message will be rejected "
+                    "(\"you got X instead of the expected value\"). Source comparison(s):\n\n"
+                    + _rows(required_result_values, "file", "line", "value", "snippet")
+                )
         win_body = (
             f"The target runs a HEADLESS BROWSER ({renderer}) over HTML that includes YOUR input "
             "and reports the result back IN-BAND. The checker hooks JavaScript DIALOG callbacks "
@@ -415,8 +472,9 @@ def _build_markdown(
             + "\n\n**=> SUCCESS fires ONLY when the rendered page opens a JavaScript DIALOG: "
               "`alert(...)`, `confirm(...)`, or `prompt(...)`.** Arbitrary JS that does NOT open a "
               "dialog (console.log, document.write, fetch/XHR, DOM mutation, image-onerror logging) "
-              "does NOT count — your payload MUST call alert()/confirm()/prompt().\n"
-            "**=> The FLAG is returned IN-BAND** in the same HTTP response when the dialog fires "
+              "does NOT count — your payload MUST call alert()/confirm()/prompt()."
+            + req_msg_note
+            + "\n**=> The FLAG is returned IN-BAND** in the same HTTP response when the dialog fires "
             "(look for `flag` / `Congratulations` / `Here is the flag` in the response body). "
             "No out-of-band callback or collaborator server is needed.\n\n"
             "Reflected user-input parameter(s) to inject into (source-grepped — submit your payload here; "
@@ -513,6 +571,8 @@ def execute_pre_recon_source(
     headless_dialog: list[dict[str, Any]] = []
     input_filters: list[dict[str, Any]] = []
     reflected_inputs: list[dict[str, Any]] = []
+    headless_arg_log: list[dict[str, Any]] = []
+    required_result_values: list[dict[str, Any]] = []
     hashes_prefix: list[str] = []
 
     for path in files:
@@ -526,6 +586,8 @@ def execute_pre_recon_source(
         headless_dialog.extend(hits.get("headless_dialog", []))
         input_filters.extend(hits.get("input_filters", []))
         reflected_inputs.extend(hits.get("reflected_inputs", []))
+        headless_arg_log.extend(hits.get("headless_arg_log", []))
+        required_result_values.extend(hits.get("required_result_values", []))
         try:
             with path.open("rb") as fh:
                 digest = hashlib.sha256(fh.read(FILE_READ_CAP_BYTES)).hexdigest()
@@ -546,6 +608,8 @@ def execute_pre_recon_source(
         headless_dialog=headless_dialog,
         input_filters=input_filters,
         reflected_inputs=reflected_inputs,
+        headless_arg_log=headless_arg_log,
+        required_result_values=required_result_values,
     )
 
     payload = {
