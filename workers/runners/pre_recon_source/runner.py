@@ -142,6 +142,48 @@ SINK_PATTERNS = [
     (re.compile(r"\bpreg_replace\s*\(\s*[\"'][^\"']*/[a-zA-Z]*e[a-zA-Z]*[\"']"), "php-preg-replace-e", "critical"),
 ]
 
+# Headless-renderer DIALOG handlers. When the server runs a headless browser
+# (phantomjs/puppeteer/selenium) over HTML that includes user input, the
+# SUCCESS signal for this whole challenge class is a JavaScript DIALOG firing
+# (alert/confirm/prompt) — the checker hooks these and reports success ONLY on a
+# dialog, NOT on arbitrary JS execution. console.log / document.write / fetch /
+# DOM changes do NOT count. We extract this from the checker's OWN dialog hooks
+# so the exploit agent stops burning its step budget on non-dialog payloads.
+# 2026-06-03: XBEN-008 run 19d29ec8 fired console.log 4× and `alert()` 0× → it
+# never tripped SUCCESS though it had a working reflection. The recon surfaced
+# the `headless-phantomjs` sink but never said "the win is a DIALOG". Generic:
+# it reads the checker's hooks, not a per-app payload recipe.
+HEADLESS_DIALOG_PATTERNS = [
+    (re.compile(r"\bon(?:Alert|Confirm|Prompt)\b"), "phantomjs-dialog-hook"),
+    (re.compile(r"\.on\(\s*['\"]dialog['\"]"), "puppeteer-dialog-event"),
+    (re.compile(r"switch_to\.alert|UnexpectedAlertPresent|Alert\([^)]*\)\.(?:accept|dismiss)"), "selenium-alert"),
+    (re.compile(r"\bwindow\.(?:alert|confirm|prompt)\s*="), "alert-override-hook"),
+]
+
+# Client-side input FILTERS the app applies before reflecting/rendering user
+# input — the blacklist/sanitizer the exploit must bypass. We surface the EXACT
+# filter source (NOT a bypass recipe) so the agent can reason about what is
+# blocked and discover an un-blocked vector itself (emergent discovery, per the
+# no-prescriptive-recipes rule). XBEN-008 uses a token blacklist list-literal;
+# XBEN-047 a `re.sub` regex strip; others use escape()/strip_tags().
+INPUT_FILTER_PATTERNS = [
+    (re.compile(r"\b(?:black|block|deny|forbidden|banned|filtered|disallowed)[_a-z]*\s*=\s*[\[\(]", re.IGNORECASE), "blacklist-literal"),
+    (re.compile(r"\bre\.sub\s*\("), "regex-substitution-filter"),
+    (re.compile(r"\b(?:bleach\.clean|sanitize|sanitise|purify|clean_html)\s*\(", re.IGNORECASE), "html-sanitizer"),
+    (re.compile(r"\b(?:cgi\.escape|html\.escape|htmlspecialchars|htmlentities|escapeHtml)\s*\(", re.IGNORECASE), "html-escape"),
+    (re.compile(r"\bstrip_tags\s*\("), "strip-tags"),
+    (re.compile(r"\bif\s+[\w.]+\s+in\s+[\w.]*(?:list|black|block|deny|banned|forbidden)\w*"), "blacklist-membership-check"),
+]
+
+# Reflected user-input reads — the injection point(s) for reflected XSS. Only
+# surfaced inside the headless-XSS win block (so no global noise), to tell the
+# agent WHICH parameter to inject into.
+REFLECTED_INPUT_PATTERNS = [
+    (re.compile(r"""request\.(?:args|form|values)\.get\s*\(\s*[\"']([\w-]+)[\"']"""), "flask-request-param"),
+    (re.compile(r"""\$_(?:GET|POST|REQUEST)\s*\[\s*[\"']([\w-]+)[\"']"""), "php-request-param"),
+    (re.compile(r"""req\.(?:query|body|params)\.([\w]+)"""), "express-request-param"),
+]
+
 # Internal listen-port patterns. 2026-05-28: the SSRF self-fetch class needs
 # the port the service listens on INSIDE its container — which differs from
 # the externally-published port (lab listens on :8080, published as :8088).
@@ -261,6 +303,9 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
         "creds": [],
         "listen_ports": [],
         "gate_tokens": [],
+        "headless_dialog": [],
+        "input_filters": [],
+        "reflected_inputs": [],
     }
     lines = text.splitlines()
     for lineno, line in enumerate(lines, 1):
@@ -297,6 +342,16 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
                     "cred_or_value": (m.group(2) if m.lastindex and m.lastindex >= 2 else None),
                     "snippet": line.strip()[:200],
                 })
+        for pattern, kind in HEADLESS_DIALOG_PATTERNS:
+            if pattern.search(line):
+                hits["headless_dialog"].append({"file": rel, "line": lineno, "kind": kind, "snippet": line.strip()[:200]})
+        for pattern, kind in INPUT_FILTER_PATTERNS:
+            if pattern.search(line):
+                hits["input_filters"].append({"file": rel, "line": lineno, "kind": kind, "snippet": line.strip()[:200]})
+        for pattern, kind in REFLECTED_INPUT_PATTERNS:
+            m = pattern.search(line)
+            if m:
+                hits["reflected_inputs"].append({"file": rel, "line": lineno, "kind": kind, "param": m.group(1), "snippet": line.strip()[:200]})
     return hits
 
 
@@ -311,9 +366,15 @@ def _build_markdown(
     creds: list[dict[str, Any]],
     listen_ports: list[dict[str, Any]] | None = None,
     gate_tokens: list[dict[str, Any]] | None = None,
+    headless_dialog: list[dict[str, Any]] | None = None,
+    input_filters: list[dict[str, Any]] | None = None,
+    reflected_inputs: list[dict[str, Any]] | None = None,
 ) -> str:
     listen_ports = listen_ports or []
     gate_tokens = gate_tokens or []
+    headless_dialog = headless_dialog or []
+    input_filters = input_filters or []
+    reflected_inputs = reflected_inputs or []
     def _section(title: str, body: str) -> str:
         return f"## {title}\n\n{body.strip()}\n"
 
@@ -336,9 +397,42 @@ def _build_markdown(
             rows.append(f"| _… {len(items) - 60} more truncated_ |")
         return "\n".join(rows)
 
+    # Headless-browser XSS WIN CONDITION (highest-leverage when present): the
+    # whole phantomjs/puppeteer challenge cluster (~30 XBEN) is unsolvable until
+    # the agent knows success = firing a JS DIALOG, not arbitrary JS. Emit ONLY
+    # when the checker's dialog hooks were actually found, and place it first.
+    win_body = ""
+    if headless_dialog:
+        kinds = {d.get("kind") for d in headless_dialog}
+        renderer = ("phantomjs" if "phantomjs-dialog-hook" in kinds else
+                    "puppeteer/headless-chrome" if "puppeteer-dialog-event" in kinds else
+                    "selenium" if "selenium-alert" in kinds else "a headless browser")
+        win_body = (
+            f"The target runs a HEADLESS BROWSER ({renderer}) over HTML that includes YOUR input "
+            "and reports the result back IN-BAND. The checker hooks JavaScript DIALOG callbacks "
+            "(found in source below):\n\n"
+            + _rows(headless_dialog, "file", "line", "kind", "snippet")
+            + "\n\n**=> SUCCESS fires ONLY when the rendered page opens a JavaScript DIALOG: "
+              "`alert(...)`, `confirm(...)`, or `prompt(...)`.** Arbitrary JS that does NOT open a "
+              "dialog (console.log, document.write, fetch/XHR, DOM mutation, image-onerror logging) "
+              "does NOT count — your payload MUST call alert()/confirm()/prompt().\n"
+            "**=> The FLAG is returned IN-BAND** in the same HTTP response when the dialog fires "
+            "(look for `flag` / `Congratulations` / `Here is the flag` in the response body). "
+            "No out-of-band callback or collaborator server is needed.\n\n"
+            "Reflected user-input parameter(s) to inject into (source-grepped — submit your payload here; "
+            "the app renders it in the headless browser automatically and returns the result):\n\n"
+            + _rows(reflected_inputs or [{"note": "none auto-detected — inspect the route inventory below"}],
+                    "file", "line", "kind", "param", "snippet")
+            + "\n\nClient-side input FILTER you must bypass (verbatim from source — reproduce it exactly, "
+              "then find an un-blocked vector that STILL fires a dialog; do not assume a specific bypass):\n\n"
+            + _rows(input_filters or [{"note": "no explicit filter detected — a plain dialog payload may already work"}],
+                    "file", "line", "kind", "snippet")
+        )
+
     body = (
         "# Pre-Recon Source Audit\n\n"
         + _section("Executive Summary", summary)
+        + (_section("HEADLESS-BROWSER XSS — WIN CONDITION (read FIRST)", win_body) if win_body else "")
         + _section("Provenance", "\n".join(f"- `{h}`" for h in hashes_sha256_prefix[:10]) or "_(no files)_")
         + _section(
             "Service Internal Listen Port(s) — for container-internal / SSRF self-fetch targeting",
@@ -416,6 +510,9 @@ def execute_pre_recon_source(
     creds: list[dict[str, Any]] = []
     listen_ports: list[dict[str, Any]] = []
     gate_tokens: list[dict[str, Any]] = []
+    headless_dialog: list[dict[str, Any]] = []
+    input_filters: list[dict[str, Any]] = []
+    reflected_inputs: list[dict[str, Any]] = []
     hashes_prefix: list[str] = []
 
     for path in files:
@@ -426,6 +523,9 @@ def execute_pre_recon_source(
         creds.extend(hits.get("creds", []))
         listen_ports.extend(hits.get("listen_ports", []))
         gate_tokens.extend(hits.get("gate_tokens", []))
+        headless_dialog.extend(hits.get("headless_dialog", []))
+        input_filters.extend(hits.get("input_filters", []))
+        reflected_inputs.extend(hits.get("reflected_inputs", []))
         try:
             with path.open("rb") as fh:
                 digest = hashlib.sha256(fh.read(FILE_READ_CAP_BYTES)).hexdigest()
@@ -443,6 +543,9 @@ def execute_pre_recon_source(
         creds=creds,
         listen_ports=listen_ports,
         gate_tokens=gate_tokens,
+        headless_dialog=headless_dialog,
+        input_filters=input_filters,
+        reflected_inputs=reflected_inputs,
     )
 
     payload = {
@@ -454,6 +557,7 @@ def execute_pre_recon_source(
         "auth_count": len(auth),
         "cred_count": len(creds),
         "critical_sinks": sum(1 for s in sinks if s.get("severity_hint") == "critical"),
+        "headless_dialog_count": len(headless_dialog),
     }
 
     artifact = EvidenceArtifact(
