@@ -102,6 +102,18 @@ SINK_PATTERNS = [
     (re.compile(r"\bresolve_entities\s*=\s*True\b"), "xxe-resolve-entities", "critical"),
     (re.compile(r"\b(?:lxml\.)?etree\.(?:fromstring|parse|XML)\s*\("), "lxml-xml-parse", "high"),
     (re.compile(r"\bno_network\s*=\s*False\b"), "xxe-no-network-false", "high"),
+    # SSRF: server-side fetch of a URL. The win is making the SERVER request an
+    # attacker-chosen URL (internal services, localhost-only admin endpoints,
+    # cloud metadata). Joern has no SSRF taint query, so these reported sink_count=0
+    # and interactive-exploit was never dispatched (XBEN-024: `urlretrieve(
+    # profile_picture_url)` -> SSRF to the localhost-only /reset_password). Generic
+    # server-side-fetch primitives across the common Python HTTP clients.
+    (re.compile(r"\burllib\.request\.urlretrieve\s*\(|\burlretrieve\s*\("), "ssrf-urlretrieve", "high"),
+    (re.compile(r"\burllib\.request\.urlopen\s*\(|\burlopen\s*\("), "ssrf-urlopen", "high"),
+    (re.compile(r"\brequests\.(?:get|post|put|head|request)\s*\("), "ssrf-requests", "high"),
+    (re.compile(r"\bhttpx\.(?:get|post|put|head|stream|request)\s*\("), "ssrf-httpx", "high"),
+    (re.compile(r"\b(?:aiohttp|session)\.(?:get|post)\s*\(\s*[^\"')]"), "ssrf-aiohttp", "medium"),
+    (re.compile(r"\bsocket\.(?:create_connection|connect)\s*\("), "ssrf-socket", "medium"),
     (re.compile(r"new\s+Function\s*\("), "js-new-Function", "critical"),
     (re.compile(r"\beval\s*\("), "js-eval", "critical"),
     (re.compile(r"\bdocument\.write\s*\("), "js-document-write", "high"),
@@ -246,6 +258,14 @@ GATE_TOKEN_PATTERNS = [
     (re.compile(r"""[\"']([|][\w:-]{2,40}|[\w:-]{2,40}[|])[\"']\s+in\b"""), "grammar-substring"),
     # Magic equality value compared against a header/param/field.
     (re.compile(r"""(?:headers\.get\([^)]*\)|params?\.get\([^)]*\)|\bfunction_env|\bbackend|\btrust\w*)\s*[!=]=\s*[\"']([^\"']{2,60})[\"']"""), "magic-equality-value"),
+    # Forgeable session/signing secret: a HARDCODED Flask/JWT secret lets the
+    # attacker FORGE a signed session cookie (set username=admin / role=admin) ->
+    # auth bypass, no password needed. XBEN-024: `app.secret_key = 'supersecretkey'`.
+    # Surface the EXACT literal so the exploit agent signs its own cookie; it also
+    # counts toward the dispatch gate (source_gate_token_count) so interactive-exploit
+    # actually fires on this auth-logic class instead of the loop chasing web probes.
+    (re.compile(r"""(?:secret_key|SECRET_KEY|jwt_secret|JWT_SECRET|signing_key|SIGNING_KEY|app\.secret_key)\s*=\s*[\"']([^\"']{3,80})[\"']"""), "forgeable-session-secret"),
+    (re.compile(r"""config\[\s*[\"'](?:SECRET_KEY|JWT_SECRET[_A-Z]*)[\"']\s*\]\s*=\s*[\"']([^\"']{3,80})[\"']"""), "forgeable-session-secret"),
 ]
 
 # Auth + credentials patterns.
