@@ -138,6 +138,59 @@ def _probe_target(base_url: str, timeout: float) -> dict[str, Any]:
     return context
 
 
+# Common application web ports to probe BEFORE concluding "port unknown -> full
+# nmap". Operator (2026-06-03): nmap is NOT useless — other open ports can host
+# vulns too — but it must run AFTER the standard web recon, not block it. So when
+# the default-port (:80) probe fails on a port-LESS target, cheaply sweep these
+# common ports; if one serves, proceed with web recon THERE and schedule nmap as a
+# LOW-priority follow-up (other-port discovery) instead of a blocking priority-1 scan.
+_COMMON_WEB_PORTS = [5000, 8080, 8000, 3000, 8888, 8443, 9000, 5001, 4000, 8081]
+
+
+def _sweep_common_web_ports(base_url: str, timeout: float) -> str | None:
+    """Return the first ``http(s)://host:port`` that answers (<500), else None.
+    Bounded + fast (short per-port timeout) so it never replaces nmap's job for a
+    truly-unknown port — it only catches the common app ports the harness already
+    serves on (e.g. :5000) that a bare :80 probe misses."""
+    parsed = urlparse(base_url)
+    host = parsed.hostname
+    if not host or parsed.port is not None:
+        return None
+    scheme = parsed.scheme or "http"
+    per_port = min(max(timeout, 1.0), 2.0)
+    try:
+        with httpx_client.Client(
+            follow_redirects=True, timeout=per_port, verify=False,
+            headers={"User-Agent": "Mozilla/5.0 (Security Assessment; contact security@aegispt.io)"},
+        ) as client:
+            for port in _COMMON_WEB_PORTS:
+                url = f"{scheme}://{host}:{port}"
+                try:
+                    r = client.get(url)
+                except httpx_client.HTTPError:
+                    continue
+                if r.status_code < 500:
+                    return url
+    except Exception:  # noqa: BLE001 — sweep is best-effort; fall back to nmap
+        return None
+    return None
+
+
+def _deferred_nmap_step(host: str) -> dict[str, Any]:
+    """Low-priority nmap step (operator: scan OTHER ports, but only AFTER web recon)."""
+    return {
+        "priority": 9,
+        "tool": "nmap",
+        "reason": (
+            "A web service was found on the discovered port; scan the rest of the host "
+            "for OTHER open ports/services AFTER the standard web recon — they may host "
+            "additional vulnerabilities. This is a follow-up, not a blocker."
+        ),
+        "params": {"target": host, "ports": "1-65535", "service_detection": True},
+        "expected_finding": "Additional open ports/services beyond the primary web app.",
+    }
+
+
 def _call_claude(context: dict[str, Any], target_url: str) -> dict[str, Any]:
     """Call Claude Sonnet to analyze the target and generate a test plan."""
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
@@ -392,9 +445,26 @@ def execute_target_intel(
     # Step 1: probe the target
     context = _probe_target(base_target, min(timeout_seconds, 15.0))
 
-    # Step 2: readiness gate — if the port is unknown (no explicit port + no
-    # response), emit a deterministic port-discovery-first plan instead of an
-    # LLM webapp hallucination. Otherwise run the normal Claude analysis.
+    # Step 1b (2026-06-03, operator: "nmap is fine, but AFTER the standard web
+    # recon, not as a blocking first step"): a port-LESS target whose :80 probe got
+    # no response is NOT automatically "port unknown -> full nmap". First cheaply
+    # sweep common app ports; if one serves (e.g. :5000), proceed with web recon
+    # THERE and demote nmap to a low-priority OTHER-port follow-up.
+    discovered_port_url = None
+    if urlparse(base_target).port is None and context.get("status") is None:
+        discovered_port_url = _sweep_common_web_ports(base_target, timeout_seconds)
+        if discovered_port_url:
+            logger.info(
+                "target-intel: :80 probe failed but common-web-port sweep found %s — "
+                "proceeding with web recon there; nmap deferred to a later other-port step",
+                discovered_port_url,
+            )
+            base_target = discovered_port_url
+            context = _probe_target(discovered_port_url, min(timeout_seconds, 15.0))
+
+    # Step 2: readiness gate — if the port is STILL unknown (no explicit port + no
+    # response + sweep found nothing), emit the deterministic port-discovery-first
+    # plan (nmap priority 1). Otherwise run the normal Claude analysis.
     analysis = _port_discovery_required_analysis(base_target, context)
     if analysis is not None:
         logger.info(
@@ -406,6 +476,15 @@ def execute_target_intel(
         if not analysis:
             logger.info("target-intel: using heuristic fallback (no API key or Claude error)")
             analysis = _fallback_analysis(context)
+        # operator nuance: nmap stays valuable for OTHER ports, but only AFTER the
+        # standard web recon — append it as a low-priority follow-up when we reached
+        # the web app via the common-port sweep (so other ports are still unknown).
+        if discovered_port_url and isinstance(analysis, dict):
+            tp = analysis.setdefault("test_plan", [])
+            if isinstance(tp, list) and not any(
+                isinstance(s, dict) and str(s.get("tool")) == "nmap" for s in tp
+            ):
+                tp.append(_deferred_nmap_step(urlparse(base_target).hostname or base_target))
 
     # Step 3: format result
     result = {
@@ -434,8 +513,6 @@ def execute_target_intel(
     # The host itself becomes an asset; discovered extra_paths become apis.
     observations: list[dict[str, Any]] = []
     try:
-        from urllib.parse import urlparse
-
         from api.app.services.evidence_ingest import make_observation
 
         host = urlparse(base_target).hostname or base_target
