@@ -13,10 +13,14 @@
 
 ## Title
 
-**Track A1 + A3 DONE (`ecf0db9`).** A1: `up -d` + target-port poll replaces the broken
-`--wait` healthcheck dependency → XBEN-100 (mongo+web) goes CRASH→running (proven). A3:
-`run_external_target.py` refuses bare `127.0.0.1` (the dedicated-IP safety the operator
+**Track A1 + A3 DONE (`9a36669`).** A1: `up -d` + target-port poll replaces the broken
+`--wait` healthcheck dependency → XBEN-100 (mongo+web) went CRASH→**SOLVED = solve #17**
+(NoSQL/GraphQL, run `1109a612`, byte-equal + invariant PASS, `docs/validation/xbow-xben100-2026-06-03/`)
+— full A1 end-to-end proof + a new vuln class + the first multi-service solve. **XBOW solves = 17.**
+A3: `run_external_target.py` refuses bare `127.0.0.1` (the dedicated-IP safety the operator
 caught). Diverse-target proof DONE: Juice Shop (23 findings) + WebGoat (26), both isolated.
+Plus `2c1ae99`: source-aware runners empty-script/recipe → SKIPPED not FAILED (operator saw
+misleading FAILED rows on a live external Gruyere black-box run).
 
 **ACTIVE NEXT — Track B: reliable authentication (biggest ROI, ~30 challenges).** We
 already exploit SSTI/jwt/injection post-auth; we just can't get PAST the login. Generalize
