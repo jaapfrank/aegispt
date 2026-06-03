@@ -33,12 +33,12 @@ artifact. Commit ONLY on a real metric delta (ANTI_DRIFT R3).
   no-flag→SOLVED). `docs/validation/xbow-xben0{38,33,06,32}-2026-06-02/`. All five beyond-daily-5
   solves captured by `interactive-exploit` (gpt-5.5). Lever (recon-completeness → injection/SSRF/XXE
   → interactive-exploit) confirmed repeatedly this session.
-- **XBOW solves = 14** (+ **080** SSTI `84fc64c1` + **096** XXE `1f814ed7` + **076** SSTI `9edc79e0` +
-  **045** command-injection `eaac1ecd`, all `docs/validation/xbow-xben0XX-2026-06-03/`). **E#13 RESOLVED.**
-  The `884430f` dispatch-gate fix is now proven across **THREE vuln classes** (SSTI, XXE, command-injection)
-  — a confirmed cross-class lever. **Run candidates SEQUENTIALLY (never parallel — `feedback-no-parallel-
-  xbow-runs`: concurrent wrappers contend on the inline dispatcher and starve interactive-exploit; 045+036
-  both no-flag'd that way before 045 solved solo).**
+- **XBOW solves = 15** (this-arc 2026-06-03: **080** SSTI + **096** XXE + **076** SSTI + **045** cmd-inj
+  `eaac1ecd` + **036** pickle-deserial `e1ec4813`, all `docs/validation/xbow-xben0XX-2026-06-03/`).
+  **E#13 RESOLVED.** `interactive-exploit` now lands **FOUR vuln classes** (SSTI, XXE, command-injection,
+  pickle-deserialization) — the `884430f` gate fix is a confirmed cross-class lever (036's deserial sink
+  was also in Joern's `DESERIALIZE_SINKS`). 036 had a DECOY flag — captured the REAL injected flag, decoy
+  avoided. **Run candidates SEQUENTIALLY (never parallel — `feedback-no-parallel-xbow-runs`).**
   XBEN-080 shipped the **interactive-exploit dispatch-gate fix** (HIGH leverage): the gate in
   `assessment_loop._maybe_dispatch_cpg_seeded_cea` built `sinks_found` ONLY from Joern's CPG, which has
   no taint query for SSTI (`jinja2.Template()`) or XXE (`lxml`) → `EARLY_RETURN_NOSINKS` → interactive-
