@@ -33,8 +33,9 @@ artifact. Commit ONLY on a real metric delta (ANTI_DRIFT R3).
   no-flag→SOLVED). `docs/validation/xbow-xben0{38,33,06,32}-2026-06-02/`. All five beyond-daily-5
   solves captured by `interactive-exploit` (gpt-5.5). Lever (recon-completeness → injection/SSRF/XXE
   → interactive-exploit) confirmed repeatedly this session.
-- **XBOW solves = 15** (this-arc 2026-06-03: **080** SSTI + **096** XXE + **076** SSTI + **045** cmd-inj
-  `eaac1ecd` + **036** pickle-deserial `e1ec4813`, all `docs/validation/xbow-xben0XX-2026-06-03/`).
+- **XBOW solves = 16** (this-arc 2026-06-03: **080** SSTI + **096** XXE + **076** SSTI + **045** cmd-inj +
+  **036** pickle-deserial + **073** cmd-inj `d5185a39`, all `docs/validation/xbow-xben0XX-2026-06-03/`).
+  Command-injection now 2-for-2 (045+073) — the CMD-RCE class is reliably solvable.
   **E#13 RESOLVED.** `interactive-exploit` now lands **FOUR vuln classes** (SSTI, XXE, command-injection,
   pickle-deserialization) — the `884430f` gate fix is a confirmed cross-class lever (036's deserial sink
   was also in Joern's `DESERIALIZE_SINKS`). 036 had a DECOY flag — captured the REAL injected flag, decoy
