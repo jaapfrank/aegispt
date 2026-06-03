@@ -40,3 +40,34 @@ running ("single web app on a known port -> skip nmap, go to source + content-di
   (nmap-0-hosts, redundant CPG) and idle time? Before/after on a mixed challenge set.
 - This subsumes R1 (adaptive CPG) and R4 (skip nmap): both become emergent properties
   of the AI owning the decision, not new hardcoded branches.
+
+## Ordered task backlog (captured 2026-06-03)
+
+### T-AI1 — AI-elective recon  [BUILDING NOW]
+Replace the hardcoded `_goal_tool_sequence` first-tool rule with an AI recon planner:
+given the target envelope (single web URL w/ known port vs IP/CIDR vs unknown) +
+whether source is available + the available tool menu, the model chooses the recon
+SET and ORDER, and may SKIP tools that add nothing (nmap on a known web port). The
+hardcoded sequence stays ONLY as a deterministic fallback when the model declines or
+errors. Subsumes R1 (adaptive CPG) + R4 (skip nmap).
+- Files: new `api/app/services/recon_planner.py`; wire into the `_goal_tool_sequence`
+  callers / seed path in `assessment_loop.py`.
+- Acceptance: (1) unit — planner given a known-web-URL envelope omits nmap, keeps
+  content-discovery/source; given an IP/CIDR keeps nmap; fallback used on LLM failure.
+  (2) live before/after — a web-target run dispatches NO nmap and still solves; a
+  CIDR/IP run still runs nmap. Solve-rate unchanged on a ≥4 mixed set.
+
+### T-AI2 — AI owns the FULL tool flow (not just recon)
+Extend T-AI1 so the picker owns every step; `_goal_tool_sequence` / `_seed_candidate`
+fixed lists become pure fallback. The model drives recon→exploit→pivot end to end.
+
+### Then (ordered)
+- R5 — terminate promptly on a miss (stop idling out the budget; the recurring
+  "nothing running in the UI"). [adaptive-recon-and-ux doc]
+- R3 — stream interactive-exploit reasoning live (engine emit + codex UI), so the
+  "(waiting for stdout)" gap shows the model thinking.
+- R2 — nmap per-host dedup (cleanup; mostly moot once T-AI1 lands).
+- Serial-dispatcher latency — let independent tasks run concurrently safely (the
+  deeper cause of queue wait); needs care re: the no-parallel-runs contention.
+- Headless-XSS breadth — finish the untested cluster (062/064/065/070/074/087 + the
+  remaining ~17 fire-dialog challenges) once the loop is faster + leaner.
