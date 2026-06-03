@@ -82,6 +82,28 @@ fires. Acceptance: when the 1st exploit solves, exploit-count=1 (no wasted 2nd);
 when it misses, a 2nd attempt still fires; cluster solve-rate unchanged on a ≥4
 before/after re-run.
 
+## R4 — Skip nmap for known single-service web URLs  [engine, adaptive]
+
+Operator (2026-06-03): "nmap on a known IP is weird — you already know the IP, why
+scan it?" Correct: nmap is port/service DISCOVERY, but for the XBEN single-service
+web challenges we already know IP + port + that it's HTTP (`http://127.0.0.X:5000`).
+nmap was already flagged running with **0 hosts** in nearly every solved run (see
+memory feedback_audit_toolcall_quality) — pure blind overhead on the critical path.
+Adaptive rule: when targets are a single resolved http(s) URL with a known port,
+SKIP nmap (rely on httpx/content-discovery/target-intel). Run nmap only for IP /
+CIDR / unknown-port / multi-service scopes. Same "smart system" principle as R1.
+
+## R5 — Terminate promptly on a miss (don't idle out the budget)  [engine]
+
+A miss reaches "decision point — 100% checked — IDLE" with no productive action
+left (recon done, exploit retry-cap reached, other tools tried) but does NOT
+terminate — the wrapper polls until wait-seconds (~1000s) expires, then records the
+miss. Operator repeatedly sees "nothing running in the UI" during this idle burn
+(XBEN-062 idle ~5 min and counting; old XBEN-010 miss = 1344s). Pre-existing, not
+the dispatch fix. Fix: when the loop has no dispatchable action AND no new signal
+for N iterations, finalize the run (stop_reason=exhausted) instead of idling.
+Acceptance: a miss finalizes within ~1 iterate of running out of actions.
+
 ## R2 — nmap per-host dedup  [engine]
 
 `planned_targets_for_tool(..., derive_url_hosts_for_nmap=True)`
