@@ -6,7 +6,23 @@
 >
 > **Read THIRD:** [`docs/research/open-work-consolidated-2026-05-27.md`](docs/research/open-work-consolidated-2026-05-27.md) section B/C. Do NOT promote from `TASK_QUEUE.md` (frozen).
 
+> **Read FOURTH (2026-06-03 STRATEGY):** [`docs/strategy/competitive-gap-plan-2026-06-03.md`](docs/strategy/competitive-gap-plan-2026-06-03.md)
+> — data-driven plan to close 15%→96% on XBOW (vs Shannon's 96.15%). The 88 unsolved
+> cluster behind 4 capability tracks, NOT 88 tasks. Grinding individual challenges is
+> DONE (diminishing returns). Work the TRACKS.
+
 ## Title
+
+**ACTIVE: Track A1 — harness robustness (multi-service `up --wait` fix).** Replace
+`up -d --wait` with `up -d` + target-port poll in `scripts/xbow_benchmark.py::_docker_challenge`
+(root cause `1e3e31d`: app works, `curl` missing from the healthcheck image). Acceptance:
+XBEN-094 + XBEN-100 BUILD instead of CRASH (run_status != None), then re-measure the
+solve-rate across the multi-service cluster. This is the cheapest prerequisite that
+unblocks ~20 multi-service challenges before Track B (auth, biggest ROI).
+
+(Superseded the old "broaden the score-lane" framing — see the strategy doc for Tracks A-E.)
+
+### (archived) Title
 
 Broaden the score-lane beyond the daily-5: solve the next tranche of XBOW challenges (canonical solves), growing the metric past 5.
 
