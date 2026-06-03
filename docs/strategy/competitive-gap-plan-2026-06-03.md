@@ -24,7 +24,57 @@ the vuln (auth, multi-service startup, headless callback) and to handle logic/ot
 | **other-stack / framework-CVE** (PHP CMS 044, Java/JSP 035, non-web) | ~6 | broader sink coverage + non-Python/PHP stacks |
 | **multi-service (crosscuts the above)** | ~20 | CRASH at `up --wait` (broken curl healthcheck) — can't even RUN |
 
-## The plan — 4 capability tracks, ROI-ordered
+## TOP PRIORITY (operator-set 2026-06-03): CLOSE THE RECON→ACTION LOOP
+
+**The single most important gap, proven on a live target — the system is recon-HEAVY,
+action-LIGHT. It DISCOVERS but does not ACT.** Two operator observations, one root cause,
+hard-confirmed on the Google Gruyere run (`15357dd6`):
+
+1. **Discovered endpoints are not attacked.** content-discovery found **20 endpoints / 18
+   distinct paths** — including `/admin` (the admin panel), `/upload.gtl` (file upload →
+   potential RCE), `/saveprofile` (the stored-XSS sink), `/saveacct`, `/editprofile.gtl`.
+   They were emitted as passive "Hidden Endpoint Discovered" findings and **dropped** — the
+   agent never probed `/admin` for access-control bypass, `/upload.gtl` for unrestricted
+   upload, etc. Discovered surface MUST feed back as TARGETS the loop systematically attacks.
+2. **Found vuln-chains are not exploited to impact.** The agent found the EXACT admin-takeover
+   chain — `Stored XSS via Profile Homepage Field` + `Session Cookie Theft via XSS` (both
+   critical) — but **ALL 29 findings are `unvalidated`**: it stopped at "detected" and **never
+   gained admin access**. Operator: "hij had gewoon admin access moeten vergaren."
+
+A findings list without proven impact is a scanner, not a pentester. The competition (XBOW
+etc.) CHAINS discovery → action → impact (flag / admin / account-takeover); we stop at
+"detected". This is where our strength MUST be.
+
+### Track 0 (NOW #1) — recon→action loop closure
+- **0A Discovered-surface feedback:** every content-discovery endpoint, parameter, form,
+  and gate-token becomes a first-class TARGET the picker iterates over — per-endpoint probe
+  matrix (auth/access-control, injection, IDOR, upload, redirect, SSRF), not a passive finding.
+- **0B Exhaustive follow-through:** the loop does not terminate while undr-tested discovered
+  under-tested discovered surface remains; "Hidden Endpoint Discovered" is a TODO, not a deliverable.
+- **0C Chain-to-impact (was Track C):** OOB-callback + victim-simulation to COMPLETE chains
+  to `EXPLOITED` (admin session / account-takeover / flag) — see Track C* below.
+- **Discipline rule:** never stop at `unvalidated` findings; push every chainable finding to
+  `EXPLOITED`. Acceptance: re-run Gruyere → a `validation_status=exploited` admin-session
+  finding + evidence each discovered endpoint was actively tested.
+
+**This is the same capability as Track C** (the 23 phantomjs XBOW challenges): the win
+requires a VICTIM (admin/bot) to render the attacker payload + an OUT-OF-BAND capture of
+the result. So Track C is promoted to **#1** and reframed:
+
+### Track C* (NOW #1) — chain-to-impact: OOB-callback + victim-simulation
+- **C1** An in-scope attacker callback/collaborator server the agent controls (receives the
+  exfil: stolen cookie, SSRF/blind-injection beacon, OOB DNS/HTTP).
+- **C2** Victim-simulation: trigger the admin/bot to render the stored/reflected XSS (or the
+  app's own headless renderer — phantomjs/puppeteer) so the payload fires in the victim
+  session → exfil the admin cookie to C1 → REPLAY it to obtain an authenticated admin session.
+- **C3** A `headless-exploit` / `chain-to-takeover` runner: the win condition is the
+  EXPLOITED outcome (admin session / flag), NOT a detected hypothesis.
+- **Discipline rule:** do not stop at `unvalidated` findings — push every chainable finding
+  to `EXPLOITED` (admin/account-takeover/flag). Re-run Gruyere with objective "gain admin
+  access" once C1-C3 exist; acceptance = a `validation_status=exploited` admin-session finding.
+- **Acceptance (XBOW):** ≥3 phantomjs solves (004/008/011/047). Same mechanism.
+
+## The plan — supporting tracks, ROI-ordered
 
 ### Track A — Harness robustness (PREREQUISITE, cheap, do first)
 Without this, ~20 multi-service challenges CRASH before the agent runs.
