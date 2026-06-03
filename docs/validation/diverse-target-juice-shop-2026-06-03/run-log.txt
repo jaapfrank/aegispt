@@ -1,0 +1,26 @@
+2026-06-03 10:13:12,819 INFO run_external_target external assessment: target=http://127.0.0.200:3000 scope_hosts=['127.0.0.200']
+2026-06-03 10:13:12,924 INFO httpx HTTP Request: GET http://127.0.0.200:3000/ "HTTP/1.1 200 OK"
+2026-06-03 10:13:12,954 INFO httpx HTTP Request: GET http://127.0.0.200:3000/ "HTTP/1.1 200 OK"
+2026-06-03 10:13:12,985 INFO httpx HTTP Request: GET http://127.0.0.200:3000/ "HTTP/1.1 200 OK"
+2026-06-03 10:13:13,011 INFO httpx HTTP Request: GET http://127.0.0.200:3000/ "HTTP/1.1 200 OK"
+2026-06-03 10:13:13,011 INFO run_external_target preflight: host_header=127.0.0.200 first_status=200
+2026-06-03 10:13:13,053 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/engagements "HTTP/1.1 201 Created"
+2026-06-03 10:13:13,073 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/engagements/f8c3df21-0871-48e9-8666-fe93e2b7a17f/scope "HTTP/1.1 201 Created"
+2026-06-03 10:13:13,136 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/engagements/f8c3df21-0871-48e9-8666-fe93e2b7a17f/runs "HTTP/1.1 201 Created"
+2026-06-03 10:13:13,141 INFO run_external_target run created: 36c85811-afeb-4932-bf9b-b72a15a82975
+2026-06-03 10:24:52,253 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/runs/36c85811-afeb-4932-bf9b-b72a15a82975/assessment-loop/iterate "HTTP/1.1 200 OK"
+2026-06-03 10:24:52,291 INFO httpx HTTP Request: GET http://127.0.0.1:8000/api/v1/runs/36c85811-afeb-4932-bf9b-b72a15a82975 "HTTP/1.1 200 OK"
+2026-06-03 10:29:27,849 INFO httpx HTTP Request: POST http://127.0.0.1:8000/api/v1/runs/36c85811-afeb-4932-bf9b-b72a15a82975/assessment-loop/iterate "HTTP/1.1 200 OK"
+2026-06-03 10:29:27,898 INFO httpx HTTP Request: GET http://127.0.0.1:8000/api/v1/runs/36c85811-afeb-4932-bf9b-b72a15a82975 "HTTP/1.1 200 OK"
+2026-06-03 10:29:42,899 INFO run_external_target loop finished: status=running stop=None iters=2
+2026-06-03 10:29:43,308 INFO run_external_target FINDINGS by severity: {'critical': 2, 'high': 2, 'info': 13, 'medium': 6}
+2026-06-03 10:29:43,315 INFO run_external_target   [medium] Hidden Endpoint Discovered
+2026-06-03 10:29:43,315 INFO run_external_target   [medium] Hidden Endpoint Discovered
+2026-06-03 10:29:43,315 INFO run_external_target   [medium] Hidden Endpoint Discovered
+2026-06-03 10:29:43,315 INFO run_external_target   [high] Reflected XSS via URL Path Component
+2026-06-03 10:29:43,315 INFO run_external_target   [critical] Vulnerability: SQLi - Product Search UNION Data Extraction
+2026-06-03 10:29:43,315 INFO run_external_target   [critical] Vulnerability: SQL Injection - Admin Login Bypass
+2026-06-03 10:29:43,315 INFO run_external_target   [high] Vulnerability: Path Traversal - Restricted File via Null Byte / Encoding
+2026-06-03 10:29:43,315 INFO run_external_target   [medium] Hidden Endpoint Discovered
+2026-06-03 10:29:43,315 INFO run_external_target   [medium] Hidden Endpoint Discovered
+2026-06-03 10:29:43,315 INFO run_external_target   [medium] Hidden Endpoint Discovered
