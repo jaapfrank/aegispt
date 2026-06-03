@@ -30,6 +30,25 @@ challenge still SOLVES, measurably faster; (b) on a challenge where pre-recon-so
 finds nothing, CPG IS still dispatched (fallback fires); (c) re-run ≥3 previously
 solved challenges (mixed classes) → all still solve (no regression).
 
+## R1b — Duplicate recon-task dispatch (iterate race)  [engine, SAFE, do FIRST]
+
+Empirical queue-latency (harvest runs, 2026-06-03): interactive-exploit median
+**207s** in queue before exec (max 459s); pre-recon-cpg median 120s. Timeline of run
+6651d119 shows tasks executing SERIALLY (one starts only as the prior frees the
+inline dispatcher), and — the smoking gun — **TWO pre-recon-cpg tasks** dispatched
+6s apart (39:45 + 39:51), plus the known double-nmap. Root cause: the harness polls
+`/assessment-loop/iterate` every 12s; when an iterate takes >12s, two overlapping
+iterates BOTH pass the `not has_pre_recon_cpg_task` guard (assessment_loop.py:3040-44)
+because the first task isn't committed/visible yet → duplicate bootstrap dispatch.
+The duplicate Joern (~94s) sits on the exploit's critical path.
+
+Fix (SAFE — the tool still runs exactly once, zero solve-risk): make the bootstrap
+dispatch idempotent — dedup by (run_id, tool, phase) at insert time (DB unique guard
+or a SELECT-FOR-UPDATE check), OR serialize iterate per run with an advisory lock.
+This is the user's "time lost in the queue" signal and the cheapest real win.
+Acceptance: each run dispatches pre-recon-cpg (and nmap per host) AT MOST once;
+interactive-exploit median queue wait drops measurably.
+
 ## R2 — nmap per-host dedup  [engine]
 
 `planned_targets_for_tool(..., derive_url_hosts_for_nmap=True)`
