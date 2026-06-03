@@ -49,6 +49,30 @@ This is the user's "time lost in the queue" signal and the cheapest real win.
 Acceptance: each run dispatches pre-recon-cpg (and nmap per host) AT MOST once;
 interactive-exploit median queue wait drops measurably.
 
+## R1c — Duplicate interactive-exploit dispatch (the BIGGEST waste)  [engine, correctness-sensitive]
+
+The duplicate-dispatch race (R1b) also hits interactive-exploit — the EXPENSIVE step
+(gpt-5.5, 100-280s each). Operator saw "interactive-exploit x2" on a single target;
+DB confirms both queued the SAME second, identical target (http://127.0.0.100),
+identical recon + ai_reasoning, source_finding_id null → not two hypotheses, a
+double-fire. The focused-assessment path already has an in-process memo
+(`_FOCUS_DISPATCHED_OBJECTIVES`, assessment_loop.py:2202-2207, "target
+double-dispatch=0"); the REGULAR CPG-CEA single-shot dispatch (assessment_loop.py:
+~2570-2612) lacks the equivalent guard, so overlapping iterates double-fire it.
+
+Evidence it's a race (not intentional 2x): across solved harvest runs the exploit
+count is 1 OR 2 depending on iterate timing (XBEN-012 ran 1; 015/016/018 ran 2).
+
+CORRECTNESS CAVEAT — do NOT blindly dedup to 1: in XBEN-015 and XBEN-016 only ONE of
+the two "identical" exploits captured the flag (gpt-5.5 is stochastic → the redundant
+shot sometimes IS the winning attempt). So the fix must: (a) kill the WASTEFUL
+SIMULTANEOUS duplicate (same-iterate / same-second double-fire) via the same memo
+guard the focused path uses; (b) PRESERVE retry-on-miss — a 2nd attempt dispatched
+SEQUENTIALLY only after the 1st task completes WITHOUT a flag, not two blind parallel
+fires. Acceptance: when the 1st exploit solves, exploit-count=1 (no wasted 2nd);
+when it misses, a 2nd attempt still fires; cluster solve-rate unchanged on a ≥4
+before/after re-run.
+
 ## R2 — nmap per-host dedup  [engine]
 
 `planned_targets_for_tool(..., derive_url_hosts_for_nmap=True)`
