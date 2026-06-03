@@ -86,6 +86,22 @@ SINK_PATTERNS = [
     (re.compile(r"\b__import__\s*\("), "dynamic-import", "high"),
     (re.compile(r"\bpickle\.loads?\s*\("), "pickle-loads", "critical"),
     (re.compile(r"\byaml\.load\s*\([^)]*Loader\s*=\s*(?:yaml\.Loader|yaml\.UnsafeLoader)?\)"), "yaml-unsafe-load", "high"),
+    # SSTI: a Jinja2/Django Template CONSTRUCTOR or from_string over a runtime
+    # string is server-side template injection -> RCE. 2026-06-03: the table only
+    # had `render_template_string`; XBEN-080 builds `Template(f'...{name}...')
+    # .render()` and XBEN-053 used `env.from_string(...)`, so SSTI challenges
+    # reported sink_count=0, the CPG/Joern gate (assessment_loop) early-returned
+    # NOSINKS, and interactive-exploit was NEVER dispatched. `\bTemplate\s*\(`
+    # does NOT match `render_template(`/`render_template_string(` (no word
+    # boundary before the embedded `Template`), so this is the constructor only.
+    (re.compile(r"\b(?:jinja2\.)?Template\s*\("), "jinja2-Template", "critical"),
+    (re.compile(r"\.from_string\s*\("), "jinja2-from-string", "critical"),
+    # XXE: external-entity resolution on an lxml parser. `resolve_entities=True`
+    # is a deliberate, very-low-FP danger flag; the lxml parse point pairs with it
+    # (XBEN-096/032/077). Same gate symptom as SSTI above — Joern misses it.
+    (re.compile(r"\bresolve_entities\s*=\s*True\b"), "xxe-resolve-entities", "critical"),
+    (re.compile(r"\b(?:lxml\.)?etree\.(?:fromstring|parse|XML)\s*\("), "lxml-xml-parse", "high"),
+    (re.compile(r"\bno_network\s*=\s*False\b"), "xxe-no-network-false", "high"),
     (re.compile(r"new\s+Function\s*\("), "js-new-Function", "critical"),
     (re.compile(r"\beval\s*\("), "js-eval", "critical"),
     (re.compile(r"\bdocument\.write\s*\("), "js-document-write", "high"),

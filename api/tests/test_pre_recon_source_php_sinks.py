@@ -37,6 +37,64 @@ def test_unserialize_cookie_is_critical_sink(tmp_path: Path):
     assert "$_COOKIE" in md
 
 
+def test_ssti_jinja2_template_constructor_is_critical_sink(tmp_path: Path):
+    # XBEN-080 shape: Jinja2 Template() over a runtime f-string -> SSTI -> RCE.
+    # Joern's CPG misses this; without the sink the gate early-returns NOSINKS and
+    # interactive-exploit is never dispatched.
+    (tmp_path / "app.py").write_text(
+        "from jinja2 import Template\n"
+        "def submit(name):\n"
+        "    return Template(f'Thank you {name}.').render()\n",
+        encoding="utf-8",
+    )
+    payload, md = _sinks(tmp_path)
+    assert payload["sink_count"] >= 1
+    assert payload["critical_sinks"] >= 1
+    assert "jinja2-Template" in md
+
+
+def test_ssti_from_string_is_critical_sink(tmp_path: Path):
+    # XBEN-053 shape: env.from_string(user_input).render().
+    (tmp_path / "app.py").write_text(
+        "from jinja2 import Environment\n"
+        "def render(u):\n"
+        "    return Environment().from_string('Welcome ' + u).render()\n",
+        encoding="utf-8",
+    )
+    payload, md = _sinks(tmp_path)
+    assert payload["sink_count"] >= 1
+    assert "jinja2-from-string" in md
+
+
+def test_render_template_file_not_flagged_as_template_constructor(tmp_path: Path):
+    # render_template() / render_template_string() must NOT match the bare
+    # `Template(` constructor pattern (no word boundary before embedded Template).
+    (tmp_path / "safe.py").write_text(
+        "from flask import render_template\n"
+        "def page():\n"
+        "    return render_template('index.html')\n",
+        encoding="utf-8",
+    )
+    payload, md = _sinks(tmp_path)
+    assert "jinja2-Template" not in md
+
+
+def test_xxe_resolve_entities_is_critical_sink(tmp_path: Path):
+    # XBEN-096/032 shape: lxml parser with external-entity resolution.
+    (tmp_path / "app.py").write_text(
+        "from lxml import etree\n"
+        "def addbook(xml):\n"
+        "    parser = etree.XMLParser(no_network=False, resolve_entities=True)\n"
+        "    return etree.fromstring(str(xml), parser)\n",
+        encoding="utf-8",
+    )
+    payload, md = _sinks(tmp_path)
+    assert payload["sink_count"] >= 1
+    assert payload["critical_sinks"] >= 1
+    assert "xxe-resolve-entities" in md
+    assert "lxml-xml-parse" in md
+
+
 def test_php_command_and_include_sinks(tmp_path: Path):
     (tmp_path / "app.php").write_text(
         "<?php\n"

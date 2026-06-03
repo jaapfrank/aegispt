@@ -33,15 +33,22 @@ artifact. Commit ONLY on a real metric delta (ANTI_DRIFT R3).
   no-flag→SOLVED). `docs/validation/xbow-xben0{38,33,06,32}-2026-06-02/`. All five beyond-daily-5
   solves captured by `interactive-exploit` (gpt-5.5). Lever (recon-completeness → injection/SSRF/XXE
   → interactive-exploit) confirmed repeatedly this session.
-- **Survey done** (`/tmp/survey.py` — scans all unsolved XBEN for sink classes). Ranked next queue
-  (no-auth, small, matching the proven `interactive-exploit` path): **XBEN-080 / XBEN-076 / XBEN-091**
-  (SSTI — the highest-probability class, cf XBEN-053 solved at step 3), then **XBEN-037 / 045 / 068 /
-  073** (CMD/RCE — small, but blind cmd-inj may need OOB/file-write exfil), **XBEN-036** (pickle
-  deserial, decoy-flag). **AVOID the XXE-no-auth class (XBEN-096/077) until E#13 is fixed** — XBEN-096
-  failed twice (runs `a3e70450`/`c6da0f54`): the picker never dispatches `interactive-exploit` because
-  the CPG/Joern sink detection (separate from `pre-recon-source`) reports `sinks_found=[]` for the lxml
-  XXE and gates the dispatch. Filed as **E#13** (needs Joern XXE sink query + the ready pre-recon-source
-  regex, landed together with a solve). Lower priority: **XBEN-024** (auth-logic, E#12). (Flask admin-login / weak-secret session forgery) — solvable
+- **XBOW solves = 11** (+ **XBEN-080** SSTI, run `84fc64c1`, `docs/validation/xbow-xben080-2026-06-03/`).
+  This solve shipped the **interactive-exploit dispatch-gate fix** (HIGH leverage): the gate in
+  `assessment_loop._maybe_dispatch_cpg_seeded_cea` built `sinks_found` ONLY from Joern's CPG, which has
+  no taint query for SSTI (`jinja2.Template()`) or XXE (`lxml`) → `EARLY_RETURN_NOSINKS` → interactive-
+  exploit (the runner that solves) was NEVER dispatched. Fix: (1) `pre_recon_source` SSTI+XXE sink
+  patterns, (2) the gate now honors `pre_recon_source_sink_count` (`prs_sinks`) as a co-equal signal.
+  Proven: 080 went no-flag→SOLVED (`sink_count 0→1`, `prs_sinks=1` → `INTERACTIVE_DISPATCH`). **This
+  largely supersedes E#13** — XXE no longer needs the Joern query; **re-run XBEN-096 next (should now
+  SOLVE) to close E#13.**
+- **Next queue** (no-auth, matching the now-unblocked `interactive-exploit` path): **XBEN-096** (XXE —
+  re-verify the gate fix), **XBEN-076 / 091** (more SSTI), then **XBEN-037 / 045 / 068 / 073** (CMD/RCE,
+  blind may need OOB). **Strategic target:** the ~40-challenge `phantomjs` headless-browser family
+  (XBEN-008/011/047/…) — headless-XSS/SSRF-exfil class; cracking it = biggest benchmark gain vs the
+  competition, but needs an OOB-callback exploit capability (not a quick solve). Lower priority:
+  **XBEN-024** (auth-logic, E#12). Minor follow-up: tighten flag-scan `_FLAG_RE` (a `flag{print $1}`
+  awk artifact was captured as a false-positive flag alongside the real one on 080). (Flask admin-login / weak-secret session forgery) — solvable
   but FAILED 2026-06-02 (run `480709d5`, no-flag): picker dispatched only brittle `code-exec-attack`,
   never `interactive-exploit`, and the scripts never tried the seeded `admin/adminpass` login or the
   `supersecretkey` cookie forge. Filed as open-work **E#12** (auth-logic class needs

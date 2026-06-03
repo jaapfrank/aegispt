@@ -2345,12 +2345,23 @@ def _maybe_dispatch_cpg_seeded_cea(
             tail = cpg_text.split(marker)[1].split("==")[0][:80]
             if "(sample, 0)" not in tail and " 0)" not in tail.split(")")[0] + ")":
                 sinks_found.append(label)
+    # Co-equal sink signal: Joern's CPG misses whole vuln CLASSES it has no taint
+    # query for — SSTI (`jinja2.Template()` / `from_string`) and XXE (`lxml etree`
+    # + `resolve_entities=True`) both report empty TEMPLATE_SINKS/etc., so this
+    # gate early-returned NOSINKS and interactive-exploit (the runner that actually
+    # solves) was NEVER dispatched (XBEN-080 SSTI + XBEN-096 XXE, 2026-06-03). The
+    # pre-recon-source regex auditor IS a co-equal detector and its deliverable is
+    # already seeded into the dispatch context — so honor its sink count here too.
+    # Its Executive Summary states `... N dangerous sink(s) ...`.
+    import re as _re_prs
+    _prs_m = _re_prs.search(r"(\d+)\s+dangerous sink", pre_recon_source_text or "")
+    pre_recon_source_sink_count = int(_prs_m.group(1)) if _prs_m else 0
     logger.info(
-        "PROOF_EXEC_CPG_SEEDED_CEA_SINKS_2026052405 run=%s sinks_found=%s gate_tokens=%d",
+        "PROOF_EXEC_CPG_SEEDED_CEA_SINKS_2026052405 run=%s sinks_found=%s gate_tokens=%d prs_sinks=%d",
         str(getattr(run, "id", "?"))[:8],
-        sinks_found, source_gate_token_count,
+        sinks_found, source_gate_token_count, pre_recon_source_sink_count,
     )
-    if not sinks_found and source_gate_token_count == 0:
+    if not sinks_found and source_gate_token_count == 0 and pre_recon_source_sink_count == 0:
         logger.info(
             "PROOF_EXEC_CPG_SEEDED_CEA_EARLY_RETURN_NOSINKS_2026052613 run=%s",
             str(getattr(run, "id", "?"))[:8],
