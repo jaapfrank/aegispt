@@ -8,6 +8,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 from api.app.observability import traced  # backlog-407 — tracing-only decorator
+from api.app.services.attack_surface import (  # Track 0: discovered-surface backlog
+    attack_surface_block_for_run as _attack_surface_block_for_run,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -2546,7 +2549,11 @@ def _maybe_dispatch_cpg_seeded_cea(
         f"{seed_ids_block}\n\n"
         "=== PRE-RECON-SOURCE (trimmed; may contain [REDACTED] masks — refer to SEED CREDENTIALS for literal values) ===\n"
         f"{(pre_recon_source_text or '(absent)')[:3500]}\n\n"
-        f"Target base URL: {target_url}\n\n"
+        # Track 0 (recon→action): direct the exploit agent at the DISCOVERED-but-untested
+        # endpoints (the operator's "vindt endpoints maar doet er niks mee"). Empty when
+        # nothing discovered yet, so it adds no noise on a fresh run.
+        + _attack_surface_block_for_run(run)
+        + f"Target base URL: {target_url}\n\n"
         "Write the python_script now. Keep it focused on the chain.\n"
         "CRITICAL #1: when authenticating, use the literal username/password "
         "from SEED CREDENTIALS above. If `pre-recon-source` shows "
