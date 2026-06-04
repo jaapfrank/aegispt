@@ -16,6 +16,7 @@ import {
 import { getDashboard, launchZeroDayRapidResponseScan } from '../../api/client';
 import type { DashboardRead } from '../../api/types';
 import { useAegisStore } from '../../store';
+import { safeErrorMessage } from '../../viewModels/safeMessaging';
 import { ActionButton, EmptyState, MetricCard, PageHeader, Panel, StatusBadge } from './screenPrimitives';
 import { formatDate, jsonNumber, jsonString } from './screenUtils';
 
@@ -37,7 +38,13 @@ export default function DashboardScreen() {
         const payload = await getDashboard(selectedEngagementId);
         if (!cancelled) setDashboard(payload);
       } catch (error) {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : 'Dashboard API unavailable.');
+        if (!cancelled) {
+          setDashboard(null);
+          setMessage(safeErrorMessage(error, {
+            fallback: 'Dashboard data could not load. Refresh or select another engagement.',
+            unavailable: 'Dashboard API is temporarily unavailable. Mission Control still shows the selected run when available.',
+          }));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -48,10 +55,15 @@ export default function DashboardScreen() {
     };
   }, [selectedEngagementId]);
 
-  const activeTaskCount = useMemo(
+  const localActiveTaskCount = useMemo(
     () => runs.reduce((total, run) => total + run.tasks.filter((task) => ['queued', 'running', 'requested'].includes(task.status)).length, 0),
     [runs],
   );
+  const dashboardActiveRun = dashboard?.active_run ?? null;
+  const dashboardActiveTaskCount = dashboardActiveRun
+    ? jsonNumber(dashboardActiveRun.tasks_running) + jsonNumber(dashboardActiveRun.tasks_queued) + jsonNumber(dashboardActiveRun.tasks_requested)
+    : null;
+  const activeTaskCount = dashboardActiveTaskCount ?? localActiveTaskCount;
   const openProblemTotal = jsonNumber(dashboard?.open_problems?.total, findings.filter((finding) => finding.status === 'open').length);
   const reportReadyRuns = runs.filter((run) => run.status === 'completed').length;
   const blastRadiusScore = jsonNumber(dashboard?.blast_radius?.score);
@@ -78,7 +90,25 @@ export default function DashboardScreen() {
       setMessage(`Rapid response scan staged as ${result.profile_name}; status ${result.run_status}.`);
       setDashboard(await getDashboard(selectedEngagementId));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Zero-day scan request failed.');
+      setMessage(safeErrorMessage(error, {
+        fallback: 'Rapid response scan could not be staged. Check scope and try again.',
+        unavailable: 'Rapid response scan staging is temporarily unavailable.',
+      }));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refreshDashboard() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      setDashboard(await getDashboard(selectedEngagementId));
+    } catch (error) {
+      setMessage(safeErrorMessage(error, {
+        fallback: 'Dashboard data could not refresh. Select another engagement or try again.',
+        unavailable: 'Dashboard API is temporarily unavailable. Existing run data remains available in Mission Control.',
+      }));
     } finally {
       setLoading(false);
     }
@@ -90,14 +120,14 @@ export default function DashboardScreen() {
         eyebrow="Portfolio"
         title="Dashboard"
         detail="Live portfolio posture from the existing dashboard, engagement, run, and finding data contracts."
-        actions={<ActionButton onClick={() => void getDashboard(selectedEngagementId).then(setDashboard)} loading={loading}>Refresh</ActionButton>}
+        actions={<ActionButton onClick={() => void refreshDashboard()} loading={loading}>Refresh</ActionButton>}
       />
 
       {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[0.925rem] text-amber">{message}</div>}
 
       <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
         <MetricCard icon={<Shield size={15} />} label="Portfolio" value={dashboard?.engagements?.length ?? engagements.length} detail="Engagements in scope" />
-        <MetricCard icon={<Activity size={15} />} label="Active Tasks" value={activeTaskCount || jsonNumber(dashboard?.active_run?.tasks_running)} detail={dashboard?.active_run ? jsonString(dashboard.active_run.profile_name, 'Active run') : 'No active run'} />
+        <MetricCard icon={<Activity size={15} />} label="Active Tasks" value={activeTaskCount} detail={dashboardActiveRun ? jsonString(dashboardActiveRun.profile_name, 'Active run') : 'No active run'} />
         <MetricCard icon={<Gauge size={15} />} label="Portfolio Risk" value={jsonNumber(dashboard?.risk_score?.score).toFixed(1)} detail={jsonString(dashboard?.risk_score?.trend, 'stable')} />
         <MetricCard icon={<Target size={15} />} label="Blast Radius" value={blastRadiusScore.toFixed(1)} detail={`${titleCase(blastRadiusTier)} business impact`} />
         <MetricCard icon={<BadgeAlert size={15} />} label="Open Problems" value={openProblemTotal} detail={`${jsonNumber(dashboard?.open_problems?.critical)} critical · ${jsonNumber(dashboard?.open_problems?.high)} high`} />
@@ -318,7 +348,7 @@ function titleCase(value: string): string {
 function ChartTooltip({ active, payload, label, valueLabel }: { active?: boolean; payload?: Array<{ value?: number }>; label?: string; valueLabel: string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-md border border-cyan/25 bg-[#06101d]/95 px-3 py-2 shadow-[0_0_1rem_rgba(94,207,255,0.16)]">
+    <div className="rounded-md border border-cyan/25 bg-panel/95 px-3 py-2 shadow-[0_0_1rem_var(--panel-glow)]">
       <div className="text-[0.85rem] font-bold uppercase text-cyan">{label}</div>
       <div className="text-[0.925rem] text-text">{valueLabel}: {payload[0]?.value ?? 0}</div>
     </div>

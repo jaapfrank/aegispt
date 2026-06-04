@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
   Bot,
+  CalendarClock,
   Check,
   ChevronDown,
   ChevronRight,
@@ -12,6 +13,8 @@ import {
   Filter,
   GitPullRequest,
   Hash,
+  Layers3,
+  ListChecks,
   Loader2,
   Search,
   ShieldAlert,
@@ -22,6 +25,14 @@ import {
 import { Link } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { buildFindingTruthModel, type FindingTruthTone } from '../../viewModels/findingTruth';
+import { safeErrorMessage } from '../../viewModels/safeMessaging';
+import {
+  buildFindingsTriageModel,
+  type FindingTriageGroup,
+  type FindingsTriageModel,
+  type ProofStrength,
+} from '../../viewModels/triageBoards';
 import {
   enrichFinding,
   createFindingFixPullRequest,
@@ -40,7 +51,7 @@ type DrawerAction = 'enrich' | 'fixed' | 'false-positive' | 'jira' | 'fix-pr' | 
 
 const SEVERITIES: SeverityFilter[] = ['critical', 'high', 'medium', 'low', 'info'];
 const STATUS_FILTERS: StatusFilter[] = ['all', 'open', 'false-positive', 'fixed'];
-const SECTION_DEFAULTS = ['summary', 'evidence', 'ai', 'remediation', 'fix-pr', 'push', 'attack-path'];
+const SECTION_DEFAULTS = ['truth', 'summary', 'evidence-summary', 'evidence', 'business-impact', 'ai', 'remediation', 'fix-pr', 'push', 'attack-path'];
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -74,6 +85,7 @@ export default function FindingsTheater() {
     [findings, query, severityFilter, statusFilter],
   );
   const groupedFindings = useMemo(() => groupBySeverity(visibleFindings), [visibleFindings]);
+  const triageModel = useMemo(() => buildFindingsTriageModel(visibleFindings), [visibleFindings]);
   const findingCount = findings.length;
   const jiraConfigured = isJiraConfigured(settings.settings);
 
@@ -289,6 +301,8 @@ export default function FindingsTheater() {
         </div>
       </header>
 
+      <FindingsTriageBoard model={triageModel} onSelectFinding={selectFinding} />
+
       <div className={cn('grid min-h-0 flex-1 gap-5', selectedFinding ? 'xl:grid-cols-1' : 'xl:grid-cols-1')}>
         <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-surface/50 backdrop-blur-md">
           <FilterBar
@@ -301,7 +315,7 @@ export default function FindingsTheater() {
             loading={loadingFindings}
           />
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div aria-label="Findings result list" className="min-h-0 flex-1 overflow-y-auto p-4">
             {loadingFindings ? (
               <LoadingPanel label="Loading findings from API" />
             ) : visibleFindings.length === 0 ? (
@@ -363,6 +377,149 @@ export default function FindingsTheater() {
   );
 }
 
+function FindingsTriageBoard({
+  model,
+  onSelectFinding,
+}: {
+  model: FindingsTriageModel;
+  onSelectFinding: (findingId: UUID) => void;
+}) {
+  const lead = model.leadGroup;
+  return (
+    <section
+      aria-label="Findings triage board"
+      className="neon-panel mb-5 rounded-xl border border-cyan/25 p-4"
+    >
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,2fr)]">
+        <div className="rounded-lg border border-border bg-bg/30 p-4">
+          <div className="mb-2 flex items-center gap-2 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan">
+            <ListChecks size={14} />
+            Decision now
+          </div>
+          <h2 className="text-xl font-semibold text-text">{model.decisionLabel}</h2>
+          <p className="mt-2 max-w-2xl text-[1rem] leading-6 text-muted">{model.decisionDetail}</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <TriageFact label="Proof" value={model.proofDetail} />
+            <TriageFact label="Groups" value={`${model.totalGroups} grouped / ${model.totalFindings} findings`} />
+            <TriageFact label="Remediation" value={model.remediationDetail} />
+          </div>
+          {lead && (
+            <button
+              type="button"
+              onClick={() => onSelectFinding(lead.representative.id)}
+              className="mt-4 inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan transition-colors hover:bg-cyan/15"
+            >
+              Open lead finding
+              <ChevronRight size={15} />
+            </button>
+          )}
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.45fr)_minmax(260px,0.8fr)]">
+          <div className="rounded-lg border border-border bg-bg/25 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted">
+                <Layers3 size={14} className="text-cyan" />
+                Severity lanes
+              </div>
+              <span className="rounded-full border border-border bg-surface/60 px-2 py-0.5 text-[0.72rem] font-semibold uppercase text-muted">
+                click a group
+              </span>
+            </div>
+            {model.lanes.length ? (
+              <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                {model.lanes.map((lane) => (
+                  <div key={lane.severity} className="rounded-lg border border-border bg-surface/40 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <SeverityBadge severity={lane.severity} />
+                      <span className="text-[0.85rem] font-semibold text-muted">{lane.count}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {lane.groups.slice(0, 3).map((group) => (
+                        <FindingTriageGroupButton key={group.id} group={group} onSelect={() => onSelectFinding(group.representative.id)} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyInline title="No findings in current filters" detail="Reset filters or choose a run with stored findings." />
+            )}
+          </div>
+
+          <div className="rounded-lg border border-border bg-bg/25 p-3">
+            <div className="mb-3 flex items-center gap-2 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted">
+              <CalendarClock size={14} className="text-amber" />
+              Grouped repeated findings
+            </div>
+            {model.repeatedGroups.length ? (
+              <div className="space-y-2">
+                {model.repeatedGroups.slice(0, 3).map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => onSelectFinding(group.representative.id)}
+                    className="w-full rounded-lg border border-border bg-surface/45 p-3 text-left transition-colors hover:border-cyan/35 hover:bg-cyan/10"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="line-clamp-1 text-[0.98rem] font-semibold text-text">{group.title}</span>
+                      <span className="shrink-0 rounded-full border border-cyan/25 bg-cyan/10 px-2 py-0.5 text-[0.75rem] font-bold text-cyan">
+                        {group.count} findings
+                      </span>
+                    </div>
+                    <div className="mt-2 text-[0.85rem] leading-5 text-muted">
+                      {group.evidenceCount} linked evidence refs across {group.targetCount} target{group.targetCount === 1 ? '' : 's'}.
+                    </div>
+                    <div className="mt-2 line-clamp-1 font-mono text-[0.72rem] text-muted">
+                      {group.evidenceRefs.join(' · ') || 'no evidence refs'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-border bg-surface/35 p-3 text-[0.925rem] leading-5 text-muted">
+                No repeated finding groups in the current filters. Individual evidence remains visible in the list and drawer.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FindingTriageGroupButton({ group, onSelect }: { group: FindingTriageGroup; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="w-full rounded-md border border-border bg-bg/35 p-2 text-left transition-colors hover:border-cyan/35 hover:bg-cyan/10"
+      aria-label={`${group.title}, ${group.count} findings, ${group.proofLabel}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="line-clamp-2 text-[0.95rem] font-semibold leading-5 text-text">{group.title}</span>
+        <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[0.68rem] font-bold uppercase', proofStrengthClass(group.proofStrength))}>
+          {group.proofLabel}
+        </span>
+      </div>
+      <div className="mt-2 grid gap-1 text-[0.78rem] leading-4 text-muted">
+        <span>{group.impactLabel}</span>
+        <span>{group.evidenceCount}/{group.count} evidence linked · {group.verifiedCount}/{group.count} verified</span>
+        <span>{group.remediationLabel}</span>
+      </div>
+    </button>
+  );
+}
+
+function TriageFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-surface/35 p-3">
+      <div className="font-mono text-[0.62rem] uppercase tracking-widest text-muted">{label}</div>
+      <div className="mt-1 text-[0.92rem] font-semibold leading-5 text-text">{value}</div>
+    </div>
+  );
+}
+
 function FilterBar({
   severity,
   setSeverity,
@@ -381,7 +538,7 @@ function FilterBar({
   loading: boolean;
 }) {
   return (
-    <div className="border-b border-border bg-[rgba(5,9,18,0.72)] p-4">
+    <div className="border-b border-border bg-bg/45 p-4">
       <div className="grid gap-3 lg:grid-cols-[180px_180px_1fr]">
         <SelectControl
           label="Severity"
@@ -450,7 +607,7 @@ function SelectControl({
 }
 
 function FindingRow({ finding, selected, onClick }: { finding: Finding; selected: boolean; onClick: () => void }) {
-  const tool = sourceTool(finding);
+  const truth = buildFindingTruthModel(finding, null, null);
   return (
     <button
       type="button"
@@ -463,13 +620,16 @@ function FindingRow({ finding, selected, onClick }: { finding: Finding; selected
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <SeverityBadge severity={finding.severity} />
-          <span className="rounded-full border border-border bg-surface/70 px-2 py-0.5 text-[0.77rem] font-semibold text-muted">
-            {tool}
-          </span>
+          <TruthBadge tone={truth.tone} label={truth.proofLabel} />
+          <EvidenceBadge label={truth.evidenceLabel} tone={truth.tone} />
           <StatusBadge status={finding.status} />
         </div>
-        <div className="truncate text-[1.08rem] font-semibold text-text">{finding.title}</div>
-        <div className="mt-1 truncate text-[0.925rem] text-muted">{truncate(finding.target_id, 30)}</div>
+        <div className="truncate text-[1.08rem] font-semibold text-text">{truth.displayTitle}</div>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[0.925rem] text-muted">
+          <span className="truncate">{truncate(finding.target_id, 36)}</span>
+          <span>{truth.validationLabel}</span>
+          <span>{truth.sourceLabel}</span>
+        </div>
         <SeverityBar severity={finding.severity} />
       </div>
       <div className="flex items-center justify-end text-muted">
@@ -520,6 +680,7 @@ function FindingDrawer({
   onCreateFixPr: () => void;
   open?: boolean;
 }) {
+  const truth = buildFindingTruthModel(finding, detail, evidence);
   const evidenceText = technicalEvidenceText(evidence, detail, finding);
   const storedSha = storedSha256(detail, evidence);
   const enrichment = detail?.ai_enrichment ?? {};
@@ -537,15 +698,20 @@ function FindingDrawer({
       className={cn("finding-drawer", open && "open")}
     >
       <div className="flex h-full min-h-0 flex-col">
-        <header className="border-b border-border bg-[rgba(5,9,18,0.78)] p-4">
+        <header className="border-b border-border bg-bg/45 p-4">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <SeverityBadge severity={finding.severity} />
+                <TruthBadge tone={truth.tone} label={truth.proofLabel} />
+                <EvidenceBadge label={truth.evidenceLabel} tone={truth.tone} />
                 <StatusBadge status={finding.status} />
               </div>
-              <h2 className="break-words text-lg font-semibold text-text">{finding.title}</h2>
+              <h2 className="break-words text-lg font-semibold text-text">{truth.displayTitle}</h2>
               <p className="mt-1 break-words text-[0.925rem] text-muted">{finding.target_id}</p>
+              {truth.rawTitleWasNormalized && (
+                <p className="mt-1 break-words text-[0.78rem] text-muted">Stored title: {truth.rawTitle}</p>
+              )}
             </div>
             <button
               type="button"
@@ -561,6 +727,15 @@ function FindingDrawer({
         </header>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+          <DrawerSection title="Finding Truth" id="truth" openSections={openSections} toggleSection={toggleSection}>
+            <div className="grid gap-2 md:grid-cols-2">
+              <TruthFact label="Proof state" value={truth.proofLabel} detail={truth.proofDetail} tone={truth.tone} />
+              <TruthFact label="Evidence state" value={truth.evidenceLabel} detail={truth.sourceLabel} tone={truth.tone} />
+              <TruthFact label="Validation state" value={truth.validationLabel} detail={detail?.verification_status ?? finding.validation_status} tone={truth.tone} />
+              <TruthFact label="Workflow state" value={truth.workflowLabel} detail={finding.status} tone={truth.tone} />
+            </div>
+          </DrawerSection>
+
           <DrawerSection title="Summary" id="summary" openSections={openSections} toggleSection={toggleSection}>
             <p className="text-[1rem] leading-6 text-muted">{detail?.technical_details || finding.summary || 'No summary text is available for this finding.'}</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -573,8 +748,19 @@ function FindingDrawer({
             </div>
           </DrawerSection>
 
+          <DrawerSection title="Evidence Summary" id="evidence-summary" openSections={openSections} toggleSection={toggleSection}>
+            <p className="text-[1rem] leading-6 text-muted">
+              {truth.evidenceSummary ?? 'No evidence summary was returned for this finding.'}
+            </p>
+            <div className="mt-3 rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">
+              <span className="font-semibold text-text">{truth.evidenceLabel}</span>
+              <span className="mx-2 text-muted">/</span>
+              <span>{truth.proofDetail}</span>
+            </div>
+          </DrawerSection>
+
           <DrawerSection title="Technical Evidence" id="evidence" openSections={openSections} toggleSection={toggleSection}>
-            <div className="overflow-hidden rounded-lg border border-border bg-[#030712]">
+            <div className="terminal-code overflow-hidden rounded-lg border">
               <div className="flex items-center justify-between border-b border-border px-3 py-2">
                 <span className="flex items-center gap-2 text-[0.85rem] font-bold uppercase text-muted">
                   <Clipboard size={13} />
@@ -588,7 +774,7 @@ function FindingDrawer({
                   Copy
                 </button>
               </div>
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap p-3 font-mono text-[0.925rem] leading-5 text-text">{evidenceText}</pre>
+              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap p-3 font-mono text-[0.925rem] leading-5">{evidenceText}</pre>
             </div>
             <div className="mt-3 flex items-start gap-2 rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">
               <Hash size={14} className="mt-0.5 text-cyan" />
@@ -598,11 +784,17 @@ function FindingDrawer({
             </div>
           </DrawerSection>
 
+          <DrawerSection title="Business Impact" id="business-impact" openSections={openSections} toggleSection={toggleSection}>
+            <p className="text-[1rem] leading-6 text-muted">
+              {truth.businessImpact ?? 'No business-impact statement was returned for this finding.'}
+            </p>
+          </DrawerSection>
+
           <DrawerSection title="AI Enrichment" id="ai" openSections={openSections} toggleSection={toggleSection}>
             {hasEnrichment ? (
               <div className="space-y-3 text-[1rem] leading-6 text-muted">
-                <p><strong className="text-text">Business impact:</strong> {textValue(enrichment.business_impact) || detail?.business_impact}</p>
-                <p><strong className="text-text">Remediation:</strong> {textValue(enrichment.remediation_narrative) || textValue(mapValue(detail?.remediation, 'ai_narrative'))}</p>
+                <p><strong className="text-text">Business impact:</strong> {textValue(enrichment.business_impact) || 'No AI business-impact text stored.'}</p>
+                <p><strong className="text-text">Remediation:</strong> {textValue(enrichment.remediation_narrative) || 'No AI remediation text stored.'}</p>
               </div>
             ) : chatgptConnected ? (
               <button
@@ -624,12 +816,20 @@ function FindingDrawer({
 
           <DrawerSection title="Remediation" id="remediation" openSections={openSections} toggleSection={toggleSection}>
             <div className="space-y-3">
-              <p className="text-[1rem] leading-6 text-muted">{textValue(mapValue(detail?.remediation, 'detail')) || 'Review and remediate according to the linked evidence.'}</p>
-              <ol className="space-y-2">
-                {(detail?.next_steps?.length ? detail.next_steps : ['Review stored evidence.', 'Apply the remediation.', 'Retest before closure.']).map((step) => (
-                  <li key={step} className="rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">{step}</li>
-                ))}
-              </ol>
+              <p className="text-[1rem] leading-6 text-muted">
+                {truth.remediationText ?? 'No supported remediation guidance returned for this finding.'}
+              </p>
+              {truth.nextSteps.length > 0 ? (
+                <ol className="space-y-2">
+                  {truth.nextSteps.map((step) => (
+                    <li key={step} className="rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">{step}</li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">
+                  No supported next steps returned for this finding.
+                </div>
+              )}
               <div className="grid gap-2 md:grid-cols-2">
                 <button
                   type="button"
@@ -881,6 +1081,42 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function TruthBadge({ tone, label }: { tone: FindingTruthTone; label: string }) {
+  return (
+    <span className={cn('rounded-full border px-2 py-0.5 text-[0.77rem] font-semibold uppercase', truthToneClass(tone))}>
+      {label}
+    </span>
+  );
+}
+
+function EvidenceBadge({ label, tone }: { label: string; tone: FindingTruthTone }) {
+  return (
+    <span className={cn('rounded-full border px-2 py-0.5 text-[0.77rem] font-semibold', evidenceToneClass(tone))}>
+      {label}
+    </span>
+  );
+}
+
+function TruthFact({
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  label: string;
+  value: string;
+  detail: string | null | undefined;
+  tone: FindingTruthTone;
+}) {
+  return (
+    <div className={cn('rounded-md border p-3', truthFactClass(tone))}>
+      <div className="font-mono text-[0.62rem] uppercase tracking-widest text-muted">{label}</div>
+      <div className="mt-1 text-[0.95rem] font-semibold text-text">{value}</div>
+      {detail && <div className="mt-1 text-[0.78rem] leading-snug text-muted">{detail}</div>}
+    </div>
+  );
+}
+
 function filterFindings(findings: Finding[], severity: SeverityFilter, status: StatusFilter, query: string): Finding[] {
   const normalizedQuery = query.trim().toLowerCase();
   return findings.filter((finding) => {
@@ -1019,6 +1255,32 @@ function severityClass(severity: string): string {
   return 'border-border bg-surface/70 text-muted';
 }
 
+function truthToneClass(tone: FindingTruthTone): string {
+  if (tone === 'verified') return 'border-green/35 bg-green/10 text-green';
+  if (tone === 'resolved') return 'border-cyan/35 bg-cyan/10 text-cyan';
+  if (tone === 'observed') return 'border-amber/35 bg-amber/10 text-amber';
+  return 'border-red/35 bg-red/10 text-red';
+}
+
+function evidenceToneClass(tone: FindingTruthTone): string {
+  if (tone === 'blocked') return 'border-red/30 bg-red/10 text-red';
+  if (tone === 'observed') return 'border-amber/30 bg-amber/10 text-amber';
+  return 'border-border bg-surface/70 text-muted';
+}
+
+function proofStrengthClass(strength: ProofStrength): string {
+  if (strength === 'strong') return 'border-green/35 bg-green/10 text-green';
+  if (strength === 'partial') return 'border-amber/35 bg-amber/10 text-amber';
+  return 'border-red/35 bg-red/10 text-red';
+}
+
+function truthFactClass(tone: FindingTruthTone): string {
+  if (tone === 'verified') return 'border-green/25 bg-green/5';
+  if (tone === 'resolved') return 'border-cyan/25 bg-cyan/5';
+  if (tone === 'observed') return 'border-amber/25 bg-amber/5';
+  return 'border-red/25 bg-red/5';
+}
+
 function severityBarClass(severity: string): string {
   if (severity === 'critical') return 'bg-red shadow-[0_0_0.55rem_rgba(239,68,68,0.42)]';
   if (severity === 'high') return 'bg-amber shadow-[0_0_0.45rem_rgba(251,191,36,0.34)]';
@@ -1057,6 +1319,8 @@ async function copyText(value: string) {
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return 'AegisPT API request failed.';
+  return safeErrorMessage(error, {
+    fallback: 'Findings could not load for this run. Refresh or select another run.',
+    unavailable: 'Findings are temporarily unavailable. Evidence and run history remain available for review.',
+  });
 }

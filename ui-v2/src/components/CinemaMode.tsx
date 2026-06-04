@@ -548,6 +548,7 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
     const step = steps[boundedIndex];
     setSelectedNodeId(step?.taskNodeId ?? step?.targetNodeId ?? null);
     setManualCamera(false);
+    setReplayPlaying(false);
   }
 
   useEffect(() => {
@@ -647,7 +648,7 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
   }, [selectedRunId, setFindings, setInventory, setSelectedRun, setTasks]);
 
   const content = (
-    <div className="fixed inset-0 z-[9999] select-none overflow-hidden bg-[#020408]" data-testid="cinema-mode">
+    <div className="dark-canvas fixed inset-0 z-[9999] select-none overflow-hidden bg-[#020408]" data-testid="cinema-mode">
       <div className="absolute left-4 right-4 top-4 z-20 flex flex-col gap-3 sm:left-6 sm:right-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan text-sm font-extrabold text-[#04080f] shadow-[0_0_20px_rgba(94,207,255,0.6)]">

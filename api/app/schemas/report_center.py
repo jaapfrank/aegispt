@@ -60,3 +60,13 @@ class RunReportDraftRead(BaseModel):
     canonical_report_unchanged: bool = True
     boundary: str
     failure_reason: str | None = None
+    structured_payload: dict[str, Any] = Field(default_factory=dict)
+    draft_contract: dict[str, Any] = Field(default_factory=dict)
+    variant_contract: dict[str, Any] = Field(default_factory=dict)
+    tested_scope: dict[str, Any] = Field(default_factory=dict)
+    management_decision: dict[str, Any] = Field(default_factory=dict)
+    management_story: dict[str, Any] = Field(default_factory=dict)
+    supported_findings: list[dict[str, Any]] = Field(default_factory=list)
+    not_tested: list[dict[str, Any]] = Field(default_factory=list)
+    not_verified: list[dict[str, Any]] = Field(default_factory=list)
+    raw_proof_export_non_llm: bool = True

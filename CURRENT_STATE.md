@@ -1,5 +1,1745 @@
 # Current State
 
+## Latest Continuation - Codex Mission Control single Live CLI repair complete (2026-06-04)
+
+Codex repaired the Mission Control first viewport after operator feedback from a
+15-inch 4k display at 125% scaling showed that the cockpit still felt too tall
+and crowded, and follow-up feedback showed that the cockpit command strip
+duplicated the Live CLI. The repair stayed inside the Codex UI/reporting lane;
+`NEXT_TASK.md` and Claude-owned score-lane/runtime files were not edited.
+
+Visible behavior repaired:
+
+- Mission Control now models the operator's high-DPI case with a dark-mode
+  `2048x1152` Playwright viewport.
+- The cockpit is now a compact mission snapshot only: current operator state,
+  target, risk, next action, checked evidence, and findings.
+- Command/output appears once in the Live view: the Live CLI panel is the single
+  command-following surface, with queue context beside it. The Mission Control
+  inline terminal is a compact preview, so structured JSON output is summarized
+  instead of filling the first viewport with raw technical detail.
+- The Queue panel now uses the same selected-run task timeline as the Live CLI
+  selector: repeated tools remain separate task executions and clicking a queue
+  row selects the exact same task output in Live CLI.
+- Attack path, story cards, live events, and technical facts are kept behind a
+  drilldown so the first viewport is not forced to carry every detail.
+- The first `2048x1152` dark-mode viewport shows the snapshot, Live CLI, Queue,
+  and the collapsed drilldown without a duplicate command preview.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-mission-control-4k-125-density-2026-06-04.md`.
+
+Screenshot evidence:
+`docs/validation/codex-ui-reporting-mission-control-4k-125-scale-2048x1152.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control queue matches Live CLI task instances|Mission Control live view exposes the current command once|Light mode keeps mission and command drilldowns|Live CLI renders command-style stdout"` (`4` passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_MISSION_CONTROL_4K_SCALE=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control"` (`12` passed, dark-mode screenshot captured, including queue/Live CLI task-instance consistency)
+- `cd ui-v2 && npm test` (`42` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+
+## Latest Continuation - Codex UX1 trust-state recheck complete (2026-06-04)
+
+Codex re-ran UX1 from the Codex-owned UI/reporting worklist after the operator
+asked to restart from trust-breaking state repair. UX1 remained complete, so no
+new UI code repair was required. `NEXT_TASK.md` stayed untouched and
+Claude-owned score-lane/runtime files were not edited.
+
+Rechecked behavior:
+
+- Research raw `500` / diagnostic failures remain masked with safe recovery
+  copy
+- Report Center raw AI provider/billing briefing failures remain masked while
+  canonical report/export truth remains visible
+- History filtered-empty and reset/refresh recovery remain clear
+- Dashboard sparse payload recovery does not crash
+- Dashboard/Mission/Findings/Evidence/Reports canonical consistency remains
+  aligned for selected run, findings, risk, and report readiness
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux1-trust-state-recheck-2026-06-04.md`.
+
+Validation completed:
+
+- `cd ui-v2 && AEGISPT_CAPTURE_UX1_TRUST_REPAIR=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Report Center masks raw provider briefing failures|Research masks raw API failures|History explains filtered empty states|Dashboard survives sparse dashboard payloads|Report Center shows canonical report truth|Canonical consistency fixture"` (`6` passed, screenshots refreshed)
+- repeated same-day UX1 launcher prompt verification: the same focused
+  Playwright set passed again (`6` passed, screenshots refreshed again), with
+  visual review of Report Center provider masking and History filtered-empty
+  recovery
+- repeated same-day UX1 launcher prompt verification a second time: the same
+  focused Playwright set passed again (`6` passed, screenshots refreshed
+  again), with visual review of Report Center provider masking and History
+  filtered-empty recovery
+- visual review of refreshed Report Center, Research, and History UX1 light-mode
+  screenshots
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+- `git diff --name-only -- NEXT_TASK.md TASK_QUEUE.md api/app/services/assessment_loop.py api/app/services/assessment_loop_internals/guards.py api/app/services/m2_verdict_gate.py workers/orchestration/tasks.py workers/runners/interactive_exploit` reported `workers/runners/interactive_exploit/runner.py` as an existing/concurrent score-lane change; Codex did not edit that file
+
+## Latest Continuation - Codex UX1 post-UX8 trust-state recheck complete (2026-06-03)
+
+Codex re-ran the UX1 trust-breaking state repair checks after the UX8
+light-mode readability repair. No new UX1 code repair was required,
+`NEXT_TASK.md` stayed untouched, and Claude-owned score-lane/runtime files were
+not edited.
+
+Rechecked behavior:
+
+- Research raw `500` / diagnostic failures remain masked with safe recovery
+  copy
+- Report Center raw AI provider/billing briefing failures remain masked while
+  canonical report/export truth remains visible
+- History filtered-empty and reset/refresh recovery remain clear
+- Dashboard sparse payload recovery does not crash
+- Dashboard/Mission/Findings/Evidence/Reports canonical consistency remains
+  aligned for selected run, findings, risk, and report readiness
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux1-post-ux8-trust-state-recheck-2026-06-03.md`.
+
+Validation completed:
+
+- `cd ui-v2 && AEGISPT_CAPTURE_UX1_TRUST_REPAIR=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Report Center masks raw provider briefing failures|Research masks raw API failures|History explains filtered empty states|Dashboard survives sparse dashboard payloads|Report Center shows canonical report truth|Canonical consistency fixture"` (`6` passed, screenshots refreshed)
+- visual review of refreshed Report Center, Research, and History UX1 light-mode
+  screenshots
+
+## Latest Continuation - Codex UX8 light-mode readability repair complete (2026-06-03)
+
+Codex repaired the previous UX8 light-mode pass after operator feedback showed
+that some screens still mixed hardcoded dark panels with light-theme text
+tokens. `NEXT_TASK.md` stayed untouched and Claude-owned score-lane/runtime
+files were not edited.
+
+UX8 repair completed:
+
+- added reusable `theme-surface-card`, `theme-subcard`, `dark-canvas`, and
+  `terminal-code` classes to separate ordinary themed panels from deliberately
+  dark map/terminal/cinema surfaces
+- repaired remaining unreadable light-mode surfaces in Report Center, Evidence
+  Replay, Findings Theater, Problems Center, Intake, Mission Control attack
+  map/terminal surfaces, Cinema Mode, and crash recovery stack output
+- added a Playwright guard that fails if a normal light-mode workspace contains
+  unscoped hardcoded dark panels; deliberate dark surfaces must be wrapped in
+  `dark-canvas` or `terminal-code`
+- visually reviewed refreshed light-mode screenshots, including Intake,
+  management proof, and the full attack map
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux8-light-mode-readability-repair-2026-06-03.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/ReportCenter.tsx src/components/screens/EvidenceReplay.tsx src/components/screens/FindingsTheater.tsx src/components/screens/ProblemsCenter.tsx src/components/screens/MissionControlV3.tsx src/components/CinemaMode.tsx src/components/ErrorBoundary.tsx src/components/Intake.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && AEGISPT_CAPTURE_UX8_LIGHT_MODE=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Light mode keeps report evidence triage and intake"` (`1` passed, screenshots captured)
+- `cd ui-v2 && npm test` (`40` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+
+## Latest Continuation - Codex UX1 trust-state recheck complete (2026-06-03)
+
+Codex re-verified UX1 from the Codex-owned UI/reporting worklist after the
+later UX2-UX8 UI/reporting passes. UX1 was already complete, so no code repair
+was required and `NEXT_TASK.md` remained untouched.
+
+Rechecked behavior:
+
+- Research raw `500` / diagnostic failures remain masked with safe recovery copy
+- Report Center raw AI provider/billing briefing failures remain masked
+- History filtered-empty and reset recovery remain clear
+- Dashboard sparse payload recovery does not crash
+- Dashboard/Mission/Findings/Evidence/Reports canonical consistency remains
+  aligned for selected run, findings, risk, and report readiness
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux1-trust-state-recheck-2026-06-03.md`.
+
+Validation completed:
+
+- `cd ui-v2 && AEGISPT_CAPTURE_UX1_TRUST_REPAIR=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Report Center masks raw provider briefing failures|Research masks raw API failures|History explains filtered empty states|Dashboard survives sparse dashboard payloads|Report Center shows canonical report truth|Canonical consistency fixture"` (`6` passed, screenshots refreshed)
+- `git diff --check`
+- `git diff --name-only -- NEXT_TASK.md TASK_QUEUE.md api/app/services/assessment_loop.py api/app/services/assessment_loop_internals/guards.py api/app/services/m2_verdict_gate.py workers/orchestration/tasks.py workers/runners/interactive_exploit` (no output)
+
+## Latest Continuation - Codex UX8 Light mode and theme tokenization complete (2026-06-03)
+
+Codex completed UX8 from the Codex-owned UI/reporting worklist without
+promoting or editing `NEXT_TASK.md` and without touching Claude-owned
+score-lane/runtime files.
+
+React v2 now has a persisted light/dark theme foundation. The App shell applies
+`data-theme` to the document root, stores the preference in `localStorage`,
+falls back to system light-mode preference when no preference is stored, and
+exposes a localized theme toggle in English, Dutch, German, and French.
+
+UX8 visible behavior repaired/proven:
+
+- shell, sidebar, workspace, focus, panel, mission-spine, Mission Control
+  snapshot, command strip, and core terminal contrast now use semantic theme
+  tokens instead of dark-only hardcoded colors
+- light mode persists through reload and does not break localized shell UI
+- Dashboard, Mission Control, and Live CLI remain readable in light mode at
+  1536x864, 1280x720, and a constrained 1024x576 viewport
+- Live CLI remains a deliberate dark terminal surface inside light mode, with
+  readable command/stdout/stderr contrast
+- existing attack-map 125%/150%-style viewport-pressure regression remains
+  covered in the React v2 critical-path suite
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux8-light-mode-theme-tokenization-2026-06-03.md`.
+
+Screenshot evidence:
+
+- `docs/validation/codex-ui-reporting-ux8-light-mode-dashboard-1536x864.png`
+- `docs/validation/codex-ui-reporting-ux8-light-mode-mission-control-1280x720.png`
+- `docs/validation/codex-ui-reporting-ux8-light-mode-live-cli-1024x576.png`
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx src/components/app-shell/AppShell.tsx src/components/MissionExperienceSpine.tsx src/components/screens/Dashboard.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && node scripts/check-i18n.mjs`
+- `cd ui-v2 && AEGISPT_CAPTURE_UX8_LIGHT_MODE=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "theme toggle persists light mode|Light mode keeps mission and command drilldowns"` (`2` passed, screenshots captured)
+- `cd ui-v2 && npm test` (`39` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+- `git diff --name-only -- NEXT_TASK.md TASK_QUEUE.md api/app/services/assessment_loop.py api/app/services/assessment_loop_internals/guards.py api/app/services/m2_verdict_gate.py workers/orchestration/tasks.py workers/runners/interactive_exploit` (no output)
+
+## Latest Continuation - Codex UX7 Management report export proof complete (2026-06-03)
+
+Codex completed UX7 from the Codex-owned UI/reporting worklist without
+promoting or editing `NEXT_TASK.md` and without touching Claude-owned
+score-lane/runtime files.
+
+Report Center now includes a deterministic Management proof panel before
+preview/export actions. The panel derives its content from the selected report
+catalog entry, canonical run findings, the report truth view-model, and selected
+run context. It shows a compact attack-map preview, standards badges for
+`[PTES]`, `[WSTG]`, `[NIST]`, and `[ASVS]`, plain-language techniques, evidence
+basis, not-claimed statements, and Management/Engineering/IT-Ops remediation
+ownership.
+
+UX7 visible behavior repaired/proven:
+
+- management export readiness is visible before download
+- standards badges are visible in the Report Center UI and remain framed as
+  methodology alignment, not certification
+- the report proof panel uses the same canonical findings and report catalog
+  data as the preview/export path
+- team remediation ownership is visible without asking operators to infer it
+  from raw finding rows
+- existing provider-error masking remains covered by Report Center tests
+- backend management report Markdown/PDF tests continue to prove attack map,
+  techniques, standards, remediation, and evidence basis
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux7-management-report-proof-2026-06-03.md`.
+
+Screenshot evidence:
+
+- `docs/validation/codex-ui-reporting-ux7-management-report-proof-1536x864.png`
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/ReportCenter.tsx src/viewModels/managementReportProof.ts tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && AEGISPT_CAPTURE_UX7_REPORT_PROOF=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Report Center shows canonical report truth"` (`1` passed, screenshot captured)
+- `cd ui-v2 && npm test` (`37` passed, including i18n key parity)
+- `if [ -x .venv/bin/pytest ]; then .venv/bin/pytest api/tests/test_reports.py -q -k "management_reports_rewrite_internal_runner_language or ai_report_draft"; else python -m pytest api/tests/test_reports.py -q -k "management_reports_rewrite_internal_runner_language or ai_report_draft"; fi` (`6` passed)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+- `git diff --name-only -- NEXT_TASK.md TASK_QUEUE.md api/app/services/assessment_loop.py api/app/services/assessment_loop_internals/guards.py api/app/services/m2_verdict_gate.py workers/orchestration/tasks.py workers/runners/interactive_exploit` (no output)
+
+## Latest Continuation - Codex UX6 Findings/Problems triage board complete (2026-06-03)
+
+Codex completed UX6 from the Codex-owned UI/reporting worklist without
+promoting or editing `NEXT_TASK.md` and without touching Claude-owned
+score-lane/runtime files.
+
+Findings Theater and Problems Center now start with decision-oriented triage
+boards. Findings are grouped deterministically by normalized title/severity in
+a new React v2 triage view-model, with severity lanes, proof-strength labels,
+linked-evidence counts, due/SLA cues, and next-action copy. Repeated findings
+are grouped without hiding individual evidence refs or targets, and missing
+evidence remains labelled as incomplete instead of report-ready.
+
+Problems Center now has urgent, due, owner-needed, and SLA-watch lanes. Clicking
+items in those lanes feeds the existing bulk-action selection state, so the
+first viewport answers what needs action today before the long lifecycle list.
+
+UX6 visible behavior repaired/proven:
+
+- repeated findings are grouped without hiding individual evidence refs
+- evidence-linked, verified, missing-evidence, due-date, and SLA states remain
+  separate in the triage board
+- Findings detail still owns stored business impact, technical proof, and
+  remediation language; the board does not invent those fields from list data
+- Problems Center exposes urgent/due/owner/SLA decisions and selection for bulk
+  action before filters and long lists
+- existing canonical Mission/Findings/Evidence/Reports consistency remains
+  green
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux6-findings-problems-triage-board-2026-06-03.md`.
+
+Screenshot evidence:
+
+- `docs/validation/codex-ui-reporting-ux6-findings-triage-board-1536x864.png`
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/FindingsTheater.tsx src/components/screens/ProblemsCenter.tsx src/viewModels/triageBoards.ts tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && AEGISPT_CAPTURE_UX6_TRIAGE_BOARD=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Findings Theater triage board|Problems Center triage board|Findings Theater filters|Findings Theater shows verified|Findings Theater separates"` (`5` passed, screenshot captured)
+- `cd ui-v2 && npm test` (`37` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+## Latest Continuation - Codex UX5 Evidence Replay timeline complete (2026-06-03)
+
+Codex completed UX5 from the Codex-owned UI/reporting worklist without
+promoting or editing `NEXT_TASK.md` and without touching Claude-owned
+score-lane/runtime files.
+
+Evidence Replay is now timeline-first. The page builds a chronological replay
+from loaded task details and saved findings, then puts the selected evidence
+step and replay timeline in the first viewport before the run selector and
+long task drilldown list. The existing transcript, artifact, hash, timestamp,
+redaction, and provenance drilldowns remain available below the timeline.
+
+UX5 visible behavior repaired/proven:
+
+- selected evidence steps explicitly show what the evidence proves and what it
+  does not prove
+- task events prove execution/output/provenance only and do not imply a
+  reportable vulnerability without a linked finding
+- finding events trace back to task/artifact evidence through evidence refs,
+  proof references, task ids, artifact ids, hashes, target host, and replay
+  metadata where possible
+- missing finding-to-evidence links are labelled as review-needed instead of
+  inferred
+- route phase cards now select the first timeline event for that phase so the
+  path, selected step, and filtered drilldown list move together
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux5-evidence-replay-timeline-2026-06-03.md`.
+
+Screenshot evidence:
+
+- `docs/validation/codex-ui-reporting-ux5-evidence-replay-timeline-1536x864.png`
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/EvidenceReplay.tsx src/viewModels/evidenceReplay.ts tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Evidence Replay"` (`3` passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_UX5_EVIDENCE_TIMELINE=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Evidence Replay timeline traces finding evidence"` (`1` passed, screenshot captured)
+- `cd ui-v2 && npm test` (`35` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+
+## Latest Continuation - Codex UX4 attack path truth map v2 complete (2026-06-03)
+
+Codex completed UX4 from the Codex-owned UI/reporting worklist without
+promoting or editing `NEXT_TASK.md` and without touching Claude-owned
+score-lane/runtime files.
+
+Mission Control's full attack map is now proven as a selected-run truth map.
+It uses selected-run tasks and selected-run findings, does not reuse stale
+sibling chain output, renders each reportable finding as its own proof
+milestone, and keeps the proof path consistent with the report/outcome finding
+count and severity mix. The map still supports wheel zoom, drag pan, Fit,
+keyboard zoom, replay controls, severity legend, and node detail click-through.
+
+UX4 visible behavior repaired/proven:
+
+- proof-card timing chips no longer clip inside the full-map cards
+- the full-map overlay keeps enough map height at 125%/150%-style effective
+  viewports by using a side-by-side map/detail layout from the `lg` breakpoint
+- a dedicated Playwright regression verifies important Start, Proof, and
+  Outcome nodes remain inside the map canvas at 1230x690 and 1024x576
+- UX4 screenshot evidence shows individual proof milestones with timing and
+  selected step detail
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux4-attack-path-truth-map-v2-2026-06-03.md`.
+
+Screenshot evidence:
+
+- `docs/validation/codex-ui-reporting-ux4-attack-path-truth-map-1536x864.png`
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control attack map fit remains usable"` (`1` passed)
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control renders interactive live results overview|Mission Control attack map follows the selected run|Mission Control attack map draws multiple critical findings|Mission Control attack map fit remains usable"` (`4` passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_UX4_ATTACK_MAP=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control attack map draws multiple critical findings as path milestones"` (`1` passed, screenshot captured)
+- `cd ui-v2 && npm test` (`34` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+
+## Latest Continuation - Codex UX3 Mission Control living cockpit complete (2026-06-03)
+
+Codex completed UX3 from the Codex-owned UI/reporting worklist without
+promoting or editing `NEXT_TASK.md` and without touching Claude-owned
+score-lane/runtime files.
+
+Mission Control now shows the active/next command stream in the first Live
+viewport. The `Mission snapshot` contains a compact `Current command` strip
+that selects the running task first, then the queued task, then the latest task
+as fallback. It shows command-style `$ tool --target ...` text, task status,
+latest stored stdout/stderr when task detail is available, and explicit
+queued/running/no-output recovery copy when output is not present. The full Live
+CLI remains the drilldown for complete terminal history.
+
+UX3 visible behavior repaired:
+
+- running cockpit state shows the active command and latest output without
+  opening full CLI
+- queued/running/no-output states no longer render as blank command context
+- command/output preview wraps across two lines at 1536x864 instead of hiding
+  most of the useful text
+- the fixture router now returns primary-run inventory so selected-run running
+  cockpit tests prove the intended state
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux3-living-cockpit-command-stream-2026-06-03.md`.
+
+Screenshot evidence:
+
+- `docs/validation/codex-ui-reporting-ux3-living-cockpit-command-stream-1536x864.png`
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control renders interactive live results overview|Mission Control explains queued signal-only runs|Mission Control cockpit exposes the current command stream"` (`3` passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_UX3_LIVING_COCKPIT=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control cockpit exposes the current command stream"` (`1` passed, screenshot captured)
+- `cd ui-v2 && npm test` (`33` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+
+## Latest Continuation - Codex UX2 shared page experience contract complete (2026-06-03)
+
+Codex completed UX2 from the Codex-owned UI/reporting worklist without
+promoting or editing `NEXT_TASK.md` and without touching Claude-owned
+score-lane/runtime files.
+
+React v2 now uses a compact global mission context on supporting routes where
+the full active-assessment cockpit was consuming the first viewport:
+`/intake`, `/live-cli`, `/packs`, `/cve-library`, `/research`, and `/settings`.
+The full mission story spine remains on primary assessment/review/outcome
+routes such as Dashboard, Evidence Replay, Findings, Reports, History,
+Problems, and Surface Map.
+
+UX2 visible behavior repaired:
+
+- secondary/admin/diagnostic pages now start with a compact context bar instead
+  of the full route-stage cockpit
+- the compact context still carries selected-run truth: target, checked
+  evidence, saved proof, and one primary mission action
+- setup, diagnostics, build, knowledge, research, and admin routes now have
+  route-specific first-viewport context copy
+- the compact spine stacks at 1280x720 so Live CLI context does not truncate or
+  crowd the command output
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux2-shared-page-experience-contract-2026-06-03.md`.
+
+Screenshot evidence:
+
+- `docs/validation/codex-ui-reporting-ux2-admin-compact-spine-1536x864.png`
+- `docs/validation/codex-ui-reporting-ux2-diagnostics-compact-spine-1280x720.png`
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/MissionExperienceSpine.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission experience spine carries|Secondary admin and diagnostics routes use compact mission context"` (`2` passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_UX2_PAGE_CONTRACT=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Secondary admin and diagnostics routes use compact mission context"` (`1` passed, screenshots captured)
+- `cd ui-v2 && npm test` (`32` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+
+## Latest Continuation - Codex UX1 trust-breaking state repair complete (2026-06-03)
+
+Codex completed UX1 from the Codex-owned UI/reporting worklist without
+promoting or editing `NEXT_TASK.md` and without touching Claude-owned
+score-lane/runtime files.
+
+React v2 now has a shared safe operator-message helper at
+`ui-v2/src/viewModels/safeMessaging.ts`. AppShell, Research, Report Center,
+History, Dashboard, and Findings Theater use it on the UX1 trust paths so raw
+provider/API diagnostics, stack text, billing text, request IDs, and generic
+`AegisPT API request failed` copy do not leak into customer/operator UI states.
+
+UX1 visible behavior repaired:
+
+- Research masks raw `500` / diagnostic failures, adds safe refresh/generation
+  handling, and gives the no-engagement state a clear recovery action.
+- Report Center masks raw AI-provider briefing failures even when the backend
+  returns them as a briefing string, and uses safe report-specific recovery copy
+  for catalog/preview/export/compare/finding-load failures.
+- History distinguishes filtered-empty from no-history, provides reset/refresh
+  actions, and masks history-load failures.
+- Dashboard uses safe API copy for load/refresh/rapid-response failures and
+  prefers dashboard `active_run` task counts when present.
+- Findings Theater uses safe global error copy for finding/detail load
+  failures.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ux1-trust-breaking-state-repair-2026-06-03.md`.
+
+Screenshot evidence:
+
+- `docs/validation/codex-ui-reporting-ux1-report-provider-mask-1536x864.png`
+- `docs/validation/codex-ui-reporting-ux1-research-safe-error-1536x864.png`
+- `docs/validation/codex-ui-reporting-ux1-history-filter-empty-1536x864.png`
+- `docs/validation/codex-ui-reporting-ux1-history-filter-reset-1536x864.png`
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/viewModels/safeMessaging.ts src/components/app-shell/AppShell.tsx src/components/screens/Research.tsx src/components/screens/History.tsx src/components/screens/Dashboard.tsx src/components/screens/ReportCenter.tsx src/components/screens/FindingsTheater.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Report Center masks raw provider briefing failures|Research masks raw API failures|History explains filtered empty states|Report Center shows canonical report truth|Canonical consistency fixture"` (`5` passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_UX1_TRUST_REPAIR=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Report Center masks raw provider briefing failures|Research masks raw API failures|History explains filtered empty states"` (`3` passed, screenshots captured)
+- `cd ui-v2 && npm test` (`31` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+
+Remaining note: some admin/detail screens outside UX1 still have local raw
+`error.message` handling and should be cleaned in a broader safe-messaging pass
+during UX2 or a dedicated follow-up.
+
+## Latest Continuation - Codex UI/reporting system UX audit complete (2026-06-03)
+
+Codex paused implementation after the Live CLI/reporting repairs and performed
+a full UI/reporting experience audit in the Codex-owned lane. This was an
+analysis-only pass: no product code, runtime runner code, scoring code,
+`NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+
+The audit reviewed Dashboard, Intake, Mission Control, Live CLI, Surface Map,
+Evidence Replay, Findings Theater, Report Center, History, Problems, Packs, CVE
+Library, Research, and Settings from the running `ui-v2` app. Playwright
+screenshots and DOM summaries were captured with `domcontentloaded` because
+live/SSE routes do not reliably settle under `networkidle`. A light-mode token
+simulation was also performed to assess feasibility.
+
+Key outcome: the UI direction is better, especially Mission Control and Live
+CLI, but the product still feels like multiple data screens rather than one
+guided assessment story. The audit identifies the highest-priority gaps:
+fragmented narrative, too much first-viewport text, weak live motion, list-heavy
+Findings/Problems flows, raw provider/API failure states, report UX that is not
+yet management-grade end to end, and hardcoded dark colors that must be
+tokenized before light mode is reliable.
+
+Follow-up tasks from the audit are now formalized in
+`docs/strategy/codex-ui-reporting-worklist-2026-06-01.md` as UX1-UX8:
+trust-breaking state repair, shared page experience contract, Mission Control
+living cockpit, attack path truth map v2, Evidence Replay timeline,
+Findings/Problems triage board, management report experience/export proof, and
+light-mode/theme tokenization. They remain Codex-owned worklist items and were
+not promoted into `NEXT_TASK.md`.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-ui-system-audit-2026-06-03.md`.
+
+No Claude score-lane files, active benchmark artifacts, assessment-loop/runtime
+files, worker runner files, scoring code, `NEXT_TASK.md`, or `TASK_QUEUE.md`
+were changed for this audit.
+
+## Latest Continuation - Codex M5 report helper extraction complete (2026-06-03)
+
+Codex continued with M5 after the W6A Live CLI command-output repair was
+complete and proven. This stayed in the Codex UI/reporting lane while
+`NEXT_TASK.md` remains owned by Claude's score-lane Track B work.
+
+The first M5 extraction slices moved generic report render helpers, report
+lifecycle helpers, report variant metadata, and report model ordering/display
+helpers out of
+`api/app/services/reports.py` into a report-only helper package:
+`api/app/services/reporting/__init__.py`,
+`api/app/services/reporting/render_utils.py`,
+`api/app/services/reporting/lifecycle.py`, and
+`api/app/services/reporting/metadata.py`, and
+`api/app/services/reporting/model_utils.py`. The extracted concerns cover JSON
+block formatting, humanized labels and values, key/value Markdown/HTML
+rendering, target-summary rendering, report-ready status sets, lifecycle summary
+construction, report availability decisions, report variant labels/descriptions,
+variant alias normalization, compliance framework selection, finding/task/
+approval/artifact ordering, artifact download paths, task target display, finding
+summaries, and latest-scope selection. `reports.py` keeps the previous helper
+names through imports so existing report rendering, PDF, catalog, and finding
+view callsites remain compatible.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m5-report-render-utils-extraction-2026-06-03.md`.
+`docs/validation/codex-ui-reporting-m5-report-lifecycle-extraction-2026-06-03.md`.
+`docs/validation/codex-ui-reporting-m5-report-metadata-extraction-2026-06-03.md`.
+`docs/validation/codex-ui-reporting-m5-report-model-utils-extraction-2026-06-03.md`.
+
+Validation completed:
+
+- `./.venv/bin/ruff check api/app/services/reports.py api/app/services/reporting`
+- `./.venv/bin/pytest api/tests/test_reports.py -q` (passed)
+- `./.venv/bin/pytest api/tests/test_reports.py --collect-only -q` (`24` tests)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+- after the lifecycle extraction, `./.venv/bin/ruff check api/app/services/reports.py api/app/services/reporting`
+  and `./.venv/bin/pytest api/tests/test_reports.py -q` were rerun and passed
+- after the metadata extraction, `./.venv/bin/ruff check api/app/services/reports.py api/app/services/reporting`
+  and `./.venv/bin/pytest api/tests/test_reports.py -q` were rerun and passed
+- after the model-utils extraction, `./.venv/bin/ruff check api/app/services/reports.py api/app/services/reporting`
+  and `./.venv/bin/pytest api/tests/test_reports.py -q` were rerun and passed
+
+The first attempted validation used the system Python path and failed because
+`python` is not installed as an alias and the system environment lacks `pypdf`.
+The checks above were rerun through the repository `.venv`.
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this M5 slice.
+
+## Latest Continuation - Codex W6A Live CLI command-output repair complete (2026-06-03)
+
+Codex repaired the React v2 Live CLI after operator feedback that the screen did
+not make raw command output easy to follow like a command prompt. The issue was
+not that output only exists when a finding is created: task stdout/stderr can be
+captured for ordinary tasks too, but the UI could render structured task output
+as one dense blob and did not always show a command-style line when the backend
+stream did not include one.
+
+`ui-v2/src/components/screens/LiveCLI.tsx` now opens the shared task terminal in
+full-height mode. `ui-v2/src/components/screens/MissionControlV3.tsx` improves
+`LiveTaskDrillDown` for both Mission Control and Live CLI: every selected task
+gets a command-style `$ tool --target ...` line, stdout/stderr is labelled,
+structured JSON is expanded for readability, long lines split at readable
+boundaries instead of hard `break-all` wrapping, and persisted task detail can
+clear a transient SSE error once saved stdout/stderr is available.
+
+`ui-v2/tests/react-v2-critical-paths.spec.ts` now includes a regression fixture
+with `target-intel` structured JSON output and proves the Live CLI renders the
+command line plus readable stdout/stderr content.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-live-cli-command-output-2026-06-03.md`.
+
+Screenshot evidence:
+`docs/validation/codex-ui-reporting-w6a-live-cli-command-output-1536x864.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/LiveCLI.tsx src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Live CLI renders command-style stdout"` (1 passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_LIVE_CLI_COMMAND=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Live CLI renders command-style stdout"` (1 passed, screenshot captured)
+- `cd ui-v2 && npm test` (28 passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex M3 API domain client split complete (2026-06-03)
+
+Codex continued with the next open Codex-owned modularization item after M2
+store slices were complete and proven. This remained inside the UI/reporting
+lane while the repo-wide `NEXT_TASK.md` stayed under Claude's Track A1
+score-lane ownership.
+
+`ui-v2/src/api/client.ts` is now a compatibility barrel that preserves existing
+screen imports. Shared transport behavior moved to `ui-v2/src/api/transport.ts`
+(`api`, `apiBlob`, `ApiError`, base URL handling, actor headers, and tenant
+headers). API calls are split by domain into engagement, run, finding, report,
+inventory, settings/auth, schedule, problem, pack, custom vulnerability,
+research, and deception modules. Existing product behavior stays unchanged, but
+future UI/reporting work can now touch report/evidence/run APIs without editing
+one large mixed client.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m3-api-domain-clients-2026-06-03.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/api/client.ts src/api/transport.ts src/api/engagements.ts src/api/runs.ts src/api/findings.ts src/api/reports.ts src/api/inventory.ts src/api/settings.ts src/api/schedules.ts src/api/problems.ts src/api/packs.ts src/api/customVulnerabilities.ts src/api/research.ts src/api/deception.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/i18n.spec.ts` (3 passed)
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "All primary React v2 screens render non-empty content|Report Center shows canonical report truth|Evidence Replay uses assessment-chain tasks|Findings Theater filters findings|Mission experience spine carries"` (5 passed)
+- `cd ui-v2 && npm test` (27 passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Generated `ui-v2/dist` and `ui-v2/test-results` output was removed after
+validation. No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this slice.
+
+## Latest Continuation - Codex M2 store slice modularization complete (2026-06-03)
+
+Codex continued with the next open Codex-owned modularization item after the
+W6A Mission Control live-activity repair was complete and proven. The active
+repo-wide task in `NEXT_TASK.md` remains Claude's Track A1 score-lane work, so
+this pass stayed inside the UI/reporting lane.
+
+`ui-v2/src/store/index.ts` is now a thin Zustand composition root. Store state
+and actions were split into focused slices under `ui-v2/src/store/`:
+`engagementRunSlice.ts`, `evidenceSlice.ts`, `operatorSlice.ts`,
+`runtimeSlice.ts`, shared `types.ts`, and `actorPersistence.ts`. The exported
+`useAegisStore` hook, actor storage keys, and public state/action names remain
+unchanged, so existing screens keep consuming the same UI data model while the
+store is easier to reason about for future Mission Control, evidence, finding,
+and reporting repairs.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m2-store-slices-2026-06-03.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/store/index.ts src/store/types.ts src/store/actorPersistence.ts src/store/engagementRunSlice.ts src/store/evidenceSlice.ts src/store/operatorSlice.ts src/store/runtimeSlice.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/i18n.spec.ts` (3 passed)
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission experience spine carries the selected run story across the shell|Mission Control renders interactive live results overview"` (2 passed)
+- `cd ui-v2 && npm test` (27 passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Generated `ui-v2/dist` and `ui-v2/test-results` output was removed after
+validation. No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this slice.
+
+## Latest Continuation - Codex W6A Mission Control live-activity repair complete (2026-06-03)
+
+Codex continued the W6A Mission Control repair after operator feedback that the
+screen still made it hard to see what the system was doing because the UI felt
+static and lifeless. The previous full-path attack-map repair remained intact;
+this pass focused on meaningful motion in the Live cockpit without adding
+decorative animation.
+
+`ui-v2/src/components/screens/MissionControlV3.tsx` now exposes a semantic
+Mission Control activity state (`running`, `queued`, `review`, `done`, or
+`idle`) and renders a compact live activity pulse under the main cockpit
+headline. The mission stage rail now marks the phase where a queued task will
+continue, not only completed phases. Queue rows and the queue handoff strip carry
+status data attributes so waiting/running work gets visible movement, and
+compact Mission path nodes now receive status-aware treatment as well.
+
+`ui-v2/src/index.css` adds the actual motion layer: snapshot sweep, live
+activity track, queue handoff scan, queued/running row scan, stage-route activity
+line, and compact-path activity sweep. The animations are tied to real status
+attributes and include a `prefers-reduced-motion: reduce` guard.
+
+`ui-v2/tests/react-v2-critical-paths.spec.ts` now asserts the queued Mission
+Control fixture exposes the live system activity signal and queue waiting
+handoff. A screenshot captures the queued live cockpit with the activity rail
+and queue handoff strip.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-mission-live-activity-2026-06-03.md`.
+
+Screenshot evidence:
+`docs/validation/codex-ui-reporting-w6a-mission-live-activity-1536x864.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control explains queued signal-only runs"` (1 passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_MISSION_LIVE_ACTIVITY=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control explains queued signal-only runs"` (1 passed, screenshot captured)
+- `cd ui-v2 && npm test` (27 passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Generated `ui-v2/dist` and `ui-v2/test-results` output was removed after
+validation. No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex W6A attack-map full-path findings repair complete (2026-06-03)
+
+Codex repaired the Mission Control attack map after operator feedback that the
+Impact gauge showed multiple critical findings while the full attack map still
+looked like a single proof item. The previous selected-run binding repair was
+complete, but the proof-node presentation was still the wrong product shape:
+operators need the whole attack path, including what happened before proof and
+when each finding was reached, not a card that hides findings behind a summary.
+
+`ui-v2/src/components/screens/MissionControlV3.tsx` now draws persisted
+findings as individual proof milestones in the full attack path. The route
+continues to show discovery, decision, failed/dead-end branches, prerequisite
+task steps, proof events, and the report outcome. Each proof milestone carries
+its own severity, persisted timestamp, elapsed-from-start chip, source-task
+duration, source task metadata, and path position. For runs with many findings,
+the proof layer wraps into a compact two-column path instead of a long tiny
+vertical stack. The map canvas size is now derived from the actual node/edge
+bounds so Fit opens at a readable scale with less empty space.
+
+`ui-v2/tests/react-v2-critical-paths.spec.ts` now includes a regression fixture
+with 5 critical findings and 1 informational baseline. The test proves Mission
+Control's Impact gauge still says `6 reportable` / `5 critical`, the compact
+Mission path shows a proof milestone, the full attack map renders all six proof
+events as path nodes, selecting a proof node shows timing/source/path-position
+facts, and the report outcome summarizes `5 critical · 1 info`.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-attack-map-full-path-findings-2026-06-03.md`.
+
+Screenshot evidence:
+`docs/validation/codex-ui-reporting-w6a-attack-map-full-path-findings-1536x864.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control attack map draws multiple critical findings as path milestones"` (1 passed)
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control attack map follows the selected run"` (1 passed)
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control renders interactive live results overview"` (1 passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_ATTACK_MAP_FULL_PATH=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control attack map draws multiple critical findings as path milestones"` (1 passed, screenshot captured)
+- `cd ui-v2 && npm test` (27 passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Generated `ui-v2/dist` and `ui-v2/test-results` output was removed after
+validation. No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex W6A attack-map selected-run binding repair complete (2026-06-03)
+
+Codex repaired the Mission Control attack map after operator feedback that the
+map showed the same output regardless of the selected mission/run. The root
+cause was the chain-aware task/finding context: `getTasksForRunContext()` can
+return the full assessment-chain task list, while the attack map needs to show
+the route for the selected run.
+
+`ui-v2/src/components/screens/MissionControlV3.tsx` now scopes the attack map
+to the selected run: map tasks come from `run.tasks`, and map findings are
+filtered to findings whose `run_id` matches the selected run. Legacy findings
+without `run_id` still render as a fallback, but findings from sibling runs in
+the same assessment chain no longer appear as proof for the selected mission.
+The compact current path also keeps the selected run's last task visible before
+showing a terminal dead-end/outcome.
+
+`ui-v2/tests/react-v2-critical-paths.spec.ts` now includes a regression fixture
+with two runs in the same assessment chain: the chain endpoint returns stale
+sibling output, while the selected run has a different local task. The test
+proves the compact path and full map show the selected run's task and exclude
+the stale chain task/finding.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-attack-map-selected-run-binding-2026-06-03.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control attack map follows the selected run"` (1 passed)
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control renders interactive live results overview and technical views from fixtures"` (1 passed)
+- `cd ui-v2 && npm test` (26 passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Generated `ui-v2/dist` and `ui-v2/test-results` output was removed after
+validation. No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex W6A attack-map pan/zoom repair complete (2026-06-03)
+
+Codex repaired the full Mission Control attack-map overlay after operator
+feedback that the route did not fit, could not zoom out far enough, Fit did not
+recenter the whole path, and the map could not be moved with the mouse.
+
+`ui-v2/src/components/screens/MissionControlV3.tsx` now treats the full attack
+map as a real pan/zoom viewport instead of a scaled scrollbox. The overlay
+supports mouse-wheel zoom, drag-to-pan on the map canvas, keyboard zoom, a lower
+minimum zoom for wide attack paths, and a bounds-based `Fit` action that
+centers the entire route inside the visible canvas. The map transform exposes
+testable zoom/pan state, and the helper copy now tells operators to use wheel,
+drag, double-click, or `0` for Fit.
+
+`ui-v2/tests/react-v2-critical-paths.spec.ts` now proves that the full attack
+map opens, exposes the pan/zoom canvas, changes zoom via mouse wheel, changes
+pan via drag, still supports node click-through details, and captures a
+1536x864 screenshot of the fitted route.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-attack-map-panzoom-2026-06-03.md`.
+
+Screenshot evidence:
+`docs/validation/codex-ui-reporting-w6a-attack-map-panzoom-1536x864.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && AEGISPT_CAPTURE_ATTACK_MAP_PANZOOM=1 npx playwright test tests/react-v2-critical-paths.spec.ts -g "Mission Control renders interactive live results overview and technical views from fixtures"` (1 passed, screenshot captured)
+- `cd ui-v2 && npm test` (25 passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Generated `ui-v2/dist` and `ui-v2/test-results` output was removed after
+validation. No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex W6A context-aware mission spine complete (2026-06-03)
+
+Codex continued in the Codex UI/reporting lane after operator feedback that the
+UI still needed to feel like one system that carries the operator through the
+assessment, not a set of screens. The previous Mission Control cockpit work was
+complete; this pass repaired the global mission spine so ordinary pages now say
+where the operator is in the mission story.
+
+`ui-v2/src/components/MissionExperienceSpine.tsx` is now path-aware via
+`AppShell`. On Dashboard it still summarizes the selected run. On Evidence
+Replay it says the operator is replaying the proof trail. On Findings/Problems
+it says the operator is deciding what counts. On Report Center it says the
+operator is turning proof into a report. On Live CLI and Surface Map it explains
+the raw-output and mapping roles. The route rail now marks the page's active
+mission stage with `aria-current="step"` so the visual story and accessibility
+tree agree.
+
+The pass also tightened the spine layout after screenshot review: route actions
+stack cleanly at normal desktop widths, the current-page title can wrap instead
+of truncating, and the right-side next-move card no longer crowds actions
+against the edge.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-context-aware-spine-2026-06-03.md`.
+
+Screenshot evidence:
+`docs/validation/codex-ui-reporting-w6a-context-aware-spine-evidence-1536x864.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/MissionExperienceSpine.tsx src/components/app-shell/AppShell.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission experience spine carries the selected run story across the shell"` (1 passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_SPINE_CONTEXT=1 npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission experience spine carries the selected run story across the shell"` (1 passed, screenshot captured from fixture data)
+- `cd ui-v2 && npm test` (25 passed, including i18n key parity)
+- `cd ui-v2 && npm run build`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Generated `ui-v2/dist` and `ui-v2/test-results` output was removed after
+validation. No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex W6A Mission Control operator deck repair complete (2026-06-03)
+
+Codex continued in the Codex UI/reporting lane after operator feedback that the
+UI still provided too much fragmented information without making the operator
+feel carried through the test. This repair focused on the Mission Control `Live`
+first viewport, because that is where the operator should immediately know
+where they are, what AegisPT is doing, what proof exists, and what the next
+meaningful click is.
+
+`ui-v2/src/components/screens/MissionControlV3.tsx` now gives the Mission
+snapshot an operator-presence deck: `You are here`, current role, system state,
+evidence state, route, lead proof, impact, and direct actions. The route stages
+are now clickable navigation links into Surface Map, Live CLI, Findings, and
+Reports instead of passive labels. Repeated explanatory text was shortened so
+the first viewport is led by status, route, proof, and impact, while story
+cards, run picture, and technical facts stay behind the existing details layer.
+
+`ui-v2/src/index.css` adds a dashboard-aligned blue instrument surface for the
+Mission Control snapshot, with stable route-button dimensions for zoomed
+operator displays. `ui-v2/tests/react-v2-critical-paths.spec.ts` now proves the
+operator deck text, role/system/evidence facts, clickable route steps, and
+fixture-backed screenshot capture.
+
+The design direction was checked against UI/design sources: Nielsen Norman's
+visibility/status, real-world-language, recognition-over-recall, and minimalist
+heuristics; Fluent guidance on hierarchy, plain language, focus/zoom, and
+semantic color; Carbon status-indicator guidance on urgency and limiting status
+load; and OWASP WSTG entry-point mapping guidance so the UI route remains tied
+to security-test process instead of generic dashboard categories.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-mission-control-operator-deck-2026-06-03.md`.
+
+Screenshot evidence:
+`docs/validation/codex-ui-reporting-w6a-mission-control-operator-deck-1536x864.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission Control renders interactive live results overview and technical views from fixtures"` (1 passed)
+- `cd ui-v2 && AEGISPT_CAPTURE_MISSION_CONTROL=1 npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission Control renders interactive live results overview and technical views from fixtures"` (1 passed, screenshot captured from fixture data)
+- `cd ui-v2 && npm test` (25 passed, including i18n key parity)
+- `cd ui-v2 && npm run build`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Generated `ui-v2/dist` and `ui-v2/test-results` output was removed after
+validation. No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex W6A operator-presence spine repair complete (2026-06-03)
+
+Codex continued in the Codex UI/reporting lane after operator feedback that the
+UI still felt like disconnected screens instead of an experience that pulls the
+operator into the assessment. The repair focused on the global React v2 mission
+spine because that surface appears above ordinary pages and should make the app
+feel like one mission cockpit.
+
+`ui-v2/src/components/MissionExperienceSpine.tsx` now presents a tighter
+operator-centered cockpit: `You are here`, `Route`, and `Your next move`. It
+keeps the same canonical selected-run, chain-aware task, finding, and inventory
+truth, but now exposes target, checked progress, proof count, risk, evidence,
+and report readiness as compact facts. Route steps now include one-line context
+for Live, Evidence, Findings, and Report rather than just administrative
+labels. The visual layer in `ui-v2/src/index.css` now uses a single blue
+instrument surface, a live/status orb, active route cards, compact status dots,
+and zero base letter-spacing.
+
+The design direction was grounded in current UI/design references: Nielsen
+Norman's usability heuristics for visible system status, real-world language,
+recognition over recall, and minimalist design; Fluent guidance on hierarchy,
+plain language, interaction states, and semantic color; Carbon's status
+indicator pattern that combines color, type, and shape instead of relying on
+color alone; and OWASP WSTG guidance that security testing should map entry
+points and execution paths before drawing conclusions.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-operator-presence-spine-2026-06-03.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/MissionExperienceSpine.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission experience spine carries the selected run story across the shell"` (1 passed)
+- `cd ui-v2 && npm test` (25 passed, including i18n key parity)
+- `cd ui-v2 && npm run build`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex W6A attack-map visible timing repair complete (2026-06-03)
+
+Codex continued in the Codex UI/reporting lane after operator feedback that the
+Mission Control attack map still did not show when an attack step happened or
+how long AegisPT needed to reach proof. `ui-v2/src/components/screens/MissionControlV3.tsx`
+now carries compact timing chips directly on attack-map nodes instead of
+requiring the operator to open the detail panel first.
+
+The compact current path and full attack-map cards now show visible timing such
+as run start time, route elapsed time, task completion/failure time, task
+duration, proof persisted time, elapsed time from run start, and source-task
+duration. Route end time now considers persisted finding timestamps in addition
+to task timestamps, so proof timing cannot appear later than the route clock.
+
+`ui-v2/tests/react-v2-critical-paths.spec.ts` now uses a realistic timed fixture
+and asserts that both the compact path and full-map proof node expose the proof
+clock time plus the `after 8m` and `source took 1m` timing facts.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-attack-map-visible-timing-2026-06-03.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission Control renders interactive live results overview and technical views from fixtures"` (1 passed)
+- `cd ui-v2 && npm test` (25 passed, including i18n key parity)
+- `cd ui-v2 && npm run build`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex M6 management report story/remediation repair complete (2026-06-02)
+
+Codex continued M6 in the Codex UI/reporting lane after operator feedback that
+the management PDF still did not convincingly explain severity, attacker path,
+engineering/IT remediation, standards, or how the test came to its conclusions.
+`api/app/services/reports.py` now extends deterministic management report facts
+with attacker-path rows, Engineering and IT/Ops remediation tracks, standard
+badges, risk-picture chart rows, and a plain-language test-origin explanation.
+
+English summary Markdown/HTML/PDF and Dutch management Markdown/PDF now include
+sections for why the situation matters, what an attacker could do, what
+Engineering and IT/Ops should do, how the test was built from scoped evidence,
+and which standards were used. Standards are shown as self-contained report
+badges `[PTES]`, `[WSTG]`, `[NIST]`, and `[ASVS]` while preserving the existing
+PTES, OWASP WSTG, NIST SP 800-115, and optional ASVS mappings.
+
+AI-assisted management draft payloads now receive the same deterministic
+`management_story` facts for `attacker_story`, `remediation_tracks`, and
+`standards_badges`; technical draft variants keep those management-only facts
+empty. Management-facing output still suppresses raw runner/tool/lab labels and
+proof tokens.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m6-management-report-story-remediation-2026-06-02.md`.
+
+Validation completed:
+
+- `.venv/bin/python -m py_compile api/app/services/reports.py api/app/services/report_pdf.py api/tests/test_reports.py`
+- `.venv/bin/python -m pytest api/tests/test_reports.py::test_management_reports_rewrite_internal_runner_language -q`
+- `.venv/bin/python -m pytest api/tests/test_reports.py::test_ai_report_draft_supports_chatgpt_oauth_provider api/tests/test_reports.py::test_ai_report_draft_separates_management_and_technical_contracts -q`
+- `.venv/bin/python -m pytest api/tests/test_reports.py -q`
+- `.venv/bin/ruff check api/app/services/reports.py api/app/services/report_pdf.py api/tests/test_reports.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex W6A attack-map truth/timing repair complete (2026-06-02)
+
+Codex repaired Mission Control's attack map after operator feedback that the map
+did not match the real findings or actual scan path and lacked timing context.
+`ui-v2/src/components/screens/MissionControlV3.tsx` now builds the attack-map
+route from real run task groups, keeps recent task order, and links persisted
+proof to the best completed/matching source task. The compact current path now
+prefers the source task that explains saved proof instead of a later queued task
+when findings already exist.
+
+Proof nodes now use the actual persisted finding title, redacting only sensitive
+proof tokens or benchmark ids, instead of the management-safe category label
+such as `Input and data handling`. Full-map detail panels now include task
+started/update time, task duration, finding persisted time, elapsed time from
+run start, and source-task duration so operators can see when the route
+happened and how long it took.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-attack-map-truth-timing-repair-2026-06-02.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission Control renders interactive"` (1 passed)
+- `cd ui-v2 && npm test` (25 passed, including i18n key parity)
+- `cd ui-v2 && npm run build`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this repair.
+
+## Latest Continuation - Codex M1 app shell split complete (2026-06-02)
+
+Codex continued with M1 in the Codex UI/reporting lane by splitting the React
+v2 app composition root into route-shell modules. `ui-v2/src/App.tsx` is now a
+thin provider and route tree. The former shell/bootstrap code now lives in
+`ui-v2/src/components/app-shell/AppShell.tsx`, with separate modules for
+navigation config/rendering, command palette items/UI, toast viewport, shared
+shell utilities, and the workspace loading skeleton. The intake route wrapper
+now lives in `ui-v2/src/components/screens/IntakeScreen.tsx`.
+
+Behavior is intended to be unchanged: bootstrap still loads engagements and
+settings, selected engagement still loads runs, selected run still loads
+chain-aware tasks/findings/inventory/AI insights, Mission Control still hides
+the global mission spine, and the command palette still selects engagements,
+runs, findings, and routes through the same store actions.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m1-app-shell-split-2026-06-02.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/App.tsx src/components/app-shell/AppShell.tsx src/components/app-shell/CommandPalette.tsx src/components/app-shell/ToastViewport.tsx src/components/app-shell/WorkspaceSkeleton.tsx src/components/app-shell/navigation.tsx src/components/app-shell/navConfig.ts src/components/app-shell/commandItems.ts src/components/app-shell/types.ts src/components/app-shell/utils.ts src/components/screens/IntakeScreen.tsx`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "App shell|primary navigation routes|Mission Intake"` (2 passed)
+- `cd ui-v2 && npm test` (25 passed, including i18n key parity)
+- `cd ui-v2 && npm run build`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+An earlier full `npm test -- --run` was started in parallel with a separate
+focused Playwright run and failed after Vite connection refusals/resets. The
+full suite passed when rerun standalone after the focused run completed.
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this M1 continuation.
+
+## Latest Continuation - Codex M8 cross-surface consistency checker complete (2026-06-02)
+
+Codex continued with M8 in the Codex UI/reporting lane. Report Center now has a
+dedicated `buildCrossSurfaceConsistency(...)` view-model helper in
+`ui-v2/src/viewModels/crossSurfaceConsistency.ts`. The helper compares
+canonical chain-aware findings against the run-local summary, report catalog
+included counts, generated markdown preview claims, and evidence-link
+availability. It treats stale run-local summaries as a visible review caveat
+while keeping report/customer truth anchored to canonical findings.
+
+`ui-v2/src/components/screens/ReportCenter.tsx` now renders a compact `Truth
+consistency` panel showing canonical, run-local, catalog, evidence, and preview
+state. The existing canonical consistency Playwright fixture now proves the
+deliberate mismatch remains clear: run-local summary says one finding, while
+findings/evidence/reports/preview stay aligned on the canonical two-finding
+truth.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m8-cross-surface-consistency-checker-2026-06-02.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/ReportCenter.tsx src/viewModels/reportTruth.ts src/viewModels/crossSurfaceConsistency.ts tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Report Center|Canonical consistency"` (2 passed)
+- `cd ui-v2 && npm run build`
+- `cd ui-v2 && npm test` (25 passed, including i18n key parity)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this M8 continuation.
+
+## Latest Continuation - Codex M6 management attack-map and technique story complete (2026-06-02)
+
+Codex continued M6 in the Codex UI/reporting lane by making management-facing
+reports explain the assessment path and tested techniques, not only URL lists
+or raw findings. `api/app/services/reports.py` now derives a deterministic
+management story from stored run context: a five-step attack map from scope to
+discovery, techniques, evidence, and decision; a plain-language "what was
+tested" explanation; and management-safe technique categories for network and
+service discovery, web reachability, web behavior checks, known-risk
+checklists, database input validation, hidden route discovery, controlled proof
+attempts, and source-aware review.
+
+English management Markdown/HTML/PDF now include `Attack Map`, `What Was
+Tested`, and `Techniques Used in Plain Language`. Dutch management Markdown/PDF
+now include `Aanvalskaart`, `Wat is er precies getest?`, and `Gebruikte
+technieken in gewone taal`. Raw tool/runner/lab labels remain excluded from
+management output even when the underlying tasks include `nmap`, `httpx`,
+`nuclei`, `sqlmap`, or `interactive-exploit`.
+
+The AI-assisted management report-draft API now exposes the same story facts
+as `management_story` in `RunReportDraftRead`, `structured_payload`,
+`draft_contract.allowed_input_facts`, and `source_data_categories` as
+`report_draft.management_story`. Technical draft variants keep both
+`management_decision` and `management_story` empty.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m6-management-attack-map-techniques-2026-06-02.md`.
+
+Validation completed:
+
+- `python3 -m compileall -q api/app/services/reports.py api/app/schemas/report_center.py api/app/services/report_pdf.py api/tests/test_reports.py`
+- `. .venv/bin/activate && ruff check api/app/services/reports.py api/app/schemas/report_center.py api/app/services/report_pdf.py api/tests/test_reports.py`
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py -k "management_reports_rewrite_internal_runner_language or ai_report_draft" -vv` (6 passed, 18 deselected)
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py` (24 passed)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this M6 continuation.
+
+## Latest Continuation - Codex M6 report draft management payload complete (2026-06-02)
+
+Codex continued M6 in the Codex UI/reporting lane by carrying deterministic
+management decision facts into the AI-assisted report-draft structured payload.
+`RunReportDraftRead` now exposes `management_decision`, and management draft
+variants include the same object in `structured_payload`,
+`draft_contract.allowed_input_facts`, and `source_data_categories` as
+`report_draft.management_decision`. Technical draft variants keep
+`management_decision` empty and do not include it in allowed input facts.
+
+The ChatGPT OAuth report-draft instructions now explicitly state that
+`management_decision` is the canonical verdict/decision/action source for
+management variants. The deterministic management draft fallback also uses the
+same decision facts in its executive-summary section. This extends the previous
+management PDF/Markdown decision-facts repair into the report-draft API and
+LLM-input boundary.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m6-report-draft-management-payload-2026-06-02.md`.
+
+Validation completed:
+
+- `python3 -m compileall -q api/app/services/reports.py api/app/schemas/report_center.py api/tests/test_reports.py`
+- `. .venv/bin/activate && ruff check api/app/services/reports.py api/app/schemas/report_center.py api/tests/test_reports.py`
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py -k "ai_report_draft" -vv` (5 passed, 19 deselected)
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py` (24 passed)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for this M6 continuation.
+
+## Latest Continuation - Codex M6 management decision facts complete (2026-06-02)
+
+Codex continued in the Codex UI/reporting lane with a narrow M6 step:
+management report fact selection is now separated from phrasing for the
+management decision layer. `api/app/services/reports.py` now has a
+deterministic `_management_decision_facts(...)` helper that derives a
+management verdict, decision, first actions, evidence basis, tested-scope
+summary, not-certified/not-claimed caveats, methodology references, and task
+coverage counts from stored run context.
+
+Dutch management Markdown/PDF now include a `Besluit in een oogopslag` section,
+and English management summary Markdown/HTML/PDF now include a
+`Management Decision` section. The ChatGPT-backed Dutch management draft path
+receives the same structured decision facts as fixed input, so AI can phrase the
+report without inventing scope, findings, business impact, standards, or next
+actions. Existing raw-label protections remain in force for flags, runner/tool
+labels, benchmark IDs, FastAPI/OpenAPI implementation labels, and HTTP baseline
+titles.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m6-management-decision-facts-2026-06-02.md`.
+
+Validation completed:
+
+- `python3 -m compileall -q api/app/services/reports.py api/app/services/report_pdf.py api/tests/test_reports.py`
+- `. .venv/bin/activate && ruff check api/app/services/reports.py api/app/services/report_pdf.py api/tests/test_reports.py`
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py -k management_reports_rewrite_internal_runner_language -vv` (1 passed, 23 deselected)
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py` (24 passed)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`,
+assessment-loop/runtime files, worker runner files, scoring code, or active
+XBEN validation artifacts were changed for M6.
+
+## Latest Continuation - Codex M4 report truth view-model adapter complete (2026-06-02)
+
+After W1-W8 completed, Codex continued with the first safe modularization item
+inside the Codex UI/reporting worklist: M4 report/view-model adapters. Report
+Center's canonical report truth calculations now live in
+`ui-v2/src/viewModels/reportTruth.ts` instead of inside the screen component.
+The adapter owns report count status, status tones, stage detail copy, included
+and excluded bullets, evidence-status checks, customer-copy warning checks,
+severity chart data, and report-catalog count parsing.
+
+`ui-v2/src/components/screens/ReportCenter.tsx` now imports that adapter and
+stays focused on rendering and user actions. Product truth is unchanged:
+Report Center still uses chain-aware findings from `getFindingsForRunContext`,
+compares catalog included counts against canonical findings, and remains covered
+by W8's mismatch-sensitive consistency fixture.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m4-report-truth-viewmodel-2026-06-02.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/components/screens/ReportCenter.tsx src/viewModels/reportTruth.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npm run build`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Report Center|Canonical consistency"` (2 passed)
+- `cd ui-v2 && npm test` (25 passed after rerunning standalone; an earlier concurrent run hit a Vite connection refusal while another Playwright run was active)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+No Claude score-lane files, `NEXT_TASK.md`, `TASK_QUEUE.md`, runtime runner
+files, scoring code, backend report code, or active XBEN validation artifacts
+were changed for M4.
+
+## Latest Continuation - Codex W8 end-to-end consistency validation complete (2026-06-02)
+
+Codex completed W8 from the Codex UI/reporting worklist without touching
+Claude's active score-lane files. The final consistency fixture now deliberately
+keeps a stale selected-run local summary (`1 total / 1 high+`) while the
+chain-aware canonical findings contain two open high-or-critical findings.
+Mission Control, Findings Theater, Evidence Replay, Report Center, report
+preview, and exported report fixture checks must all use the canonical
+two-finding story.
+
+React v2 report fixtures now derive report catalog counts, status totals,
+severity totals, and markdown export evidence refs from the active fixture
+findings instead of a static report payload. Backend report tests now verify the
+real `/reports` catalog plus management, technical, and evidence markdown
+exports preserve the same two-finding truth in the appropriate report layers.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w8-e2e-report-evidence-consistency-2026-06-02.md`.
+
+Validation completed:
+
+- `python3 -m compileall -q api/tests/test_reports.py api/app/services/reports.py api/app/schemas/report_center.py`
+- `. .venv/bin/activate && ruff check api/tests/test_reports.py api/app/services/reports.py api/app/schemas/report_center.py`
+- `cd ui-v2 && npx eslint tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npm run build`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Canonical consistency"` (1 passed)
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py -k report_catalog_and_exports_keep_canonical_finding_truth -vv` (1 passed, 23 deselected)
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts` (22 passed)
+- `cd ui-v2 && npm test` (25 passed)
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py` (24 passed)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+The Codex UI/reporting worklist W1-W8 is now complete. `NEXT_TASK.md` and
+`TASK_QUEUE.md` remain untouched because the active task file belongs to
+Claude's score lane.
+
+## Latest Continuation - Codex W7 accessibility/usability pass complete (2026-06-02)
+
+Codex completed W7 from the Codex UI/reporting worklist without touching
+Claude's active score-lane files. The React v2 shell now has a translated skip
+link into the main workspace, named workspace/navigation/operator landmarks,
+shell-wide focus-visible styling, and command palette combobox/listbox
+semantics. The global mission spine now exposes the active route step and
+progressbar semantics.
+
+Mission Control view switching is now a real tablist with selected tab state,
+tab panels, and Arrow/Home/End keyboard navigation. The full attack map dialog
+now labels its title/help text, focuses Close on open, returns focus to the
+opener on Escape/close, supports keyboard zoom shortcuts, and gives every map
+node a useful accessible name plus selected state.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w7-accessibility-usability-pass-2026-06-02.md`.
+Visual proof screenshots:
+`docs/validation/codex-ui-reporting-w7-accessibility-usability-mission-control-1536x864.png`,
+`docs/validation/codex-ui-reporting-w7-accessibility-usability-mission-control-1280x720.png`,
+and
+`docs/validation/codex-ui-reporting-w7-accessibility-usability-full-map-1536x864.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/App.tsx src/components/MissionExperienceSpine.tsx src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npm run build`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "App shell exposes keyboard|Mission Control renders interactive"` (2 passed)
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts` (21 passed)
+- `cd ui-v2 && npm test` (24 passed, including i18n key parity)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Next Codex-owned implementation target is W8: end-to-end
+report/evidence consistency validation. `NEXT_TASK.md` and `TASK_QUEUE.md`
+remain untouched because the active task file belongs to Claude's score lane.
+
+## Latest Continuation - Codex W6B management PDF plain-language repair complete (2026-06-02)
+
+Operator feedback showed that the management PDF and Dutch management PDF were
+still not management-ready: raw runner/flag titles, FastAPI/OpenAPI technical
+labels, generic impact copy, and missing standards/methodology context were
+visible in the management layer.
+
+Codex repaired the deterministic management report output first so AI drafting
+has a safe baseline. Management reports now map flag-capture proof to
+`Confirmed attack path` / `Aangetoond aanvalspad`, FastAPI/OpenAPI docs to
+`Public API documentation exposure` / `Publiek zichtbare API-documentatie`, and
+HTTP 200 baseline findings to `Connectivity baseline` /
+`Bereikbaarheidscontrole`. Dutch management output now explains what happened,
+why it matters, and what to do first in plain language. Summary and Dutch
+management PDF outputs include an explicit methodology section naming PTES,
+OWASP WSTG, NIST SP 800-115, and optional OWASP ASVS mapping, while stating the
+report is not a certification. Dutch target/date presentation was also cleaned
+so it no longer shows `Urls:` prefixes or English month names.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6b-management-pdf-plain-language-repair-2026-06-02.md`.
+
+Validation completed:
+
+- `python3 -m compileall -q api/app/services/reports.py api/app/services/report_pdf.py api/tests/test_reports.py`
+- `. .venv/bin/activate && ruff check api/app/services/reports.py api/app/services/report_pdf.py api/tests/test_reports.py`
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py -k management_reports_rewrite_internal_runner_language -vv` (1 passed, 22 deselected)
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py` (23 passed)
+
+Next Codex-owned implementation target remains W7: accessibility and usability
+pass. `NEXT_TASK.md` and `TASK_QUEUE.md` remain untouched because the active
+task file belongs to Claude's score lane.
+
+## Latest Continuation - Codex W6A Mission Control snapshot repair complete (2026-06-02)
+
+Operator feedback showed that the W6A cohesion repair still did not provide a
+strong first-glance answer. Mission Control had one shared story vocabulary, but
+the first viewport still repeated the global mission spine, mission path, run
+story, run picture, queue, and detail feeds.
+
+Codex completed a visual hierarchy repair for Mission Control. The global
+`MissionExperienceSpine` is now hidden on `/mission-control`, because that page
+has its own mission cockpit. The Live view now opens with a single dominant
+`Mission snapshot` panel showing the current outcome headline, target, checked
+count, next action, five-step route, lead proof, and impact/severity gauge.
+Story cards, run picture, plain explanation, and technical facts remain
+available, but behind one expandable details section. Attack map, queue, Live
+CLI, and live events remain interactive drilldowns below the snapshot.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-snapshot-repair-2026-06-02.md`.
+Visual proof screenshots:
+`docs/validation/codex-ui-reporting-w6a-snapshot-repair-mission-control-1536x864.png`
+and
+`docs/validation/codex-ui-reporting-w6a-snapshot-repair-mission-control-1280x720.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/App.tsx src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npm run build`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts --grep "Mission Control renders interactive"` (1 passed)
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts` (20 passed)
+- `cd ui-v2 && npm test` (23 passed, including i18n key parity)
+
+Next Codex-owned implementation target remains W7: accessibility and usability
+pass. `NEXT_TASK.md` and `TASK_QUEUE.md` remain untouched because the active
+task file belongs to Claude's score lane.
+
+## Latest Continuation - Codex W6A mission-story cohesion repair complete (2026-06-02)
+
+After operator review, the previous mission-experience work was behaviorally
+correct but still felt like separate UI blocks. Codex completed a cohesion
+repair so Mission Control, the global mission spine, Run Picture, and Evidence
+Replay share one mission-story vocabulary and visual route model.
+
+React v2 now has a shared `missionStory` view model for route phases, safe
+finding titles, target summaries, task journey titles, and plain-language task
+explanations. Mission Control proof nodes and Run Picture lead outcomes use the
+same safe mission themes as the global spine. Evidence Replay now opens with a
+clickable `Mission evidence path` using the same phases as Mission Control:
+map surface, inspect behavior, test routes, prove impact, and tell outcome.
+Operators can filter evidence by phase, then open task rows for transcript,
+artifact, provenance, and technical metadata. Raw tool names and targets remain
+available, but they are secondary facts instead of the primary story.
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6a-cohesion-repair-2026-06-02.md`.
+Visual proof screenshots:
+`docs/validation/codex-ui-reporting-w6a-cohesion-repair-mission-control-1536x864.png`,
+`docs/validation/codex-ui-reporting-w6a-cohesion-repair-evidence-replay-1536x864.png`,
+and
+`docs/validation/codex-ui-reporting-w6a-cohesion-repair-evidence-list-row-1536x864.png`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint src/viewModels/missionStory.ts src/viewModels/evidenceReplay.ts src/components/screens/EvidenceReplay.tsx src/components/MissionExperienceSpine.tsx src/components/screens/MissionControlV3.tsx tests/react-v2-critical-paths.spec.ts`
+- `cd ui-v2 && npm run build`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts` (20 passed)
+- `cd ui-v2 && npm test` (23 passed, including i18n key parity)
+
+Next Codex-owned implementation target remains W7: accessibility and usability
+pass. `NEXT_TASK.md` and `TASK_QUEUE.md` remain untouched because the active
+task file belongs to Claude's score lane.
+
+## Latest Continuation — Codex W6B management-report rewrite complete (2026-06-02)
+
+Completed W6B from the Codex UI/reporting worklist without touching Claude's
+active score-lane files. Management-facing reports now have a separate
+customer-ready rendering path instead of reusing internal proof-export headers
+and diagnostics.
+
+Summary Markdown now uses a dedicated management header with customer, assessed
+system, assessment window, evidence basis, and report boundary copy; run IDs no
+longer appear in the management-facing title/header layer. Management report
+titles are rewritten through business clusters when finding titles contain
+internal benchmark/runner markers or technical jargon. The executive summary
+now focuses on evidence boundary, exposure score, business risk themes,
+tested/not-tested summary, and cluster-specific next steps. Technical source
+ledgers, run configuration, adaptive pack/task IDs, and raw evidence details
+remain available in technical/evidence report variants instead of appearing as
+customer copy.
+
+Dutch management Markdown and the ChatGPT management prompt inputs now use the
+same safe scope, title, business-impact, and remediation rules. Summary HTML was
+also split so technical-only panels are hidden from management output while
+technical/evidence exports retain their detailed sections. Validation artifact:
+`docs/validation/codex-ui-reporting-w6b-management-report-rewrite-2026-06-02.md`.
+
+Validation completed:
+
+- `python3 -m compileall -q api/app/services/reports.py api/tests/test_reports.py`
+- `. .venv/bin/activate && ruff check api/app/services/reports.py api/tests/test_reports.py`
+- `. .venv/bin/activate && python -m pytest api/tests/test_reports.py`
+
+Next Codex-owned implementation target is W7: accessibility and usability pass.
+`NEXT_TASK.md` and `TASK_QUEUE.md` remain untouched because the active task file
+belongs to Claude's score lane.
+
+## Latest Continuation — Codex W6A mission experience spine complete (2026-06-01)
+
+Operator clarified that the gap is product-wide, not report-only: AegisPT can
+have many correct pages, but if the system does not carry the operator through
+the mission, the UI still feels like disconnected screens. Codex therefore
+paused the W6 management-report rewrite and completed a narrower W6A product
+experience step first.
+
+React v2 now renders a global `MissionExperienceSpine` in the app shell whenever
+a run is selected. The spine is a compact blue cockpit layer above every
+primary screen: `Now` explains the current mission scene in plain language,
+`Route` shows the live/evidence/findings/report journey with a progress rail,
+and `Next` offers the most relevant click-through action. It uses the same
+selected run, chain-aware tasks, findings, and inventory already loaded by the
+shell, so terminal runs with stale queued task rows no longer appear as live
+work. Reportable completed runs become `Ready for review`, live runs remain
+`Testing ...`, and evidence-only/error runs steer operators toward replay or
+mission status instead of pretending there is a customer-facing result.
+
+The spine is clickable into Mission Control, Live CLI, Evidence Replay,
+Findings, and Reports, but its accessible labels are scoped so it does not
+collide with page-local tabs and finding rows. Screenshots were captured at
+1536x864 and 1280x720 with mocked run/finding data:
+`docs/validation/codex-ui-reporting-w6-mission-experience-spine-1536x864.png`
+and
+`docs/validation/codex-ui-reporting-w6-mission-experience-spine-1280x720.png`.
+Validation artifact:
+`docs/validation/codex-ui-reporting-w6-mission-experience-spine-2026-06-01.md`.
+Next Codex-owned step remains the management-report rewrite, now framed as a
+report-specific continuation of the broader product story rather than the only
+place where narrative clarity is solved.
+
+## Latest Continuation — Codex W5 evidence-backed LLM drafts complete (2026-06-01)
+
+Completed W5 from the Codex UI/reporting worklist. AI-assisted report drafts now
+carry an explicit structured payload contract: `draft_contract`,
+`variant_contract`, `tested_scope`, `supported_findings`, `not_tested`,
+`not_verified`, and `raw_proof_export_non_llm`. The LLM input is constrained to
+tested scope, evidence-backed supported findings, source evidence refs,
+methodology, and explicit caveat fields; raw top-level `findings` and `tasks`
+are no longer sent to the ChatGPT OAuth drafting path.
+
+The draft contract states that output is review-only phrasing, not canonical
+fact generation. Findings without evidence refs, contradicted statuses, or
+excluded validation states are routed into `not_verified` and must remain
+caveats. Authorized targets and incomplete/failed/queued/running tasks that do
+not have completed-task evidence are routed into `not_tested`. Management,
+technical, compliance, and retest variants now expose distinct audience/template
+constraints, while the `evidence` proof-export variant returns `not_applicable`
+for AI drafting because raw proof exports remain deterministic and non-LLM.
+
+Report draft generation now uses `report_context_for_run(run, session=session)`
+so assessment-chain report context stays aligned with the chain-aware Report
+Center truth from W4. The AI draft response exposes the structured payload so
+operators and tests can inspect exactly what facts the LLM was allowed to use.
+Validation artifact:
+`docs/validation/codex-ui-reporting-w5-evidence-backed-llm-drafts-2026-06-01.md`.
+Next Codex-owned work item is W6: management-report rewrite rules.
+
+Repo coordination note: W5 did not require edits to `NEXT_TASK.md` or other
+score-lane files. A concurrent score-lane `NEXT_TASK.md` working-tree diff was
+present after validation and remains outside the W5 change set.
+
+## Latest Continuation — Codex W4 Report Center truth overhaul complete (2026-06-01)
+
+Completed W4 from the Codex UI/reporting worklist after finishing the Mission
+Control clarity repair. Report Center now follows the same blue `neon-panel`
+interface direction as Dashboard and Mission Control, and it is organized
+around a compact report package flow: evidence, scope, findings, variant, and
+export. Each step is clickable and updates a detail panel with plain-language
+meaning plus technical facts.
+
+Report Center now loads canonical findings through `getFindingsForRunContext`
+and uses that chain-aware list for the report counters and severity chart. The
+selected report catalog's included-finding count is compared against canonical
+truth before export, so mismatches are visible instead of hidden behind a
+run-local chart. The screen also exposes what will be included, what is not
+claimed, evidence verification state, and a customer-copy check for internal
+benchmark/lab/fixture/smoke/debug markers in customer-facing report metadata.
+The previous `Evidence hash: verified` label is now `Report content hash`, with
+copy that points evidence integrity back to stored artifacts and finding
+evidence references.
+
+The briefing and Dutch management export actions now use shared API client
+helpers instead of direct `fetch()` calls, keeping actor/tenant headers
+consistent with the rest of React v2. Manual Playwright screenshots were
+reviewed at 1280, 1536, and 1600 px; the report/aside breakpoint moved to
+`2xl` so 150%-style scaling keeps the report path readable rather than
+cramped. Validation artifact:
+`docs/validation/codex-ui-reporting-w4-report-center-truth-2026-06-01.md`.
+Next Codex-owned work item is W5: evidence-backed LLM report composition.
+
+## Latest Continuation — Codex W1 Mission Control clarity repair complete (2026-06-01)
+
+Operator flagged that Mission Control was still not live-followable as a full
+page: too many panels, too much text, stale/narrative language, and unclear
+separation between task output and actual persisted findings. This was treated
+as a previous-Codex-work repair before continuing W4.
+
+Mission Control now uses the operator's requested three-screen structure:
+`Live`, `Results`, and `Overview`, with `Technical` kept as a fourth diagnostics
+tab. `Live` answers what AegisPT is doing right now, including queue state,
+clickable task rows, selected-task CLI output, and the live event feed.
+`Results` answers what happened and what counts for reports. `Overview` answers
+what the whole test covers and what is still coming. The technical run-truth
+strip, canonical score card, raw API log tail, risk charts, and proof inventory
+remain in `Technical`.
+
+Mission Control drilldowns are now interactive: queue/activity rows select the
+task output, findings link into Findings/Evidence, overview cards link to
+Surface Map, History, and Reports, and each operator tab pairs a plain-language
+Jip-en-Janneke explanation with technical facts. The Overview screen also has a
+compact AI story panel that uses the ChatGPT narrator when available and links
+back into History/Evidence Replay instead of becoming another text wall. Cinema
+Mode command clicks now pause replay when focusing a command, so selected
+replay context stays visible.
+
+Second operator review showed the screen was still too text-heavy and did not
+carry the user through the process. The Live first viewport now starts with a
+compact visual `Mission path`: the main page shows only the current route so it
+stays readable at 125%/150% scaling, while `Open full map` pops a true
+viewport-level attack map over the app. The full map is rendered through a React
+portal on `document.body`, locks page scroll, closes on Escape, includes a
+green/yellow/amber/red/purple legend, zoom controls (`Zoom out`, `Zoom in`,
+`Fit`), and replay controls (`Back`, `Next`, `Play`, `Reset`, `Show all`) so
+operators can step through the route instead of reading a static diagram. Every
+edge is drawn as a visible line; only meaningful live/failed/proof routes get a
+small arrowhead, so routine completed steps do not become a wall of oversized
+arrows. The map is built from live tasks/findings but no longer tries to cram
+every label into one picture: discovery and branch/dead-end work stay in Layer
+1, the strongest proof is promoted into Layer 2 with `+N more` for additional
+findings, and only meaningful branch/proof edge labels are shown. Clicking a
+node selects it and opens a side detail panel with plain-language explanation,
+technical facts, target/status metadata, and a linked-view action to Live CLI,
+Findings, Surface Map, or Reports. A compact `The test story` done/now/next
+board and `Run picture` progress/severity chart sit underneath. Long
+plain-language and technical explanations are collapsed by default, and repeated
+queue rows are grouped, so the primary screen tells the story visually before
+exposing raw CLI/log details. The Live first viewport now reuses the Dashboard
+visual language (`neon-panel`, blue surface background, cyan borders and glow
+accents) so Mission Control no longer reads as a separate black terminal-only
+product surface.
+
+Queued/output-only runs now say they are waiting or running and explicitly note
+that tool output does not count in reports until a finding is saved; they are
+not labelled as blocked unless the run is terminal or there is a hard blocker
+such as failed tasks. Terminal error runs with no findings now say
+`Run ended with errors. No findings were created.`, show `Last task`, group
+duplicate failed activity rows such as `exec-plan x5`, and use
+`No reportable findings` in the empty state. The Technical run truth strip was
+compressed from six large state cards into four compact chips: work, output,
+findings, and attention. Validation artifact updated:
+`docs/validation/codex-ui-reporting-w1-run-truth-strip-2026-06-01.md`. Next
+Codex-owned work item remains W4: Report Center overhaul.
+
+## Latest Continuation — Codex W3 Evidence Replay clarity pass complete (2026-06-01)
+
+Completed W3 from the Codex UI/reporting worklist without touching Claude's
+active score-lane files or promoting over `NEXT_TASK.md`. Evidence Replay now
+loads task evidence through `getTasksForRunContext(run)`, so assessment-chain
+runs show sibling task evidence instead of only the selected run's local
+`tasks` array.
+
+The screen now separates evidence scope, evidence state, provenance, and
+conclusion state. It labels run-local vs assessment-chain evidence, counts
+tasks/executions/artifacts/transcript lines, exposes execution ids, runner
+digests, artifact hashes, timestamp/redaction state, and explicitly states that
+Evidence Replay does not infer finding/business conclusions. Those conclusions
+remain in Findings Theater and report surfaces.
+
+W3 tests add an assessment-chain fixture where the selected run has one local
+task while the chain has two tasks; Evidence Replay must render both task
+evidence records and the expanded transcript/artifact provenance labels.
+Validation artifact:
+`docs/validation/codex-ui-reporting-w3-evidence-replay-clarity-2026-06-01.md`.
+Next Codex-owned work item is W4: Report Center overhaul.
+
 ## Latest Continuation — Fixed: solved runs no longer show "blocked/awaiting verification" (2026-06-01)
 
 Operator saw the run-truth UI mark a SOLVED run "blocked/incomplete: 1 persisted

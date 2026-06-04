@@ -37,13 +37,10 @@ export default function LiveCLIScreen() {
     <div className="flex flex-col gap-4 p-4 min-h-[calc(100vh-4rem)]">
       <div className="flex items-baseline gap-3 flex-wrap">
         <h1 className="font-mono text-lg uppercase tracking-widest text-green-300">
-          {t('liveCli.title', 'Live CLI')}
+          {t('liveCli.title')}
         </h1>
         <span className="font-mono text-xs text-muted">
-          {t(
-            'liveCli.subtitle',
-            'Real shell commands + their stdout/stderr — streaming from the agent',
-          )}
+          {t('liveCli.subtitle')}
         </span>
         {selectedRun && (
           <span className="ml-auto font-mono text-xs text-amber">
@@ -55,10 +52,7 @@ export default function LiveCLIScreen() {
       {noRun && (
         <div className="rounded border border-line-soft bg-surface/30 p-6 text-center">
           <p className="text-muted">
-            {t(
-              'liveCli.noRun',
-              'Select a run on Mission Control to stream its live CLI output here.',
-            )}
+            {t('liveCli.noRun')}
           </p>
         </div>
       )}
@@ -69,7 +63,7 @@ export default function LiveCLIScreen() {
               task and streams its stdout/stderr. Operator can drop down to
               any of the last 40 tasks via the dropdown inside the panel. */}
           <div className="min-h-0">
-            <LiveTaskDrillDown tasks={tasks} />
+            <LiveTaskDrillDown tasks={tasks} fullHeight />
           </div>
 
           {/* SIDE: run-level diff stream — picker decisions, status

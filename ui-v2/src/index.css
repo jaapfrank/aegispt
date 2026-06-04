@@ -1,11 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
-
 @layer base {
   :root {
+    color-scheme: dark;
     /* === Operator HUD design system (sharp, instrument-grade) === */
     --bg:       oklch(0.16 0.012 240);
     --bg-2:     oklch(0.19 0.014 240);
@@ -39,11 +40,121 @@
     --border:   oklch(0.28 0.018 240);
     --panel:    oklch(0.22 0.015 240);
     --panel-strong: oklch(0.19 0.014 240);
+    --grid-dot: oklch(0.32 0.022 240 / 0.6);
+    --brand-contrast: oklch(0.16 0.012 240);
+    --shell-sidebar-bg:
+      linear-gradient(180deg, rgba(5,10,19,0.96), rgba(7,14,26,0.92)),
+      radial-gradient(circle at 0% 18%, rgba(94,207,255,0.08), transparent 16rem);
+    --shell-sidebar-shadow: inset -1px 0 0 rgba(94,207,255,0.06);
+    --shell-grid-line: rgba(94,207,255,0.11);
+    --shell-glow-cyan: rgba(94,207,255,0.14);
+    --shell-glow-ai: rgba(208,107,255,0.11);
+    --shell-glow-amber: rgba(251,191,36,0.07);
+    --scanline: rgba(94,207,255,0.1);
+    --skip-bg: rgba(7,19,33,0.98);
+    --focus-ring: rgba(94,207,255,0.82);
+    --focus-glow: rgba(94,207,255,0.14);
+    --panel-gradient-1: rgba(13,25,42,0.78);
+    --panel-gradient-2: rgba(9,18,32,0.68);
+    --panel-glow: rgba(94,207,255,0.08);
+    --panel-border: rgba(142,191,228,0.2);
+    --panel-shadow: rgba(0,0,0,0.24);
+    --code-text: #dceaff;
+    --mission-spine-bg:
+      linear-gradient(90deg, rgba(94, 207, 255, 0.09), transparent 36%),
+      linear-gradient(135deg, rgba(9, 23, 39, 0.98), rgba(7, 17, 30, 0.94));
+    --mission-spine-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.04),
+      0 0 2rem rgba(50,145,220,0.12);
+    --mission-card-glint: linear-gradient(120deg, rgba(94,207,255,0.07), transparent 34%, rgba(158,133,255,0.05));
+    --mission-meter-bg: rgba(6, 14, 25, 0.72);
+    --mission-control-snapshot-bg:
+      linear-gradient(90deg, rgba(94,207,255,0.08), transparent 34%),
+      linear-gradient(135deg, rgba(10,29,50,0.96), rgba(4,11,22,0.96) 62%, rgba(16,13,35,0.92));
+    --mission-control-snapshot-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.04),
+      0 0 2.4rem rgba(50,145,220,0.12);
+    --mission-control-card-bg: rgba(6,19,34,0.78);
+    --mission-command-strip-bg: rgba(6,19,34,0.84);
+    --mission-track-bg: rgba(7,17,31,0.92);
+    --mission-queue-flow-bg: rgba(7,17,31,0.5);
 
     /* Radii — instrument grade, not fintech */
     --r-sm: 4px;
     --r:    6px;
     --r-lg: 10px;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg:       oklch(0.965 0.015 235);
+    --bg-2:     oklch(0.945 0.018 235);
+    --surface:  oklch(0.985 0.008 235);
+    --surface-2:oklch(0.935 0.018 235);
+    --line:     oklch(0.73 0.045 235);
+    --line-soft:oklch(0.84 0.028 235);
+    --text:     oklch(0.21 0.028 240);
+    --soft:     oklch(0.38 0.032 240);
+    --muted:    oklch(0.50 0.028 240);
+    --ink-4:    oklch(0.58 0.024 240);
+
+    --hi:       oklch(0.56 0.23 22);
+    --hi-bg:    oklch(0.91 0.06 22);
+    --med:      oklch(0.67 0.17 72);
+    --med-bg:   oklch(0.94 0.07 75);
+    --info:     oklch(0.55 0.15 225);
+    --info-bg:  oklch(0.90 0.05 225);
+    --ok:       oklch(0.56 0.16 152);
+    --ok-bg:    oklch(0.91 0.06 152);
+    --ai:       oklch(0.58 0.16 285);
+    --ai-bg:    oklch(0.92 0.055 285);
+
+    --cyan:     oklch(0.55 0.15 225);
+    --amber:    oklch(0.67 0.17 72);
+    --green:    oklch(0.56 0.16 152);
+    --red:      oklch(0.56 0.23 22);
+    --violet:   oklch(0.58 0.16 285);
+    --border:   oklch(0.82 0.032 235);
+    --panel:    oklch(0.985 0.008 235);
+    --panel-strong: oklch(0.955 0.014 235);
+    --grid-dot: oklch(0.78 0.032 235 / 0.55);
+    --brand-contrast: oklch(0.985 0.008 235);
+    --shell-sidebar-bg:
+      linear-gradient(180deg, rgba(247,251,255,0.96), rgba(232,241,250,0.92)),
+      radial-gradient(circle at 0% 18%, rgba(16,113,190,0.10), transparent 16rem);
+    --shell-sidebar-shadow: inset -1px 0 0 rgba(16,113,190,0.12);
+    --shell-grid-line: rgba(16,113,190,0.13);
+    --shell-glow-cyan: rgba(16,113,190,0.13);
+    --shell-glow-ai: rgba(111,72,190,0.10);
+    --shell-glow-amber: rgba(180,119,16,0.08);
+    --scanline: rgba(16,113,190,0.08);
+    --skip-bg: rgba(248,252,255,0.98);
+    --focus-ring: rgba(16,113,190,0.8);
+    --focus-glow: rgba(16,113,190,0.16);
+    --panel-gradient-1: rgba(255,255,255,0.86);
+    --panel-gradient-2: rgba(234,242,250,0.76);
+    --panel-glow: rgba(16,113,190,0.08);
+    --panel-border: rgba(72,118,154,0.22);
+    --panel-shadow: rgba(39,69,100,0.14);
+    --code-text: oklch(0.26 0.035 240);
+    --mission-spine-bg:
+      linear-gradient(90deg, rgba(16,113,190,0.10), transparent 36%),
+      linear-gradient(135deg, rgba(255,255,255,0.94), rgba(226,239,249,0.90));
+    --mission-spine-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.82),
+      0 1.2rem 2.4rem rgba(39,69,100,0.13);
+    --mission-card-glint: linear-gradient(120deg, rgba(16,113,190,0.075), transparent 34%, rgba(111,72,190,0.055));
+    --mission-meter-bg: rgba(193,211,226,0.7);
+    --mission-control-snapshot-bg:
+      linear-gradient(90deg, rgba(16,113,190,0.09), transparent 34%),
+      linear-gradient(135deg, rgba(255,255,255,0.95), rgba(227,240,249,0.90) 62%, rgba(241,236,252,0.86));
+    --mission-control-snapshot-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.82),
+      0 1.2rem 2.4rem rgba(39,69,100,0.16);
+    --mission-control-card-bg: rgba(255,255,255,0.62);
+    --mission-command-strip-bg: rgba(245,250,255,0.68);
+    --mission-track-bg: rgba(190,211,226,0.72);
+    --mission-queue-flow-bg: rgba(247,251,255,0.62);
   }
 
   html {
@@ -84,12 +195,12 @@
     overflow: hidden;
     /* Single subtle dot grid — no blur, no orbits, no gradients */
     background-image:
-      radial-gradient(circle, oklch(0.32 0.022 240 / 0.6) 1px, transparent 1px);
+      radial-gradient(circle, var(--grid-dot) 1px, transparent 1px);
     background-size: 24px 24px;
     background-position: -1px -1px;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-feature-settings: 'cv11','ss01','ss03';
-    letter-spacing: -0.005em;
+    letter-spacing: 0;
   }
 
   /* Monospace for all data: URLs, hashes, IDs, payloads, timestamps */
@@ -259,10 +370,8 @@
   }
 
   .aegis-sidebar {
-    background:
-      linear-gradient(180deg, rgba(5,10,19,0.96), rgba(7,14,26,0.92)),
-      radial-gradient(circle at 0% 18%, rgba(94,207,255,0.08), transparent 16rem);
-    box-shadow: inset -1px 0 0 rgba(94,207,255,0.06);
+    background: var(--shell-sidebar-bg);
+    box-shadow: var(--shell-sidebar-shadow);
   }
 
   .aegis-workspace {
@@ -281,8 +390,8 @@
     position: absolute;
     inset: -12%;
     background-image:
-      linear-gradient(rgba(94,207,255,0.11) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(94,207,255,0.11) 1px, transparent 1px);
+      linear-gradient(var(--shell-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--shell-grid-line) 1px, transparent 1px);
     background-size: 3.8rem 3.8rem;
     mask-image: radial-gradient(circle at center, black 0%, rgba(0,0,0,0.6) 46%, transparent 78%);
     animation: grid-pan 34s linear infinite;
@@ -293,9 +402,9 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse at 20% 35%, rgba(94,207,255,0.14), transparent 32%),
-      radial-gradient(ellipse at 78% 62%, rgba(208,107,255,0.11), transparent 30%),
-      radial-gradient(ellipse at 52% 86%, rgba(251,191,36,0.07), transparent 26%);
+      radial-gradient(ellipse at 20% 35%, var(--shell-glow-cyan), transparent 32%),
+      radial-gradient(ellipse at 78% 62%, var(--shell-glow-ai), transparent 30%),
+      radial-gradient(ellipse at 52% 86%, var(--shell-glow-amber), transparent 26%);
     filter: blur(1.4rem);
     animation: mesh-drift 18s ease-in-out infinite;
   }
@@ -304,13 +413,37 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(180deg, transparent 0%, rgba(94,207,255,0.06) 49%, rgba(94,207,255,0.13) 50%, transparent 54%);
+    background: linear-gradient(180deg, transparent 0%, color-mix(in oklch, var(--scanline) 45%, transparent) 49%, var(--scanline) 50%, transparent 54%);
     animation: scanline-drift 16s ease-in-out infinite alternate;
     mix-blend-mode: screen;
   }
 
   .aegis-content {
     color: var(--soft);
+  }
+
+  .skip-link {
+    position: fixed;
+    left: 1rem;
+    top: 0.75rem;
+    z-index: 10001;
+    transform: translateY(-160%);
+    border: 1px solid color-mix(in oklch, var(--cyan) 50%, transparent);
+    border-radius: 0.5rem;
+    background: var(--skip-bg);
+    color: var(--cyan);
+    padding: 0.55rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    box-shadow: 0 0 1.2rem color-mix(in oklch, var(--cyan) 18%, transparent);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    transform: translateY(0);
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
   }
 
   .aegis-content :is(h1, h2, h3) {
@@ -322,16 +455,18 @@
     line-height: 1.48;
   }
 
-  .aegis-content :is(button, a, select, input, textarea) {
+  .aegis-shell :is(button, a, select, input, textarea) {
     transition-property: border-color, color, background-color, box-shadow, transform, opacity;
     transition-duration: 160ms;
     transition-timing-function: ease-out;
   }
 
-  .aegis-content :is(button, a, select, input, textarea):focus-visible {
-    outline: 2px solid rgba(94,207,255,0.7);
+  .aegis-shell :is(button, a, select, input, textarea):focus-visible,
+  .aegis-workspace:focus-visible,
+  .aegis-content :is([role="tabpanel"], [role="group"], [role="region"]):focus-visible {
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
-    box-shadow: 0 0 0 0.25rem rgba(94,207,255,0.12), 0 0 1.1rem rgba(94,207,255,0.22);
+    box-shadow: 0 0 0 0.25rem var(--focus-glow), 0 0 1.1rem color-mix(in oklch, var(--cyan) 25%, transparent);
   }
 
   .aegis-content :is(button, a):hover {
@@ -343,7 +478,7 @@
   }
 
   .aegis-content :is(pre, code) {
-    color: #dceaff;
+    color: var(--code-text);
   }
 
   .aegis-content table {
@@ -357,10 +492,287 @@
 
   .neon-panel {
     background:
-      linear-gradient(180deg, rgba(13,25,42,0.78), rgba(9,18,32,0.68)),
-      radial-gradient(circle at 12% 0%, rgba(94,207,255,0.08), transparent 18rem);
-    border-color: rgba(142,191,228,0.2);
-    box-shadow: 0 1.1rem 2.5rem rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.035);
+      linear-gradient(180deg, var(--panel-gradient-1), var(--panel-gradient-2)),
+      radial-gradient(circle at 12% 0%, var(--panel-glow), transparent 18rem);
+    border-color: var(--panel-border);
+    box-shadow: 0 1.1rem 2.5rem var(--panel-shadow), inset 0 1px 0 rgba(255,255,255,0.035);
+  }
+
+  .theme-surface-card {
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--surface) 88%, transparent), color-mix(in oklch, var(--panel-strong) 82%, transparent)),
+      radial-gradient(circle at 0% 0%, color-mix(in oklch, var(--cyan) 8%, transparent), transparent 13rem);
+    border-color: color-mix(in oklch, var(--cyan) 18%, var(--border));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+  }
+
+  .theme-subcard {
+    background: color-mix(in oklch, var(--surface) 72%, transparent);
+    border-color: color-mix(in oklch, var(--border) 84%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+
+  .dark-canvas,
+  .terminal-code {
+    --bg: #030712;
+    --bg-2: #07111f;
+    --surface: #0a1525;
+    --surface-2: #101d30;
+    --line: rgba(142,191,228,0.26);
+    --line-soft: rgba(142,191,228,0.16);
+    --border: rgba(142,191,228,0.18);
+    --panel: #07111f;
+    --panel-strong: #030b16;
+    --text: #eef6ff;
+    --soft: #c5d5e7;
+    --muted: #91a5bc;
+    --ink-4: #6f8198;
+    --code-text: #dceaff;
+    --cyan: #5ecfff;
+    --amber: #f6c15f;
+    --green: #9ee8b6;
+    --red: #ff6b74;
+    --ai: #b8a7ff;
+    color: var(--text);
+    color-scheme: dark;
+  }
+
+  .terminal-code {
+    background: #030712;
+    border-color: rgba(142,191,228,0.18);
+  }
+
+  .terminal-code :is(pre, code) {
+    color: var(--code-text);
+  }
+
+  .mission-control-snapshot {
+    background: var(--mission-control-snapshot-bg);
+    box-shadow: var(--mission-control-snapshot-shadow);
+  }
+
+  .mission-control-card {
+    background: var(--mission-control-card-bg);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+  }
+
+  .mission-command-strip {
+    background: var(--mission-command-strip-bg);
+  }
+
+  .mission-control-stage-button {
+    min-height: 5.2rem;
+  }
+
+  .mission-control-stage-button span:first-child {
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  .mission-control-stage-button:hover span:first-child,
+  .mission-control-stage-button:focus-visible span:first-child {
+    transform: translateY(-0.12rem);
+  }
+
+  .attack-flow-active {
+    stroke-dasharray: 8 8;
+    animation: attack-flow-dash 1.15s linear infinite;
+  }
+
+  @keyframes attack-flow-dash {
+    to { stroke-dashoffset: -16; }
+  }
+
+  @keyframes mission-surface-sweep {
+    0% { transform: translateX(-42%); opacity: 0; }
+    18% { opacity: 0.42; }
+    72% { opacity: 0.24; }
+    100% { transform: translateX(92%); opacity: 0; }
+  }
+
+  @keyframes mission-activity-dot {
+    0%, 100% { opacity: 0.58; transform: scale(0.82); box-shadow: 0 0 0 rgba(94,207,255,0); }
+    50% { opacity: 1; transform: scale(1); box-shadow: 0 0 1rem rgba(94,207,255,0.42); }
+  }
+
+  @keyframes mission-activity-travel {
+    0% { transform: translateX(-100%); opacity: 0; }
+    18%, 76% { opacity: 1; }
+    100% { transform: translateX(100%); opacity: 0; }
+  }
+
+  @keyframes mission-queue-scan {
+    0% { transform: translateX(-120%); opacity: 0; }
+    24%, 76% { opacity: 0.6; }
+    100% { transform: translateX(120%); opacity: 0; }
+  }
+
+  .mission-control-snapshot {
+    position: relative;
+  }
+
+  .mission-control-snapshot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(94,207,255,0.10), transparent);
+    animation: mission-surface-sweep 5.8s ease-in-out infinite;
+    mix-blend-mode: screen;
+  }
+
+  .mission-control-snapshot[data-activity="review"]::before {
+    background: linear-gradient(90deg, transparent, rgba(167,139,250,0.12), transparent);
+  }
+
+  .mission-control-snapshot[data-activity="done"]::before,
+  .mission-control-snapshot[data-activity="idle"]::before {
+    animation-duration: 9s;
+    opacity: 0.35;
+  }
+
+  .mission-activity-pulse {
+    position: relative;
+    z-index: 1;
+    margin-top: 0.55rem;
+    display: grid;
+    grid-template-columns: auto minmax(6.5rem, auto) minmax(6rem, 16rem) auto;
+    align-items: center;
+    gap: 0.55rem;
+    max-width: min(100%, 38rem);
+  }
+
+  .mission-activity-status,
+  .mission-queue-flow-dot {
+    display: inline-block;
+    height: 0.48rem;
+    width: 0.48rem;
+    border-radius: 9999px;
+    background: var(--cyan);
+    animation: mission-activity-dot 1.6s ease-in-out infinite;
+  }
+
+  .mission-activity-pulse[data-activity="queued"] .mission-activity-status,
+  .mission-queue-flow[data-status="queued"] .mission-queue-flow-dot {
+    background: var(--amber);
+    box-shadow: 0 0 0.85rem rgba(251,191,36,0.24);
+  }
+
+  .mission-activity-pulse[data-activity="review"] .mission-activity-status {
+    background: var(--ai);
+    box-shadow: 0 0 0.85rem rgba(167,139,250,0.24);
+  }
+
+  .mission-activity-track,
+  .mission-queue-flow-line {
+    position: relative;
+    display: block;
+    height: 0.34rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: var(--mission-track-bg);
+    box-shadow: inset 0 0 0 1px rgba(142,191,228,0.08);
+  }
+
+  .mission-activity-track span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, rgba(94,207,255,0.36), rgba(94,207,255,0.82));
+  }
+
+  .mission-activity-track::after,
+  .mission-queue-flow-line::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.46), transparent);
+    animation: mission-activity-travel 2.1s linear infinite;
+  }
+
+  .mission-control-stage-button {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mission-control-stage-button[data-state="active"]::after,
+  .mission-control-stage-button[data-state="queued"]::after,
+  .mission-control-stage-button[data-state="proof"]::after {
+    content: '';
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: 0.36rem;
+    height: 2px;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, transparent, currentColor, transparent);
+    animation: mission-activity-travel 1.8s linear infinite;
+    opacity: 0.74;
+  }
+
+  .mission-queue-flow {
+    display: grid;
+    grid-template-columns: auto auto minmax(5rem, 1fr);
+    align-items: center;
+    gap: 0.65rem;
+    border: 1px solid rgba(94,207,255,0.12);
+    border-radius: 0.5rem;
+    background: var(--mission-queue-flow-bg);
+    padding: 0.45rem 0.6rem;
+  }
+
+  .mission-queue-row {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mission-queue-row[data-status="queued"]::before,
+  .mission-queue-row[data-status="pending"]::before,
+  .mission-queue-row[data-status="waiting"]::before,
+  .mission-queue-row[data-status="running"]::before,
+  .mission-queue-row[data-status="dispatching"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(94,207,255,0.10), transparent);
+    animation: mission-queue-scan 2.8s ease-in-out infinite;
+  }
+
+  .mission-queue-row[data-status="queued"]::before,
+  .mission-queue-row[data-status="pending"]::before,
+  .mission-queue-row[data-status="waiting"]::before {
+    background: linear-gradient(90deg, transparent, rgba(251,191,36,0.11), transparent);
+    animation-duration: 3.4s;
+  }
+
+  .mission-current-path-node {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mission-current-path-node[data-status="running"]::before,
+  .mission-current-path-node[data-status="queued"]::before,
+  .mission-current-path-node[data-status="finding"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(94,207,255,0.08), transparent);
+    animation: mission-queue-scan 3s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mission-control-snapshot::before,
+    .mission-activity-status,
+    .mission-queue-flow-dot,
+    .mission-activity-track::after,
+    .mission-queue-flow-line::after,
+    .mission-control-stage-button::after,
+    .mission-queue-row::before,
+    .mission-current-path-node::before,
+    .attack-flow-active {
+      animation: none !important;
+    }
   }
 
   .crash-recovery-card {
@@ -727,5 +1139,171 @@
   @keyframes pulse-slow {
     0%, 100% { transform: scale(1); opacity: 1; }
     50%      { transform: scale(1.08); opacity: 0.9; }
+  }
+
+  .mission-experience-spine {
+    background: var(--mission-spine-bg);
+    box-shadow: var(--mission-spine-shadow);
+  }
+
+  .mission-experience-presence,
+  .mission-experience-route,
+  .mission-experience-next {
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+  }
+
+  .mission-experience-presence::before,
+  .mission-experience-next::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: var(--mission-card-glint);
+  }
+
+  .mission-experience-orb {
+    position: relative;
+    display: inline-flex;
+    width: 2.35rem;
+    height: 2.35rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid rgba(94,207,255,0.32);
+    background: rgba(94,207,255,0.08);
+    box-shadow: 0 0 1.1rem rgba(94,207,255,0.18);
+  }
+
+  .mission-experience-orb::before {
+    content: '';
+    position: absolute;
+    inset: 0.35rem;
+    border-radius: inherit;
+    border: 1px solid currentColor;
+    opacity: 0.45;
+  }
+
+  .mission-experience-orb > span {
+    width: 0.62rem;
+    height: 0.62rem;
+    border-radius: inherit;
+    background: currentColor;
+    box-shadow: 0 0 1rem currentColor;
+  }
+
+  .mission-experience-orb.live {
+    color: rgb(94,207,255);
+  }
+
+  .mission-experience-orb.live::before {
+    animation: empty-breathe 2.8s ease-in-out infinite;
+  }
+
+  .mission-experience-orb.report {
+    color: rgb(158,133,255);
+    border-color: rgba(158,133,255,0.38);
+    background: rgba(158,133,255,0.09);
+  }
+
+  .mission-experience-orb.findings,
+  .mission-experience-orb.evidence {
+    color: rgb(245,181,73);
+    border-color: rgba(245,181,73,0.34);
+    background: rgba(245,181,73,0.08);
+  }
+
+  .mission-experience-rail {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: center;
+    gap: 0;
+    padding: 0 0.5rem;
+  }
+
+  .mission-experience-stage {
+    display: grid;
+    grid-template-columns: 0.8rem 1fr;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .mission-experience-dot {
+    width: 0.62rem;
+    height: 0.62rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    background: rgba(148, 163, 184, 0.24);
+  }
+
+  .mission-experience-dot.done {
+    border-color: rgba(86, 211, 143, 0.75);
+    background: rgb(86, 211, 143);
+    box-shadow: 0 0 0.7rem rgba(86, 211, 143, 0.35);
+  }
+
+  .mission-experience-dot.active {
+    border-color: rgba(94, 207, 255, 0.95);
+    background: rgb(94, 207, 255);
+    box-shadow: 0 0 1rem rgba(94, 207, 255, 0.7);
+    animation: empty-breathe 2.4s ease-in-out infinite;
+  }
+
+  .mission-experience-line {
+    height: 2px;
+    min-width: 1rem;
+    background: rgba(148, 163, 184, 0.18);
+  }
+
+  .mission-experience-line.done,
+  .mission-experience-line.active {
+    background: linear-gradient(90deg, rgba(94, 207, 255, 0.75), rgba(86, 211, 143, 0.65));
+    box-shadow: 0 0 0.7rem rgba(94, 207, 255, 0.22);
+  }
+
+  .mission-experience-meter {
+    height: 0.38rem;
+    overflow: hidden;
+    border-radius: 999px;
+    border: 1px solid rgba(94, 207, 255, 0.18);
+    background: var(--mission-meter-bg);
+  }
+
+  .mission-experience-meter > div {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, rgba(94, 207, 255, 0.95), rgba(86, 211, 143, 0.72), rgba(158, 133, 255, 0.84));
+    box-shadow: 0 0 1rem rgba(94, 207, 255, 0.35);
+    transition: width 240ms ease;
+  }
+
+  .mission-experience-stage-card {
+    min-height: 5.2rem;
+  }
+
+  .mission-experience-stage-card[aria-current='step'] {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.045),
+      0 0 1.2rem rgba(94,207,255,0.13);
+  }
+
+  .mission-experience-mini-dot {
+    width: 0.42rem;
+    height: 0.42rem;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.38);
+  }
+
+  .mission-experience-mini-dot.done {
+    background: rgb(86, 211, 143);
+    box-shadow: 0 0 0.6rem rgba(86,211,143,0.34);
+  }
+
+  .mission-experience-mini-dot.active {
+    background: rgb(94, 207, 255);
+    box-shadow: 0 0 0.7rem rgba(94,207,255,0.65);
   }
 }

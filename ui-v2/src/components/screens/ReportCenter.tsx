@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  AlertTriangle,
+  ArrowRight,
   BarChart3,
   Check,
+  CheckCircle2,
   ChevronDown,
+  Database,
   Download,
+  Eye,
+  FileCheck2,
   FileText,
+  GitBranch,
   Hash,
   History,
+  Layers3,
+  ListChecks,
   Loader2,
+  PackageCheck,
   ScrollText,
   Shield,
 } from 'lucide-react';
@@ -28,16 +38,39 @@ import { twMerge } from 'tailwind-merge';
 import {
   downloadRunReport,
   getFindingsForRunContext,
+  getRunBriefing,
   getRunReportMarkdown,
   getRunReports,
   getRunsForEngagement,
 } from '../../api/client';
-import { ApiError } from '../../api/client';
 import type { Engagement, Finding, Run, RunReportCatalogItem, UUID } from '../../api/types';
 import { useAegisStore } from '../../store';
+import {
+  buildCrossSurfaceConsistency,
+  type CrossSurfaceCheck,
+  type CrossSurfaceConsistencyModel,
+  type CrossSurfaceOverallStatus,
+} from '../../viewModels/crossSurfaceConsistency';
+import {
+  buildManagementReportProof,
+  type ManagementReportRouteStep,
+  type ManagementReportStandardBadge,
+} from '../../viewModels/managementReportProof';
+import {
+  buildReportTruth,
+  countStatusLabel,
+  countStatusTone,
+  stageDetailCopy,
+  type ReportStage,
+  type ReportTruthModel,
+} from '../../viewModels/reportTruth';
+import { safeErrorMessage, safeProviderText } from '../../viewModels/safeMessaging';
 
 type ReportTab = 'reports' | 'dossier';
 type ReportAction = 'preview' | 'html' | 'pdf' | null;
+
+const SAFE_BRIEFING_FALLBACK =
+  'Executive briefing is using canonical report facts right now. AI wording is unavailable, but the evidence, findings, and export checks below remain usable.';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -65,6 +98,9 @@ export default function ReportCenter() {
   const [loadingComparison, setLoadingComparison] = useState(false);
   const [briefing, setBriefing] = useState<string | null>(null);
   const [loadingBriefing, setLoadingBriefing] = useState(false);
+  const [reportFindings, setReportFindings] = useState<Finding[]>([]);
+  const [loadingFindings, setLoadingFindings] = useState(false);
+  const [selectedStage, setSelectedStage] = useState<ReportStage>('findings');
 
   const selectedReport = catalog.find((report) => report.variant === selectedVariant) ?? catalog[0] ?? null;
   const reportRuns = useMemo(() => reportRunOptions(runs, selectedRun), [runs, selectedRun]);
@@ -72,11 +108,29 @@ export default function ReportCenter() {
     () => reportRuns.find((run) => selectedRun !== null && sameReportGroup(run, selectedRun)) ?? selectedRun,
     [reportRuns, selectedRun],
   );
+  const activeReportRunId = selectedReportRun?.id ?? selectedRunId;
+  const reportTruth = useMemo(
+    () => buildReportTruth(selectedReport, reportFindings, loadingFindings),
+    [selectedReport, reportFindings, loadingFindings],
+  );
+  const crossSurfaceConsistency = useMemo(
+    () =>
+      buildCrossSurfaceConsistency({
+        run: selectedReportRun,
+        findings: reportFindings,
+        reports: catalog,
+        selectedReport,
+        markdownPreview: markdown,
+        loadingFindings,
+        loadingReports: loadingCatalog,
+      }),
+    [catalog, loadingCatalog, loadingFindings, markdown, reportFindings, selectedReport, selectedReportRun],
+  );
   const previousRuns = useMemo(() => earlierRuns(reportRuns, selectedReportRun), [reportRuns, selectedReportRun]);
   const timelineRuns = useMemo(() => [...runs].sort(sortRunsDescending), [runs]);
 
   useEffect(() => {
-    if (!selectedRunId) {
+    if (!activeReportRunId) {
       setCatalog([]);
       setSelectedVariant(null);
       setMarkdown(null);
@@ -84,18 +138,16 @@ export default function ReportCenter() {
       return;
     }
 
-    // Fetch AI briefing for the executive summary section
     setBriefing(null);
     setLoadingBriefing(true);
-    fetch(`/api/v1/runs/${selectedRunId}/briefing`)
-      .then((r) => r.json())
-      .then((d: Record<string, unknown>) => {
-        if (typeof d.briefing === 'string') setBriefing(d.briefing);
+    getRunBriefing(activeReportRunId)
+      .then((payload) => {
+        if (typeof payload.briefing === 'string') setBriefing(safeProviderText(payload.briefing, SAFE_BRIEFING_FALLBACK));
       })
       .catch(() => undefined)
       .finally(() => setLoadingBriefing(false));
 
-    const runId = selectedRunId;
+    const runId = activeReportRunId;
     let cancelled = false;
     async function loadCatalog() {
       setLoadingCatalog(true);
@@ -105,10 +157,9 @@ export default function ReportCenter() {
         const payload = await getRunReports(runId);
         if (cancelled) return;
         setCatalog(payload);
-        const nextVariant = payload.some((report) => report.variant === selectedVariant)
-          ? selectedVariant
-          : payload[0]?.variant ?? null;
-        setSelectedVariant(nextVariant);
+        setSelectedVariant((current) =>
+          payload.some((report) => report.variant === current) ? current : payload[0]?.variant ?? null,
+        );
         setMarkdown(null);
       } catch (error) {
         if (cancelled) return;
@@ -127,7 +178,36 @@ export default function ReportCenter() {
     return () => {
       cancelled = true;
     };
-  }, [selectedRunId, selectedVariant, setError]);
+  }, [activeReportRunId, setError]);
+
+  useEffect(() => {
+    const runForFindings = selectedReportRun ?? selectedRun;
+    if (!runForFindings) {
+      setReportFindings([]);
+      setLoadingFindings(false);
+      return;
+    }
+    const runContext = runForFindings;
+    let cancelled = false;
+    async function loadFindings() {
+      setLoadingFindings(true);
+      try {
+        const payload = await getFindingsForRunContext(runContext);
+        if (!cancelled) setReportFindings(payload);
+      } catch (error) {
+        if (!cancelled) {
+          setReportFindings([]);
+          setMessage(errorMessage(error));
+        }
+      } finally {
+        if (!cancelled) setLoadingFindings(false);
+      }
+    }
+    void loadFindings();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedReportRun, selectedRun]);
 
   useEffect(() => {
     setComparison(null);
@@ -137,8 +217,8 @@ export default function ReportCenter() {
   async function selectReport(report: RunReportCatalogItem) {
     setSelectedVariant(report.variant);
     setMessage(null);
-    if (selectedRunId && report.preview_allowed) {
-      await loadMarkdownPreview(selectedRunId, report.variant);
+    if (activeReportRunId && report.preview_allowed) {
+      await loadMarkdownPreview(activeReportRunId, report.variant);
     } else {
       setMarkdown(null);
       setMessage(report.availability_reason || 'Preview is not available for this report.');
@@ -146,12 +226,12 @@ export default function ReportCenter() {
   }
 
   async function handleGeneratePreview() {
-    if (!selectedRunId || !selectedReport) return;
+    if (!activeReportRunId || !selectedReport) return;
     if (!selectedReport.preview_allowed) {
       setMessage(selectedReport.availability_reason || 'Preview is not available for this report.');
       return;
     }
-    await loadMarkdownPreview(selectedRunId, selectedReport.variant);
+    await loadMarkdownPreview(activeReportRunId, selectedReport.variant);
   }
 
   async function loadMarkdownPreview(runId: UUID, variant: string) {
@@ -170,24 +250,12 @@ export default function ReportCenter() {
   }
 
   async function handleDownloadNlPdf() {
-    if (!selectedRunId) return;
+    if (!activeReportRunId) return;
     setAction('pdf');
     setMessage('PDF wordt aangemaakt — grafieken en tabellen worden gegenereerd...');
     try {
-      const resp = await fetch(
-        `/api/v1/runs/${selectedRunId}/report?format=pdf&variant=management_nl`,
-        { headers: { 'X-Actor': 'operator-ui' } },
-      );
-      if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `aegispt-management-rapport-${selectedRunId.slice(0, 8)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const blob = await downloadRunReport(activeReportRunId, 'management_nl', 'pdf');
+      triggerDownload(blob, `aegispt-management-rapport-${activeReportRunId.slice(0, 8)}.pdf`);
       setMessage('PDF management rapport gedownload.');
     } catch (error) {
       setMessage(`PDF genereren mislukt: ${errorMessage(error)}`);
@@ -197,25 +265,13 @@ export default function ReportCenter() {
   }
 
   async function handleDownloadNl() {
-    if (!selectedRunId) return;
+    if (!activeReportRunId) return;
     setAction('preview');
     setMessage('Nederlands management rapport wordt gegenereerd...');
     try {
-      const resp = await fetch(
-        `/api/v1/runs/${selectedRunId}/report?format=markdown&variant=management_nl`,
-        { headers: { 'X-Actor': 'operator-ui' } },
-      );
-      if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
-      const text = await resp.text();
+      const text = await getRunReportMarkdown(activeReportRunId, 'management_nl');
       const blob = new Blob([text], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `aegispt-management-rapport-nl-${selectedRunId.slice(0, 8)}.md`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      triggerDownload(blob, `aegispt-management-rapport-nl-${activeReportRunId.slice(0, 8)}.md`);
       setMessage('Nederlands management rapport gedownload.');
     } catch (error) {
       setMessage(`Rapport genereren mislukt: ${errorMessage(error)}`);
@@ -225,7 +281,7 @@ export default function ReportCenter() {
   }
 
   async function handleDownload(format: 'html' | 'pdf') {
-    if (!selectedRunId || !selectedReport) return;
+    if (!activeReportRunId || !selectedReport) return;
     if (!selectedReport.export_allowed) {
       setMessage(selectedReport.availability_reason || `${format.toUpperCase()} download is not available for this report.`);
       return;
@@ -233,9 +289,9 @@ export default function ReportCenter() {
     setAction(format);
     setMessage(null);
     try {
-      const blob = await downloadRunReport(selectedRunId, selectedReport.variant, format);
+      const blob = await downloadRunReport(activeReportRunId, selectedReport.variant, format);
       const filename =
-        selectedReport.download_names[format] ?? `aegispt-run-${selectedRunId}-${selectedReport.variant}.${format}`;
+        selectedReport.download_names[format] ?? `aegispt-run-${activeReportRunId}-${selectedReport.variant}.${format}`;
       triggerDownload(blob, filename);
       setMessage(`${format.toUpperCase()} download prepared.`);
     } catch (error) {
@@ -331,72 +387,58 @@ export default function ReportCenter() {
       )}
 
       {activeTab === 'reports' ? (
-        <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[40fr_60fr]">
-          <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-surface/50 backdrop-blur-md">
-            <RunStrip selectedRun={selectedReportRun} runs={reportRuns} selectedRunId={selectedReportRun?.id ?? selectedRunId} selectRun={selectRun} />
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              {loadingCatalog ? (
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_430px]">
+            <div className="min-w-0 space-y-5">
+              {selectedReport ? (
+                <>
+                  <ReportPackagePanel
+                    report={selectedReport}
+                    run={selectedReportRun}
+                    truth={reportTruth}
+                    selectedStage={selectedStage}
+                    onSelectStage={setSelectedStage}
+                  />
+                  <ManagementReportProofPanel
+                    report={selectedReport}
+                    run={selectedReportRun}
+                    truth={reportTruth}
+                    findings={reportFindings}
+                  />
+                  <CrossSurfaceConsistencyPanel consistency={crossSurfaceConsistency} />
+                  <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+                    <ReportChartStrip report={selectedReport} truth={reportTruth} />
+                    <ScopeInclusionPanel report={selectedReport} truth={reportTruth} />
+                  </div>
+                  <ReportPreviewPanel markdown={markdown} />
+                </>
+              ) : loadingCatalog ? (
                 <LoadingPanel label="Loading report catalog from API" />
-              ) : catalog.length === 0 ? (
-                <EmptyInline title="No reports available" detail="The backend did not return report catalog entries for this run." />
               ) : (
-                <div className="grid gap-3">
-                  {catalog.map((report) => (
-                    <ReportCard
-                      key={report.variant}
-                      report={report}
-                      selected={report.variant === selectedReport?.variant}
-                      onClick={() => void selectReport(report)}
-                    />
-                  ))}
-                </div>
+                <EmptyInline title="No reports available" detail="The backend did not return report catalog entries for this run." />
               )}
             </div>
-          </div>
 
-          <div className="min-h-0 overflow-hidden rounded-xl border border-border bg-surface/60 backdrop-blur-md">
-            {selectedReport ? (
-              <div className="flex h-full min-h-0 flex-col">
-                <ReportPreviewHeader report={selectedReport} run={selectedRun} />
-                <ReportChartStrip report={selectedReport} run={selectedRun} />
-                <div className="border-b border-border p-4">
-                  <div className="flex flex-wrap gap-2">
-                    <ActionButton onClick={handleGeneratePreview} loading={action === 'preview'} icon={<ScrollText size={14} />}>
-                      Generate Markdown Preview
-                    </ActionButton>
-                    <ActionButton onClick={() => void handleDownload('html')} loading={action === 'html'} icon={<Download size={14} />}>
-                      Download HTML
-                    </ActionButton>
-                    <ActionButton onClick={() => void handleDownload('pdf')} loading={action === 'pdf'} icon={<Download size={14} />}>
-                      Download PDF
-                    </ActionButton>
-                    <ActionButton
-                      onClick={() => void handleDownloadNlPdf()}
-                      loading={action === 'pdf'}
-                      icon={<Download size={14} />}
-                    >
-                      🇳🇱 Management PDF
-                    </ActionButton>
-                    <ActionButton
-                      onClick={() => void handleDownloadNl()}
-                      loading={action === 'preview'}
-                      icon={<Download size={14} />}
-                    >
-                      🇳🇱 Management Markdown
-                    </ActionButton>
-                  </div>
-                  {message && <div className="mt-3 rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">{message}</div>}
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <aside className="min-w-0 space-y-5">
+              <RunStrip selectedRun={selectedReportRun} runs={reportRuns} selectedRunId={selectedReportRun?.id ?? selectedRunId} selectRun={selectRun} />
+              <ReportVariantPanel
+                catalog={catalog}
+                selectedReport={selectedReport}
+                loading={loadingCatalog}
+                onSelect={(report) => void selectReport(report)}
+              />
+              {selectedReport && (
+                <>
+                  <ReportActionsPanel
+                    action={action}
+                    message={message}
+                    onPreview={handleGeneratePreview}
+                    onDownloadHtml={() => void handleDownload('html')}
+                    onDownloadPdf={() => void handleDownload('pdf')}
+                    onDownloadNlPdf={() => void handleDownloadNlPdf()}
+                    onDownloadNlMarkdown={() => void handleDownloadNl()}
+                  />
                   <EvidenceHash report={selectedReport} />
-                  <div className="mt-4 rounded-lg border border-border bg-bg/30 p-4">
-                    {markdown ? (
-                      <div className="prose-preview">{renderMarkdown(markdown)}</div>
-                    ) : (
-                      <EmptyInline title="Preview not generated" detail="Generate a Markdown preview or select an available report card." />
-                    )}
-                  </div>
                   <ComparePanel
                     previousRuns={previousRuns}
                     compareRunId={compareRunId}
@@ -404,11 +446,9 @@ export default function ReportCenter() {
                     loading={loadingComparison}
                     onCompare={handleCompare}
                   />
-                </div>
-              </div>
-            ) : (
-              <EmptyInline title="Select a report" detail="Choose a report card to open preview actions." />
-            )}
+                </>
+              )}
+            </aside>
           </div>
         </div>
       ) : (
@@ -425,59 +465,700 @@ export default function ReportCenter() {
   );
 }
 
-function ReportChartStrip({ report, run }: { report: RunReportCatalogItem; run: Run | null }) {
+function ManagementReportProofPanel({
+  report,
+  run,
+  truth,
+  findings,
+}: {
+  report: RunReportCatalogItem;
+  run: Run | null;
+  truth: ReportTruthModel;
+  findings: Finding[];
+}) {
+  const proof = useMemo(
+    () => buildManagementReportProof(report, truth, findings, run),
+    [findings, report, run, truth],
+  );
+
+  return (
+    <section
+      className="neon-panel rounded-lg border border-cyan/20 p-4 backdrop-blur-md"
+      aria-label="Management report export proof"
+    >
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mb-2 flex items-center gap-2 text-cyan">
+            <Shield size={16} />
+            <span className="text-[0.72rem] font-bold uppercase tracking-[0.18em]">Management proof</span>
+          </div>
+          <h2 className="text-[1.15rem] font-semibold text-text">Built from evidence, standards, and the same attack route</h2>
+          <p className="mt-1 max-w-4xl text-[0.92rem] leading-5 text-muted">{proof.storyHeadline}</p>
+        </div>
+        <StatusPill tone={proof.isManagementReady ? 'green' : 'amber'}>{proof.exportReadiness}</StatusPill>
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-[1.25fr_0.9fr]">
+        <div className="theme-surface-card rounded-lg border p-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-[0.98rem] font-semibold text-text">Attack map preview</h3>
+              <p className="mt-0.5 text-[0.82rem] text-muted">What was tested, in management language.</p>
+            </div>
+            <StatusPill tone="cyan">{truth.canonicalTotal} canonical</StatusPill>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+            {proof.route.map((step, index) => (
+              <ManagementRouteNode key={step.key} step={step} index={index} />
+            ))}
+          </div>
+        </div>
+
+        <div className="theme-surface-card rounded-lg border p-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-[0.98rem] font-semibold text-text">Standards badges</h3>
+            <span className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-muted">not certification</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {proof.standards.map((standard) => (
+              <StandardBadgeCard key={standard.badge} standard={standard} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-lg border border-border bg-bg/25 p-3">
+          <div className="mb-2 flex items-center gap-2 text-cyan">
+            <ListChecks size={15} />
+            <h3 className="text-[0.98rem] font-semibold text-text">Techniques in plain language</h3>
+          </div>
+          <div className="grid gap-2">
+            {proof.techniques.map((technique) => (
+              <div key={technique.label} className="theme-subcard rounded-md border px-3 py-2">
+                <div className="text-[0.92rem] font-semibold text-text">{technique.label}</div>
+                <div className="mt-0.5 text-[0.82rem] leading-4 text-muted">{technique.plain}</div>
+                <div className="mt-1 truncate text-[0.72rem] font-bold uppercase tracking-[0.12em] text-cyan/80">{technique.basis}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-bg/25 p-3">
+          <div className="mb-2 flex items-center gap-2 text-cyan">
+            <PackageCheck size={15} />
+            <h3 className="text-[0.98rem] font-semibold text-text">What IT and Engineering should do</h3>
+          </div>
+          <div className="grid gap-2 lg:grid-cols-3">
+            {proof.actions.map((action) => (
+              <div key={action.owner} className="theme-subcard rounded-md border px-3 py-2">
+                <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-cyan">{action.owner}</div>
+                <div className="mt-1 text-[0.88rem] leading-4 text-text">{action.action}</div>
+                <div className="mt-2 text-[0.78rem] leading-4 text-muted">{action.doneWhen}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-2 rounded-lg border border-border/80 bg-bg/20 p-3 md:grid-cols-[0.9fr_1.1fr]">
+        <div>
+          <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-cyan">Evidence basis</div>
+          <p className="mt-1 text-[0.9rem] leading-5 text-muted">{proof.evidenceBasis}</p>
+          <p className="mt-1 text-[0.82rem] leading-4 text-muted">Tested scope: {proof.testedScope}</p>
+        </div>
+        <div>
+          <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-amber">Not claimed</div>
+          <div className="mt-1 grid gap-1 sm:grid-cols-2">
+            {proof.notClaimed.slice(0, 4).map((item) => (
+              <CompactFact key={item} text={item} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ManagementRouteNode({ step, index }: { step: ManagementReportRouteStep; index: number }) {
+  return (
+    <div className="relative min-h-[128px] rounded-lg border border-cyan/15 bg-bg/30 px-3 py-2">
+      {index > 0 && <div className="absolute -left-2 top-1/2 hidden h-px w-4 bg-cyan/55 2xl:block" />}
+      <div className={cn('mb-2 inline-flex h-7 w-7 items-center justify-center rounded-full border text-[0.78rem] font-bold', routeToneClass(step.tone))}>
+        {index + 1}
+      </div>
+      <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-muted">{step.label}</div>
+      <div className="mt-1 line-clamp-3 text-[0.9rem] font-semibold leading-4 text-text">{step.detail}</div>
+    </div>
+  );
+}
+
+function StandardBadgeCard({ standard }: { standard: ManagementReportStandardBadge }) {
+  return (
+    <div className="rounded-md border border-border/80 bg-bg/30 px-3 py-2">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="font-mono text-[0.78rem] font-bold text-cyan">{standard.badge}</span>
+        <span
+          className={cn(
+            'rounded-full border px-1.5 py-0.5 text-[0.64rem] font-bold uppercase',
+            standard.state === 'used'
+              ? 'border-green/25 bg-green/10 text-green'
+              : 'border-border bg-bg/40 text-muted',
+          )}
+        >
+          {standard.state === 'used' ? 'used' : 'mapped'}
+        </span>
+      </div>
+      <div className="text-[0.88rem] font-semibold text-text">{standard.label}</div>
+      <div className="mt-0.5 text-[0.76rem] leading-4 text-muted">{standard.meaning}</div>
+    </div>
+  );
+}
+
+function ReportPackagePanel({
+  report,
+  run,
+  truth,
+  selectedStage,
+  onSelectStage,
+}: {
+  report: RunReportCatalogItem;
+  run: Run | null;
+  truth: ReportTruthModel;
+  selectedStage: ReportStage;
+  onSelectStage: (stage: ReportStage) => void;
+}) {
+  const profileLabel =
+    typeof report.source_scope_profile.run_profile === 'string' && report.source_scope_profile.run_profile.trim()
+      ? report.source_scope_profile.run_profile
+      : run?.profile.name ?? 'Selected run';
+  const stages: Array<{ id: ReportStage; label: string; icon: ReactNode; status: string; tone: string }> = [
+    { id: 'evidence', label: 'Evidence', icon: <Database size={15} />, status: truth.evidenceVerified ? 'verified' : 'needs review', tone: truth.evidenceVerified ? 'green' : 'amber' },
+    { id: 'scope', label: 'Scope', icon: <GitBranch size={15} />, status: `${truth.includedInventory} asset${truth.includedInventory === 1 ? '' : 's'}`, tone: 'cyan' },
+    { id: 'findings', label: 'Findings', icon: <ListChecks size={15} />, status: `${truth.canonicalTotal} canonical`, tone: truth.countStatus === 'mismatch' ? 'red' : 'cyan' },
+    { id: 'variant', label: 'Variant', icon: <FileText size={15} />, status: report.variant, tone: report.draft_allowed ? 'amber' : 'cyan' },
+    { id: 'export', label: 'Export', icon: <FileCheck2 size={15} />, status: report.export_allowed ? 'ready' : 'blocked', tone: report.export_allowed ? 'green' : 'red' },
+  ];
+
+  return (
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <AvailabilityBadge report={report} />
+            <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2 py-0.5 text-[0.77rem] font-semibold uppercase text-cyan">
+              Report package
+            </span>
+          </div>
+          <h2 className="break-words text-xl font-semibold text-text">{report.title}</h2>
+          <p className="mt-1 text-[0.925rem] text-muted">
+            {profileLabel} · generated {formatDate(report.generated_at)}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-right sm:grid-cols-3">
+          <ReportTruthMetric label="Canonical findings" value={`${truth.canonicalTotal} total`} detail={`${truth.canonicalHighPlus} high+`} />
+          <ReportTruthMetric
+            label="Included in selected report"
+            value={truth.includedTotal === null ? 'listed' : String(truth.includedTotal)}
+            detail={countStatusLabel(truth.countStatus)}
+          />
+          <ReportTruthMetric label="Export" value={report.export_allowed ? 'Ready' : 'Blocked'} detail={report.available_formats.join(' / ') || 'no format'} />
+        </div>
+      </div>
+
+      <div className="overflow-x-auto pb-1">
+        <div className="flex min-w-[760px] items-center gap-2">
+          {stages.map((stage, index) => (
+            <div key={stage.id} className="flex flex-1 items-center gap-2">
+              <ReportStageButton
+                active={selectedStage === stage.id}
+                stage={stage}
+                onClick={() => onSelectStage(stage.id)}
+              />
+              {index < stages.length - 1 && <ArrowRight size={18} className="shrink-0 text-cyan/60" />}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <StageDetail stage={selectedStage} report={report} truth={truth} />
+    </section>
+  );
+}
+
+function CrossSurfaceConsistencyPanel({ consistency }: { consistency: CrossSurfaceConsistencyModel }) {
+  return (
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md" aria-label="Cross-surface truth consistency">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-cyan">
+            <Shield size={16} />
+            <span className="text-[0.72rem] font-bold uppercase tracking-[0.18em]">Truth consistency</span>
+          </div>
+          <h2 className="text-[1.08rem] font-semibold text-text">{consistency.headline}</h2>
+          <p className="mt-1 max-w-3xl text-[0.925rem] leading-5 text-muted">{consistency.detail}</p>
+        </div>
+        <StatusPill tone={crossSurfaceTone(consistency.status)}>{crossSurfaceLabel(consistency.status)}</StatusPill>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <ConsistencyMetric label="Canonical" value={formatFindingCount(consistency.canonicalTotal)} detail={`${consistency.canonicalHighPlus} high+`} />
+        <ConsistencyMetric
+          label="Run-local"
+          value={consistency.runSummaryTotal === null ? 'not listed' : formatFindingCount(consistency.runSummaryTotal)}
+          detail="source summary"
+        />
+        <ConsistencyMetric
+          label="Catalog"
+          value={consistency.selectedReportTotal === null ? 'not listed' : formatFindingCount(consistency.selectedReportTotal)}
+          detail="selected report"
+        />
+        <ConsistencyMetric
+          label="Evidence"
+          value={`${consistency.evidenceLinkedTotal} linked`}
+          detail={consistency.previewTotal === null ? 'preview pending' : `preview ${consistency.previewTotal}`}
+        />
+      </div>
+
+      <div className="mt-3 grid gap-2 lg:grid-cols-4">
+        {consistency.checks.map((check) => (
+          <ConsistencyCheckCard key={check.id} check={check} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ConsistencyMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="theme-surface-card rounded-lg border px-3 py-2">
+      <div className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-muted">{label}</div>
+      <div className="mt-1 truncate text-[1.02rem] font-semibold text-text">{value}</div>
+      <div className="truncate text-[0.8rem] text-muted">{detail}</div>
+    </div>
+  );
+}
+
+function ConsistencyCheckCard({ check }: { check: CrossSurfaceCheck }) {
+  const isGood = check.status === 'match';
+  const isProblem = check.status === 'mismatch';
+  const icon = isGood ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />;
+  return (
+    <div
+      className={cn(
+        'rounded-lg border px-3 py-2',
+        isGood
+          ? 'border-green/20 bg-green/5'
+          : isProblem
+            ? 'border-red/25 bg-red/5'
+            : 'border-amber/25 bg-amber/5',
+      )}
+    >
+      <div className={cn('mb-1 flex items-center gap-2 text-[0.72rem] font-bold uppercase tracking-[0.14em]', consistencyCheckTone(check.status))}>
+        {icon}
+        <span>{check.label}</span>
+      </div>
+      <div className="text-[0.9rem] font-semibold text-text">{check.observed}</div>
+      <div className="text-[0.78rem] text-muted">Expected {check.expected}</div>
+      <p className="mt-1 text-[0.8rem] leading-4 text-muted">{check.detail}</p>
+    </div>
+  );
+}
+
+function crossSurfaceTone(status: CrossSurfaceOverallStatus): 'cyan' | 'green' | 'amber' | 'red' | 'muted' {
+  if (status === 'consistent') return 'green';
+  if (status === 'mismatch') return 'red';
+  if (status === 'review' || status === 'loading') return 'amber';
+  return 'muted';
+}
+
+function crossSurfaceLabel(status: CrossSurfaceOverallStatus): string {
+  if (status === 'consistent') return 'aligned';
+  if (status === 'mismatch') return 'mismatch';
+  if (status === 'review') return 'review';
+  if (status === 'loading') return 'loading';
+  return 'unknown';
+}
+
+function consistencyCheckTone(status: CrossSurfaceCheck['status']): string {
+  if (status === 'match') return 'text-green';
+  if (status === 'mismatch') return 'text-red';
+  if (status === 'loading' || status === 'warning') return 'text-amber';
+  return 'text-muted';
+}
+
+function formatFindingCount(count: number): string {
+  return `${count} finding${count === 1 ? '' : 's'}`;
+}
+
+function ReportTruthMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="theme-surface-card min-w-[128px] rounded-lg border px-3 py-2">
+      <div className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-muted">{label}</div>
+      <div className="mt-1 truncate text-[1.05rem] font-semibold text-text">{value}</div>
+      <div className="truncate text-[0.8rem] text-muted">{detail}</div>
+    </div>
+  );
+}
+
+function ReportStageButton({
+  stage,
+  active,
+  onClick,
+}: {
+  stage: { id: ReportStage; label: string; icon: ReactNode; status: string; tone: string };
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'group min-h-[92px] flex-1 rounded-lg border p-3 text-left transition-all',
+        active
+          ? 'border-cyan/60 bg-cyan/10 shadow-[0_0_18px_rgba(94,207,255,0.14)]'
+          : 'border-border bg-surface/55 hover:border-cyan/35 hover:bg-cyan/5',
+      )}
+    >
+      <div className={cn('mb-2 flex items-center gap-2', stageToneClass(stage.tone))}>
+        {stage.icon}
+        <span className="text-[0.68rem] font-bold uppercase tracking-[0.18em]">{stage.label}</span>
+      </div>
+      <div className="truncate text-[1rem] font-semibold text-text">{stage.status}</div>
+      <div className="mt-1 text-[0.8rem] text-muted">click for detail</div>
+    </button>
+  );
+}
+
+function StageDetail({ stage, report, truth }: { stage: ReportStage; report: RunReportCatalogItem; truth: ReportTruthModel }) {
+  const detail = stageDetailCopy(stage, report, truth);
+  return (
+    <div className="theme-surface-card mt-4 grid gap-3 rounded-lg border p-3 md:grid-cols-[220px_1fr]">
+      <div>
+        <div className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-cyan">{detail.label}</div>
+        <div className="mt-1 text-[1rem] font-semibold text-text">{detail.title}</div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {detail.items.map((item) => (
+          <div key={item} className="flex items-start gap-2 rounded-md border border-border/80 bg-bg/25 px-3 py-2 text-[0.9rem] leading-5 text-muted">
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-cyan" />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScopeInclusionPanel({ report, truth }: { report: RunReportCatalogItem; truth: ReportTruthModel }) {
+  return (
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[1.08rem] font-semibold text-text">What will be included</h2>
+          <p className="mt-1 text-[0.925rem] text-muted">Selected report scope, without tool-output guesses.</p>
+        </div>
+        <StatusPill tone={countStatusTone(truth.countStatus)}>
+          {countStatusLabel(truth.countStatus)}
+        </StatusPill>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="theme-surface-card rounded-lg border p-3">
+          <div className="mb-3 flex items-center gap-2 text-cyan">
+            <PackageCheck size={15} />
+            <span className="text-[0.72rem] font-bold uppercase tracking-[0.18em]">Included</span>
+          </div>
+          <div className="space-y-2">
+            {truth.includedBullets.map((item) => (
+              <CompactFact key={item} text={item} />
+            ))}
+          </div>
+        </div>
+        <div className="rounded-lg border border-amber/20 bg-amber/5 p-3">
+          <div className="mb-3 flex items-center gap-2 text-amber">
+            <AlertTriangle size={15} />
+            <span className="text-[0.72rem] font-bold uppercase tracking-[0.18em]">What is not claimed</span>
+          </div>
+          <div className="space-y-2">
+            {truth.excludedBullets.map((item) => (
+              <CompactFact key={item} text={item} />
+            ))}
+          </div>
+        </div>
+      </div>
+      {truth.internalCopyWarning && (
+        <div className="mt-3 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[0.9rem] font-semibold text-amber">
+          Customer copy needs review: internal benchmark, lab, fixture, smoke, or debug wording was detected in this selected report metadata.
+        </div>
+      )}
+      {!truth.internalCopyWarning && (
+        <div className="mt-3 rounded-md border border-green/25 bg-green/10 px-3 py-2 text-[0.9rem] font-semibold text-green">
+          Customer copy check passed for selected report metadata.
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {report.methodology_references.slice(0, 4).map((item) => (
+          <span key={item} className="rounded-full border border-border bg-bg/30 px-2 py-0.5 text-[0.77rem] font-semibold uppercase text-muted">
+            {item}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CompactFact({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-2 text-[0.9rem] leading-5 text-muted">
+      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan" />
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function ReportChartStrip({ report, truth }: { report: RunReportCatalogItem; truth: ReportTruthModel }) {
   const readinessData = [
     { label: 'Preview', value: report.preview_allowed ? 1 : 0, color: report.preview_allowed ? '#5ecfff' : '#475569' },
     { label: 'Export', value: report.export_allowed ? 1 : 0, color: report.export_allowed ? '#34d399' : '#475569' },
     { label: 'Draft', value: report.draft_allowed ? 1 : 0, color: report.draft_allowed ? '#d06bff' : '#475569' },
   ];
-  const severityData = ['critical', 'high', 'medium', 'low'].map((severity) => ({
-    label: severity[0].toUpperCase() + severity.slice(1),
-    value: run?.findings.findings_by_severity?.[severity] ?? 0,
-    color: severityColor(severity),
-  }));
 
   return (
-    <div className="grid gap-3 border-b border-border p-4 lg:grid-cols-2">
-      <div className="rounded-lg border border-border bg-bg/25 p-3">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-[0.925rem] font-semibold text-text">Report Readiness</h3>
-          <span className="text-[0.77rem] font-bold uppercase text-muted">{report.availability_label}</span>
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[1.08rem] font-semibold text-text">Report truth charts</h2>
+          <p className="mt-1 text-[0.925rem] text-muted">Graphs use canonical findings, not the run-local summary.</p>
         </div>
-        <div className="h-[150px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <ReBarChart data={readinessData} margin={{ left: -22, right: 6, top: 4, bottom: 0 }}>
-              <CartesianGrid stroke="rgba(142,191,228,0.1)" vertical={false} />
-              <XAxis dataKey="label" stroke="#8ebfe4" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-              <YAxis allowDecimals={false} domain={[0, 1]} hide />
-              <Tooltip content={<ReportTooltip valueLabel="Ready" booleanValue />} />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {readinessData.map((entry) => <Cell key={entry.label} fill={entry.color} />)}
-              </Bar>
-            </ReBarChart>
-          </ResponsiveContainer>
+        <StatusPill tone={countStatusTone(truth.countStatus)}>{truth.canonicalTotal} canonical</StatusPill>
+      </div>
+      <div className="theme-surface-card mb-3 grid gap-3 rounded-lg border p-3 md:grid-cols-[160px_1fr]">
+        <ReportTruthDonut truth={truth} />
+        <div className="flex min-w-0 flex-col justify-center">
+          <div className="text-[0.72rem] font-bold uppercase tracking-[0.18em] text-cyan">Report inclusion ratio</div>
+          <div className="mt-2 text-[1.05rem] font-semibold text-text">
+            {truth.includedTotal === null ? 'Included count not listed' : `${truth.includedTotal} included of ${truth.canonicalTotal} canonical findings`}
+          </div>
+          <p className="mt-1 text-[0.9rem] leading-5 text-muted">
+            The selected report may export only what the catalog lists. A mismatch stays visible before download.
+          </p>
         </div>
       </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="rounded-lg border border-border bg-bg/25 p-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-[0.925rem] font-semibold text-text">Severity</h3>
+            <span className="text-[0.77rem] font-bold uppercase text-muted">canonical</span>
+          </div>
+          <div className="h-[170px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ReBarChart data={truth.severityData} margin={{ left: -18, right: 6, top: 4, bottom: 0 }}>
+                <CartesianGrid stroke="rgba(142,191,228,0.1)" vertical={false} />
+                <XAxis dataKey="label" stroke="#8ebfe4" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} stroke="#8ebfe4" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                <Tooltip content={<ReportTooltip valueLabel="Findings" />} />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {truth.severityData.map((entry) => <Cell key={entry.label} fill={entry.color} />)}
+                </Bar>
+              </ReBarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-      <div className="rounded-lg border border-border bg-bg/25 p-3">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-[0.925rem] font-semibold text-text">Severity Summary</h3>
-          <span className="text-[0.77rem] font-bold uppercase text-muted">Run findings</span>
-        </div>
-        <div className="h-[150px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <ReBarChart data={severityData} margin={{ left: -18, right: 6, top: 4, bottom: 0 }}>
-              <CartesianGrid stroke="rgba(142,191,228,0.1)" vertical={false} />
-              <XAxis dataKey="label" stroke="#8ebfe4" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-              <YAxis allowDecimals={false} stroke="#8ebfe4" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-              <Tooltip content={<ReportTooltip valueLabel="Findings" />} />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {severityData.map((entry) => <Cell key={entry.label} fill={entry.color} />)}
-              </Bar>
-            </ReBarChart>
-          </ResponsiveContainer>
+        <div className="rounded-lg border border-border bg-bg/25 p-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-[0.925rem] font-semibold text-text">Readiness</h3>
+            <span className="text-[0.77rem] font-bold uppercase text-muted">{report.availability_label}</span>
+          </div>
+          <div className="h-[170px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ReBarChart data={readinessData} margin={{ left: -22, right: 6, top: 4, bottom: 0 }}>
+                <CartesianGrid stroke="rgba(142,191,228,0.1)" vertical={false} />
+                <XAxis dataKey="label" stroke="#8ebfe4" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} domain={[0, 1]} hide />
+                <Tooltip content={<ReportTooltip valueLabel="Ready" booleanValue />} />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {readinessData.map((entry) => <Cell key={entry.label} fill={entry.color} />)}
+                </Bar>
+              </ReBarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
+    </section>
+  );
+}
+
+function ReportVariantPanel({
+  catalog,
+  selectedReport,
+  loading,
+  onSelect,
+}: {
+  catalog: RunReportCatalogItem[];
+  selectedReport: RunReportCatalogItem | null;
+  loading: boolean;
+  onSelect: (report: RunReportCatalogItem) => void;
+}) {
+  return (
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[1.08rem] font-semibold text-text">Report variants</h2>
+          <p className="mt-1 text-[0.925rem] text-muted">Pick the audience first.</p>
+        </div>
+        <StatusPill tone="cyan">{catalog.length} variants</StatusPill>
+      </div>
+      {loading ? (
+        <LoadingPanel label="Loading report catalog from API" />
+      ) : catalog.length === 0 ? (
+        <EmptyInline title="No reports available" detail="The backend did not return report catalog entries for this run." />
+      ) : (
+        <div className="grid gap-3">
+          {catalog.map((report) => (
+            <ReportCard
+              key={report.variant}
+              report={report}
+              selected={report.variant === selectedReport?.variant}
+              onClick={() => onSelect(report)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ReportActionsPanel({
+  action,
+  message,
+  onPreview,
+  onDownloadHtml,
+  onDownloadPdf,
+  onDownloadNlPdf,
+  onDownloadNlMarkdown,
+}: {
+  action: ReportAction;
+  message: string | null;
+  onPreview: () => void;
+  onDownloadHtml: () => void;
+  onDownloadPdf: () => void;
+  onDownloadNlPdf: () => void;
+  onDownloadNlMarkdown: () => void;
+}) {
+  return (
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[1.08rem] font-semibold text-text">Preview and export</h2>
+          <p className="mt-1 text-[0.925rem] text-muted">Generate only from stored evidence.</p>
+        </div>
+        <Eye size={16} className="text-cyan" />
+      </div>
+      <div className="grid gap-2">
+        <ActionButton onClick={onPreview} loading={action === 'preview'} icon={<ScrollText size={14} />}>
+          Markdown Preview
+        </ActionButton>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          <ActionButton onClick={onDownloadHtml} loading={action === 'html'} icon={<Download size={14} />}>
+            HTML
+          </ActionButton>
+          <ActionButton onClick={onDownloadPdf} loading={action === 'pdf'} icon={<Download size={14} />}>
+            PDF
+          </ActionButton>
+          <ActionButton onClick={onDownloadNlPdf} loading={action === 'pdf'} icon={<Download size={14} />}>
+            NL PDF
+          </ActionButton>
+          <ActionButton onClick={onDownloadNlMarkdown} loading={action === 'preview'} icon={<Download size={14} />}>
+            NL Markdown
+          </ActionButton>
+        </div>
+      </div>
+      {message && <div className="mt-3 rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[0.9rem] text-cyan">{message}</div>}
+    </section>
+  );
+}
+
+function ReportPreviewPanel({ markdown }: { markdown: string | null }) {
+  return (
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[1.08rem] font-semibold text-text">Report preview</h2>
+          <p className="mt-1 text-[0.925rem] text-muted">Rendered markdown from the selected variant.</p>
+        </div>
+        <StatusPill tone={markdown ? 'green' : 'muted'}>{markdown ? 'loaded' : 'not loaded'}</StatusPill>
+      </div>
+      <div className="max-h-[460px] overflow-y-auto rounded-lg border border-border bg-bg/30 p-4">
+        {markdown ? (
+          <div className="prose-preview">{renderMarkdown(markdown)}</div>
+        ) : (
+          <EmptyInline title="Preview not generated" detail="Generate a Markdown preview or select an available report card." />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function StatusPill({ tone, children }: { tone: 'cyan' | 'green' | 'amber' | 'red' | 'muted'; children: ReactNode }) {
+  const toneClass = {
+    cyan: 'border-cyan/25 bg-cyan/10 text-cyan',
+    green: 'border-green/25 bg-green/10 text-green',
+    amber: 'border-amber/30 bg-amber/10 text-amber',
+    red: 'border-red/30 bg-red/10 text-red',
+    muted: 'border-border bg-bg/40 text-muted',
+  }[tone];
+  return (
+    <span className={cn('inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', toneClass)}>
+      {children}
+    </span>
+  );
+}
+
+function stageToneClass(tone: string): string {
+  if (tone === 'green') return 'text-green';
+  if (tone === 'amber') return 'text-amber';
+  if (tone === 'red') return 'text-red';
+  return 'text-cyan';
+}
+
+function routeToneClass(tone: ManagementReportRouteStep['tone']): string {
+  if (tone === 'good') return 'border-green/35 bg-green/10 text-green';
+  if (tone === 'proof') return 'border-red/35 bg-red/10 text-red';
+  if (tone === 'outcome') return 'border-ai/35 bg-ai/10 text-ai';
+  if (tone === 'scope') return 'border-cyan/35 bg-cyan/10 text-cyan';
+  return 'border-border bg-bg/40 text-muted';
+}
+
+function ReportTruthDonut({ truth }: { truth: ReportTruthModel }) {
+  const total = Math.max(truth.canonicalTotal, truth.includedTotal ?? 0, 1);
+  const included = Math.min(truth.includedTotal ?? truth.canonicalTotal, total);
+  const ratio = included / total;
+  const circumference = 2 * Math.PI * 42;
+  const dash = circumference * ratio;
+  return (
+    <div className="flex items-center justify-center">
+      <svg className="h-[150px] w-[150px]" viewBox="0 0 120 120" role="img" aria-label="Report inclusion ratio">
+        <circle cx="60" cy="60" r="42" fill="none" stroke="rgba(142,191,228,0.14)" strokeWidth="12" />
+        <circle
+          cx="60"
+          cy="60"
+          r="42"
+          fill="none"
+          stroke={truth.countStatus === 'mismatch' ? '#ef4444' : '#5ecfff'}
+          strokeLinecap="round"
+          strokeWidth="12"
+          strokeDasharray={`${dash} ${circumference - dash}`}
+          transform="rotate(-90 60 60)"
+        />
+        <text x="60" y="56" textAnchor="middle" fill="#e5edf5" className="text-[1.2rem] font-bold">
+          {included}
+        </text>
+        <text x="60" y="74" textAnchor="middle" fill="#8aa0b8" className="text-[0.62rem] uppercase tracking-widest">
+          included
+        </text>
+      </svg>
     </div>
   );
 }
@@ -498,19 +1179,11 @@ function ReportTooltip({
   if (!active || !payload?.length) return null;
   const value = payload[0]?.value ?? 0;
   return (
-    <div className="rounded-md border border-cyan/25 bg-[#06101d]/95 px-3 py-2 shadow-[0_0_1rem_rgba(94,207,255,0.16)]">
+    <div className="dark-canvas rounded-md border border-cyan/25 bg-[#06101d]/95 px-3 py-2 shadow-[0_0_1rem_rgba(94,207,255,0.16)]">
       <div className="text-[0.8rem] font-bold uppercase text-cyan">{label}</div>
       <div className="text-[0.9rem] text-text">{valueLabel}: {booleanValue ? (value ? 'Yes' : 'No') : value}</div>
     </div>
   );
-}
-
-function severityColor(severity: string): string {
-  if (severity === 'critical') return '#ef4444';
-  if (severity === 'high') return '#f59e0b';
-  if (severity === 'medium') return '#fde047';
-  if (severity === 'low') return '#5ecfff';
-  return '#8ebfe4';
 }
 
 function TabButton({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: ReactNode; children: ReactNode }) {
@@ -541,7 +1214,11 @@ function RunStrip({
   selectRun: (runId: UUID | null) => void;
 }) {
   return (
-    <div className="border-b border-border bg-[rgba(5,9,18,0.72)] p-4">
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-[1.08rem] font-semibold text-text">Report run</h2>
+        <Layers3 size={16} className="text-cyan" />
+      </div>
       <label className="block">
         <span className="mb-1 block text-[0.85rem] font-bold uppercase text-muted">Selected Run</span>
         <select
@@ -562,7 +1239,7 @@ function RunStrip({
         <MiniMetric label="Created" value={selectedRun ? formatDate(selectedRun.created_at) : 'Unknown'} />
         <MiniMetric label="Status" value={selectedRun?.status ?? 'Unknown'} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -603,32 +1280,6 @@ function ReportCard({ report, selected, onClick }: { report: RunReportCatalogIte
   );
 }
 
-function ReportPreviewHeader({ report, run }: { report: RunReportCatalogItem; run: Run | null }) {
-  const profileLabel =
-    typeof report.source_scope_profile.run_profile === 'string' && report.source_scope_profile.run_profile.trim()
-      ? report.source_scope_profile.run_profile
-      : run?.profile.name ?? 'Selected run';
-  return (
-    <header className="border-b border-border bg-[rgba(5,9,18,0.78)] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <AvailabilityBadge report={report} />
-            <span className="rounded-full border border-border bg-bg/40 px-2 py-0.5 text-[0.77rem] font-semibold text-muted">
-              {report.version_label}
-            </span>
-          </div>
-          <h2 className="break-words text-lg font-semibold text-text">{report.title}</h2>
-          <p className="mt-1 text-[0.925rem] text-muted">
-            {profileLabel} · generated {formatDate(report.generated_at)}
-          </p>
-        </div>
-      </div>
-      <p className="mt-3 text-[0.925rem] leading-5 text-muted">{report.availability_reason}</p>
-    </header>
-  );
-}
-
 function ActionButton({ onClick, loading, icon, children }: { onClick: () => void; loading: boolean; icon: ReactNode; children: ReactNode }) {
   return (
     <button
@@ -645,11 +1296,11 @@ function ActionButton({ onClick, loading, icon, children }: { onClick: () => voi
 
 function EvidenceHash({ report }: { report: RunReportCatalogItem }) {
   return (
-    <details className="rounded-lg border border-border bg-bg/30 p-3">
+    <details className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[0.925rem] font-semibold text-text">
         <span className="flex items-center gap-2">
           <Check size={14} className="text-green" />
-          Evidence hash: verified
+          Report content hash
         </span>
         <ChevronDown size={14} className="text-muted" />
       </summary>
@@ -657,6 +1308,9 @@ function EvidenceHash({ report }: { report: RunReportCatalogItem }) {
         <Hash size={14} className="mt-0.5 text-cyan" />
         <span className="break-all font-mono text-text">{report.content_sha256}</span>
       </div>
+      <p className="mt-2 text-[0.85rem] leading-5 text-muted">
+        This identifies the generated report content. Evidence integrity remains tied to the stored artifacts and finding evidence references.
+      </p>
     </details>
   );
 }
@@ -675,7 +1329,7 @@ function ComparePanel({
   onCompare: (runId: UUID | '') => void;
 }) {
   return (
-    <section className="mt-4 rounded-lg border border-border bg-bg/25 p-4">
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
       <div className="mb-3 flex items-center gap-2 text-[0.925rem] font-bold uppercase text-text">
         <BarChart3 size={14} />
         Compare with Earlier Run
@@ -725,7 +1379,7 @@ function DossierTab({
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-surface/55 backdrop-blur-md">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border bg-[rgba(5,9,18,0.72)] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border bg-bg/45 p-4">
         <div>
           <h2 className="text-lg font-semibold text-text">{engagement?.name ?? 'Engagement Dossier'}</h2>
           <p className="mt-1 text-[1rem] text-muted">{engagement?.client || 'Client not recorded'} · {runs.length} runs</p>
@@ -836,7 +1490,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
 
   function flushCode(key: string) {
     nodes.push(
-      <pre key={`code-${key}`} className="my-3 overflow-auto rounded-md border border-border bg-[#030712] p-3 font-mono text-[0.925rem] leading-5 text-text">
+      <pre key={`code-${key}`} className="terminal-code my-3 overflow-auto rounded-md border p-3 font-mono text-[0.925rem] leading-5">
         {codeLines.join('\n')}
       </pre>,
     );
@@ -1010,10 +1664,9 @@ function triggerDownload(blob: Blob, filename: string) {
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (typeof error.detail === 'string' && error.detail.trim()) return error.detail;
-    return error.message;
-  }
-  if (error instanceof Error) return error.message;
-  return 'AegisPT API request failed.';
+  return safeErrorMessage(error, {
+    fallback: 'Report data could not be prepared. Refresh the catalog or select another run.',
+    unavailable: 'Report generation is temporarily unavailable. Canonical findings and evidence remain visible for review.',
+    notFound: 'This report or run is no longer available. Refresh the run list before exporting.',
+  });
 }

@@ -331,7 +331,7 @@ export default function Intake() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#02060c]/95 backdrop-blur-md"
+            className="dark-canvas fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#02060c]/95 backdrop-blur-md"
           >
             <div className="absolute inset-0 opacity-30">
               <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -384,8 +384,8 @@ export default function Intake() {
 
       <div className="flex h-full min-h-0 w-full flex-col gap-4">
         <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,0.92fr)_minmax(420px,1.08fr)]">
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-cyan/15 bg-[rgba(8,14,26,0.72)] shadow-2xl backdrop-blur-md">
-            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-[rgba(4,8,15,0.86)] px-5 py-4">
+          <section className="theme-surface-card flex min-h-0 flex-col overflow-hidden rounded-lg border backdrop-blur-md">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-bg/45 px-5 py-4">
               <div>
                 <p className="flex items-center gap-2 text-[0.77rem] font-bold uppercase tracking-widest text-cyan/70">
                   <Sparkles size={13} />
@@ -408,8 +408,8 @@ export default function Intake() {
             />
           </section>
 
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-[rgba(8,14,26,0.72)] shadow-2xl backdrop-blur-md">
-            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-[rgba(4,8,15,0.86)] px-5 py-4">
+          <section className="theme-surface-card flex min-h-0 flex-col overflow-hidden rounded-lg border backdrop-blur-md">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-bg/45 px-5 py-4">
               <div>
                 <p className="flex items-center gap-2 text-[0.77rem] font-bold uppercase tracking-widest text-amber/80">
                   <SlidersHorizontal size={13} />
@@ -444,7 +444,7 @@ export default function Intake() {
           </section>
         </div>
         {hasMissionContext && (
-          <div className="overflow-hidden rounded-lg border border-border bg-[rgba(8,14,26,0.72)] shadow-2xl backdrop-blur-md">
+          <div className="theme-surface-card overflow-hidden rounded-lg border backdrop-blur-md">
             <InlineContextStrip
               mission={mission}
               authorizationConfirmed={authorizationConfirmed}
@@ -541,7 +541,7 @@ function AiIntakePane({
         </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
-      <div className="border-t border-border bg-[rgba(5,9,18,0.8)] p-4">
+      <div className="border-t border-border bg-bg/55 p-4">
         <div className="relative flex items-center">
           <input
             type="text"
@@ -681,7 +681,7 @@ function WizardPane({
                         ))}
                       </div>
                     </div>
-                    <div className="absolute inset-0 rounded-lg border border-cyan/50 bg-[radial-gradient(circle_at_top,rgba(94,207,255,0.2),rgba(8,14,26,0.92)_58%)] p-4 shadow-[0_0_22px_rgba(94,207,255,0.18)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                    <div className="absolute inset-0 rounded-lg border border-cyan/50 bg-cyan/10 p-4 shadow-[0_0_22px_rgba(94,207,255,0.18)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
                       <div className="mb-4 flex items-center justify-between gap-3">
                         <span className="flex h-10 w-10 items-center justify-center rounded-md border border-cyan/30 bg-cyan/15 text-cyan">
                           <CheckCircle2 size={18} />
@@ -892,7 +892,7 @@ function InlineContextStrip({
   const allConfirmed = Boolean(mission.targetType && mission.scope && mission.depth && mission.safety);
 
   return (
-    <div className="shrink-0 border-t border-border bg-[rgba(5,9,18,0.9)] p-4 flex flex-wrap items-center justify-between gap-4">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-t border-border bg-bg/55 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[0.85rem] font-bold uppercase tracking-widest text-muted mr-2">Mission Context:</span>
         {confirmedItems.map((item) => (

@@ -394,6 +394,11 @@ def _assert_no_python_repr(text: str) -> None:
     assert "&#x27;}" not in text
 
 
+def _extract_pdf_text(content: bytes) -> str:
+    pdf_reader = PdfReader(BytesIO(content))
+    return "\n".join(page.extract_text() or "" for page in pdf_reader.pages)
+
+
 def _add_report_draft_finding(inline_client, run_id: str) -> str:
     with inline_client.app.state.session_factory() as session:
         finding = Finding(
@@ -403,6 +408,7 @@ def _add_report_draft_finding(inline_client, run_id: str) -> str:
             target_id="https://app.example.test/admin",
             evidence_ref="artifact://zap/admin-panel",
             status="open",
+            validation_status="validated",
             summary="The administrative panel was reachable from the assessed web surface.",
             methodology_tags=["owasp-wstg", "access_control"],
             ptes_phase="exploitation",
@@ -411,7 +417,15 @@ def _add_report_draft_finding(inline_client, run_id: str) -> str:
             wstg_version="v4.2",
             control_family="access_control",
         )
-        session.add(finding)
+        task = Task(
+            run_id=UUID(run_id),
+            source_finding=finding,
+            tool="zap",
+            target_id="https://app.example.test/admin",
+            params_json={},
+            status="completed",
+        )
+        session.add_all([finding, task])
         session.commit()
         return str(finding.id)
 
@@ -553,6 +567,7 @@ def test_run_report_exports_markdown_and_html(
         headers={"X-Actor": "tester"},
         json={
             "profile_name": "active-web-safe",
+            "autonomous_intrusive_allowed": True,
             "configuration_json": {
                 "assessment_type": "Website / Web App",
                 "test_profile": "Deep",
@@ -663,13 +678,18 @@ def test_run_report_exports_markdown_and_html(
     assert all("pdf" in item["available_formats"] for item in catalog)
     assert all("pdf" in item["export_paths"] for item in catalog)
     assert executive_response.status_code == 200
-    assert "# AegisPT Management Summary:" in executive_response.text
+    assert "# AegisPT Management Summary" in executive_response.text
+    assert "# AegisPT Management Summary:" not in executive_response.text
+    assert "Run ID:" not in executive_response.text
     assert "## Executive Narrative" in executive_response.text
+    assert "## Evidence Basis" in executive_response.text
     assert "## Exposure Score" in executive_response.text
     assert "## Remediation Priority Table" in executive_response.text
+    assert "| Priority | Theme | Severity | Business Impact | Recommended Action |" in executive_response.text
     assert "## Tested / Not Tested" in executive_response.text
     assert "## Risk Highlights" in executive_response.text
-    assert "Missing X-Frame-Options Header" in executive_response.text
+    assert "Browser and session protection" in executive_response.text
+    assert "Missing X-Frame-Options Header" not in executive_response.text
     _assert_no_python_repr(executive_response.text)
     assert evidence_response.status_code == 200
     assert "<h1>AegisPT Evidence Appendix</h1>" in evidence_response.text
@@ -687,6 +707,294 @@ def test_run_report_exports_markdown_and_html(
     assert replay_response.status_code == 200
     assert replay_response.json()["finding"]["id"] == finding_id
     assert replay_response.json()["related_executions"]
+
+
+def test_report_catalog_and_exports_keep_canonical_finding_truth(inline_client) -> None:
+    run_id, _finding_ids = _seed_run_attack_narrative_context(inline_client)
+
+    catalog_response = inline_client.get(f"/api/v1/runs/{run_id}/reports")
+    executive_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=executive")
+    technical_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=technical")
+    evidence_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=evidence")
+
+    assert catalog_response.status_code == 200
+    catalog = catalog_response.json()
+    assert {item["variant"] for item in catalog} == {"summary", "technical", "compliance", "retest"}
+    for item in catalog:
+        included = item["included_findings"]
+        evidence = item["evidence_status"]
+        assert included["count"] == 2
+        assert included["by_severity"]["critical"] == 1
+        assert included["by_severity"]["high"] == 1
+        assert included["by_status"]["open"] == 2
+        assert evidence["linked_findings"] == 2
+        assert evidence["total_findings"] == 2
+
+    assert executive_response.status_code == 200
+    assert "- Evidence-backed Findings: 2" in executive_response.text
+    assert "- High/Critical Items: 2" in executive_response.text
+    assert "| Critical | 1 |" in executive_response.text
+    assert "| High | 1 |" in executive_response.text
+    assert "| Open | 2 |" in executive_response.text
+
+    assert technical_response.status_code == 200
+    assert "- Finding Count: 2" in technical_response.text
+    assert "Admin panel exposed" in technical_response.text
+    assert "Default password accepted" in technical_response.text
+    assert "artifact://http/admin-console" in technical_response.text
+    assert "artifact://auth/default-password" in technical_response.text
+
+    assert evidence_response.status_code == 200
+    assert "# AegisPT Evidence Appendix" in evidence_response.text
+    assert "Admin panel exposed" in evidence_response.text
+    assert "Default password accepted" in evidence_response.text
+    assert "- Severity: high" in evidence_response.text
+    assert "- Severity: critical" in evidence_response.text
+    assert "- Status: open" in evidence_response.text
+    assert "artifact://http/admin-console" in evidence_response.text
+    assert "artifact://auth/default-password" in evidence_response.text
+
+
+def test_management_reports_rewrite_internal_runner_language(inline_client) -> None:
+    run_id = _create_soc2_report_run(inline_client)
+    raw_title = (
+        "Flag captured (interactive-exploit): sqlmap xbow-bench-XBEN-014 "
+        "run-local exec-plan SQL Injection proof"
+    )
+    with inline_client.app.state.session_factory() as session:
+        run = session.scalar(select(Run).where(Run.id == UUID(run_id)))
+        assert run is not None
+        run.status = "completed"
+        session.add_all(
+            [
+                Finding(
+                    run_id=UUID(run_id),
+                    title=raw_title,
+                    severity="critical",
+                    target_id="https://xben-fixture.example.test/admin",
+                    evidence_ref="artifact://interactive-exploit/aegispt{flag}",
+                    status="open",
+                    validation_status="validated_confirmed",
+                    summary="Fixture runner captured a flag through SQL injection during benchmark validation.",
+                    methodology_tags=["input_validation", "owasp-wstg"],
+                    ptes_phase="exploitation",
+                    nist_phase="attack",
+                    wstg_id="WSTG-INPV-05",
+                    wstg_version="v4.2",
+                    control_family="input_validation",
+                ),
+                Finding(
+                    run_id=UUID(run_id),
+                    title="Vulnerability: FastAPI Auto-docs Exposure",
+                    severity="high",
+                    target_id="https://app.example.test/docs",
+                    evidence_ref="artifact://nuclei/fastapi-docs",
+                    status="open",
+                    validation_status="validated_confirmed",
+                    summary="OpenAPI documentation is publicly reachable and lists endpoint parameters.",
+                    methodology_tags=["owasp-wstg", "api_security", "configuration"],
+                    ptes_phase="vulnerability-analysis",
+                    nist_phase="analysis",
+                    wstg_id="WSTG-CONF-05",
+                    wstg_version="v4.2",
+                    control_family="api_security",
+                ),
+                Finding(
+                    run_id=UUID(run_id),
+                    title="Vulnerability: FastAPI OpenAPI Schema Exposure",
+                    severity="high",
+                    target_id="https://app.example.test/openapi.json",
+                    evidence_ref="artifact://nuclei/openapi-schema",
+                    status="open",
+                    validation_status="validated_confirmed",
+                    summary="OpenAPI schema is publicly reachable and exposes API structure.",
+                    methodology_tags=["owasp-wstg", "api_security", "configuration"],
+                    ptes_phase="vulnerability-analysis",
+                    nist_phase="analysis",
+                    wstg_id="WSTG-CONF-05",
+                    wstg_version="v4.2",
+                    control_family="api_security",
+                ),
+                Finding(
+                    run_id=UUID(run_id),
+                    title="AegisPT HTTP Status 200 Baseline",
+                    severity="info",
+                    target_id="https://app.example.test/",
+                    evidence_ref="artifact://httpx/status-200",
+                    status="open",
+                    validation_status="validated_confirmed",
+                    summary="HTTP 200 baseline response confirms the target was reachable during testing.",
+                    methodology_tags=["owasp-wstg", "information_gathering"],
+                    ptes_phase="intelligence-gathering",
+                    nist_phase="discovery",
+                    wstg_id="WSTG-INFO-01",
+                    wstg_version="v4.2",
+                    control_family="information_gathering",
+                ),
+                Task(run_id=UUID(run_id), tool="nmap", target_id="https://app.example.test", status="completed"),
+                Task(run_id=UUID(run_id), tool="httpx", target_id="https://app.example.test", status="completed"),
+                Task(run_id=UUID(run_id), tool="nuclei", target_id="https://app.example.test", status="completed"),
+                Task(run_id=UUID(run_id), tool="sqlmap", target_id="https://app.example.test/admin", status="completed"),
+                Task(
+                    run_id=UUID(run_id),
+                    tool="interactive-exploit",
+                    target_id="https://app.example.test/admin",
+                    status="completed",
+                ),
+            ]
+        )
+        session.commit()
+
+    executive_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=executive")
+    management_nl_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=management_nl")
+    html_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=html&variant=summary")
+    summary_pdf_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=pdf&variant=summary")
+    management_nl_pdf_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=pdf&variant=management_nl")
+
+    assert executive_response.status_code == 200
+    assert management_nl_response.status_code == 200
+    assert html_response.status_code == 200
+    assert summary_pdf_response.status_code == 200
+    assert summary_pdf_response.content.startswith(b"%PDF")
+    assert management_nl_pdf_response.status_code == 200
+    assert management_nl_pdf_response.content.startswith(b"%PDF")
+    summary_pdf_text = _extract_pdf_text(summary_pdf_response.content)
+    management_nl_pdf_text = _extract_pdf_text(management_nl_pdf_response.content)
+    for rendered in (
+        executive_response.text,
+        management_nl_response.text,
+        html_response.text,
+        summary_pdf_text,
+        management_nl_pdf_text,
+    ):
+        lowered = rendered.lower()
+        assert "flag captured" not in lowered
+        assert "interactive-exploit" not in lowered
+        assert "xbow" not in lowered
+        assert "xben" not in lowered
+        assert "run-local" not in lowered
+        assert "exec-plan" not in lowered
+        assert "nmap" not in lowered
+        assert "nuclei" not in lowered
+        assert "httpx" not in lowered
+        assert "sqlmap" not in lowered
+        assert "aegispt{" not in lowered
+        assert "fastapi auto-docs" not in lowered
+        assert "fastapi openapi schema" not in lowered
+        assert "http status 200 baseline" not in lowered
+
+    assert "Confirmed attack path" in executive_response.text
+    assert "Public API documentation exposure" in executive_response.text
+    assert "Connectivity baseline" in executive_response.text
+    assert "The test proved that at least one attack route" in executive_response.text
+    assert "Move API documentation behind authentication" in executive_response.text
+    assert "No urgent fix is required for this baseline item" in executive_response.text
+    assert "Management Decision" in executive_response.text
+    assert "Evidence basis" in executive_response.text
+    assert "Not claimed" in executive_response.text
+    assert "Risk Picture At A Glance" in executive_response.text
+    assert "Attack Map" in executive_response.text
+    assert "Techniques Used in Plain Language" in executive_response.text
+    assert "Scope -> discovery -> technique -> evidence -> decision" in executive_response.text
+    assert "Why This Matters" in executive_response.text
+    assert "What an Attacker Could Do" in executive_response.text
+    assert "What IT and Engineering Should Do" in executive_response.text
+    assert "How This Test Was Built" in executive_response.text
+    assert "Standards Used" in executive_response.text
+    assert "[PTES]" in executive_response.text
+    assert "[WSTG]" in executive_response.text
+    assert "[NIST]" in executive_response.text
+    assert "[ASVS]" in executive_response.text
+    assert "Attacker path" in executive_response.text
+    assert "Engineering" in executive_response.text
+    assert "IT/Ops" in executive_response.text
+    assert "Network and service discovery" in executive_response.text
+    assert "Known-risk checklist" in executive_response.text
+    assert "Database input validation" in executive_response.text
+    assert "Controlled proof attempt" in executive_response.text
+    assert "not a certification" in executive_response.text.lower()
+    assert "Methodology Basis: PTES; OWASP WSTG" in executive_response.text
+    assert "Methodology Used" in executive_response.text
+    assert "NIST SP 800-115" in executive_response.text
+    assert "Run ID:" not in executive_response.text
+    assert str(run_id) not in executive_response.text
+
+    assert "Besluit in een oogopslag" in management_nl_response.text
+    assert "Managementbesluit" in management_nl_response.text
+    assert "Bewijsbasis" in management_nl_response.text
+    assert "Niet geclaimd" in management_nl_response.text
+    assert "Risicobeeld in een oogopslag" in management_nl_response.text
+    assert "Aanvalskaart" in management_nl_response.text
+    assert "Gebruikte technieken in gewone taal" in management_nl_response.text
+    assert "Scope -> verkenning -> techniek -> bewijs -> besluit" in management_nl_response.text
+    assert "Waarom dit ernstig is" in management_nl_response.text
+    assert "Wat kan een aanvaller hiermee?" in management_nl_response.text
+    assert "Wat moeten IT en engineering doen?" in management_nl_response.text
+    assert "Hoe deze test tot stand kwam" in management_nl_response.text
+    assert "Normenkader: [PTES] [WSTG] [NIST] [ASVS]" in management_nl_response.text
+    assert "Aanvallerpad" in management_nl_response.text
+    assert "Engineering" in management_nl_response.text
+    assert "IT/Ops" in management_nl_response.text
+    assert "Losse terminaluitvoer" in management_nl_response.text
+    assert "Netwerk- en serviceverkenning" in management_nl_response.text
+    assert "Checklist voor bekende risico's" in management_nl_response.text
+    assert "Database-invoercontrole" in management_nl_response.text
+    assert "Gecontroleerde bewijsstap" in management_nl_response.text
+    assert "geen certificering" in management_nl_response.text.lower()
+    assert "Aangetoond aanvalspad" in management_nl_response.text
+    assert "Publiek zichtbare API-documentatie" in management_nl_response.text
+    assert "Bereikbaarheidscontrole" in management_nl_response.text
+    assert "De test heeft aangetoond dat een aanvalspad echt resultaat opleverde" in management_nl_response.text
+    assert "Plaats API-documentatie achter login" in management_nl_response.text
+    assert "Welke standaarden zijn gebruikt?" in management_nl_response.text
+    assert "OWASP WSTG" in management_nl_response.text
+    assert "NIST SP 800-115" in management_nl_response.text
+
+    assert "Report Boundary" in html_response.text
+    assert "Management Decision" in html_response.text
+    assert "Not claimed" in html_response.text
+    assert "Risk Picture At A Glance" in html_response.text
+    assert "Attack Map" in html_response.text
+    assert "Techniques Used in Plain Language" in html_response.text
+    assert "What an Attacker Could Do" in html_response.text
+    assert "What IT and Engineering Should Do" in html_response.text
+    assert "How This Test Was Built" in html_response.text
+    assert "Standards Used" in html_response.text
+    assert "Network and service discovery" in html_response.text
+    assert "Database input validation" in html_response.text
+    assert "Confirmed attack path" in html_response.text
+    assert "Public API documentation exposure" in html_response.text
+    assert "Methodology Used" in html_response.text
+    assert "OWASP WSTG" in html_response.text
+    assert "NIST SP 800-115" in html_response.text
+    assert "Run ID" not in html_response.text
+    assert str(run_id) not in html_response.text
+    assert "attack path" in summary_pdf_text.lower()
+    assert "Management Decision" in summary_pdf_text
+    assert "evidence basis" in summary_pdf_text.lower()
+    assert "Risk Picture At A Glance" in summary_pdf_text
+    assert "Attack Map" in summary_pdf_text
+    assert "Techniques Used" in summary_pdf_text
+    assert "What an Attacker Could Do" in summary_pdf_text
+    assert "What IT and Engineering Should Do" in summary_pdf_text
+    assert "Standards Used" in summary_pdf_text
+    assert "Methodology Used" in summary_pdf_text
+    assert "PTES" in summary_pdf_text
+    assert "Besluit in een oogopslag" in management_nl_pdf_text
+    assert "managementbesluit" in management_nl_pdf_text.lower()
+    assert "Risicobeeld in een oogopslag" in management_nl_pdf_text
+    assert "Aanvalskaart" in management_nl_pdf_text
+    assert "Gebruikte technieken" in management_nl_pdf_text
+    assert "Wat kan een aanvaller hiermee" in management_nl_pdf_text
+    assert "Wat moeten IT en engineering doen" in management_nl_pdf_text
+    assert "Hoe deze test tot stand kwam" in management_nl_pdf_text
+    assert "Welke standaarden zijn gebruikt" in management_nl_pdf_text
+    assert "Aangetoond aanvalspad" in management_nl_pdf_text
+    assert "[PTES]" in management_nl_pdf_text
+    assert "[WSTG]" in management_nl_pdf_text
+    assert "[NIST]" in management_nl_pdf_text
+    assert "PTES" in management_nl_pdf_text
+    assert "Zie technisch rapport voor details" not in management_nl_pdf_text
 
 
 def test_soc2_report_package_maps_and_retains_unmapped_findings(
@@ -1664,9 +1972,10 @@ def test_reports_include_codex_reviewed_adaptive_change_summary(
     assert "Prepared Review Bundle: prepared" in technical_markdown.text
 
     assert executive_markdown.status_code == 200
-    assert "## Adaptive Change Summary" in executive_markdown.text
-    assert "Adaptive Change Review:" in executive_markdown.text
-    assert task_id in executive_markdown.text
+    assert "## Evidence Basis" in executive_markdown.text
+    assert "## Adaptive Change Summary" not in executive_markdown.text
+    assert "Adaptive Change Review:" not in executive_markdown.text
+    assert task_id not in executive_markdown.text
 
     assert technical_html.status_code == 200
     assert "Adaptive Change Summary" in technical_html.text
@@ -1891,6 +2200,21 @@ def test_ai_report_draft_generates_review_only_grounded_sections(
 ) -> None:
     run_id = _create_soc2_report_run(inline_client)
     finding_id = _add_report_draft_finding(inline_client, run_id)
+    unsupported_title = "Unsupported admin takeover claim"
+    with inline_client.app.state.session_factory() as session:
+        session.add(
+            Finding(
+                run_id=UUID(run_id),
+                title=unsupported_title,
+                severity="critical",
+                target_id="https://outside.example.test/admin",
+                evidence_ref="",
+                status="open",
+                validation_status="needs_review",
+                summary="Fixture claim intentionally lacks linked evidence and tested scope.",
+            )
+        )
+        session.commit()
     before_report = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=technical")
     catalog_response = inline_client.get(f"/api/v1/runs/{run_id}/reports")
 
@@ -1921,10 +2245,26 @@ def test_ai_report_draft_generates_review_only_grounded_sections(
     assert draft["provider"] == "deterministic"
     assert draft["review_required"] is True
     assert draft["canonical_report_unchanged"] is True
+    assert draft["raw_proof_export_non_llm"] is True
+    assert draft["draft_contract"]["facts_source"] == "structured_payload_only"
+    assert draft["variant_contract"]["audience"] == "technical"
+    assert draft["variant_contract"]["template"] == "technical_evidence_narrative"
+    assert "evidence_basis" in draft["variant_contract"]["allowed_sections"]
+    assert draft["tested_scope"]["tested_targets"] == ["https://app.example.test/admin"]
+    supported_titles = {finding["title"] for finding in draft["supported_findings"]}
+    not_verified_titles = {finding["title"] for finding in draft["not_verified"]}
+    assert supported_titles == {"Admin panel exposed"}
+    assert unsupported_title not in supported_titles
+    assert unsupported_title in not_verified_titles
+    assert draft["structured_payload"]["supported_findings"] == draft["supported_findings"]
+    assert "findings" not in draft["structured_payload"]
+    assert "tasks" not in draft["structured_payload"]
     assert "AI-assisted Report Draft" in draft["draft_markdown"]
     assert "Operator review is required" in draft["draft_markdown"]
+    assert unsupported_title not in draft["draft_markdown"]
     assert "artifact://zap/admin-panel" in draft["source_evidence_refs"]
     assert "run.findings" in draft["source_data_categories"]
+    assert "run.tasks" in draft["source_data_categories"]
     assert "finding.evidence_ref" in draft["source_data_categories"]
     assert len(draft["sections"]) == 3
     assert after_report.text == before_report.text
@@ -1951,16 +2291,50 @@ def test_ai_report_draft_supports_chatgpt_oauth_provider(
     from api.app.config import get_settings
 
     get_settings.cache_clear()
+    seen_payloads: list[dict[str, object]] = []
 
     def fake_send_chatgpt_backend_streaming_json_request(*, model, instructions, input_items, **_kwargs):
         assert model == "gpt-5.4"
         assert "strict JSON object" in instructions
+        assert "not canonical fact generation" in instructions
+        assert "management_decision is the canonical verdict/decision/action source" in instructions
+        assert "management_story is the canonical attack-map, attacker-path, remediation-track, standard-badge, and technique source" in instructions
+        assert "Do not turn not_tested or not_verified" in instructions
         payload = json.loads(input_items[0]["content"][0]["text"])
+        seen_payloads.append(payload)
         assert payload["requested_sections"] == [
             "executive_summary",
             "risk_highlights",
             "remediation_overview",
         ]
+        assert payload["draft_contract"]["facts_source"] == "structured_payload_only"
+        audience = payload["variant_contract"]["audience"]
+        if audience == "technical":
+            assert payload["variant_contract"]["template"] == "technical_evidence_narrative"
+            assert payload["management_decision"] == {}
+            assert payload["management_story"] == {}
+            assert "management_decision" not in payload["draft_contract"]["allowed_input_facts"]
+            assert "management_story" not in payload["draft_contract"]["allowed_input_facts"]
+        else:
+            assert audience == "management"
+            assert payload["variant_contract"]["template"] == "plain_language_management_summary"
+            assert payload["management_decision"]["verdict"] == "High: remediation should be scheduled quickly"
+            assert payload["management_story"]["route"] == "Scope -> discovery -> technique -> evidence -> decision"
+            assert payload["management_story"]["techniques"][0]["label"] == "Web application behavior checks"
+            assert payload["management_story"]["attacker_story"][0]["theme"] == "Authorization and permissions"
+            assert "Open a function or record" in payload["management_story"]["attacker_story"][0]["attacker"]
+            assert payload["management_story"]["remediation_tracks"][0]["theme"] == "Authorization and permissions"
+            assert "Engineering" not in payload["management_story"]["remediation_tracks"][0]["engineering"]
+            assert payload["management_story"]["standards_badges"][0]["badge"] == "[PTES]"
+            assert "management_decision" in payload["draft_contract"]["allowed_input_facts"]
+            assert "management_story" in payload["draft_contract"]["allowed_input_facts"]
+        assert payload["tested_scope"]["tested_targets"] == ["https://app.example.test/admin"]
+        assert payload["supported_findings"][0]["title"] == "Admin panel exposed"
+        assert payload["source_evidence_refs"] == ["artifact://zap/admin-panel"]
+        assert isinstance(payload["not_tested"], list)
+        assert isinstance(payload["not_verified"], list)
+        assert "findings" not in payload
+        assert "tasks" not in payload
         return {
             "status": "draft_ready",
             "draft_markdown": "# AI-assisted Report Draft: technical\n\nOperator review is required.",
@@ -1995,14 +2369,122 @@ def test_ai_report_draft_supports_chatgpt_oauth_provider(
             "sections": ["executive_summary", "risk_highlights", "remediation_overview"],
         },
     )
+    management_response = inline_client.post(
+        f"/api/v1/runs/{run_id}/report-draft",
+        json={"variant": "executive", "sections": []},
+    )
 
     assert draft_response.status_code == 200
+    assert management_response.status_code == 200
     draft = draft_response.json()
+    management = management_response.json()
     assert draft["available"] is True
     assert draft["status"] == "draft_ready"
     assert draft["provider"] == "chatgpt_oauth"
+    assert draft["structured_payload"]["draft_contract"]["facts_source"] == "structured_payload_only"
+    assert draft["supported_findings"][0]["title"] == "Admin panel exposed"
+    assert draft["management_decision"] == {}
+    assert draft["management_story"] == {}
+    assert management["provider"] == "chatgpt_oauth"
+    assert management["management_decision"]["verdict"] == "High: remediation should be scheduled quickly"
+    assert management["management_story"]["techniques"][0]["label"] == "Web application behavior checks"
+    assert management["management_story"]["attacker_story"][0]["attacker"].startswith("Open a function")
+    assert management["management_story"]["remediation_tracks"][0]["done"].startswith("Retest shows")
+    assert management["management_story"]["standards_badges"][1]["badge"] == "[WSTG]"
+    assert {payload["variant_contract"]["audience"] for payload in seen_payloads} == {"technical", "management"}
     assert "AI-assisted Report Draft" in draft["draft_markdown"]
     assert draft["sections"][0]["draft"] == "AI-assisted executive summary from ChatGPT OAuth."
+
+
+def test_ai_report_draft_separates_management_and_technical_contracts(
+    inline_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_id = _create_soc2_report_run(inline_client)
+    _add_report_draft_finding(inline_client, run_id)
+
+    monkeypatch.setenv("AI_REPORT_DRAFTING_ENABLED", "true")
+    monkeypatch.setenv("AI_REPORT_DRAFTING_PROVIDER", "deterministic")
+    from api.app.config import get_settings
+
+    get_settings.cache_clear()
+    management_response = inline_client.post(
+        f"/api/v1/runs/{run_id}/report-draft",
+        json={"variant": "executive", "sections": []},
+    )
+    technical_response = inline_client.post(
+        f"/api/v1/runs/{run_id}/report-draft",
+        json={"variant": "technical", "sections": []},
+    )
+
+    assert management_response.status_code == 200
+    assert technical_response.status_code == 200
+    management = management_response.json()
+    technical = technical_response.json()
+    assert management["variant_contract"]["audience"] == "management"
+    assert management["variant_contract"]["template"] == "plain_language_management_summary"
+    assert management["variant_contract"]["allowed_sections"] == [
+        "executive_summary",
+        "risk_highlights",
+        "remediation_overview",
+    ]
+    assert management["management_decision"]["verdict"] == "High: remediation should be scheduled quickly"
+    assert management["management_decision"]["evidence"].startswith("1 reportable finding records were saved")
+    assert "Management Decision" not in management["management_decision"]["verdict"]
+    assert management["management_story"]["attacker_story"][0]["theme"] == "Authorization and permissions"
+    assert management["management_story"]["remediation_tracks"][0]["theme"] == "Authorization and permissions"
+    assert management["management_story"]["standards_badges"][0]["badge"] == "[PTES]"
+    assert "management_decision" in management["draft_contract"]["allowed_input_facts"]
+    assert "management_story" in management["draft_contract"]["allowed_input_facts"]
+    assert "report_draft.management_decision" in management["source_data_categories"]
+    assert "report_draft.management_story" in management["source_data_categories"]
+    assert management["structured_payload"]["management_decision"] == management["management_decision"]
+    assert management["structured_payload"]["management_story"] == management["management_story"]
+    assert technical["variant_contract"]["audience"] == "technical"
+    assert technical["variant_contract"]["template"] == "technical_evidence_narrative"
+    assert technical["variant_contract"]["allowed_sections"] == [
+        "executive_summary",
+        "risk_highlights",
+        "evidence_basis",
+        "methodology_context",
+        "remediation_overview",
+    ]
+    assert technical["management_decision"] == {}
+    assert technical["management_story"] == {}
+    assert "management_decision" not in technical["draft_contract"]["allowed_input_facts"]
+    assert "management_story" not in technical["draft_contract"]["allowed_input_facts"]
+    assert "AI-assisted management draft" in management["sections"][0]["draft"]
+    assert "Canonical decision: High: remediation should be scheduled quickly" in management["sections"][0]["draft"]
+    assert "Attack-map route: Scope -> discovery -> technique -> evidence -> decision" in management["sections"][0]["draft"]
+    assert "Raw proof export remains deterministic" in technical["draft_markdown"]
+
+
+def test_ai_report_draft_keeps_evidence_variant_deterministic(
+    inline_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_id = _create_soc2_report_run(inline_client)
+    _add_report_draft_finding(inline_client, run_id)
+
+    monkeypatch.setenv("AI_REPORT_DRAFTING_ENABLED", "true")
+    monkeypatch.setenv("AI_REPORT_DRAFTING_PROVIDER", "deterministic")
+    from api.app.config import get_settings
+
+    get_settings.cache_clear()
+    draft_response = inline_client.post(
+        f"/api/v1/runs/{run_id}/report-draft",
+        json={"variant": "evidence", "sections": ["evidence_basis"]},
+    )
+
+    assert draft_response.status_code == 200
+    draft = draft_response.json()
+    assert draft["available"] is False
+    assert draft["status"] == "not_applicable"
+    assert draft["raw_proof_export_non_llm"] is True
+    assert draft["variant_contract"]["llm_allowed"] is False
+    assert draft["variant_contract"]["template"] == "deterministic_proof_export"
+    assert "deterministic" in draft["failure_reason"].lower()
+    assert draft["structured_payload"]["supported_findings"][0]["title"] == "Admin panel exposed"
 
 
 def test_ai_report_draft_disabled_and_failure_leave_reports_unchanged(

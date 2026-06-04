@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { getPortfolioRuns } from '../../api/client';
 import type { PortfolioRun, UUID } from '../../api/types';
 import { useAegisStore } from '../../store';
+import { safeErrorMessage } from '../../viewModels/safeMessaging';
 import { ActionButton, EmptyState, Field, MetricCard, PageHeader, Panel, StatusBadge } from './screenPrimitives';
 import { formatDate, inputClass } from './screenUtils';
 
@@ -33,7 +34,13 @@ export default function HistoryScreen() {
         const payload = await getPortfolioRuns();
         if (!cancelled) setRuns(payload);
       } catch (error) {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : 'Run history is unavailable.');
+        if (!cancelled) {
+          setRuns([]);
+          setMessage(safeErrorMessage(error, {
+            fallback: 'Run history could not load. Refresh or choose a narrower engagement context.',
+            unavailable: 'Run history is temporarily unavailable. Active mission data remains available in Mission Control.',
+          }));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -57,6 +64,29 @@ export default function HistoryScreen() {
   }, [dateFrom, engagementId, query, runs, status]);
 
   const comparison = useMemo(() => (compareRequested ? compareRuns(selectedForCompare, runs) : null), [compareRequested, runs, selectedForCompare]);
+  const hasActiveFilters = Boolean(query.trim() || dateFrom || status !== 'all' || engagementId !== 'all');
+
+  async function refreshRuns() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      setRuns(await getPortfolioRuns());
+    } catch (error) {
+      setMessage(safeErrorMessage(error, {
+        fallback: 'Run history could not refresh. Try again or open Mission Control for the selected run.',
+        unavailable: 'Run history is temporarily unavailable. Existing selected mission data is not affected.',
+      }));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function resetFilters() {
+    setStatus('all');
+    setEngagementId('all');
+    setDateFrom('');
+    setQuery('');
+  }
 
   function openRun(run: PortfolioRun) {
     selectEngagement(run.engagement_id);
@@ -120,7 +150,7 @@ export default function HistoryScreen() {
         eyebrow="Run Ledger"
         title="History"
         detail="Portfolio run history assembled from the existing engagement-scoped run endpoints."
-        actions={<ActionButton onClick={() => void getPortfolioRuns().then(setRuns)} loading={loading}>Refresh</ActionButton>}
+        actions={<ActionButton onClick={() => void refreshRuns()} loading={loading}>Refresh</ActionButton>}
       />
       {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[0.925rem] text-amber">{message}</div>}
 
@@ -242,7 +272,22 @@ export default function HistoryScreen() {
               ))}
             </tbody>
           </table>
-          {!filteredRuns.length && <EmptyState title="No runs match filters" detail="The current backend data returned no portfolio runs for these filters." />}
+          {!filteredRuns.length && (
+            <EmptyState
+              title={runs.length > 0 ? 'No runs match the current filters' : loading ? 'Loading run history' : 'No run history loaded'}
+              detail={
+                runs.length > 0
+                  ? 'There are runs available, but the current search, engagement, status, or date filter hides them.'
+                  : 'Create or select a mission to build the portfolio run ledger. If this should show existing runs, refresh the history feed.'
+              }
+              action={
+                <div className="flex flex-wrap justify-center gap-2">
+                  {hasActiveFilters && <ActionButton onClick={resetFilters} tone="cyan">Reset filters</ActionButton>}
+                  <ActionButton onClick={() => void refreshRuns()} loading={loading} tone="muted">Refresh history</ActionButton>
+                </div>
+              }
+            />
+          )}
         </div>
       </div>
     </section>

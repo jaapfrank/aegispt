@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { BadgeAlert, CheckCircle2, Clock, UserRound } from 'lucide-react';
+import { useEffect, useMemo, useState, useCallback, type ReactNode } from 'react';
+import { BadgeAlert, CalendarClock, CheckCircle2, Clock, ListChecks, ShieldAlert, UserRound } from 'lucide-react';
 import { bulkUpdateProblems, getProblems } from '../../api/client';
 import type { ProblemRead, ProblemsQuery, ProblemsRead, UUID } from '../../api/types';
 import { useAegisStore } from '../../store';
+import { safeErrorMessage } from '../../viewModels/safeMessaging';
+import { buildProblemsTriageModel, type ProblemDecisionItem, type ProblemsTriageModel } from '../../viewModels/triageBoards';
 import { ActionButton, EmptyState, Field, MetricCard, PageHeader, Panel, StatusBadge } from './screenPrimitives';
-import { formatDate, inputClass, jsonNumber } from './screenUtils';
+import { cn, formatDate, inputClass, jsonNumber } from './screenUtils';
 
 export default function ProblemsCenter() {
   const engagements = useAegisStore((state) => state.engagements);
@@ -28,6 +30,8 @@ export default function ProblemsCenter() {
     limit: 100,
   }), [age, assignee, engagementId, severity, status]);
 
+  const problemTriage = useMemo(() => buildProblemsTriageModel(payload?.items ?? []), [payload?.items]);
+
   const loadProblems = useCallback(async () => {
     setLoading(true);
     setMessage(null);
@@ -36,7 +40,10 @@ export default function ProblemsCenter() {
       setPayload(next);
       setSelectedFindingIds((current) => current.filter((id) => next.items.some((item) => item.finding_id === id)));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Problems endpoint unavailable.');
+      setMessage(safeErrorMessage(error, {
+        fallback: 'Problems could not load. Refresh or adjust filters.',
+        unavailable: 'Problems are temporarily unavailable. Stored findings remain available in Findings Theater.',
+      }));
       setPayload(null);
     } finally {
       setLoading(false);
@@ -65,10 +72,17 @@ export default function ProblemsCenter() {
       setSelectedFindingIds([]);
       await loadProblems();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Bulk update failed.');
+      setMessage(safeErrorMessage(error, {
+        fallback: 'Problems bulk action could not be completed. Try again or adjust the selection.',
+        unavailable: 'Problems bulk action is temporarily unavailable.',
+      }));
     } finally {
       setLoading(false);
     }
+  }
+
+  function toggleProblem(findingId: UUID) {
+    setSelectedFindingIds((current) => current.includes(findingId) ? current.filter((id) => id !== findingId) : [...current, findingId]);
   }
 
   const stats = payload?.stats ?? {};
@@ -82,6 +96,8 @@ export default function ProblemsCenter() {
         actions={<ActionButton onClick={() => void loadProblems()} loading={loading}>Refresh</ActionButton>}
       />
       {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">{message}</div>}
+
+      <ProblemsTriageBoard model={problemTriage} selected={selectedFindingIds} toggleProblem={toggleProblem} />
 
       <div className="mb-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <MetricCard icon={<BadgeAlert size={15} />} label="Open Critical" value={jsonNumber(stats.open_critical)} />
@@ -141,6 +157,136 @@ export default function ProblemsCenter() {
       </div>
     </section>
   );
+}
+
+function ProblemsTriageBoard({
+  model,
+  selected,
+  toggleProblem,
+}: {
+  model: ProblemsTriageModel;
+  selected: UUID[];
+  toggleProblem: (findingId: UUID) => void;
+}) {
+  const lead = model.leadItem;
+  return (
+    <section
+      aria-label="Problems triage board"
+      className="neon-panel mb-5 rounded-xl border border-cyan/25 p-4"
+    >
+      <div className="grid gap-4 xl:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.65fr)]">
+        <div className="rounded-lg border border-border bg-bg/30 p-4">
+          <div className="mb-2 flex items-center gap-2 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan">
+            <ListChecks size={14} />
+            Decisions today
+          </div>
+          <h2 className="text-xl font-semibold text-text">{model.decisionLabel}</h2>
+          <p className="mt-2 text-[1rem] leading-6 text-muted">{model.decisionDetail}</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <ProblemDecisionFact icon={<BadgeAlert size={14} />} label="Open work" value={`${model.totalOpen} problems`} />
+            <ProblemDecisionFact icon={<CheckCircle2 size={14} />} label="Selected" value={`${selected.length} for action`} />
+          </div>
+          {lead && (
+            <button
+              type="button"
+              onClick={() => toggleProblem(lead.findingId)}
+              className={cn(
+                'mt-4 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-[1rem] font-semibold transition-colors',
+                selected.includes(lead.findingId)
+                  ? 'border-green/30 bg-green/10 text-green'
+                  : 'border-cyan/30 bg-cyan/10 text-cyan hover:bg-cyan/15',
+              )}
+            >
+              {selected.includes(lead.findingId) ? 'Selected for bulk action' : 'Select top problem'}
+            </button>
+          )}
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {model.lanes.map((lane) => (
+            <div key={lane.id} className="rounded-lg border border-border bg-bg/25 p-3">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2 text-[0.9rem] font-semibold text-text">
+                    {laneIcon(lane.id)}
+                    {lane.label}
+                  </div>
+                  <p className="mt-1 text-[0.78rem] leading-4 text-muted">{lane.detail}</p>
+                </div>
+                <span className="rounded-full border border-border bg-surface/55 px-2 py-0.5 text-[0.72rem] font-semibold text-muted">{lane.items.length}</span>
+              </div>
+              <div className="space-y-2">
+                {lane.items.slice(0, 3).map((item) => (
+                  <ProblemDecisionButton
+                    key={`${lane.id}-${item.id}`}
+                    item={item}
+                    selected={selected.includes(item.findingId)}
+                    onToggle={() => toggleProblem(item.findingId)}
+                  />
+                ))}
+                {!lane.items.length && (
+                  <div className="rounded-md border border-border bg-surface/30 p-3 text-[0.85rem] leading-5 text-muted">
+                    Nothing in this lane.
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProblemDecisionButton({
+  item,
+  selected,
+  onToggle,
+}: {
+  item: ProblemDecisionItem;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        'w-full rounded-md border p-3 text-left transition-colors',
+        selected ? 'border-green/35 bg-green/10' : 'border-border bg-surface/35 hover:border-cyan/35 hover:bg-cyan/10',
+      )}
+      aria-label={`${item.nextAction}: ${item.title}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <StatusBadge value={item.severity} />
+        <span className="font-mono text-[0.68rem] uppercase tracking-wider text-muted">{item.nextAction}</span>
+      </div>
+      <div className="mt-2 line-clamp-2 text-[0.95rem] font-semibold leading-5 text-text">{item.title}</div>
+      <div className="mt-2 space-y-1 text-[0.78rem] leading-4 text-muted">
+        <div>{item.assigneeLabel} · {item.ageLabel}</div>
+        <div>{item.slaLabel}</div>
+      </div>
+    </button>
+  );
+}
+
+function ProblemDecisionFact({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-surface/35 p-3">
+      <div className="mb-1 flex items-center gap-2 font-mono text-[0.62rem] uppercase tracking-widest text-muted">
+        {icon}
+        {label}
+      </div>
+      <div className="text-[0.95rem] font-semibold text-text">{value}</div>
+    </div>
+  );
+}
+
+function laneIcon(laneId: ProblemsTriageModel['lanes'][number]['id']) {
+  if (laneId === 'urgent') return <ShieldAlert size={14} className="text-red" />;
+  if (laneId === 'due') return <CalendarClock size={14} className="text-amber" />;
+  if (laneId === 'owner') return <UserRound size={14} className="text-cyan" />;
+  return <Clock size={14} className="text-purple" />;
 }
 
 function ProblemList({

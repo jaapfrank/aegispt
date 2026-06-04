@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollText, WandSparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { generateAiResearchScript, getAiResearchLab } from '../../api/client';
 import type { AiResearchGeneration, AiResearchGenerationInput, AiResearchLab, ThreatIntelRecord } from '../../api/types';
 import { useAegisStore } from '../../store';
+import { safeErrorMessage } from '../../viewModels/safeMessaging';
 import {
   ActionButton,
   EmptyState,
@@ -41,7 +43,14 @@ export default function ResearchScreen() {
         setLab(payload);
         setSelectedRecordId((current) => current || String(payload.cve_records[0]?.id ?? ''));
       } catch (error) {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : 'Research lab unavailable.');
+        if (!cancelled) {
+          setLab(null);
+          setSelectedRecordId('');
+          setMessage(safeErrorMessage(error, {
+            fallback: 'Research workspace could not load for this engagement. Refresh or select another engagement.',
+            unavailable: 'Research workspace is temporarily unavailable. Existing pack and scan evidence are not affected.',
+          }));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -83,14 +92,41 @@ export default function ResearchScreen() {
       const refreshed = await getAiResearchLab(selectedEngagementId);
       setLab(refreshed);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Research generation failed.');
+      setMessage(safeErrorMessage(error, {
+        fallback: 'Research draft generation is unavailable right now. Keep using stored evidence and pack review before retrying.',
+        unavailable: 'Research draft generation is temporarily unavailable. No runtime behavior was changed.',
+      }));
     } finally {
       setGenerating(false);
     }
   }
 
+  async function refreshResearch() {
+    if (!selectedEngagementId) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      const payload = await getAiResearchLab(selectedEngagementId);
+      setLab(payload);
+      setSelectedRecordId((current) => current || String(payload.cve_records[0]?.id ?? ''));
+    } catch (error) {
+      setMessage(safeErrorMessage(error, {
+        fallback: 'Research workspace could not refresh. Select another engagement or retry later.',
+        unavailable: 'Research workspace is temporarily unavailable. Existing mission evidence is not affected.',
+      }));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (!selectedEngagementId) {
-    return <EmptyState title="No engagement selected" detail="AI research is engagement-scoped and remains tied to the existing pack review lifecycle." />;
+    return (
+      <EmptyState
+        title="Select an engagement first"
+        detail="Research is tied to one authorized mission. Pick an engagement from the top bar or create a new mission before asking for review-only research drafts."
+        action={<Link to="/intake" className="rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[1rem] font-semibold text-cyan">Create mission</Link>}
+      />
+    );
   }
 
   return (
@@ -99,7 +135,7 @@ export default function ResearchScreen() {
         eyebrow="Research"
         title="AI Research"
         detail={`${selectedEngagement?.name ?? 'Selected engagement'} review-only research workspace. Generated artifacts still require validation, approval, and deployment through existing pack gates.`}
-        actions={<ActionButton onClick={() => selectedEngagementId && void getAiResearchLab(selectedEngagementId).then(setLab)} loading={loading}>Refresh</ActionButton>}
+        actions={<ActionButton onClick={() => void refreshResearch()} loading={loading}>Refresh</ActionButton>}
       />
       {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[0.925rem] leading-5 text-cyan">{message}</div>}
 

@@ -66,7 +66,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
             {this.state.errorInfo?.componentStack && (
               <details className="mt-3">
                 <summary className="cursor-pointer text-[0.85rem] font-semibold text-cyan">Component stack</summary>
-                <pre className="mt-2 max-h-[180px] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-[#030712] p-3 text-[0.85rem] leading-5 text-muted">
+                <pre className="terminal-code mt-2 max-h-[180px] overflow-auto whitespace-pre-wrap rounded-md border p-3 text-[0.85rem] leading-5">
                   {this.state.errorInfo.componentStack.trim()}
                 </pre>
               </details>
