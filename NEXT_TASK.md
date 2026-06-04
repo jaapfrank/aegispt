@@ -30,6 +30,19 @@ leaked secret, (B3) stateful login→exploit in ONE interactive-exploit session.
 images) if more multi-svc challenges stall on first-pull. See
 `docs/strategy/competitive-gap-plan-2026-06-03.md`.
 
+**Track B progress (2026-06-03/04):** the DISPATCH half of E#12 is fixed — `28a81b3`
+adds SSRF server-fetch sinks + forgeable-session-secret detection so the auth-logic class
+now dispatches interactive-exploit (was never), and `239593b` adds multi-step
+chain-reasoning to the exploit prompt (B3, policy-safe + no single-step regression).
+XBEN-024 now ENGAGES the chain (tries the SSRF param, reasons about admin/localhost) but
+still MISSES: it doesn't know the localhost-only `/reset_password` endpoint exists.
+
+**IMMEDIATE ACTIVE TASK → T-CHAIN1 (Internal-endpoint chain surfacing).** Surface
+INTERNAL-ONLY endpoints (gated by `request.remote_addr`/localhost) + their params in
+pre_recon_source so the agent knows the SSRF target. Together with the chain prompt this
+should SOLVE XBEN-024 + the SSRF-to-internal-endpoint class (B2/B3 proof). Full prioritized
+list: `docs/strategy/task-backlog-2026-06-04.md`.
+
 (Superseded the old "broaden the score-lane" framing — see the strategy doc for Tracks A-E.)
 
 ### (archived) Title
