@@ -547,6 +547,16 @@ Future work must integrate with those foundations rather than redefining them.
   byte-equality, reproduced-≥2-runs, local-provider baseline, failure-classes).
 - Roadmap of record: `docs/strategy/aegispt-execution-roadmap-2026-06-01.md`
   (3-way consensus; track order B → A+C1 → C2 → D → E → F → G; metrics-gated refactor).
+- Local-model training direction of record (COMMITTED, anti-drift):
+  `docs/strategy/local-model-training-direction-2026-06-04.md`. STABLE CORE =
+  controllable local model + PEFT on the Blackwell stack + a Chain-of-Thought
+  multi-phase PENTEST curriculum (identity+methodology+reasoning+technique+tactics)
+  reinforcing the existing specialist architecture, clean public provenance.
+  REFINEMENTS (QLoRA→QDoRA, later RL, corpus growth) slot in WITHOUT restarting
+  the direction. Grounded in the SOTA consensus (xOffense / CyberLLMInstruct /
+  Pentest-R1), not a blog headline. Pipeline of record: `scripts/training/`. A
+  change to the CORE must beat this on OUR eval (deep_chain_eval + live), not a
+  headline.
 
 ## Future hooks
 
