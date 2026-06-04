@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 import httpx as httpx_client
 
 from api.app.services.runs import web_target_value_is_allowed_with_path
+from workers.runners.base import http_probe
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 from workers.runners.httpx.runner import normalize_http_target
 
@@ -328,6 +329,7 @@ def execute_ssrf_probe(
     seen_findings: set[tuple[str, str]] = set()
     stderr_lines: list[str] = []
     exit_code = 0
+    outcome = http_probe.ProbeOutcome()  # retry-on-unreachable + honest exit code
 
     with client_factory(follow_redirects=False, timeout=timeout_seconds) as client:
         for base_target in normalized_targets:
@@ -350,12 +352,11 @@ def execute_ssrf_probe(
                     for payload_kind, payload_value in parameter_payloads:
                         requested_url = _inject_query_parameter(url, parameter, payload_value)
                         try:
-                            response = client.get(
+                            response = outcome.run(lambda: client.get(
                                 requested_url,
                                 headers={"User-Agent": "AegisPT/ssrf-probe bounded validation"},
-                            )
+                            ))
                         except httpx_client.HTTPError as exc:
-                            exit_code = 1
                             stderr_lines.append(f"SSRF parameter probe failed for {url}: {exc}")
                             continue
                         response_text = response.text or ""
@@ -424,15 +425,14 @@ def execute_ssrf_probe(
                         for name in header_names
                     }
                     try:
-                        response = client.get(
+                        response = outcome.run(lambda: client.get(
                             url,
                             headers={
                                 "User-Agent": "AegisPT/ssrf-probe bounded header validation",
                                 **headers,
                             },
-                        )
+                        ))
                     except httpx_client.HTTPError as exc:
-                        exit_code = 1
                         stderr_lines.append(f"SSRF header probe failed for {url}: {exc}")
                         continue
                     check = {
@@ -480,13 +480,20 @@ def execute_ssrf_probe(
             "real_internal_urls_skipped_unless_approved": True,
         },
     }
+    # Honest status: target unreachable for every probe -> skipped (78), not
+    # FAILED; any real response -> completed even if some probes were refused.
+    exit_code = outcome.exit_code(exit_code)
     return RunnerExecution(
         tool="ssrf-probe",
         exit_code=exit_code,
         stdout=json.dumps(payload["summary"], sort_keys=True),
         stderr="\n".join(line for line in stderr_lines if line),
         metadata={
-            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "status": (
+                "ok" if exit_code == 0
+                else "target_unreachable" if exit_code == http_probe.EX_TARGET_UNREACHABLE
+                else "completed_with_errors"
+            ),
             "runner_digest": "workers.ssrf_probe.runner:v1",
             "tool_version": "custom-python-bounded",
             "finding_count": len(findings),

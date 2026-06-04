@@ -9,6 +9,7 @@ from urllib.parse import urljoin, urlparse
 import httpx as httpx_client
 
 from api.app.services.runs import web_target_value_is_allowed_with_path
+from workers.runners.base import http_probe
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 from workers.runners.httpx.runner import normalize_http_target
 
@@ -198,6 +199,7 @@ def execute_graphql_command_injection(
     findings: list[dict[str, Any]] = []
     stderr_lines: list[str] = []
     exit_code = 0
+    outcome = http_probe.ProbeOutcome()  # retry-on-unreachable + honest exit code
 
     factory = client_factory or httpx_client.Client
     with factory(timeout=timeout_seconds, follow_redirects=False) as client:
@@ -208,9 +210,8 @@ def execute_graphql_command_injection(
                     f"GraphQL command-injection endpoint outside approved scope: {endpoint_url}"
                 )
             try:
-                response = _graphql_post(client, endpoint_url, normalized_command)
+                response = outcome.run(lambda: _graphql_post(client, endpoint_url, normalized_command))
             except httpx_client.HTTPError as exc:
-                exit_code = 1
                 stderr_lines.append(
                     f"GraphQL command-injection proof failed for {endpoint_url}: {exc}"
                 )
@@ -366,7 +367,14 @@ def execute_graphql_command_injection(
             "cleanup_status": "not_required_no_state_change",
         },
     }
-    status = "ok" if exit_code == 0 else "completed_with_errors"
+    # Honest status: target unreachable for every probe -> skipped (78), not
+    # FAILED; any real response -> completed even if some probes were refused.
+    exit_code = outcome.exit_code(exit_code)
+    status = (
+        "ok" if exit_code == 0
+        else "target_unreachable" if exit_code == http_probe.EX_TARGET_UNREACHABLE
+        else "completed_with_errors"
+    )
     return RunnerExecution(
         tool=TOOL_NAME,
         exit_code=exit_code,

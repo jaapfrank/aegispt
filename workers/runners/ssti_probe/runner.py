@@ -11,6 +11,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 import httpx as httpx_client
 
 from api.app.services.runs import web_target_value_is_allowed_with_path
+from workers.runners.base import http_probe
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 from workers.runners.httpx.runner import normalize_http_target
 
@@ -439,6 +440,7 @@ def execute_ssti_probe(
     seen_findings: set[tuple[str, str, str, str]] = set()
     stderr_lines: list[str] = []
     exit_code = 0
+    outcome = http_probe.ProbeOutcome()  # retry-on-unreachable + honest exit code
 
     factory = client_factory or httpx_client.Client
     with factory(timeout=timeout_seconds, follow_redirects=False) as client:
@@ -447,12 +449,11 @@ def execute_ssti_probe(
                 for spec in PAYLOAD_SPECS:
                     probe_url = _url_with_payload(candidate_url, parameter, spec.payload)
                     try:
-                        response = client.get(
+                        response = outcome.run(lambda: client.get(
                             probe_url,
                             headers={"User-Agent": "AegisPT/ssti-probe math-only reflected validation"},
-                        )
+                        ))
                     except httpx_client.HTTPError as exc:
-                        exit_code = 1
                         stderr_lines.append(f"SSTI reflected probe failed for {probe_url}: {exc}")
                         continue
                     confirmed = _marker_confirmed(response, spec)
@@ -493,14 +494,15 @@ def execute_ssti_probe(
                 parameter = _context_field(context)
                 for spec in PAYLOAD_SPECS:
                     try:
-                        submit_response, render_response, submitted_field = _send_stored_context(
-                            client,
-                            context=context,
-                            payload=spec.payload,
-                            scope_allowlist=scope_allowlist,
+                        submit_response, render_response, submitted_field = outcome.run(
+                            lambda: _send_stored_context(
+                                client,
+                                context=context,
+                                payload=spec.payload,
+                                scope_allowlist=scope_allowlist,
+                            )
                         )
                     except httpx_client.HTTPError as exc:
-                        exit_code = 1
                         stderr_lines.append(f"SSTI stored probe failed for {action_url}: {exc}")
                         continue
                     response_to_check = render_response or submit_response
@@ -574,13 +576,20 @@ def execute_ssti_probe(
             "max_parameters": max_parameters,
         },
     }
+    # Honest status: target unreachable for every probe -> skipped (78), not
+    # FAILED; any real response -> completed even if some probes were refused.
+    exit_code = outcome.exit_code(exit_code)
     return RunnerExecution(
         tool="ssti-probe",
         exit_code=exit_code,
         stdout=json.dumps(payload["summary"], sort_keys=True),
         stderr="\n".join(line for line in stderr_lines if line),
         metadata={
-            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "status": (
+                "ok" if exit_code == 0
+                else "target_unreachable" if exit_code == http_probe.EX_TARGET_UNREACHABLE
+                else "completed_with_errors"
+            ),
             "runner_digest": "workers.ssti_probe.runner:v1",
             "tool_version": "custom-python-math-only",
             "finding_count": len(findings),

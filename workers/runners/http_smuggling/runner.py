@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import httpx as httpx_client
 
 from api.app.services.runs import web_target_value_is_allowed_with_path
+from workers.runners.base import http_probe
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 from workers.runners.httpx.runner import normalize_http_target
 
@@ -363,6 +364,7 @@ def execute_http_smuggling_probe(
     findings: list[dict[str, Any]] = []
     stderr_lines: list[str] = []
     exit_code = 0
+    outcome = http_probe.ProbeOutcome()  # retry-on-unreachable + honest exit code
     skipped_targets = 0
     sent_probe_count = 0
 
@@ -381,7 +383,7 @@ def execute_http_smuggling_probe(
                 "probes_sent": 0,
             }
             try:
-                response = client.get(target)
+                response = outcome.run(lambda: client.get(target))
                 baseline_check.update(
                     {
                         "status_code": response.status_code,
@@ -395,7 +397,6 @@ def execute_http_smuggling_probe(
                     )
                 )
             except httpx_client.HTTPError as exc:
-                exit_code = 1
                 message = f"proxy evidence check failed for {target}: {exc}"
                 stderr_lines.append(message)
                 baseline_check["error"] = str(exc)
@@ -480,13 +481,20 @@ def execute_http_smuggling_probe(
             "ssl_tls_runner_changed": False,
         },
     }
+    # Honest status: target unreachable for every probe -> skipped (78), not
+    # FAILED; any real response -> completed even if some probes were refused.
+    exit_code = outcome.exit_code(exit_code)
     return RunnerExecution(
         tool="http-smuggling",
         exit_code=exit_code,
         stdout=json.dumps(payload["summary"], sort_keys=True),
         stderr="\n".join(line for line in stderr_lines if line),
         metadata={
-            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "status": (
+                "ok" if exit_code == 0
+                else "target_unreachable" if exit_code == http_probe.EX_TARGET_UNREACHABLE
+                else "completed_with_errors"
+            ),
             "runner_digest": "workers.http_smuggling.runner:v1",
             "tool_version": "custom-python-timing-only",
             "finding_count": len(findings),

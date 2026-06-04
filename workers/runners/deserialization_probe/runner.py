@@ -11,6 +11,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 import httpx as httpx_client
 
 from api.app.services.runs import web_target_value_is_allowed_with_path
+from workers.runners.base import http_probe
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 from workers.runners.httpx.runner import normalize_http_target
 
@@ -343,6 +344,7 @@ def execute_deserialization_probe(
     seen_findings: set[tuple[str, str]] = set()
     stderr_lines: list[str] = []
     exit_code = 0
+    outcome = http_probe.ProbeOutcome()  # retry-on-unreachable + honest exit code
 
     with client_factory(follow_redirects=False, timeout=timeout_seconds) as client:
         for base_target in normalized_targets:
@@ -366,14 +368,13 @@ def execute_deserialization_probe(
                     for parameter in _url_parameters(record, url):
                         requested_url = _inject_query_parameter(url, parameter, java_payload)
                         try:
-                            response = client.get(
+                            response = outcome.run(lambda: client.get(
                                 requested_url,
                                 headers={
                                     "User-Agent": "AegisPT/deserialization-probe URLDNS-only",
                                 },
-                            )
+                            ))
                         except httpx_client.HTTPError as exc:
-                            exit_code = 1
                             stderr_lines.append(f"Java URLDNS probe failed for {url}: {exc}")
                             continue
                         check = {
@@ -403,14 +404,13 @@ def execute_deserialization_probe(
                     for parameter in _url_parameters(record, url):
                         requested_url = _inject_query_parameter(url, parameter, PHP_OBJECT_PROBE)
                         try:
-                            response = client.get(
+                            response = outcome.run(lambda: client.get(
                                 requested_url,
                                 headers={
                                     "User-Agent": "AegisPT/deserialization-probe PHP object check",
                                 },
-                            )
+                            ))
                         except httpx_client.HTTPError as exc:
-                            exit_code = 1
                             stderr_lines.append(f"PHP object probe failed for {url}: {exc}")
                             continue
                         marker = _marker_found(response.text or "", PHP_ERROR_MARKERS)
@@ -442,14 +442,13 @@ def execute_deserialization_probe(
                     for parameter in _url_parameters(record, url):
                         requested_url = _inject_query_parameter(url, parameter, PICKLE_PROBE_BASE64)
                         try:
-                            response = client.get(
+                            response = outcome.run(lambda: client.get(
                                 requested_url,
                                 headers={
                                     "User-Agent": "AegisPT/deserialization-probe pickle check",
                                 },
-                            )
+                            ))
                         except httpx_client.HTTPError as exc:
-                            exit_code = 1
                             stderr_lines.append(f"Python pickle probe failed for {url}: {exc}")
                             continue
                         marker = _marker_found(response.text or "", PICKLE_ERROR_MARKERS)
@@ -534,13 +533,20 @@ def execute_deserialization_probe(
             "exfiltration": False,
         },
     }
+    # Honest status: target unreachable for every probe -> skipped (78), not
+    # FAILED; any real response -> completed even if some probes were refused.
+    exit_code = outcome.exit_code(exit_code)
     return RunnerExecution(
         tool="deserialization-probe",
         exit_code=exit_code,
         stdout=json.dumps(payload["summary"], sort_keys=True),
         stderr="\n".join(line for line in stderr_lines if line),
         metadata={
-            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "status": (
+                "ok" if exit_code == 0
+                else "target_unreachable" if exit_code == http_probe.EX_TARGET_UNREACHABLE
+                else "completed_with_errors"
+            ),
             "runner_digest": "workers.deserialization_probe.runner:v1",
             "tool_version": "custom-python-bounded",
             "finding_count": len(findings),

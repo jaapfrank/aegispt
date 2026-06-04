@@ -9,6 +9,7 @@ from urllib.parse import urljoin, urlparse
 import httpx as httpx_client
 
 from api.app.services.runs import web_target_value_is_allowed_with_path
+from workers.runners.base import http_probe
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 from workers.runners.httpx.runner import normalize_http_target
 
@@ -492,14 +493,15 @@ def execute_headers_security_analysis(
     seen_findings: set[tuple[str, str, str]] = set()
     stderr_lines: list[str] = []
     exit_code = 0
+    outcome = http_probe.ProbeOutcome()  # retry-on-unreachable + honest exit code
 
     with client_factory(follow_redirects=False, timeout=timeout_seconds) as client:
         for target in normalized_targets:
             try:
-                response = client.get(
+                response = outcome.run(lambda: client.get(
                     target,
                     headers={"User-Agent": "AegisPT/headers-security bounded validation"},
-                )
+                ))
                 checks.append(
                     {
                         "check_type": "baseline_header_fetch",
@@ -517,7 +519,6 @@ def execute_headers_security_analysis(
                     )
                 )
             except httpx_client.HTTPError as exc:
-                exit_code = 1
                 stderr_lines.append(f"header analysis failed for {target}: {exc}")
                 continue
 
@@ -534,13 +535,13 @@ def execute_headers_security_analysis(
                     else "attacker-origin"
                 )
                 try:
-                    probe_response = client.get(
+                    probe_response = outcome.run(lambda: client.get(
                         target,
                         headers={
                             "User-Agent": "AegisPT/headers-security bounded CORS validation",
                             "Origin": origin,
                         },
-                    )
+                    ))
                     checks.append(
                         _analyze_cors_response(
                             findings=findings,
@@ -552,7 +553,6 @@ def execute_headers_security_analysis(
                         )
                     )
                 except httpx_client.HTTPError as exc:
-                    exit_code = 1
                     stderr_lines.append(f"CORS origin probe failed for {target} with {origin}: {exc}")
 
             for raw_path in redirect_paths if isinstance(redirect_paths, list) else []:
@@ -560,13 +560,13 @@ def execute_headers_security_analysis(
                 if not _allowed(scope_allowlist, redirect_url):
                     continue
                 try:
-                    redirect_response = client.get(
+                    redirect_response = outcome.run(lambda: client.get(
                         redirect_url,
                         headers={
                             "User-Agent": "AegisPT/headers-security bounded CORS redirect validation",
                             "Origin": attacker_origin,
                         },
-                    )
+                    ))
                     checks.append(
                         _analyze_cors_response(
                             findings=findings,
@@ -578,7 +578,6 @@ def execute_headers_security_analysis(
                         )
                     )
                 except httpx_client.HTTPError as exc:
-                    exit_code = 1
                     stderr_lines.append(f"CORS redirect probe failed for {redirect_url}: {exc}")
 
     payload = {
@@ -609,13 +608,20 @@ def execute_headers_security_analysis(
             "runtime_mutation": False,
         },
     }
+    # Honest status: target unreachable for every probe -> skipped (78), not
+    # FAILED; any real response -> completed even if some probes were refused.
+    exit_code = outcome.exit_code(exit_code)
     return RunnerExecution(
         tool="headers-security",
         exit_code=exit_code,
         stdout=json.dumps(payload["summary"], sort_keys=True),
         stderr="\n".join(line for line in stderr_lines if line),
         metadata={
-            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "status": (
+                "ok" if exit_code == 0
+                else "target_unreachable" if exit_code == http_probe.EX_TARGET_UNREACHABLE
+                else "completed_with_errors"
+            ),
             "runner_digest": "workers.headers_security.runner:v1",
             "tool_version": "custom-python-bounded",
             "finding_count": len(findings),
