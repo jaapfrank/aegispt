@@ -549,6 +549,12 @@ def _local_qwen_select_next_action(
             "response_format": {"type": "json_object"},
             "temperature": 0.2,
             "max_tokens": 2048,
+            # Qwen3.6 is a thinking variant: without this it streams the entire
+            # token budget into reasoning_content and leaves `content` empty, so
+            # the picker silently returns None and falls back to the hardcoded
+            # sequence (defeating "AI owns orchestration"). Disable thinking so
+            # the JSON decision lands in `content`. llama.cpp server honours it.
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         # 300s is generous: Qwen3.6 IQ3_M on a single 5080 averages
         # ~15-25 t/s; a 2K-token answer with `<think>` block can run up
@@ -569,7 +575,12 @@ def _local_qwen_select_next_action(
         data = resp.json()
         content = ""
         for choice in (data.get("choices") or [])[:1]:
-            content = str((choice.get("message") or {}).get("content") or "")
+            msg = choice.get("message") or {}
+            content = str(msg.get("content") or "")
+            # Fallback for builds that ignore enable_thinking: recover the
+            # decision from the reasoning channel rather than failing empty.
+            if not content.strip():
+                content = str(msg.get("reasoning_content") or "")
         content = _strip_qwen_reasoning_tokens(content).strip()
         if not content:
             logger.warning("picker: local-qwen returned empty content")
@@ -2176,6 +2187,7 @@ def _maybe_dispatch_cpg_seeded_cea(
     source_dir_for_run = str((cfg_run_early or {}).get("source_dir") or "").strip()
     gate_tokens_block = "(no source-derived gate tokens found)"
     listen_ports_block = "(none observed)"
+    internal_endpoints_block = ""
     source_gate_token_count = 0
     if source_dir_for_run:
         try:
@@ -2183,6 +2195,7 @@ def _maybe_dispatch_cpg_seeded_cea(
             from workers.runners.pre_recon_source.runner import _scan_file as _scan_src  # noqa: E402
             _gt: dict[tuple[str, str], dict] = {}
             _lp: dict[str, dict] = {}
+            _ie: dict[str, dict] = {}
             _root_g = _PathG(source_dir_for_run)
             for _pg in _root_g.rglob("*.py"):
                 try:
@@ -2193,6 +2206,8 @@ def _maybe_dispatch_cpg_seeded_cea(
                     _gt.setdefault((_g.get("kind", ""), _g.get("token", "")), _g)
                 for _lpp in _h.get("listen_ports", []):
                     _lp.setdefault(str(_lpp.get("port", "")), _lpp)
+                for _ep in _h.get("internal_endpoints", []):
+                    _ie.setdefault(str(_ep.get("route", "")), _ep)
             source_gate_token_count = len(_gt)
             if _gt:
                 gate_tokens_block = "\n".join(
@@ -2200,6 +2215,14 @@ def _maybe_dispatch_cpg_seeded_cea(
                 )
             if _lp:
                 listen_ports_block = ", ".join(sorted(p for p in _lp if p))
+            # T-CHAIN1: localhost-gated endpoints reachable ONLY via an SSRF/server-side
+            # fetch — surface them HERE (structured envelope reaches the exploit; the full
+            # markdown deliverable often shows "(absent)" in the dispatch context).
+            if _ie:
+                internal_endpoints_block = "\n".join(
+                    f"  - {ep.get('methods','GET')} {ep.get('route')} — params: {ep.get('params')}"
+                    for ep in list(_ie.values())[:20]
+                )
         except Exception as _gt_exc:  # noqa: BLE001
             logger.warning("source-gate-token extraction failed: %s", _gt_exc)
     logger.info(
@@ -2638,6 +2661,17 @@ def _maybe_dispatch_cpg_seeded_cea(
         "=== INTERNAL LISTEN PORTS (server fetches from INSIDE its container; for "
         "server-side-fetch/SSRF use http://127.0.0.1:<port>/... via the scoped target) ===\n"
         f"{listen_ports_block}\n\n"
+        + (
+            "=== INTERNAL-ONLY ENDPOINTS (localhost-gated — reachable ONLY via an "
+            "SSRF/server-side-fetch from inside the container; these hold the privileged "
+            "action: admin/password-reset/config) ===\n"
+            f"{internal_endpoints_block}\n"
+            "THE CHAIN: point an SSRF sink at one of these over loopback, e.g. "
+            "`http://127.0.0.1/<route>?<param>=<value>` (use admin as the target user), to "
+            "invoke the privileged action, then authenticate with the resulting state change "
+            "(reset credential / new session) and read the privileged page.\n\n"
+            if internal_endpoints_block else ""
+        )
         + "=== JOERN CPG TAINT SURVEY (trimmed to sinks/routes) ===\n"
         f"{cpg_trimmed}\n\n"
         "=== SEED CREDENTIALS (from source seed data — USE THESE LITERALLY) ===\n"
