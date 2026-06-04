@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import type { Finding, Run, RunReportCatalogItem, Task } from '../src/api/types';
 import { buildCrossSurfaceConsistency } from '../src/viewModels/crossSurfaceConsistency';
+import { buildReportPreviewMetadata } from '../src/viewModels/reportPreviewMetadata';
 import { buildRunTruthModel } from '../src/viewModels/runTruth';
 import { reportEvidenceScenarioMatrix, reportEvidenceScenarios } from './fixtures/reportEvidenceScenarios';
 
@@ -713,6 +714,25 @@ test('M7 report and evidence fixture matrix locks canonical truth boundaries', a
       expect(scenario.markdownPreview, `${scenario.key} forbidden preview text`).not.toContain(forbiddenText);
     }
   }
+});
+
+test('M4 report preview metadata adapter summarizes preview and export truth', async ({ page }) => {
+  void page;
+  const scenario = reportEvidenceScenarios.verified_persisted;
+  const metadata = buildReportPreviewMetadata(scenario.reports[0], scenario.markdownPreview);
+
+  expect(metadata.variantLabel).toBe('Executive Summary');
+  expect(metadata.availabilityLabel).toBe('ready');
+  expect(metadata.availabilityTone).toBe('green');
+  expect(metadata.preview.loaded).toBe(true);
+  expect(metadata.preview.claimedFindingTotal).toBe(scenario.expected.canonicalTotal);
+  expect(metadata.preview.sectionCount).toBeGreaterThan(0);
+  expect(metadata.preview.lineCount).toBeGreaterThan(0);
+  expect(metadata.preview.detail).toContain('1 finding claimed');
+  expect(metadata.export.ready).toBe(true);
+  expect(metadata.export.formatsLabel).toBe('markdown / html / pdf');
+  expect(metadata.export.shortHash).toBe('77777777...777777');
+  expect(metadata.readinessData.map((item) => item.value)).toEqual([1, 1, 0]);
 });
 
 test('Dashboard renders portfolio data from mocked v2 API contracts', async ({ page }) => {
@@ -1791,10 +1811,23 @@ test('Report Center shows canonical report truth, variants, and export scope', a
   await expect(consistencyPanel).toContainText('1 finding');
   await expect(consistencyPanel).toContainText('Run-local summary differs');
   await expect(page.getByText('Report content hash')).toBeVisible();
+  await expect(page.getByText('aaaaaaaa...aaaaaa')).toBeVisible();
+  const previewActions = page.getByLabel('Report preview and export actions');
+  await expect(previewActions).toContainText('export ready');
+  await expect(previewActions).toContainText('markdown / html / pdf');
+  await expect(previewActions).toContainText('fixture-report.pdf');
+  const previewPanel = page.getByLabel('Report preview metadata');
+  await expect(previewPanel).toContainText('Preview not generated');
+  await expect(previewPanel).toContainText('Preview claims');
+  await expect(previewPanel).toContainText('not listed');
   await expect(page.getByText('Customer copy check passed for selected report metadata.')).toBeVisible();
   await page.getByRole('button', { name: 'Markdown Preview' }).click();
   await expect(page.getByText('Stored fixture evidence preview for React v2 route coverage.')).toBeVisible();
   await expect(consistencyPanel).toContainText('2 preview');
+  await expect(previewPanel).toContainText('loaded');
+  await expect(previewPanel).toContainText('Preview lines');
+  await expect(previewPanel).toContainText('Sections');
+  await expect(previewPanel).toContainText('2 findings claimed');
 
   await expect(page.getByText('Report variants')).toBeVisible();
   await expect(page.getByRole('button', { name: /Technical Evidence/ })).toBeVisible();

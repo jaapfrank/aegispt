@@ -2,7 +2,7 @@
 
 Date: 2026-06-01
 Owner: Codex
-Status: W1-W8 complete; W6A operator-presence spine, context-aware spine, Mission Control operator deck, attack-map visible timing, attack-map pan/zoom, selected-run binding, full-path findings, live-activity, Live CLI command-output, and Mission Control 4k/125 single-Live-CLI density repairs complete; M1 app shell split complete; M2 store slice split complete; M3 API domain client split complete; M4 report truth view-model adapter complete; M5 report render-utils, lifecycle, metadata, and model-utils extraction slices complete; M6 management decision facts, attack-map/technique story, management report story/remediation, and report-draft payload complete; M7 report/evidence fixture pack complete; M8 cross-surface consistency checker complete; UX1 trust-breaking state repair, UX2 shared page experience contract, UX3 Mission Control living cockpit, UX4 attack path truth map v2, UX5 Evidence Replay timeline, UX6 Findings/Problems triage board, UX7 Management report export proof, UX8 light mode/theme tokenization, UX8 readability repair, UX1 post-UX8 trust-state recheck, UX1 2026-06-04 trust-state recheck, and Mission Control 4k/125 single-Live-CLI density repair complete; UX8 remains worklist-only and is not promoted to `NEXT_TASK.md`
+Status: W1-W8 complete; W6A operator-presence spine, context-aware spine, Mission Control operator deck, attack-map visible timing, attack-map pan/zoom, selected-run binding, full-path findings, live-activity, Live CLI command-output, and Mission Control 4k/125 single-Live-CLI density repairs complete; M1 app shell split complete; M2 store slice split complete; M3 API domain client split complete; M4 report/view-model adapters and report preview metadata complete; M5 report render-utils, lifecycle, metadata, and model-utils extraction slices complete; M6 management decision facts, attack-map/technique story, management report story/remediation, and report-draft payload complete; M7 report/evidence fixture pack complete; M8 cross-surface consistency checker complete; UX1 trust-breaking state repair, UX2 shared page experience contract, UX3 Mission Control living cockpit, UX4 attack path truth map v2, UX5 Evidence Replay timeline, UX6 Findings/Problems triage board, UX7 Management report export proof, UX8 light mode/theme tokenization, UX8 readability repair, UX1 post-UX8 trust-state recheck, UX1 2026-06-04 trust-state recheck, and Mission Control 4k/125 single-Live-CLI density repair complete; UX8 remains worklist-only and is not promoted to `NEXT_TASK.md`
 
 ## Purpose
 
@@ -1378,15 +1378,19 @@ Why safe:
 
 ### M4 — Add report/view-model adapters
 
-Status: Partially complete on 2026-06-02 for Report Center report-truth adapter.
+Status: Complete on 2026-06-04 for Report Center report-truth and report
+preview metadata adapters.
 
 Validation artifact:
 
 - `docs/validation/codex-ui-reporting-m4-report-truth-viewmodel-2026-06-02.md`
+- `docs/validation/codex-ui-reporting-m4-report-preview-metadata-2026-06-04.md`
 
 Current state:
 
-- screens likely consume raw API shapes too directly
+- Report Center report truth, preview metadata, cross-surface consistency,
+  evidence replay, and triage boards now have focused UI-facing adapters for
+  the completed slices in this lane.
 
 Safe target:
 
@@ -1400,6 +1404,13 @@ Why safe:
 
 - lets UI truth become canonical at the presentation boundary
 - avoids screen components each re-inventing status logic
+
+2026-06-04 completion note: the remaining report-preview metadata slice is
+complete. `buildReportPreviewMetadata` centralizes selected-report availability,
+preview loaded state, preview claim counts, section/line counts, export
+formats, primary filename, content hash summary, and readiness chart data.
+Report Center package, chart, preview, export-action, and hash panels now use
+that adapter, with a pure M4 regression and visible Report Center proof.
 
 ### M5 — Split `api/app/services/reports.py` by concern
 

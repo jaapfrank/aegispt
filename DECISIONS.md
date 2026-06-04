@@ -174,6 +174,18 @@ Future work must integrate with those foundations rather than redefining them.
   a new truth boundary, instead of embedding one-off fixture objects that drift
   from Report Center, Evidence Replay, Mission Control, and Findings behavior.
 
+## React V2 Report Preview Metadata Contract (2026-06-04)
+
+- Report Center preview/export metadata should be derived through
+  `buildReportPreviewMetadata` instead of being recomputed independently by
+  package cards, charts, preview panes, export actions, or hash panels.
+- The adapter may summarize Markdown preview structure and finding-count claims
+  for UI review, but canonical report truth still comes from report catalog,
+  findings, and cross-surface consistency view-models.
+- Content hashes, availability labels, export format labels, and primary
+  filenames are presentation facts for the selected report variant; they do not
+  replace evidence artifact hashes or finding evidence references.
+
 ## React V2 Evidence Replay Timeline Contract (2026-06-03)
 
 - Evidence Replay's first viewport should be timeline-first: the selected

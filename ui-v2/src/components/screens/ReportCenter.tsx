@@ -64,6 +64,10 @@ import {
   type ReportStage,
   type ReportTruthModel,
 } from '../../viewModels/reportTruth';
+import {
+  buildReportPreviewMetadata,
+  type ReportPreviewMetadata,
+} from '../../viewModels/reportPreviewMetadata';
 import { safeErrorMessage, safeProviderText } from '../../viewModels/safeMessaging';
 
 type ReportTab = 'reports' | 'dossier';
@@ -112,6 +116,10 @@ export default function ReportCenter() {
   const reportTruth = useMemo(
     () => buildReportTruth(selectedReport, reportFindings, loadingFindings),
     [selectedReport, reportFindings, loadingFindings],
+  );
+  const reportPreviewMetadata = useMemo(
+    () => (selectedReport ? buildReportPreviewMetadata(selectedReport, markdown) : null),
+    [markdown, selectedReport],
   );
   const crossSurfaceConsistency = useMemo(
     () =>
@@ -396,6 +404,7 @@ export default function ReportCenter() {
                     report={selectedReport}
                     run={selectedReportRun}
                     truth={reportTruth}
+                    metadata={reportPreviewMetadata}
                     selectedStage={selectedStage}
                     onSelectStage={setSelectedStage}
                   />
@@ -407,10 +416,10 @@ export default function ReportCenter() {
                   />
                   <CrossSurfaceConsistencyPanel consistency={crossSurfaceConsistency} />
                   <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-                    <ReportChartStrip report={selectedReport} truth={reportTruth} />
+                    <ReportChartStrip report={selectedReport} truth={reportTruth} metadata={reportPreviewMetadata} />
                     <ScopeInclusionPanel report={selectedReport} truth={reportTruth} />
                   </div>
-                  <ReportPreviewPanel markdown={markdown} />
+                  <ReportPreviewPanel markdown={markdown} metadata={reportPreviewMetadata} />
                 </>
               ) : loadingCatalog ? (
                 <LoadingPanel label="Loading report catalog from API" />
@@ -432,13 +441,14 @@ export default function ReportCenter() {
                   <ReportActionsPanel
                     action={action}
                     message={message}
+                    metadata={reportPreviewMetadata}
                     onPreview={handleGeneratePreview}
                     onDownloadHtml={() => void handleDownload('html')}
                     onDownloadPdf={() => void handleDownload('pdf')}
                     onDownloadNlPdf={() => void handleDownloadNlPdf()}
                     onDownloadNlMarkdown={() => void handleDownloadNl()}
                   />
-                  <EvidenceHash report={selectedReport} />
+                  <EvidenceHash metadata={reportPreviewMetadata} />
                   <ComparePanel
                     previousRuns={previousRuns}
                     compareRunId={compareRunId}
@@ -619,12 +629,14 @@ function ReportPackagePanel({
   report,
   run,
   truth,
+  metadata,
   selectedStage,
   onSelectStage,
 }: {
   report: RunReportCatalogItem;
   run: Run | null;
   truth: ReportTruthModel;
+  metadata: ReportPreviewMetadata | null;
   selectedStage: ReportStage;
   onSelectStage: (stage: ReportStage) => void;
 }) {
@@ -645,7 +657,7 @@ function ReportPackagePanel({
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <AvailabilityBadge report={report} />
+            <AvailabilityBadge report={report} metadata={metadata} />
             <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2 py-0.5 text-[0.77rem] font-semibold uppercase text-cyan">
               Report package
             </span>
@@ -662,7 +674,11 @@ function ReportPackagePanel({
             value={truth.includedTotal === null ? 'listed' : String(truth.includedTotal)}
             detail={countStatusLabel(truth.countStatus)}
           />
-          <ReportTruthMetric label="Export" value={report.export_allowed ? 'Ready' : 'Blocked'} detail={report.available_formats.join(' / ') || 'no format'} />
+          <ReportTruthMetric
+            label="Export"
+            value={metadata?.export.label ?? (report.export_allowed ? 'Ready' : 'Blocked')}
+            detail={metadata?.export.formatsLabel ?? (report.available_formats.join(' / ') || 'no format')}
+          />
         </div>
       </div>
 
@@ -917,13 +933,20 @@ function CompactFact({ text }: { text: string }) {
   );
 }
 
-function ReportChartStrip({ report, truth }: { report: RunReportCatalogItem; truth: ReportTruthModel }) {
-  const readinessData = [
-    { label: 'Preview', value: report.preview_allowed ? 1 : 0, color: report.preview_allowed ? '#5ecfff' : '#475569' },
-    { label: 'Export', value: report.export_allowed ? 1 : 0, color: report.export_allowed ? '#34d399' : '#475569' },
-    { label: 'Draft', value: report.draft_allowed ? 1 : 0, color: report.draft_allowed ? '#d06bff' : '#475569' },
+function ReportChartStrip({
+  report,
+  truth,
+  metadata,
+}: {
+  report: RunReportCatalogItem;
+  truth: ReportTruthModel;
+  metadata: ReportPreviewMetadata | null;
+}) {
+  const readinessData = metadata?.readinessData ?? [
+    { label: 'Preview' as const, value: report.preview_allowed ? 1 : 0, color: report.preview_allowed ? '#5ecfff' : '#475569' },
+    { label: 'Export' as const, value: report.export_allowed ? 1 : 0, color: report.export_allowed ? '#34d399' : '#475569' },
+    { label: 'Draft' as const, value: report.draft_allowed ? 1 : 0, color: report.draft_allowed ? '#d06bff' : '#475569' },
   ];
-
   return (
     <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -969,7 +992,7 @@ function ReportChartStrip({ report, truth }: { report: RunReportCatalogItem; tru
         <div className="rounded-lg border border-border bg-bg/25 p-3">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h3 className="text-[0.925rem] font-semibold text-text">Readiness</h3>
-            <span className="text-[0.77rem] font-bold uppercase text-muted">{report.availability_label}</span>
+            <span className="text-[0.77rem] font-bold uppercase text-muted">{metadata?.availabilityLabel ?? report.availability_label}</span>
           </div>
           <div className="h-[170px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -1033,6 +1056,7 @@ function ReportVariantPanel({
 function ReportActionsPanel({
   action,
   message,
+  metadata,
   onPreview,
   onDownloadHtml,
   onDownloadPdf,
@@ -1041,6 +1065,7 @@ function ReportActionsPanel({
 }: {
   action: ReportAction;
   message: string | null;
+  metadata: ReportPreviewMetadata | null;
   onPreview: () => void;
   onDownloadHtml: () => void;
   onDownloadPdf: () => void;
@@ -1048,7 +1073,7 @@ function ReportActionsPanel({
   onDownloadNlMarkdown: () => void;
 }) {
   return (
-    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md" aria-label="Report preview and export actions">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-[1.08rem] font-semibold text-text">Preview and export</h2>
@@ -1056,6 +1081,17 @@ function ReportActionsPanel({
         </div>
         <Eye size={16} className="text-cyan" />
       </div>
+      {metadata && (
+        <div className="mb-3 rounded-md border border-border bg-bg/25 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <StatusPill tone={metadata.export.tone}>export {metadata.export.label}</StatusPill>
+            <span className="text-[0.78rem] font-semibold uppercase text-muted">{metadata.export.formatsLabel}</span>
+          </div>
+          <div className="mt-2 truncate text-[0.85rem] text-muted" title={metadata.export.primaryDownloadName}>
+            Default file: <span className="font-semibold text-text">{metadata.export.primaryDownloadName}</span>
+          </div>
+        </div>
+      )}
       <div className="grid gap-2">
         <ActionButton onClick={onPreview} loading={action === 'preview'} icon={<ScrollText size={14} />}>
           Markdown Preview
@@ -1080,23 +1116,44 @@ function ReportActionsPanel({
   );
 }
 
-function ReportPreviewPanel({ markdown }: { markdown: string | null }) {
+function ReportPreviewPanel({
+  markdown,
+  metadata,
+}: {
+  markdown: string | null;
+  metadata: ReportPreviewMetadata | null;
+}) {
   return (
-    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md" aria-label="Report preview metadata">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-[1.08rem] font-semibold text-text">Report preview</h2>
           <p className="mt-1 text-[0.925rem] text-muted">Rendered markdown from the selected variant.</p>
         </div>
-        <StatusPill tone={markdown ? 'green' : 'muted'}>{markdown ? 'loaded' : 'not loaded'}</StatusPill>
+        <StatusPill tone={metadata?.preview.tone ?? (markdown ? 'green' : 'muted')}>
+          {metadata?.preview.label ?? (markdown ? 'loaded' : 'not loaded')}
+        </StatusPill>
       </div>
+      {metadata && (
+        <div className="mb-3 grid gap-2 sm:grid-cols-3">
+          <MiniMetric label="Preview lines" value={String(metadata.preview.lineCount)} />
+          <MiniMetric label="Sections" value={String(metadata.preview.sectionCount)} />
+          <MiniMetric
+            label="Preview claims"
+            value={metadata.preview.claimedFindingTotal === null ? 'not listed' : String(metadata.preview.claimedFindingTotal)}
+          />
+        </div>
+      )}
       <div className="max-h-[460px] overflow-y-auto rounded-lg border border-border bg-bg/30 p-4">
         {markdown ? (
           <div className="prose-preview">{renderMarkdown(markdown)}</div>
         ) : (
-          <EmptyInline title="Preview not generated" detail="Generate a Markdown preview or select an available report card." />
+          <EmptyInline title="Preview not generated" detail={metadata?.preview.detail ?? 'Generate a Markdown preview or select an available report card.'} />
         )}
       </div>
+      {metadata?.preview.loaded && (
+        <p className="mt-3 text-[0.85rem] leading-5 text-muted">{metadata.preview.detail}</p>
+      )}
     </section>
   );
 }
@@ -1294,7 +1351,7 @@ function ActionButton({ onClick, loading, icon, children }: { onClick: () => voi
   );
 }
 
-function EvidenceHash({ report }: { report: RunReportCatalogItem }) {
+function EvidenceHash({ metadata }: { metadata: ReportPreviewMetadata | null }) {
   return (
     <details className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[0.925rem] font-semibold text-text">
@@ -1302,14 +1359,15 @@ function EvidenceHash({ report }: { report: RunReportCatalogItem }) {
           <Check size={14} className="text-green" />
           Report content hash
         </span>
+        {metadata && <StatusPill tone="muted">{metadata.export.shortHash}</StatusPill>}
         <ChevronDown size={14} className="text-muted" />
       </summary>
       <div className="mt-3 flex items-start gap-2 text-[0.925rem] text-muted">
         <Hash size={14} className="mt-0.5 text-cyan" />
-        <span className="break-all font-mono text-text">{report.content_sha256}</span>
+        <span className="break-all font-mono text-text">{metadata?.export.contentHash || 'not listed'}</span>
       </div>
       <p className="mt-2 text-[0.85rem] leading-5 text-muted">
-        This identifies the generated report content. Evidence integrity remains tied to the stored artifacts and finding evidence references.
+        {metadata?.export.reason ?? 'This identifies the generated report content.'} Evidence integrity remains tied to the stored artifacts and finding evidence references.
       </p>
     </details>
   );
@@ -1430,11 +1488,11 @@ function DossierTab({
   );
 }
 
-function AvailabilityBadge({ report }: { report: RunReportCatalogItem }) {
+function AvailabilityBadge({ report, metadata }: { report: RunReportCatalogItem; metadata?: ReportPreviewMetadata | null }) {
   return (
-    <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', availabilityClass(report.availability_status))}>
-      {report.availability_label || report.availability_status}
-    </span>
+    <StatusPill tone={metadata?.availabilityTone ?? availabilityTone(report.availability_status)}>
+      {(metadata?.availabilityLabel ?? report.availability_label) || report.availability_status}
+    </StatusPill>
   );
 }
 
@@ -1637,10 +1695,11 @@ function reportIcon(variant: string) {
   return FileText;
 }
 
-function availabilityClass(status: string): string {
-  if (status === 'export_ready') return 'border-green/30 bg-green/10 text-green';
-  if (status === 'generating' || status === 'draft_only') return 'border-amber/30 bg-amber/10 text-amber';
-  return 'border-border bg-bg/40 text-muted';
+function availabilityTone(status: string): ReportPreviewMetadata['availabilityTone'] {
+  if (status === 'export_ready') return 'green';
+  if (status === 'generating' || status === 'draft_only') return 'amber';
+  if (status === 'blocked' || status === 'unavailable') return 'red';
+  return 'muted';
 }
 
 function formatDate(value: string): string {

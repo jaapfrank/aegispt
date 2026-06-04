@@ -1,5 +1,31 @@
 # Done Log
 
+- 2026-06-04: Codex M4 report preview metadata adapter complete. [CODEX UI/REPORTING]
+  - Completed the remaining M4 report-preview metadata slice without promoting
+    or editing `NEXT_TASK.md` and without touching Claude-owned score-lane /
+    runtime files.
+  - Added `ui-v2/src/viewModels/reportPreviewMetadata.ts` for one shared
+    presentation adapter covering preview loaded state, preview claim counts,
+    section/line counts, export readiness, availability tone, available
+    formats, primary filename, content hash summary, and readiness chart data.
+  - Wired Report Center package, readiness chart, preview, export-action, and
+    content-hash panels to the shared adapter instead of recomputing those
+    facts locally.
+  - Added a pure M4 adapter regression and extended the canonical Report Center
+    Playwright flow so visible preview/export metadata remains tied to the
+    selected report and Markdown preview state.
+  - Validation artifact:
+    `docs/validation/codex-ui-reporting-m4-report-preview-metadata-2026-06-04.md`.
+  - Validation completed:
+    `cd ui-v2 && npx eslint src/components/screens/ReportCenter.tsx src/viewModels/reportPreviewMetadata.ts tests/react-v2-critical-paths.spec.ts`;
+    `cd ui-v2 && npx tsc -b --pretty false`;
+    `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "M4 report preview metadata|Report Center shows canonical report truth|Report Center flags the named M7 contradictory score fixture"` (3 passed after repairing a misplaced test label);
+    `cd ui-v2 && npm test` (45 passed, including i18n key parity);
+    `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains);
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check` (no whitespace errors; git reported existing line-ending normalization warnings);
+    `git diff --name-only -- NEXT_TASK.md TASK_QUEUE.md api/app/services/assessment_loop.py api/app/services/assessment_loop_internals/guards.py api/app/services/m2_verdict_gate.py workers/orchestration/tasks.py workers/runners/interactive_exploit` (no output).
+
 - 2026-06-04: Codex M7 report/evidence fixture pack complete. [CODEX UI/REPORTING]
   - Completed M7 from the Codex UI/reporting worklist without promoting or
     editing `NEXT_TASK.md` and without touching Claude-owned score-lane/runtime
