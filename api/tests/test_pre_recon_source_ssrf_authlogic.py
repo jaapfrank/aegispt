@@ -67,6 +67,45 @@ def test_jwt_secret_and_config_form(tmp_path: Path):
     assert "hunter2hunter2" in md or "cfgsecretvalue" in md
 
 
+def test_internal_only_endpoint_chain_surfaced(tmp_path: Path):
+    # T-CHAIN1: a localhost-gated endpoint + its params must be surfaced so the
+    # agent knows the SSRF target (XBEN-024: /reset_password is remote_addr-gated
+    # and resets any user's password -> SSRF -> reset admin -> login).
+    (tmp_path / "app.py").write_text(
+        "import urllib.request\n"
+        "@app.route('/reset_password')\n"
+        "def reset_password():\n"
+        "    if request.remote_addr != '127.0.0.1':\n"
+        "        return 'Unauthorized', 403\n"
+        "    username = request.args.get('username')\n"
+        "    new_password = request.args.get('newpassword')\n"
+        "    users[username]['password'] = new_password\n"
+        "@app.route('/profile')\n"
+        "def profile():\n"
+        "    url = request.form.get('profile_picture_url')\n"
+        "    urllib.request.urlretrieve(url, '/tmp/x')\n",
+        encoding="utf-8",
+    )
+    _, md = _audit(tmp_path)
+    assert "SSRF-REACHABLE INTERNAL ENDPOINTS" in md
+    assert "remote_addr" in md          # the localhost gate is surfaced
+    assert "newpassword" in md and "username" in md  # the internal endpoint's params
+    assert "reset_password" in md       # the route itself
+    assert "ssrf-urlretrieve" in md     # the SSRF sink that can reach it
+
+
+def test_no_internal_gate_no_chain_block(tmp_path: Path):
+    # a plain app with no localhost gate must NOT get the chain block (no noise).
+    (tmp_path / "app.py").write_text(
+        "@app.route('/x')\n"
+        "def x():\n"
+        "    return request.args.get('q','')\n",
+        encoding="utf-8",
+    )
+    _, md = _audit(tmp_path)
+    assert "SSRF-REACHABLE INTERNAL ENDPOINTS" not in md
+
+
 def test_xben024_shape_dispatch_gate_unblocked(tmp_path: Path):
     # the combined XBEN-024 shape: SSRF + weak secret => sink_count>0 AND a gate token,
     # so the assessment_loop dispatch gate (sinks OR gate tokens) fires interactive-exploit.

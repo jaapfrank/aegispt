@@ -221,6 +221,21 @@ REQUIRED_RESULT_VALUE_PATTERNS = [
     (re.compile(r"""[\"']([^\"']{1,40})[\"']\s*==\s*(?:result|output|res|outcome|stdout|stripped|value)\b""", re.IGNORECASE), "value-eq-result"),
 ]
 
+# Internal-only access gates (T-CHAIN1, 2026-06-04): code that restricts an
+# endpoint to localhost / a trusted IP (request.remote_addr == '127.0.0.1', an
+# X-Forwarded-For check, etc.). Such an endpoint is NOT reachable from outside —
+# but an SSRF / server-side-fetch sink CAN reach it (the server fetches from
+# inside its own container). These internal endpoints are exactly where the
+# privileged action lives (admin/reset/config), so surfacing them tells the agent
+# WHICH internal endpoint to point an SSRF at. XBEN-024: `/reset_password` is
+# remote_addr-gated and resets ANY user's password -> SSRF -> reset admin -> login.
+INTERNAL_GATE_PATTERNS = [
+    (re.compile(r"\b(?:request\.)?remote_addr\b"), "remote-addr-gate"),
+    (re.compile(r"\bREMOTE_ADDR\b"), "remote-addr-gate"),
+    (re.compile(r"\b(?:request\.)?access_route\b"), "access-route-gate"),
+    (re.compile(r"""[\"']127\.0\.0\.1[\"']|[\"']localhost[\"']"""), "localhost-literal"),
+]
+
 # Internal listen-port patterns. 2026-05-28: the SSRF self-fetch class needs
 # the port the service listens on INSIDE its container — which differs from
 # the externally-published port (lab listens on :8080, published as :8088).
@@ -353,6 +368,7 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
         "reflected_inputs": [],
         "headless_arg_log": [],
         "required_result_values": [],
+        "internal_gates": [],
     }
     lines = text.splitlines()
     for lineno, line in enumerate(lines, 1):
@@ -406,6 +422,9 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
             m = pattern.search(line)
             if m:
                 hits["required_result_values"].append({"file": rel, "line": lineno, "kind": kind, "value": m.group(1), "snippet": line.strip()[:200]})
+        for pattern, kind in INTERNAL_GATE_PATTERNS:
+            if pattern.search(line):
+                hits["internal_gates"].append({"file": rel, "line": lineno, "kind": kind, "snippet": line.strip()[:200]})
     return hits
 
 
@@ -425,12 +444,16 @@ def _build_markdown(
     reflected_inputs: list[dict[str, Any]] | None = None,
     headless_arg_log: list[dict[str, Any]] | None = None,
     required_result_values: list[dict[str, Any]] | None = None,
+    internal_gates: list[dict[str, Any]] | None = None,
+    reflected_for_internal: list[dict[str, Any]] | None = None,
 ) -> str:
     listen_ports = listen_ports or []
     gate_tokens = gate_tokens or []
     headless_dialog = headless_dialog or []
     input_filters = input_filters or []
     reflected_inputs = reflected_inputs or []
+    internal_gates = internal_gates or []
+    reflected_for_internal = reflected_for_internal or []
     headless_arg_log = headless_arg_log or []
     required_result_values = required_result_values or []
     def _section(title: str, body: str) -> str:
@@ -507,10 +530,35 @@ def _build_markdown(
                     "file", "line", "kind", "snippet")
         )
 
+    # T-CHAIN1 (2026-06-04): internal-only endpoints reachable only via an SSRF /
+    # server-side fetch. Surface the localhost gate + the request params so the
+    # agent (with the chain-reasoning prompt) can point an SSRF at the privileged
+    # internal action — the multi-step lever the operator has long asked for.
+    chain_body = ""
+    if internal_gates:
+        chain_body = (
+            "The source restricts one or more endpoints to LOCALHOST / a trusted IP (an "
+            "internal-only access gate). Those endpoints are NOT reachable directly from "
+            "outside — but a server-side fetch (SSRF) reaches them from INSIDE the container "
+            "over loopback, and they are exactly where privileged actions live (admin / "
+            "password-reset / config). Internal-only access gate(s):\n\n"
+            + _rows(internal_gates, "file", "line", "kind", "snippet")
+            + "\n\n**=> If a server-side-fetch / SSRF sink exists (see Dangerous Sinks), point it "
+              "at the internal-only endpoint over loopback** (e.g. "
+              "`http://127.0.0.1:<internal_port>/<route>?<params>`) to invoke the privileged "
+              "action, then use the resulting state change (a reset credential, a new session) "
+              "to authenticate as the privileged user.\n\n"
+            "Request parameter(s) the app reads (source-grepped — the inputs to supply, "
+            "including to the internal endpoint above):\n\n"
+            + _rows(reflected_for_internal or [{"note": "none auto-detected — see the route inventory"}],
+                    "file", "line", "kind", "param", "snippet")
+        )
+
     body = (
         "# Pre-Recon Source Audit\n\n"
         + _section("Executive Summary", summary)
         + (_section("HEADLESS-BROWSER XSS — WIN CONDITION (read FIRST)", win_body) if win_body else "")
+        + (_section("SSRF-REACHABLE INTERNAL ENDPOINTS + REQUEST PARAMS (chain hint)", chain_body) if chain_body else "")
         + _section("Provenance", "\n".join(f"- `{h}`" for h in hashes_sha256_prefix[:10]) or "_(no files)_")
         + _section(
             "Service Internal Listen Port(s) — for container-internal / SSRF self-fetch targeting",
@@ -593,6 +641,7 @@ def execute_pre_recon_source(
     reflected_inputs: list[dict[str, Any]] = []
     headless_arg_log: list[dict[str, Any]] = []
     required_result_values: list[dict[str, Any]] = []
+    internal_gates: list[dict[str, Any]] = []
     hashes_prefix: list[str] = []
 
     for path in files:
@@ -608,6 +657,7 @@ def execute_pre_recon_source(
         reflected_inputs.extend(hits.get("reflected_inputs", []))
         headless_arg_log.extend(hits.get("headless_arg_log", []))
         required_result_values.extend(hits.get("required_result_values", []))
+        internal_gates.extend(hits.get("internal_gates", []))
         try:
             with path.open("rb") as fh:
                 digest = hashlib.sha256(fh.read(FILE_READ_CAP_BYTES)).hexdigest()
@@ -630,6 +680,8 @@ def execute_pre_recon_source(
         reflected_inputs=reflected_inputs,
         headless_arg_log=headless_arg_log,
         required_result_values=required_result_values,
+        internal_gates=internal_gates,
+        reflected_for_internal=reflected_inputs,
     )
 
     payload = {
