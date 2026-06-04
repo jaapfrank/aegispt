@@ -16,6 +16,12 @@ x-aegispt-env: &aegispt-env
   TASK_DISPATCH_MODE: ${TASK_DISPATCH_MODE:-dramatiq}
   DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://aegispt:change-me-aegispt-db@aegispt-db:5432/aegispt}
   AEGISPT_DB_KEY: ${AEGISPT_DB_KEY:-}
+  # Local uncensored model (GPU; scripts/serve_local_llm_gpu.sh). The
+  # interactive-exploit loop HYBRID-falls-back to this when a commercial model
+  # policy-refuses (the refusal ceiling). Default reaches the host's qwen-gpu
+  # container via the docker host-gateway (see extra_hosts on api/worker).
+  # Leave empty to disable the fallback.
+  AEGISPT_LOCAL_LLM_URL: ${AEGISPT_LOCAL_LLM_URL:-http://host.docker.internal:8801}
   REDIS_URL: ${REDIS_URL:-redis://aegispt-redis:6379/0}
   AUTO_CREATE_TABLES: ${AUTO_CREATE_TABLES:-true}
   ARTIFACTS_STORAGE_MODE: ${ARTIFACTS_STORAGE_MODE:-inline}
@@ -114,6 +120,9 @@ services:
     restart: unless-stopped
     init: true
     environment: *aegispt-env
+    extra_hosts:
+      # Resolve the host's qwen-gpu (AEGISPT_LOCAL_LLM_URL) from inside the container.
+      - "host.docker.internal:host-gateway"
     ports:
       - "${AEGISPT_PORT:-8000}:8000"
     depends_on:
@@ -145,6 +154,9 @@ services:
     restart: unless-stopped
     init: true
     environment: *aegispt-env
+    extra_hosts:
+      # Resolve the host's qwen-gpu (AEGISPT_LOCAL_LLM_URL) from inside the container.
+      - "host.docker.internal:host-gateway"
     depends_on:
       aegispt-db:
         condition: service_healthy
