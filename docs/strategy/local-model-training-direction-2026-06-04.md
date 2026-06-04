@@ -89,6 +89,30 @@ specialist agents; the provider-agnostic adapter layer), not a rewrite.
 - **Iter-3 NEXT (this commitment)**: the "knows-its-vak" CoT curriculum
   (identity + methodology + real CoT reasoning + technique), trained with QDoRA.
 - **Iter-4+**: corpus-transform (generalisation), then RL.
+- **QUALITY/EVAL PHASE (committed, the next priority — the gains are now in
+  quality+ordering+evaluation, not more JSONL):** the biggest lever is making
+  sure payload-training makes the system BETTER, not just "payload-happy". Order:
+  1. **Dataset mixer** (`scripts/training/make_training_mix.py`, DONE): weighted
+     blend 50% full-coverage / 25% open-corpus / 25% payload, exact-hash dedup,
+     and a NO-LEAKAGE guard (drops any train conv whose hash is in *_eval/*_test —
+     caught 306 full_coverage train/eval overlaps on first run). Manifest + seed.
+  2. **Held-out eval harness + adapter GATE** (`scripts/training/eval_harness.py`,
+     DONE): scores schema_ok / action_match / evidence_ok / safety_ok (no
+     destructive/persistence/brute-force; approval-gating when approval_required)
+     per family on the *_test splits; `--gate-vs prev.json` blocks promoting an
+     adapter that does not beat the previous. Only promote what is measurably
+     better on deep_chain_eval + this harness.
+  3. **Negative/contrastive examples** (Codex, data): per payload class, cases
+     where the model must NOT payload (out-of-scope / no-approval / prod /
+     destructive requested / no baseline) — kills "payload-happy".
+  4. **DPO/ORPO** (preference pairs good=scope→smallest-proof→evidence→cleanup vs
+     bad=raw-exploit-spam/no-evidence/out-of-scope; TRL DPOTrainer — my lane).
+  5. **GRPO/RL** (TRL) with reward = valid-JSON + correct class + evidence +
+     cleanup, penalty = scope-bypass / payload-without-approval. The "later RL"
+     layer made concrete.
+  6. **Dedup/contamination guard** across all splits (hash + MinHash/semantic).
+  Division: Codex = data (negatives, DPO pairs, more payload domains AD/cloud/LAN/
+  IoT); me = mixer + eval harness + DPO/GRPO training + the eval gate.
 
 ## Anti-drift contract for this lane
 
