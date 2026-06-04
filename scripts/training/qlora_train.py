@@ -47,10 +47,16 @@ model.config.use_cache = False
 # back). QDoRA > QLoRA empirically. One flag in PEFT: use_dora=True. Operator
 # pointed at the NVIDIA DoRA blog. Toggle via AEGISPT_TRAIN_USE_DORA=0 to compare.
 _use_dora = (os.environ.get("AEGISPT_TRAIN_USE_DORA", "1") or "1").strip() not in {"0", "false", "no"}
-print(f"[qlora] use_dora={_use_dora}", flush=True)
+# rsLoRA (Rank-Stabilized LoRA): scales the adapter by alpha/sqrt(r) instead of
+# alpha/r, so RANK can be raised (32/64/128 for a large CoT corpus) WITHOUT
+# gradient collapse / instability — 0% extra compute. PEFT flag use_rslora=True.
+# Operator tip 2026-06-04. Default on; rank via AEGISPT_TRAIN_RANK.
+_use_rslora = (os.environ.get("AEGISPT_TRAIN_USE_RSLORA", "1") or "1").strip() not in {"0", "false", "no"}
+_rank = int(os.environ.get("AEGISPT_TRAIN_RANK", "16") or "16")
+print(f"[qlora] use_dora={_use_dora} use_rslora={_use_rslora} rank={_rank}", flush=True)
 lora = LoraConfig(
-    r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM",
-    use_dora=_use_dora,
+    r=_rank, lora_alpha=_rank * 2, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM",
+    use_dora=_use_dora, use_rslora=_use_rslora,
     target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
 )
 model = get_peft_model(model, lora)

@@ -50,8 +50,30 @@ specialist agents; the provider-agnostic adapter layer), not a rewrite.
   (operator tip 2026-06-04). Both are toggles (`AEGISPT_TRAIN_USE_DORA`,
   `AEGISPT_TRAIN_LORAPLUS_RATIO`) → if either has a 4-bit/Blackwell compat issue,
   fall back WITHOUT changing the plan (the data approach is method-agnostic).
+- **rsLoRA** (`use_rslora=True`, alpha/sqrt(r) scaling): lets RANK go to 32/64/128
+  for a large CoT corpus WITHOUT gradient collapse, 0% extra compute. WIRED
+  (`AEGISPT_TRAIN_RANK`). So the committed adapter method = **QDoRA + rsLoRA +
+  LoRA+** (architecture + stable-scaling + optimizer — all orthogonal, all in PEFT).
+- **Unsloth** (operator-recommended, 2x faster + less VRAM, optimised DoRA for
+  cybersec): TEST on the Blackwell sm_120 stack at iter-3; adopt if it loads
+  cleanly, else stay on plain PEFT (which is verified). A speed refinement, not a
+  direction change.
+- **EVAL-GATED candidates (must beat the committed stack on OUR eval —
+  `deep_chain_eval` + live — before adoption, per anti-drift):** GaLore (projected-
+  gradient near-full-FT — deeper but a different paradigm), base-model swap
+  (DeepSeek-Coder vs Qwen3-8B-abliterated), AdaLoRA (dynamic rank pruning).
 - **Later layer: RL** (à la Pentest-R1) on top of the SFT curriculum — additive,
   not a pivot.
+- **Datasets for the CoT curriculum (public/legal, verified open):**
+  `Trendyol/Trendyol-Cybersecurity-Instruction-Tuning-Dataset` (~53k),
+  `WNT3D/Ultimate-Offensive-Red-Team`, `trend-cybertron/Primus-Seed` (Trend Micro,
+  MITRE ATT&CK/threat-intel = methodology layer; the gated `trendmicro-ailab`
+  original mirrored open), `expertdata-factory/cybersecurity-reasoning-cot-v1`
+  (Project-Zero-sourced CoT), `detoxioai/exploit_db_train_v1` (PoC). CyberLLMInstruct
+  (arXiv 2503.09334) to locate. Plus the collected corpus (47k ExploitDB + 24k CVE).
+- **Dataset STRUCTURE = ~90% of success** (operator + field): Instruction→Input→
+  Response SFT format; DEDUP / no over-repetition (don't drown the model in
+  identical boilerplate output). The iter-3 builder enforces both.
 - **Dataset growth**: synthetic curriculum + open CoT datasets
   (`expertdata-factory/cybersecurity-reasoning-cot-v1` from real research incl.
   Project Zero; `detoxioai/exploit_db_train_v1`) + the collected corpus (47k
