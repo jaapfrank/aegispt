@@ -34,6 +34,20 @@ from api.app.services.evidence_ingest import make_captured_value_observation
 from api.app.services.runs import web_target_value_is_allowed_with_path
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
+# A target container is often still coming up (or between restarts) when a plan
+# fires, so a connection-refused/timeout is NOT a plan failure — wait + retry.
+# Mirrors the httpx/playwright probe runners. Operator-reported 2026-06-04: 29 of
+# 65 exec-plans on a transiently-down target all FAILED with "[Errno 111]
+# Connection refused", flooding the queue with red FAILED for a target that was
+# simply down.
+_MAX_PROBE_RETRIES = 3
+_PROBE_RETRY_BACKOFF_S = 2.0
+_UNREACHABLE_TOKENS = (
+    "connection refused", "errno 111", "econnrefused", "timed out", "timeout",
+    "name or service not known", "no route to host", "connecterror",
+    "connecttimeout", "readtimeout", "unreachable",
+)
+
 
 def _infer_value_kind(var_name: str, capture_spec_kind: str) -> str:
     """Map an exec_plan capture `from` source + variable name to a
@@ -260,6 +274,14 @@ def execute_exec_plan(
     # up from execution.metadata["observations"] via persist_runner_observations.
     captured_observations: list[dict[str, Any]] = []
     exit_code = 0
+    # Honest status accounting (replaces ad-hoc per-step exit_code=1). A target
+    # unreachable for EVERY step is a target-down availability condition, not a
+    # runner failure; only hard-fail when the target was reachable but a step
+    # genuinely errored.
+    n_ok = 0           # steps that received a real HTTP response
+    n_unreachable = 0  # steps unreachable even after retries (target down)
+    n_step_error = 0   # genuine per-step errors with a reachable target
+    target_down = False  # latch: once confirmed down, skip retrying later steps
 
     import time
     start_time = time.time()
@@ -273,7 +295,6 @@ def execute_exec_plan(
                 continue
             if time.time() - start_time > overall_timeout_seconds:
                 stderr_lines.append("overall plan budget exceeded — remaining steps skipped")
-                exit_code = 1
                 break
 
             step = _resolve_obj(raw_step, ctx)
@@ -281,7 +302,7 @@ def execute_exec_plan(
             method = str(step.get("method") or "GET").upper()
             if method not in ALLOWED_METHODS:
                 stderr_lines.append(f"step {name}: method {method} not allowed")
-                exit_code = 1
+                n_step_error += 1
                 continue
 
             url = str(step.get("url") or "").strip()
@@ -289,8 +310,9 @@ def execute_exec_plan(
                 stderr_lines.append(f"step {name}: missing url")
                 continue
             if not _scope_check(url, scope_allowlist):
+                # A scoped-out step is a safety skip, not a task failure — record
+                # and move on rather than nuking the whole plan.
                 stderr_lines.append(f"step {name}: url {url[:80]} out of scope, skipped")
-                exit_code = 1
                 step_results.append({
                     "name": name, "method": method, "url": url,
                     "skipped": "out_of_scope",
@@ -310,28 +332,62 @@ def execute_exec_plan(
             if isinstance(step.get("cookies"), dict):
                 request_cookies.update({str(k): str(v) for k, v in step["cookies"].items()})
 
-            try:
-                request_kwargs: dict[str, Any] = {
-                    "method": method,
-                    "url": url,
-                    "headers": headers,
-                    "cookies": request_cookies or None,
-                }
-                if params:
-                    request_kwargs["params"] = params
-                if data is not None and method != "GET":
-                    request_kwargs["data"] = data
-                if json_body is not None and method != "GET":
-                    request_kwargs["json"] = json_body
-                response = client.request(**request_kwargs)
-            except httpx_client.HTTPError as exc:
-                stderr_lines.append(f"step {name}: HTTP error: {exc}")
-                exit_code = 1
+            # Once the target is confirmed down (a prior step exhausted retries
+            # as unreachable), skip the rest immediately — no point retrying
+            # every step against a dead target (and no per-step backoff stacking).
+            if target_down:
+                n_unreachable += 1
                 step_results.append({
                     "name": name, "method": method, "url": url,
-                    "error": str(exc)[:200],
+                    "error": "skipped: target unreachable (earlier step connection-refused)",
+                    "unreachable": True,
                 })
                 continue
+
+            request_kwargs: dict[str, Any] = {
+                "method": method,
+                "url": url,
+                "headers": headers,
+                "cookies": request_cookies or None,
+            }
+            if params:
+                request_kwargs["params"] = params
+            if data is not None and method != "GET":
+                request_kwargs["data"] = data
+            if json_body is not None and method != "GET":
+                request_kwargs["json"] = json_body
+            # Retry on an unreachable target (container still coming up). On a
+            # genuine non-transport HTTP error, fail that step without retrying.
+            _attempt = 0
+            response = None
+            while True:
+                try:
+                    response = client.request(**request_kwargs)
+                    break
+                except httpx_client.HTTPError as exc:
+                    _unreachable = any(tok in str(exc).lower() for tok in _UNREACHABLE_TOKENS)
+                    if _unreachable and _attempt < _MAX_PROBE_RETRIES:
+                        _attempt += 1
+                        time.sleep(_PROBE_RETRY_BACKOFF_S)
+                        continue  # target may still be coming up — wait + retry
+                    if _unreachable:
+                        n_unreachable += 1
+                        target_down = True  # latch: stop retrying later steps
+                    else:
+                        n_step_error += 1
+                    stderr_lines.append(
+                        f"step {name}: HTTP error: {exc}"
+                        + (f" (after {_attempt} retries)" if _attempt else "")
+                    )
+                    step_results.append({
+                        "name": name, "method": method, "url": url,
+                        "error": str(exc)[:200],
+                        "unreachable": _unreachable, "retries": _attempt,
+                    })
+                    break
+            if response is None:
+                continue
+            n_ok += 1
 
             # Capture variables for downstream interpolation
             captured = _capture_values(step.get("capture") or {}, response, data if isinstance(data, dict) else None)
@@ -440,10 +496,30 @@ def execute_exec_plan(
                         },
                     })
 
+    # Honest final status:
+    #   - any real HTTP response  -> completed (0); partial unreachable is fine
+    #   - zero responses but target unreachable -> 78 (EX_CONFIG => "skipped":
+    #     target was down, NOT a runner failure — stops the red-FAILED flood)
+    #   - zero responses, target reachable but a step errored -> 1 (genuine
+    #     failure, fed back to the loop to adapt)
+    if n_ok > 0:
+        exit_code = 0
+    elif n_unreachable > 0:
+        exit_code = 78
+        stderr_lines.append(
+            f"target unreachable: {n_unreachable} step(s) connection-refused after "
+            f"{_MAX_PROBE_RETRIES} retries, 0 reachable — target down, not a runner failure"
+        )
+    elif n_step_error > 0:
+        exit_code = 1
+    else:
+        exit_code = 0
+
     payload = {
         "tool": "exec-plan",
         "plan_name": plan_name,
         "primary_target": primary_target,
+        "target_reachable": n_ok > 0,
         "steps_executed": len(step_results),
         "step_results": step_results,
         "findings": findings,
@@ -463,7 +539,11 @@ def execute_exec_plan(
         stdout=json.dumps({k: v for k, v in payload.items() if k != "step_results"}, sort_keys=True),
         stderr="\n".join(stderr_lines)[:2000],
         metadata={
-            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "status": (
+                "ok" if exit_code == 0
+                else "target_unreachable" if exit_code == 78
+                else "completed_with_errors"
+            ),
             "tool_version": "exec-plan:v1",
             "plan_name": plan_name,
             "step_count": len(step_results),
