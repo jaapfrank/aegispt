@@ -3061,6 +3061,12 @@ def _specialists_select_next_action(
 
     pre_recon_source_text: str | None = None
     has_pre_recon_source_task = False
+    # Bind at function scope: the deeper init at ~line 3109 lives INSIDE the
+    # `if source_dir:` block, so on a black-box run (no source_dir — the common
+    # web case, e.g. Gruyere) it never ran and the later `if pre_recon_cpg_text:`
+    # raised UnboundLocalError, crashing the specialists picker EVERY iteration
+    # -> loop idle -> zombie-swept. Always-bound here.
+    pre_recon_cpg_text: str | None = None
     if source_dir:
         try:
             from workers.runners.pre_recon_source.runner import PRE_RECON_SOURCE_ARTIFACT_NAME  # noqa: E402
