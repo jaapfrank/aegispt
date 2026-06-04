@@ -1,5 +1,33 @@
 # Done Log
 
+- 2026-06-04: Codex M7 report/evidence fixture pack complete. [CODEX UI/REPORTING]
+  - Completed M7 from the Codex UI/reporting worklist without promoting or
+    editing `NEXT_TASK.md` and without touching Claude-owned score-lane/runtime
+    files.
+  - Added `ui-v2/tests/fixtures/reportEvidenceScenarios.ts` with named
+    report/evidence truth scenarios for observed-only output,
+    run-local signal without canonical persistence, verified-and-persisted
+    findings, contradictory score/report-catalog state, and management
+    untested-scope exclusion.
+  - Added a matrix regression that sends every scenario through
+    `buildRunTruthModel` and `buildCrossSurfaceConsistency`, checking canonical
+    totals, run-local totals, report-catalog state, preview state, and
+    evidence-link state.
+  - Added a Report Center UI regression proving the contradictory-score fixture
+    is flagged as review-required before export and does not become
+    customer-ready wording.
+  - Validation artifact:
+    `docs/validation/codex-ui-reporting-m7-report-evidence-fixture-pack-2026-06-04.md`.
+  - Validation completed:
+    `cd ui-v2 && npx eslint tests/react-v2-critical-paths.spec.ts tests/fixtures/reportEvidenceScenarios.ts`;
+    `cd ui-v2 && npx tsc -b --pretty false`;
+    `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "M7 report and evidence fixture matrix|Report Center flags the named M7 contradictory score fixture|Report Center shows canonical report truth|Canonical consistency fixture"` (4 passed);
+    `cd ui-v2 && npm test` (44 passed, including i18n key parity);
+    `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains);
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`;
+    `git diff --name-only -- NEXT_TASK.md TASK_QUEUE.md api/app/services/assessment_loop.py api/app/services/assessment_loop_internals/guards.py api/app/services/m2_verdict_gate.py workers/orchestration/tasks.py workers/runners/interactive_exploit` (no output).
+
 - 2026-06-04: Codex Mission Control single Live CLI repair complete. [CODEX UI/REPORTING]
   - Repaired Mission Control after operator feedback from a 15-inch 4k display
     at 125% scaling showed the first viewport still felt too tall and crowded,

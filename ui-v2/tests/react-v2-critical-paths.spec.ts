@@ -1,4 +1,8 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import type { Finding, Run, RunReportCatalogItem, Task } from '../src/api/types';
+import { buildCrossSurfaceConsistency } from '../src/viewModels/crossSurfaceConsistency';
+import { buildRunTruthModel } from '../src/viewModels/runTruth';
+import { reportEvidenceScenarioMatrix, reportEvidenceScenarios } from './fixtures/reportEvidenceScenarios';
 
 const now = '2026-05-10T10:00:00.000Z';
 const oneMinuteLater = '2026-05-10T10:01:00.000Z';
@@ -674,6 +678,41 @@ const chainAiInsights = {
 
 test.beforeEach(async ({ page }) => {
   await installApiFixtures(page);
+});
+
+test('M7 report and evidence fixture matrix locks canonical truth boundaries', async ({ page }) => {
+  void page;
+
+  for (const scenario of reportEvidenceScenarioMatrix) {
+    const runTruth = buildRunTruthModel(scenario.run, scenario.tasks, scenario.findings);
+    expect(runTruth.attention.tone, `${scenario.key} run attention`).toBe(scenario.expected.runTruthAttention);
+    expect(runTruth.canonicalScore, `${scenario.key} canonical score`).toContain(`${scenario.expected.canonicalTotal} persisted`);
+    expect(runTruth.runLocalSummary, `${scenario.key} run-local summary`).toContain(`${scenario.expected.runLocalTotal} total`);
+
+    const consistency = buildCrossSurfaceConsistency({
+      run: scenario.run,
+      findings: scenario.findings,
+      reports: scenario.reports,
+      selectedReport: scenario.reports[0] ?? null,
+      markdownPreview: scenario.markdownPreview,
+      loadingFindings: false,
+      loadingReports: false,
+    });
+    const checks = new Map(consistency.checks.map((check) => [check.id, check.status]));
+    expect(consistency.status, `${scenario.key} consistency`).toBe(scenario.expected.consistencyStatus);
+    expect(consistency.canonicalTotal, `${scenario.key} canonical total`).toBe(scenario.expected.canonicalTotal);
+    expect(consistency.runSummaryTotal, `${scenario.key} run summary total`).toBe(scenario.expected.runLocalTotal);
+    expect(checks.get('report-catalog'), `${scenario.key} report catalog`).toBe(scenario.expected.reportCatalogCheck);
+    expect(checks.get('report-preview'), `${scenario.key} report preview`).toBe(scenario.expected.previewCheck);
+    expect(checks.get('evidence-links'), `${scenario.key} evidence links`).toBe(scenario.expected.evidenceLinksCheck);
+
+    for (const requiredText of scenario.expected.requiredPreviewText) {
+      expect(scenario.markdownPreview, `${scenario.key} required preview text`).toContain(requiredText);
+    }
+    for (const forbiddenText of scenario.expected.forbiddenPreviewText) {
+      expect(scenario.markdownPreview, `${scenario.key} forbidden preview text`).not.toContain(forbiddenText);
+    }
+  }
 });
 
 test('Dashboard renders portfolio data from mocked v2 API contracts', async ({ page }) => {
@@ -1787,6 +1826,33 @@ test('Report Center masks raw provider briefing failures', async ({ page }) => {
   }
 });
 
+test('Report Center flags the named M7 contradictory score fixture before export', async ({ page }) => {
+  const scenario = reportEvidenceScenarios.blocked_contradictory_score;
+  await page.unroute('**/api/v1/**');
+  await installApiFixtures(page, {
+    primaryRun: scenario.run,
+    primaryTasks: scenario.tasks,
+    primaryFindings: scenario.findings,
+    reports: scenario.reports,
+    reportMarkdown: scenario.markdownPreview,
+    primaryOnly: true,
+  });
+
+  await page.goto('/app-v2/reports');
+
+  const consistencyPanel = page.getByLabel('Cross-surface truth consistency');
+  await expect(consistencyPanel).toContainText('Report truth needs review');
+  await expect(consistencyPanel).toContainText('Catalog mismatch');
+  await expect(consistencyPanel).toContainText('0 findings');
+  await expect(consistencyPanel).toContainText('2 findings');
+
+  await page.getByRole('button', { name: 'Markdown Preview' }).click();
+  await expect(consistencyPanel).toContainText('Markdown preview claims a different finding count');
+  await expect(consistencyPanel).toContainText('2 preview');
+  await expect(page.getByText('Canonical Findings: 2')).toBeVisible();
+  await expect(page.getByRole('main')).not.toContainText('customer-ready final report');
+});
+
 test('Research masks raw API failures and keeps recovery copy visible', async ({ page }) => {
   await installApiFixtures(page, {
     researchFailure: {
@@ -2042,17 +2108,9 @@ test('Dashboard sparse payload renders without crash and key metrics are accessi
   }
 });
 
-type FixtureRun =
-  | typeof run
-  | typeof chainReasoningRun
-  | typeof runningRun
-  | typeof queuedRun
-  | typeof queuedSignalRun
-  | typeof observedOnlyRun
-  | typeof evidenceChainRun
-  | typeof completedErrorNoFindingRun;
-type FixtureTask = (typeof tasks)[number];
-type FixtureFinding = ReturnType<typeof finding>;
+type FixtureRun = Omit<Run, 'assessment_chain'> & { assessment_chain: Run['assessment_chain'] | null };
+type FixtureTask = Task & { fixture_stdout_text?: string };
+type FixtureFinding = Finding;
 
 interface ApiFixtureOptions {
   dashboard?: ReturnType<typeof dashboardPayload>;
@@ -2060,6 +2118,8 @@ interface ApiFixtureOptions {
   primaryRun?: FixtureRun;
   primaryTasks?: FixtureTask[];
   primaryFindings?: FixtureFinding[];
+  reports?: RunReportCatalogItem[];
+  reportMarkdown?: string;
   primaryOnly?: boolean;
   problems?: ReturnType<typeof problemsPayload>;
   researchFailure?: {
@@ -2072,6 +2132,8 @@ async function installApiFixtures(page: Page, options: ApiFixtureOptions = {}) {
   const primaryRun = options.primaryRun ?? run;
   const primaryTasks = options.primaryTasks ?? tasks;
   const primaryFindings = options.primaryFindings ?? findings;
+  const primaryReports = options.reports ?? reportCatalogFor(primaryRun, primaryFindings);
+  const primaryReportMarkdown = options.reportMarkdown ?? null;
   const primaryChainId = chainIdFromFixtureRun(primaryRun);
   const fixtureRuns = uniqueRuns(options.primaryOnly ? [primaryRun] : [primaryRun, run, chainReasoningRun, runningRun, queuedRun]);
 
@@ -2120,9 +2182,9 @@ async function installApiFixtures(page: Page, options: ApiFixtureOptions = {}) {
         briefing: options.briefing ?? `Report is ready for review with ${primaryFindings.length} canonical findings and stored evidence.`,
       });
     }
-    if (method === 'GET' && path === `/api/v1/runs/${primaryRun.id}/reports`) return json(route, reportCatalogFor(primaryRun, primaryFindings));
+    if (method === 'GET' && path === `/api/v1/runs/${primaryRun.id}/reports`) return json(route, primaryReports);
     if (method === 'GET' && path === `/api/v1/runs/${primaryRun.id}/report`) {
-      return markdown(route, reportMarkdownFor(primaryRun, primaryFindings, url.searchParams.get('variant')));
+      return markdown(route, primaryReportMarkdown ?? reportMarkdownFor(primaryRun, primaryFindings, url.searchParams.get('variant')));
     }
     if (primaryRun.id !== run.id && method === 'GET' && path === `/api/v1/runs/${run.id}/briefing`) {
       return json(route, {

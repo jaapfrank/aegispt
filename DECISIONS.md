@@ -159,6 +159,21 @@ Future work must integrate with those foundations rather than redefining them.
   Queue visible, and move attack-path/story/live-event/technical detail behind
   a drilldown until the operator asks for it.
 
+## React V2 Report/Evidence Fixture Matrix Contract (2026-06-04)
+
+- UI/reporting tests that assert reportability, evidence truth, canonical
+  finding totals, run-local summaries, report-preview counts, and untested-scope
+  boundaries should prefer named scenarios from the M7
+  `reportEvidenceScenarioMatrix`.
+- The required baseline scenarios are: observed output with no persisted
+  finding, run-local signal without canonical persistence,
+  verified-and-persisted finding, blocked contradictory score/report-catalog
+  state, and management output that names untested scope without claiming it as
+  tested.
+- New report/evidence UI changes should add to this matrix when they introduce
+  a new truth boundary, instead of embedding one-off fixture objects that drift
+  from Report Center, Evidence Replay, Mission Control, and Findings behavior.
+
 ## React V2 Evidence Replay Timeline Contract (2026-06-03)
 
 - Evidence Replay's first viewport should be timeline-first: the selected

@@ -2,7 +2,7 @@
 
 Date: 2026-06-01
 Owner: Codex
-Status: W1-W8 complete; W6A operator-presence spine, context-aware spine, Mission Control operator deck, attack-map visible timing, attack-map pan/zoom, selected-run binding, full-path findings, live-activity, Live CLI command-output, and Mission Control 4k/125 single-Live-CLI density repairs complete; M1 app shell split complete; M2 store slice split complete; M3 API domain client split complete; M4 report truth view-model adapter complete; M5 report render-utils, lifecycle, metadata, and model-utils extraction slices complete; M6 management decision facts, attack-map/technique story, management report story/remediation, and report-draft payload complete; M8 cross-surface consistency checker complete; UX1 trust-breaking state repair, UX2 shared page experience contract, UX3 Mission Control living cockpit, UX4 attack path truth map v2, UX5 Evidence Replay timeline, UX6 Findings/Problems triage board, UX7 Management report export proof, UX8 light mode/theme tokenization, UX8 readability repair, UX1 post-UX8 trust-state recheck, UX1 2026-06-04 trust-state recheck, and Mission Control 4k/125 single-Live-CLI density repair complete; UX8 remains worklist-only and is not promoted to `NEXT_TASK.md`
+Status: W1-W8 complete; W6A operator-presence spine, context-aware spine, Mission Control operator deck, attack-map visible timing, attack-map pan/zoom, selected-run binding, full-path findings, live-activity, Live CLI command-output, and Mission Control 4k/125 single-Live-CLI density repairs complete; M1 app shell split complete; M2 store slice split complete; M3 API domain client split complete; M4 report truth view-model adapter complete; M5 report render-utils, lifecycle, metadata, and model-utils extraction slices complete; M6 management decision facts, attack-map/technique story, management report story/remediation, and report-draft payload complete; M7 report/evidence fixture pack complete; M8 cross-surface consistency checker complete; UX1 trust-breaking state repair, UX2 shared page experience contract, UX3 Mission Control living cockpit, UX4 attack path truth map v2, UX5 Evidence Replay timeline, UX6 Findings/Problems triage board, UX7 Management report export proof, UX8 light mode/theme tokenization, UX8 readability repair, UX1 post-UX8 trust-state recheck, UX1 2026-06-04 trust-state recheck, and Mission Control 4k/125 single-Live-CLI density repair complete; UX8 remains worklist-only and is not promoted to `NEXT_TASK.md`
 
 ## Purpose
 
@@ -1489,6 +1489,12 @@ Why safe:
 
 ### M7 — Add report/evidence fixture pack for UI tests
 
+Status: Complete on 2026-06-04 for named report/evidence truth scenarios.
+
+Validation artifact:
+
+- `docs/validation/codex-ui-reporting-m7-report-evidence-fixture-pack-2026-06-04.md`
+
 Current state:
 
 - UI/report tests use fixtures, but consistency-focused named scenarios should
@@ -1506,6 +1512,14 @@ Safe target:
 Why safe:
 
 - lets us harden truth behavior before touching broad product flows
+
+2026-06-04 completion note: M7 is complete. React v2 tests now have a named
+`reportEvidenceScenarioMatrix` covering observed-only output, verified/signal
+without persistence, verified-and-persisted findings, contradictory
+score/report-catalog state, and management untested-scope exclusion. The matrix
+is asserted through run-truth and cross-surface view-models, and the
+contradictory-score scenario is routed through Report Center to prove export is
+blocked for review before customer-facing output.
 
 ### M8 — Build a cross-surface consistency checker
 

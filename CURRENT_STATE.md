@@ -1,5 +1,42 @@
 # Current State
 
+## Latest Continuation - Codex M7 report/evidence fixture pack complete (2026-06-04)
+
+Codex completed M7 from the Codex-owned UI/reporting worklist without promoting
+or editing `NEXT_TASK.md` and without touching Claude-owned score-lane/runtime
+files.
+
+M7 completed:
+
+- added `ui-v2/tests/fixtures/reportEvidenceScenarios.ts` as a named
+  report/evidence truth matrix instead of keeping consistency scenarios as
+  one-off inline objects inside the Playwright spec
+- covered observed output with no persisted finding, run-local signal without
+  canonical persistence, verified-and-persisted findings, contradictory
+  score/report-catalog state, and management untested-scope exclusion
+- wired the matrix through `buildRunTruthModel` and
+  `buildCrossSurfaceConsistency` so each scenario has explicit expected
+  canonical totals, run-local totals, report-catalog state, preview state, and
+  evidence-link state
+- added a Report Center UI regression proving the contradictory-score fixture
+  is flagged as review-required before export and does not become
+  customer-ready wording
+- kept the fixture pack inside React v2 UI/reporting tests only
+
+Validation artifact:
+`docs/validation/codex-ui-reporting-m7-report-evidence-fixture-pack-2026-06-04.md`.
+
+Validation completed:
+
+- `cd ui-v2 && npx eslint tests/react-v2-critical-paths.spec.ts tests/fixtures/reportEvidenceScenarios.ts`
+- `cd ui-v2 && npx tsc -b --pretty false`
+- `cd ui-v2 && npx playwright test tests/react-v2-critical-paths.spec.ts -g "M7 report and evidence fixture matrix|Report Center flags the named M7 contradictory score fixture|Report Center shows canonical report truth|Canonical consistency fixture"` (`4` passed)
+- `cd ui-v2 && npm test` (`44` passed, including i18n key parity)
+- `cd ui-v2 && npm run build` (passed; existing Vite chunk-size warning remains)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+- `git diff --name-only -- NEXT_TASK.md TASK_QUEUE.md api/app/services/assessment_loop.py api/app/services/assessment_loop_internals/guards.py api/app/services/m2_verdict_gate.py workers/orchestration/tasks.py workers/runners/interactive_exploit` (no output)
+
 ## Latest Continuation - Codex Mission Control single Live CLI repair complete (2026-06-04)
 
 Codex repaired the Mission Control first viewport after operator feedback from a
