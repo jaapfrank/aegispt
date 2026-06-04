@@ -501,6 +501,7 @@ def execute_playwright_web_validation(
     first_screenshot: bytes | None = None
     finding_count = 0
     failed_targets = 0
+    unreachable_targets = 0
 
     for target in normalized_targets:
         observation = _normalize_observation(
@@ -550,10 +551,25 @@ def execute_playwright_web_validation(
         finding_count += len(observation["findings"])
         if observation.get("status") == "failed":
             failed_targets += 1
+            # A target that is simply UNREACHABLE (connection refused / DNS / timeout)
+            # is NOT a tool failure — the target wasn't up on the probed port. Operator
+            # repeatedly flagged misleading FAILED rows; treat unreachable like the
+            # empty-script SKIP pattern so it does not surface as a hard failure.
+            _errs = " ".join(str(e) for e in (observation.get("errors") or [])).lower()
+            if any(tok in _errs for tok in (
+                "err_connection", "connection refused", "errno 111", "net::err",
+                "err_address", "err_name_not_resolved", "timeout", "err_aborted",
+                "econnrefused", "unreachable",
+            )):
+                unreachable_targets += 1
 
         target_results.append(observation)
 
-    status = "failed" if failed_targets == len(target_results) else "completed"
+    if target_results and failed_targets == len(target_results) and unreachable_targets == failed_targets:
+        # every target was merely unreachable -> SKIPPED, not FAILED.
+        status = "skipped"
+    else:
+        status = "failed" if failed_targets == len(target_results) else "completed"
     payload = {
         "status": status,
         "mode": normalized_mode,
@@ -608,7 +624,7 @@ def execute_playwright_web_validation(
 
     return RunnerExecution(
         tool="playwright-web",
-        exit_code=0 if status != "failed" else 1,
+        exit_code=(78 if status == "skipped" else (1 if status == "failed" else 0)),
         stdout=f"playwright-web {normalized_mode} validation completed for {len(target_results)} target(s); {finding_count} finding(s)",
         stderr="",
         metadata={

@@ -192,14 +192,30 @@ def execute_httpx_probe(
                 exit_code = 1
                 error_message = f"{request_url}: {exc}"
                 stderr_lines.append(error_message)
+                _etxt = str(exc).lower()
+                _unreachable = any(tok in _etxt for tok in (
+                    "connection refused", "errno 111", "econnrefused", "timed out",
+                    "timeout", "name or service not known", "no route to host",
+                    "connecterror", "connecttimeout", "readtimeout", "unreachable",
+                ))
                 results.append(
                     {
                         "input_target": target,
                         "request_url": request_url,
                         "ok": False,
                         "error": str(exc),
+                        "unreachable": _unreachable,
                     }
                 )
+
+    # A probe that only ever hit UNREACHABLE targets (connection refused / timeout —
+    # e.g. the service wasn't up yet on the probed port) is NOT a tool failure.
+    # Operator repeatedly flagged misleading FAILED rows; map all-unreachable to the
+    # exit_code=78 SKIPPED path (task.status=skipped) instead of a hard failure.
+    if exit_code == 1 and results and all(
+        (not r.get("ok")) and r.get("unreachable") for r in results
+    ):
+        exit_code = 78
 
     artifact_data = ("\n".join(json.dumps(result, sort_keys=True) for result in results) + "\n").encode()
     artifact = EvidenceArtifact(
@@ -215,7 +231,7 @@ def execute_httpx_probe(
         stdout=json.dumps({"results": results}, sort_keys=True),
         stderr="\n".join(stderr_lines),
         metadata={
-            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "status": ("ok" if exit_code == 0 else "skipped" if exit_code == 78 else "completed_with_errors"),
             "normalized_targets": normalized_targets,
             "rate_limit": rate_limit,
             "timeout_seconds": timeout_seconds,
