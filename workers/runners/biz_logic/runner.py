@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 import httpx as httpx_client
 
 from api.app.services.runs import target_value_is_allowed
+from workers.runners.base import http_probe
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 from workers.runners.httpx.runner import normalize_http_target
 
@@ -240,6 +241,7 @@ def execute_biz_logic_probe(
     seen_findings: set[tuple[str, str, str]] = set()
     stderr_lines: list[str] = []
     exit_code = 0
+    outcome = http_probe.ProbeOutcome()  # retry-on-unreachable + honest exit code
 
     with client_factory(
         follow_redirects=True,
@@ -262,14 +264,14 @@ def execute_biz_logic_probe(
                     )
                     _assert_probe_url_allowed(url, scope_allowlist)
                     try:
-                        authenticated = client.get(
+                        authenticated = outcome.run(lambda: client.get(
                             url,
                             headers=_auth_request_headers(auth_context),
                             auth=auth_context.get("basic_auth"),
-                        )
-                        unauthenticated = client.get(url, headers=_auth_request_headers(None))
+                        ))
+                        unauthenticated = outcome.run(lambda: client.get(
+                            url, headers=_auth_request_headers(None)))
                     except httpx_client.HTTPError as exc:
-                        exit_code = 1
                         stderr_lines.append(f"{url}: {exc}")
                         continue
 
@@ -317,13 +319,12 @@ def execute_biz_logic_probe(
                         )
                         _assert_probe_url_allowed(url, scope_allowlist)
                         try:
-                            response = client.get(
+                            response = outcome.run(lambda: client.get(
                                 url,
                                 headers=_auth_request_headers(auth_context),
                                 auth=auth_context.get("basic_auth"),
-                            )
+                            ))
                         except httpx_client.HTTPError as exc:
-                            exit_code = 1
                             stderr_lines.append(f"{url}: {exc}")
                             continue
 
@@ -375,13 +376,12 @@ def execute_biz_logic_probe(
                             )
                             _assert_probe_url_allowed(url, scope_allowlist)
                             try:
-                                response = client.get(
+                                response = outcome.run(lambda: client.get(
                                     url,
                                     headers=_auth_request_headers(auth_context),
                                     auth=auth_context.get("basic_auth"),
-                                )
+                                ))
                             except httpx_client.HTTPError as exc:
-                                exit_code = 1
                                 stderr_lines.append(f"{url}: {exc}")
                                 continue
 
@@ -437,13 +437,12 @@ def execute_biz_logic_probe(
                             )
                             _assert_probe_url_allowed(url, scope_allowlist)
                             try:
-                                response = client.get(
+                                response = outcome.run(lambda: client.get(
                                     url,
                                     headers=_auth_request_headers(auth_context),
                                     auth=auth_context.get("basic_auth"),
-                                )
+                                ))
                             except httpx_client.HTTPError as exc:
-                                exit_code = 1
                                 stderr_lines.append(f"{url}: {exc}")
                                 continue
 
@@ -482,9 +481,16 @@ def execute_biz_logic_probe(
             ]
             probe_records.append(target_record)
 
+    # Honest status: target unreachable for every probe -> skipped (78), not
+    # FAILED; any real response -> completed even if some probes were refused.
+    exit_code = outcome.exit_code(exit_code)
     artifact_payload = {
         "tool": "biz-logic-probe",
-        "status": "ok" if exit_code == 0 else "completed_with_errors",
+        "status": (
+            "ok" if exit_code == 0
+            else "target_unreachable" if exit_code == http_probe.EX_TARGET_UNREACHABLE
+            else "completed_with_errors"
+        ),
         "targets": probe_records,
         "summary": {
             "finding_count": len(finding_records),
