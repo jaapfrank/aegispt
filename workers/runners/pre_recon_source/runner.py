@@ -369,7 +369,9 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
         "headless_arg_log": [],
         "required_result_values": [],
         "internal_gates": [],
+        "internal_endpoints": [],
     }
+    hits["internal_endpoints"] = _internal_endpoints_in_text(text, rel)
     lines = text.splitlines()
     for lineno, line in enumerate(lines, 1):
         for pattern, kind in LISTEN_PORT_PATTERNS:
@@ -428,6 +430,48 @@ def _scan_file(path: Path, root: Path) -> dict[str, list[dict[str, Any]]]:
     return hits
 
 
+_ROUTE_DECORATOR_RE = re.compile(
+    r"""@\w+\.route\s*\(\s*[\"']([^\"']+)[\"'](?:[^)]*?methods\s*=\s*(\[[^\]]*\]))?""",
+    re.IGNORECASE,
+)
+_REQ_PARAM_RE = re.compile(r"""request\.(?:args|form|values)\.get\s*\(\s*[\"']([\w-]+)[\"']""")
+_INTERNAL_GATE_IN_BLOCK_RE = re.compile(r"\bremote_addr\b|\bREMOTE_ADDR\b|\baccess_route\b")
+
+
+def _internal_endpoints_in_text(text: str, rel: str) -> list[dict[str, Any]]:
+    """Associate each localhost-gated (remote_addr) endpoint with its ROUTE + the
+    request params it reads — so the agent gets the FULL SSRF chain target
+    (e.g. GET /reset_password?username=&newpassword=) instead of guessing which
+    internal endpoint to hit. Block = lines from one @route decorator to the next."""
+    lines = text.splitlines()
+    blocks: list[tuple[str, str, list[str]]] = []
+    cur: tuple[str, str] | None = None
+    buf: list[str] = []
+    for ln in lines:
+        m = _ROUTE_DECORATOR_RE.search(ln)
+        if m:
+            if cur is not None:
+                blocks.append((cur[0], cur[1], buf))
+            cur = (m.group(1), m.group(2) or "")
+            buf = []
+        elif cur is not None:
+            buf.append(ln)
+    if cur is not None:
+        blocks.append((cur[0], cur[1], buf))
+    out: list[dict[str, Any]] = []
+    for route, methods, blk in blocks:
+        btext = "\n".join(blk)
+        if _INTERNAL_GATE_IN_BLOCK_RE.search(btext):
+            params = sorted(set(_REQ_PARAM_RE.findall(btext)))
+            out.append({
+                "file": rel,
+                "route": route,
+                "methods": (methods or "GET").strip("[]").replace("'", "").replace('"', "") or "GET",
+                "params": ", ".join(params) or "(none read via request.get)",
+            })
+    return out
+
+
 def _build_markdown(
     *,
     source_dir: str,
@@ -446,6 +490,7 @@ def _build_markdown(
     required_result_values: list[dict[str, Any]] | None = None,
     internal_gates: list[dict[str, Any]] | None = None,
     reflected_for_internal: list[dict[str, Any]] | None = None,
+    internal_endpoints: list[dict[str, Any]] | None = None,
 ) -> str:
     listen_ports = listen_ports or []
     gate_tokens = gate_tokens or []
@@ -454,6 +499,7 @@ def _build_markdown(
     reflected_inputs = reflected_inputs or []
     internal_gates = internal_gates or []
     reflected_for_internal = reflected_for_internal or []
+    internal_endpoints = internal_endpoints or []
     headless_arg_log = headless_arg_log or []
     required_result_values = required_result_values or []
     def _section(title: str, body: str) -> str:
@@ -536,22 +582,31 @@ def _build_markdown(
     # internal action — the multi-step lever the operator has long asked for.
     chain_body = ""
     if internal_gates:
+        ep_block = (
+            "**INTERNAL-ONLY ENDPOINT(S) — the exact SSRF target(s):**\n\n"
+            + _rows(internal_endpoints, "file", "route", "methods", "params")
+            + "\n\nEach row is gated to localhost (it returns 403 unless the request comes "
+              "from 127.0.0.1), so you cannot call it directly — but a server-side fetch "
+              "reaches it. Build the loopback URL FROM these columns, e.g. "
+              "`http://127.0.0.1/<route>?<param1>=<value>&<param2>=<value>` (use admin as the "
+              "target user where a username param is read).\n\n"
+            if internal_endpoints else
+            "(could not auto-associate the gate to a route — inspect the gate snippets + the "
+            "route inventory to find the localhost-gated endpoint and its params.)\n\n"
+        )
         chain_body = (
             "The source restricts one or more endpoints to LOCALHOST / a trusted IP (an "
             "internal-only access gate). Those endpoints are NOT reachable directly from "
             "outside — but a server-side fetch (SSRF) reaches them from INSIDE the container "
             "over loopback, and they are exactly where privileged actions live (admin / "
-            "password-reset / config). Internal-only access gate(s):\n\n"
+            "password-reset / config).\n\n"
+            + ep_block
+            + "**=> THE CHAIN: point an SSRF / server-side-fetch sink (see Dangerous Sinks) at "
+              "the internal endpoint over loopback** to invoke the privileged action (e.g. reset "
+              "the admin password), THEN authenticate with the resulting state change (log in as "
+              "that user / use the new session) and read the privileged page.\n\n"
+            "Localhost access gate(s) in source:\n\n"
             + _rows(internal_gates, "file", "line", "kind", "snippet")
-            + "\n\n**=> If a server-side-fetch / SSRF sink exists (see Dangerous Sinks), point it "
-              "at the internal-only endpoint over loopback** (e.g. "
-              "`http://127.0.0.1:<internal_port>/<route>?<params>`) to invoke the privileged "
-              "action, then use the resulting state change (a reset credential, a new session) "
-              "to authenticate as the privileged user.\n\n"
-            "Request parameter(s) the app reads (source-grepped — the inputs to supply, "
-            "including to the internal endpoint above):\n\n"
-            + _rows(reflected_for_internal or [{"note": "none auto-detected — see the route inventory"}],
-                    "file", "line", "kind", "param", "snippet")
         )
 
     body = (
@@ -642,6 +697,7 @@ def execute_pre_recon_source(
     headless_arg_log: list[dict[str, Any]] = []
     required_result_values: list[dict[str, Any]] = []
     internal_gates: list[dict[str, Any]] = []
+    internal_endpoints: list[dict[str, Any]] = []
     hashes_prefix: list[str] = []
 
     for path in files:
@@ -658,6 +714,7 @@ def execute_pre_recon_source(
         headless_arg_log.extend(hits.get("headless_arg_log", []))
         required_result_values.extend(hits.get("required_result_values", []))
         internal_gates.extend(hits.get("internal_gates", []))
+        internal_endpoints.extend(hits.get("internal_endpoints", []))
         try:
             with path.open("rb") as fh:
                 digest = hashlib.sha256(fh.read(FILE_READ_CAP_BYTES)).hexdigest()
@@ -682,6 +739,7 @@ def execute_pre_recon_source(
         required_result_values=required_result_values,
         internal_gates=internal_gates,
         reflected_for_internal=reflected_inputs,
+        internal_endpoints=internal_endpoints,
     )
 
     payload = {

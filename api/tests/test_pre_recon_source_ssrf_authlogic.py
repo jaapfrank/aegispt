@@ -92,6 +92,12 @@ def test_internal_only_endpoint_chain_surfaced(tmp_path: Path):
     assert "newpassword" in md and "username" in md  # the internal endpoint's params
     assert "reset_password" in md       # the route itself
     assert "ssrf-urlretrieve" in md     # the SSRF sink that can reach it
+    # the gate is ASSOCIATED to its route + params in one row (the exact SSRF target),
+    # not left for the agent to guess (it guessed /login,/admin before this).
+    assert "the exact SSRF target" in md
+    row = [ln for ln in md.splitlines() if "/reset_password" in ln and "GET" in ln]
+    assert row, "expected an associated route|methods|params row for /reset_password"
+    assert "newpassword" in row[0] and "username" in row[0]
 
 
 def test_no_internal_gate_no_chain_block(tmp_path: Path):
