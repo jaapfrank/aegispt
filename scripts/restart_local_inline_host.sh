@@ -120,6 +120,11 @@ pkill -f "uvicorn .*api.app.main:create_app.*--port ${PORT}" >/dev/null 2>&1 || 
 ensure_port_released "${PORT_RELEASE_SECONDS}"
 
 export PYTHONUNBUFFERED=1
+# Default picker/brain provider. chatgpt_oauth (gpt-5.4) is free via the Codex
+# subscription and does not run out of credits, unlike the Anthropic API key
+# (which got exhausted 2026-06-04 and stalled every run at the picker). Override
+# with AEGISPT_DEFAULT_LLM_MODEL to use a different default.
+export AEGISPT_DEFAULT_LLM_MODEL="${AEGISPT_DEFAULT_LLM_MODEL:-chatgpt_oauth}"
 export TASK_DISPATCH_MODE="${TASK_DISPATCH_MODE:-inline}"
 export INLINE_DISPATCH_BACKGROUND="${INLINE_DISPATCH_BACKGROUND:-true}"
 export RUNNER_TIMEOUT_SECONDS="${RUNNER_TIMEOUT_SECONDS:-60.0}"

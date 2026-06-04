@@ -41,7 +41,13 @@ from api.app.observability import traced
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_MODEL = "claude-opus-4-8"
+# Env-overridable so the whole system does not die when one provider runs out
+# of credits. Operator-reported 2026-06-04: the Anthropic API key was exhausted
+# (HTTP 400 "credit balance too low"), the default picker is Anthropic, so every
+# run stalled at the picker -> zombie-swept. Set AEGISPT_DEFAULT_LLM_MODEL to a
+# working provider (e.g. chatgpt_oauth = free gpt-5.4 via the Codex subscription)
+# to keep runs progressing without touching per-run config.
+DEFAULT_MODEL = (os.environ.get("AEGISPT_DEFAULT_LLM_MODEL", "") or "").strip() or "claude-opus-4-8"
 
 # Known provider configs the run-config can name. Operators can override
 # by passing an LLMProviderConfig directly.
