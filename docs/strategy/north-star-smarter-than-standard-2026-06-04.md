@@ -78,15 +78,24 @@ is already an adapter.
 - HONEST: training + maintaining a competitive local offensive model is a real ML program
   (data curation, fine-tune, eval, keep-current), not a one-shot. The foundation exists.
 
-#### S7 — Concrete BLACKWELL-NATIVE stack (operator-identified, 2026-06-04)
-GPU = RTX 5080 Laptop 16GB (Blackwell sm_120). llama.cpp's bleeding-edge sm_120 build is
-flaky; the right tools are Blackwell-native:
-- **SERVE: vLLM** (sm_120-native, OpenAI-compatible, agentic/high-concurrency = our exploit
-  loop). Install (no sudo, dedicated venv): `python -m venv vllm-venv; vllm-venv/bin/pip
-  install vllm` — pulls torch + the `nvidia-*-cu13` CUDA-13 stack + `gguf` (so it can load
-  our Qwen GGUF) + flashinfer/xgrammar. Serve OpenAI-compatible on :8801 → point
-  AEGISPT_LOCAL_LLM_URL there. NOTE: Qwen3.6 (qwen35 arch) is brand-new — verify vLLM
-  supports it; else use an HF AWQ/GPTQ 4-bit uncensored Qwen3 quant that fits 16GB.
+#### S7 — GPU serving SOLVED via DOCKER (2026-06-04) ✅
+GPU = RTX 5080 Laptop 16GB (Blackwell sm_120). **WORKING PATH: the official llama.cpp CUDA
+Docker image** `ghcr.io/ggml-org/llama.cpp:server-cuda`. Run `bash scripts/serve_local_llm_gpu.sh`
+(idempotent). Why this beats every other path tried:
+- Its CUDA build ships `ARCHS = ...,900,1200` → **arch 1200 = sm_120 = Blackwell** is baked in.
+  The pip `llama-cpp-python` wheel is arch 890 (Ada) → offloaded 0 layers; source-rebuild for
+  sm_120 was flaky (libggml-cpu.so install error; CUDA13+GCC13.3 compiler-id error). vLLM
+  could not load the GGUF (`architecture qwen35 not supported yet` — transformers loader lag).
+- The container **bundles its own CUDA** → host-CUDA-version is irrelevant (driver
+  forward-compat). This is the "Docker for clean maintenance / latest versions" the operator
+  asked for: no host toolchain, host-CUDA-agnostic, one image to update.
+- **PROVEN 2026-06-04:** 15.2GB VRAM offload (whole 12.9GB model + KV on GPU), ~30-36 tok/s
+  (vs ~2-4 CPU = ~10x), serves OpenAI-compatible on :8801 (= AEGISPT_LOCAL_LLM_URL). The
+  `local-qwen` adapter emits a valid JSON exploit action (SSRF→localhost reset chain) with
+  no refusal. Adapter fix: `enable_thinking:false` + `reasoning_content` fallback (Qwen3.6 is
+  a thinking variant that otherwise burns the token budget before emitting `content`).
+- vLLM/Unsloth remain the path for the *training* step (S7 deep / pillars 6-7 QLoRA), not
+  serving this GGUF today.
 - **TRAIN / keep-current (pillars 6-7): Unsloth** QLoRA on the Blackwell GPU. `pip install
   unsloth`; `FastLanguageModel.from_pretrained(model, load_in_4bit=True,
   full_finetuning=False)`, batch 2 / grad-accum 4 / rank 32, QLoRA on all linear layers. On
