@@ -20,7 +20,11 @@ MODELS_DIR="${AEGISPT_MODELS_DIR:-/home/administrator/.aegispt-tools/models}"
 GGUF_NAME="${AEGISPT_LOCAL_GGUF:-Qwen3.6-27B-NEO-CODE-HERE-2T-OT-IQ3_M.gguf}"
 HOST_PORT="${AEGISPT_LOCAL_LLM_PORT:-8801}"
 NGL="${AEGISPT_LOCAL_NGL:-99}"          # GPU layers (99 = all)
-CTX="${AEGISPT_LOCAL_CTX:-8192}"
+# 16384 ctx: the multi-step interactive-exploit loop accumulates the full
+# request/response transcript; 8192 overflowed at ~step 22 on XBEN-024. q8_0 KV
+# cache halves KV memory so 16384 fits the 16GB Blackwell GPU (~15.2GB used).
+CTX="${AEGISPT_LOCAL_CTX:-16384}"
+KV_TYPE="${AEGISPT_LOCAL_KV_TYPE:-q8_0}"
 
 # Already healthy? Done.
 if docker ps --filter "name=^${NAME}$" --filter "health=healthy" --format '{{.Names}}' | grep -q "${NAME}"; then
@@ -46,7 +50,8 @@ docker run -d --name "${NAME}" --gpus all --restart unless-stopped \
   "${IMAGE}" \
   -m "/models/${GGUF_NAME}" \
   --host 0.0.0.0 --port 8080 \
-  --n-gpu-layers "${NGL}" --ctx-size "${CTX}"
+  --n-gpu-layers "${NGL}" --ctx-size "${CTX}" \
+  --cache-type-k "${KV_TYPE}" --cache-type-v "${KV_TYPE}"
 
 echo "[serve_local_llm_gpu] launched ${NAME}; waiting for model load ..."
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
