@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from ipaddress import ip_address, ip_network
@@ -8,7 +9,11 @@ from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
-from workers.runners.httpx.runner import normalize_http_target
+from workers.runners.httpx.runner import (
+    _MAX_PROBE_RETRIES,
+    _PROBE_RETRY_BACKOFF_S,
+    normalize_http_target,
+)
 
 PLAYWRIGHT_WEB_RESULTS_ARTIFACT_NAME = "playwright-web-results.json"
 PLAYWRIGHT_WEB_NETWORK_ARTIFACT_NAME = "playwright-web-network.jsonl"
@@ -501,18 +506,34 @@ def execute_playwright_web_validation(
     first_screenshot: bytes | None = None
     finding_count = 0
     failed_targets = 0
-    unreachable_targets = 0
 
     for target in normalized_targets:
-        observation = _normalize_observation(
-            collect(
+        # The target may still be STARTING UP — retry on a transient unreachable
+        # (connection refused / timeout) so the probe actually succeeds instead of
+        # spuriously failing. Only a target that stays down after the retries is a
+        # genuine failure (which is then fed back to the picker for the next action).
+        _pw_attempt = 0
+        while True:
+            observation = _normalize_observation(
+                collect(
+                    target=target,
+                    auth_contexts=materialized_auth_contexts,
+                    proof_marker=proof_marker,
+                    timeout_seconds=timeout_seconds,
+                ),
                 target=target,
-                auth_contexts=materialized_auth_contexts,
-                proof_marker=proof_marker,
-                timeout_seconds=timeout_seconds,
-            ),
-            target=target,
-        )
+            )
+            _errs = " ".join(str(e) for e in (observation.get("errors") or [])).lower()
+            _unreachable = observation.get("status") == "failed" and any(tok in _errs for tok in (
+                "err_connection", "connection refused", "errno 111", "net::err",
+                "err_address", "err_name_not_resolved", "timeout", "err_aborted",
+                "econnrefused", "unreachable",
+            ))
+            if _unreachable and _pw_attempt < _MAX_PROBE_RETRIES:
+                _pw_attempt += 1
+                time.sleep(_PROBE_RETRY_BACKOFF_S)
+                continue
+            break
         screenshot = observation.pop("screenshot", None)
         dom = str(observation.get("dom") or "")
         if not first_dom and dom:
@@ -551,25 +572,14 @@ def execute_playwright_web_validation(
         finding_count += len(observation["findings"])
         if observation.get("status") == "failed":
             failed_targets += 1
-            # A target that is simply UNREACHABLE (connection refused / DNS / timeout)
-            # is NOT a tool failure — the target wasn't up on the probed port. Operator
-            # repeatedly flagged misleading FAILED rows; treat unreachable like the
-            # empty-script SKIP pattern so it does not surface as a hard failure.
-            _errs = " ".join(str(e) for e in (observation.get("errors") or [])).lower()
-            if any(tok in _errs for tok in (
-                "err_connection", "connection refused", "errno 111", "net::err",
-                "err_address", "err_name_not_resolved", "timeout", "err_aborted",
-                "econnrefused", "unreachable",
-            )):
-                unreachable_targets += 1
 
         target_results.append(observation)
 
-    if target_results and failed_targets == len(target_results) and unreachable_targets == failed_targets:
-        # every target was merely unreachable -> SKIPPED, not FAILED.
-        status = "skipped"
-    else:
-        status = "failed" if failed_targets == len(target_results) else "completed"
+    # 0 findings is NOT a failure — a probe that ran and reached the target is
+    # "completed" even with no findings. "failed" only when EVERY target stayed
+    # unreachable AFTER the retries above (a genuine target-down outcome, which the
+    # loop feeds back to the picker for the next action).
+    status = "failed" if (target_results and failed_targets == len(target_results)) else "completed"
     payload = {
         "status": status,
         "mode": normalized_mode,
@@ -624,7 +634,7 @@ def execute_playwright_web_validation(
 
     return RunnerExecution(
         tool="playwright-web",
-        exit_code=(78 if status == "skipped" else (1 if status == "failed" else 0)),
+        exit_code=0 if status != "failed" else 1,
         stdout=f"playwright-web {normalized_mode} validation completed for {len(target_results)} target(s); {finding_count} finding(s)",
         stderr="",
         metadata={

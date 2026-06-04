@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Mapping
 from hashlib import sha256
 from html.parser import HTMLParser
@@ -23,6 +24,10 @@ _PASSIVE_HEADER_NAMES = {
 _JWT_PATTERN = re.compile(r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$")
 _SERIALIZED_COOKIE_MARKERS = ("rO0", "O%3A", "a%3A", "gAS")
 _BODY_EXCERPT_LIMIT = 8192
+# Recon probes run before the target container is guaranteed ready; a transient
+# connection-refused is not a failure. Wait + retry so the probe actually succeeds.
+_MAX_PROBE_RETRIES = 3
+_PROBE_RETRY_BACKOFF_S = 2.0
 
 
 class _PassiveHtmlSignalsParser(HTMLParser):
@@ -164,58 +169,66 @@ def execute_httpx_probe(
             request_url = normalize_http_target(target)
             normalized_targets.append(request_url)
 
-            try:
-                response = client.get(request_url)
-                body_bytes = response.content
-                excerpt = _body_excerpt(body_bytes)
-                html_signals = _passive_html_signals(excerpt, str(response.url))
-                results.append(
-                    {
-                        "input_target": target,
-                        "request_url": request_url,
-                        "final_url": str(response.url),
-                        "status_code": response.status_code,
-                        "reason_phrase": response.reason_phrase,
-                        "content_type": response.headers.get("content-type"),
-                        "content_length": len(body_bytes),
-                        "body_sha256": sha256(body_bytes).hexdigest(),
-                        "body_excerpt": excerpt,
-                        "body_truncated": len(body_bytes) > _BODY_EXCERPT_LIMIT,
-                        "response_headers": _passive_response_headers(response.headers),
-                        "cookies": _passive_cookie_signals(response.headers),
-                        "forms": html_signals["forms"],
-                        "links": html_signals["links"],
-                        "ok": True,
-                    }
-                )
-            except httpx_client.HTTPError as exc:
-                exit_code = 1
-                error_message = f"{request_url}: {exc}"
-                stderr_lines.append(error_message)
-                _etxt = str(exc).lower()
-                _unreachable = any(tok in _etxt for tok in (
-                    "connection refused", "errno 111", "econnrefused", "timed out",
-                    "timeout", "name or service not known", "no route to host",
-                    "connecterror", "connecttimeout", "readtimeout", "unreachable",
-                ))
-                results.append(
-                    {
-                        "input_target": target,
-                        "request_url": request_url,
-                        "ok": False,
-                        "error": str(exc),
-                        "unreachable": _unreachable,
-                    }
-                )
-
-    # A probe that only ever hit UNREACHABLE targets (connection refused / timeout —
-    # e.g. the service wasn't up yet on the probed port) is NOT a tool failure.
-    # Operator repeatedly flagged misleading FAILED rows; map all-unreachable to the
-    # exit_code=78 SKIPPED path (task.status=skipped) instead of a hard failure.
-    if exit_code == 1 and results and all(
-        (not r.get("ok")) and r.get("unreachable") for r in results
-    ):
-        exit_code = 78
+            # The target service may still be STARTING UP — a run dispatches recon
+            # before the container is fully ready, so a connection-refused/timeout is
+            # almost always transient. WAIT and RETRY instead of failing spuriously:
+            # if it comes up the probe succeeds (honest "completed"). Only a target
+            # that stays down after the retries is a genuine failure. (Operator: don't
+            # relabel a real execution as 'skipped' — make it actually work.)
+            _attempt = 0
+            while True:
+                try:
+                    response = client.get(request_url)
+                    body_bytes = response.content
+                    excerpt = _body_excerpt(body_bytes)
+                    html_signals = _passive_html_signals(excerpt, str(response.url))
+                    results.append(
+                        {
+                            "input_target": target,
+                            "request_url": request_url,
+                            "final_url": str(response.url),
+                            "status_code": response.status_code,
+                            "reason_phrase": response.reason_phrase,
+                            "content_type": response.headers.get("content-type"),
+                            "content_length": len(body_bytes),
+                            "body_sha256": sha256(body_bytes).hexdigest(),
+                            "body_excerpt": excerpt,
+                            "body_truncated": len(body_bytes) > _BODY_EXCERPT_LIMIT,
+                            "response_headers": _passive_response_headers(response.headers),
+                            "cookies": _passive_cookie_signals(response.headers),
+                            "forms": html_signals["forms"],
+                            "links": html_signals["links"],
+                            "ok": True,
+                            "retries": _attempt,
+                        }
+                    )
+                    break
+                except httpx_client.HTTPError as exc:
+                    _etxt = str(exc).lower()
+                    _unreachable = any(tok in _etxt for tok in (
+                        "connection refused", "errno 111", "econnrefused", "timed out",
+                        "timeout", "name or service not known", "no route to host",
+                        "connecterror", "connecttimeout", "readtimeout", "unreachable",
+                    ))
+                    if _unreachable and _attempt < _MAX_PROBE_RETRIES:
+                        _attempt += 1
+                        time.sleep(_PROBE_RETRY_BACKOFF_S)
+                        continue  # target may still be coming up — wait + retry
+                    exit_code = 1
+                    stderr_lines.append(
+                        f"{request_url}: {exc}" + (f" (after {_attempt} retries)" if _attempt else "")
+                    )
+                    results.append(
+                        {
+                            "input_target": target,
+                            "request_url": request_url,
+                            "ok": False,
+                            "error": str(exc),
+                            "unreachable": _unreachable,
+                            "retries": _attempt,
+                        }
+                    )
+                    break
 
     artifact_data = ("\n".join(json.dumps(result, sort_keys=True) for result in results) + "\n").encode()
     artifact = EvidenceArtifact(
@@ -231,7 +244,7 @@ def execute_httpx_probe(
         stdout=json.dumps({"results": results}, sort_keys=True),
         stderr="\n".join(stderr_lines),
         metadata={
-            "status": ("ok" if exit_code == 0 else "skipped" if exit_code == 78 else "completed_with_errors"),
+            "status": "ok" if exit_code == 0 else "completed_with_errors",
             "normalized_targets": normalized_targets,
             "rate_limit": rate_limit,
             "timeout_seconds": timeout_seconds,
