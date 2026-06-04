@@ -58,6 +58,43 @@ unexpected chains). Hard; measured on real apps with non-standard flaws, not XBO
 Close the loop: ingest the latest CVEs/0-days, derive test payloads, run them, keep current.
 Builds on the existing CVE feed.
 
+### S7 — Controllable (uncensored) model — the refusal-ceiling fix  [strategic foundation]
+Operator (2026-06-04, correct): ChatGPT/Claude REFUSE offensive work (we hit
+`policy_refusal` on XBEN-024). With only commercial models we always lag + are gagged; a
+licence from OpenAI/Anthropic is unlikely (Trusted-Access pending). The sound foundation is
+a CONTROLLABLE model we own + keep current. Architecture ALREADY supports it: the
+interactive-exploit adapter layer is provider-agnostic (make_adapter), `AEGISPT_LOCAL_LLM_URL`
+(:8801) is wired, and DeepSeek (less-censored, OpenAI-compatible, key in ~/.aegispt-secrets)
+is already an adapter.
+- NOW (bridge): run the exploit loop on DeepSeek — far less refusal than gpt-5.5, available
+  today, no training needed.
+- DEEP: a local fine-tuned 7-14B (Qwen/Llama / a security-tuned model) at :8801, trained on
+  curated offensive data (CVE/0-day PoCs, ExploitDB, Metasploit modules, write-ups).
+- CURRENCY (pillars 6-7): RAG over a CVE/exploit knowledge base is FASTER than retraining —
+  inject the latest exploit knowledge into context; fine-tune for the deeper step.
+- ARCHITECTURE: HYBRID — strong commercial model for general reasoning/planning (no refusal
+  there), local-uncensored model for the actual exploit-payload generation (where commercial
+  refuses). Best of both.
+- HONEST: training + maintaining a competitive local offensive model is a real ML program
+  (data curation, fine-tune, eval, keep-current), not a one-shot. The foundation exists.
+
+#### S7 — Concrete BLACKWELL-NATIVE stack (operator-identified, 2026-06-04)
+GPU = RTX 5080 Laptop 16GB (Blackwell sm_120). llama.cpp's bleeding-edge sm_120 build is
+flaky; the right tools are Blackwell-native:
+- **SERVE: vLLM** (sm_120-native, OpenAI-compatible, agentic/high-concurrency = our exploit
+  loop). Install (no sudo, dedicated venv): `python -m venv vllm-venv; vllm-venv/bin/pip
+  install vllm` — pulls torch + the `nvidia-*-cu13` CUDA-13 stack + `gguf` (so it can load
+  our Qwen GGUF) + flashinfer/xgrammar. Serve OpenAI-compatible on :8801 → point
+  AEGISPT_LOCAL_LLM_URL there. NOTE: Qwen3.6 (qwen35 arch) is brand-new — verify vLLM
+  supports it; else use an HF AWQ/GPTQ 4-bit uncensored Qwen3 quant that fits 16GB.
+- **TRAIN / keep-current (pillars 6-7): Unsloth** QLoRA on the Blackwell GPU. `pip install
+  unsloth`; `FastLanguageModel.from_pretrained(model, load_in_4bit=True,
+  full_finetuning=False)`, batch 2 / grad-accum 4 / rank 32, QLoRA on all linear layers. On
+  16GB realistically an 8-14B base (5090/32GB does up to 40B). Fine-tune on curated
+  CVE/0-day/exploit/write-up data; deploy the LoRA via vLLM. Source: NVIDIA "Train an LLM on
+  a Blackwell Desktop with Unsloth" + r/Pentesting local-LLM thread.
+- Other Blackwell engines (heavier): TensorRT-LLM (MXFP8/MXFP4), NVIDIA Dynamo.
+
 ## Discipline
 - BLACK-BOX is the honest test of "smart" (no source crutch). Diverse REAL apps, dedicated
   IPs (memory feedback_local_test_dedicated_ip), never the standard-vuln source-surfacing path.
