@@ -56,6 +56,21 @@ lora = LoraConfig(
 model = get_peft_model(model, lora)
 model.print_trainable_parameters()
 
+# LoRA+ (Hayou et al. 2024): give the LoRA B matrices a higher LR than the A
+# matrices (ratio ~16) -> faster, more stable convergence. ORTHOGONAL to DoRA
+# (DoRA = adapter architecture, LoRA+ = optimizer LR setting) — combine both for
+# DoRA's precision + LoRA+'s stable convergence. Toggle
+# AEGISPT_TRAIN_LORAPLUS_RATIO=0 to disable.
+import bitsandbytes as _bnb  # noqa: E402
+from peft.optimizers import create_loraplus_optimizer  # noqa: E402
+_lp_ratio = float(os.environ.get("AEGISPT_TRAIN_LORAPLUS_RATIO", "16") or "16")
+_loraplus_opt = None
+if _lp_ratio > 0:
+    _loraplus_opt = create_loraplus_optimizer(
+        model, _bnb.optim.PagedAdamW8bit, lr=2e-4, loraplus_lr_ratio=_lp_ratio)
+    print(f"[qlora] LoRA+ enabled (B/A lr ratio={_lp_ratio})", flush=True)
+_optimizers = (_loraplus_opt, None) if _loraplus_opt is not None else (None, None)
+
 ds = load_dataset("json", data_files=DATA, split="train")
 
 
@@ -73,11 +88,11 @@ args = TrainingArguments(
 )
 
 try:
-    trainer = SFTTrainer(model=model, args=args, train_dataset=ds,
+    trainer = SFTTrainer(model=model, args=args, train_dataset=ds, optimizers=_optimizers,
                          processing_class=tok, max_seq_length=2048, dataset_text_field="text")
 except TypeError:
     # trl API drift across versions — fall back to the minimal signature.
-    trainer = SFTTrainer(model=model, args=args, train_dataset=ds)
+    trainer = SFTTrainer(model=model, args=args, train_dataset=ds, optimizers=_optimizers)
 
 print("[qlora] training ...", flush=True)
 trainer.train()

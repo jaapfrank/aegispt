@@ -41,10 +41,15 @@ specialist agents; the provider-agnostic adapter layer), not a rewrite.
 
 ## REFINEMENTS — evolve within the core (these are NOT new stories)
 
-- **Method: QLoRA → QDoRA** (`use_dora=True`; NVIDIA/ICML-2024). +3-4 pts over
-  LoRA, less hyperparameter-sensitive, zero inference overhead. Toggle
-  `AEGISPT_TRAIN_USE_DORA` → if it has a 4-bit/Blackwell compat issue, fall back
-  to QLoRA WITHOUT changing the plan (the data approach is method-agnostic).
+- **Method: QLoRA → QDoRA + LoRA+** (combined — they are orthogonal). DoRA
+  (`use_dora=True`; NVIDIA/ICML-2024) = adapter ARCHITECTURE (decompose weight
+  into magnitude+direction): +3-4 pts over LoRA, less hyperparameter-sensitive,
+  zero inference overhead. LoRA+ (Hayou et al. 2024) = OPTIMIZER setting (B
+  matrices get ~16x the A matrices' LR via `create_loraplus_optimizer`): faster,
+  more stable convergence. Combining = DoRA's precision + LoRA+'s stable LR
+  (operator tip 2026-06-04). Both are toggles (`AEGISPT_TRAIN_USE_DORA`,
+  `AEGISPT_TRAIN_LORAPLUS_RATIO`) → if either has a 4-bit/Blackwell compat issue,
+  fall back WITHOUT changing the plan (the data approach is method-agnostic).
 - **Later layer: RL** (à la Pentest-R1) on top of the SFT curriculum — additive,
   not a pivot.
 - **Dataset growth**: synthetic curriculum + open CoT datasets
