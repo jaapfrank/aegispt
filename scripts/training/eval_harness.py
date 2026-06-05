@@ -14,7 +14,13 @@ Prints a per-family + overall scorecard. With --gate-vs <prev_scores.json> it
 returns exit 1 if the new adapter does NOT beat the previous on overall score
 (the eval gate: only promote an adapter that is measurably better).
 
+  # in-process transformers backend (slow, DoRA-generate on the 5080):
   AEGISPT_EVAL_ADAPTER=/path/to/adapter python eval_harness.py --per-family 50
+
+  # FAST HTTP backend — point at a running llama.cpp/OpenAI-compat server that
+  # already serves the model/merged-adapter under test (no torch, no GPU here):
+  AEGISPT_EVAL_ENDPOINT=http://127.0.0.1:8801/v1/chat/completions \
+    python eval_harness.py --per-family 50
 """
 from __future__ import annotations
 
@@ -22,15 +28,17 @@ import argparse
 import json
 import os
 import re
+import urllib.request
 from pathlib import Path
-
-import torch
-from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 DIR = Path.home() / ".aegispt-tools" / "training"
 BASE = os.environ.get("AEGISPT_EVAL_BASE", "mlabonne/Qwen3-8B-abliterated")
 ADAPTER = os.environ.get("AEGISPT_EVAL_ADAPTER", "")
+# When set, the harness becomes a thin HTTP client to an OpenAI-compatible
+# /v1/chat/completions server (llama.cpp on our Blackwell image) — fast, and it
+# imports no torch/peft (those load lazily only for the transformers backend).
+ENDPOINT = os.environ.get("AEGISPT_EVAL_ENDPOINT", "")
+MODEL_NAME = os.environ.get("AEGISPT_EVAL_MODEL", "local")
 TEST_SETS = {
     "full_coverage": "aegispt_full_coverage_dora_loraplus_unsloth_test.jsonl",
     "open_corpus": "aegispt_open_corpus_iter3_test.jsonl",
@@ -90,27 +98,67 @@ def score_one(pred_text: str, gt_text: str, meta: dict) -> dict:
     return s
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--per-family", type=int, default=50)
-    ap.add_argument("--out", default=str(DIR / "eval_scores.json"))
-    ap.add_argument("--gate-vs", default="")
-    args = ap.parse_args()
-    if not ADAPTER:
-        raise SystemExit("set AEGISPT_EVAL_ADAPTER")
+def gen_http(prompt_msgs, endpoint: str, max_new_tokens: int = 640) -> str:
+    """Generate via an OpenAI-compatible chat endpoint (server applies the chat
+    template, so we send raw messages). Greedy: temperature 0."""
+    body = json.dumps({
+        "model": MODEL_NAME,
+        "messages": prompt_msgs,
+        "max_tokens": max_new_tokens,
+        "temperature": 0,
+        "stream": False,
+    }).encode()
+    req = urllib.request.Request(endpoint, data=body,
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        data = json.loads(r.read().decode())
+    return data["choices"][0]["message"]["content"]
+
+
+def load_transformers_backend():
+    """Lazy: only import torch/peft/transformers when NOT using the HTTP backend."""
+    import torch
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
     tok = AutoTokenizer.from_pretrained(BASE)
     bnb = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
                              bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_use_double_quant=True)
     model = AutoModelForCausalLM.from_pretrained(BASE, quantization_config=bnb, device_map={"": 0},
                                                  torch_dtype=torch.bfloat16)
-    # ADAPTER=base|none -> evaluate the UN-TRAINED base (the "before" baseline)
     if ADAPTER.lower() not in {"base", "none", ""}:
         model = PeftModel.from_pretrained(model, ADAPTER)
         print(f"adapter: {ADAPTER}", flush=True)
     else:
         print("adapter: (BASE — un-trained baseline)", flush=True)
     model.eval()
+
+    def gen(prompt_msgs):
+        text = tok.apply_chat_template(prompt_msgs, tokenize=False, add_generation_prompt=True)
+        ids = tok(text, return_tensors="pt", truncation=True, max_length=3072).to("cuda")
+        with torch.no_grad():
+            out = model.generate(**ids, max_new_tokens=640, do_sample=False,
+                                 temperature=None, top_p=None, pad_token_id=tok.eos_token_id)
+        return tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)
+
+    return gen
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--per-family", type=int, default=50)
+    ap.add_argument("--out", default=str(DIR / "eval_scores.json"))
+    ap.add_argument("--gate-vs", default="")
+    args = ap.parse_args()
+    # Backend: HTTP (fast, server-side inference) if AEGISPT_EVAL_ENDPOINT is set,
+    # else the in-process transformers backend (loads base+adapter on the GPU).
+    if ENDPOINT:
+        print(f"backend: HTTP {ENDPOINT} (model={MODEL_NAME})", flush=True)
+        gen = lambda pm: gen_http(pm, ENDPOINT)
+    else:
+        if not ADAPTER:
+            raise SystemExit("set AEGISPT_EVAL_ADAPTER (or AEGISPT_EVAL_ENDPOINT for the HTTP backend)")
+        gen = load_transformers_backend()
 
     overall = {"schema_ok": 0, "action_match": 0, "evidence_ok": 0, "safety_ok": 0, "n": 0}
     per_family = {}
@@ -128,12 +176,7 @@ def main():
                 cut -= 1
             prompt_msgs = msgs[:cut]
             gt = _ground_truth(msgs)
-            text = tok.apply_chat_template(prompt_msgs, tokenize=False, add_generation_prompt=True)
-            ids = tok(text, return_tensors="pt", truncation=True, max_length=3072).to("cuda")
-            with torch.no_grad():
-                out = model.generate(**ids, max_new_tokens=640, do_sample=False,
-                                     temperature=None, top_p=None, pad_token_id=tok.eos_token_id)
-            pred = tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)
+            pred = gen(prompt_msgs)
             sc = score_one(pred, gt, d.get("metadata", {}))
             for k in ("schema_ok", "action_match", "evidence_ok", "safety_ok"):
                 agg[k] += sc[k]; overall[k] += sc[k]
