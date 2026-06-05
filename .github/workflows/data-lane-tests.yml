@@ -1,0 +1,38 @@
+name: data-lane-tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/data-lane-tests.yml"
+      - "codex/results/aegispt-data-lane-iter5-claude-handoff-*"
+      - "docs/training/**"
+      - "scripts/run_data_lane_tests.sh"
+      - "scripts/tests/test_*dataset*.py"
+      - "scripts/tests/test_claude_data_lane_handoff.py"
+      - "scripts/tests/test_data_lane_lab_llmsvs_dedup.py"
+      - "scripts/tests/test_duplicate_triage_llmsvs_score.py"
+      - "scripts/tests/test_llmsvs_requests_readiness.py"
+      - "scripts/tests/test_training_exclusions_curated_mix.py"
+      - "scripts/training/export_llmsvs_prediction_requests_iter5.py"
+      - "scripts/training/make_*dataset*.py"
+      - "scripts/training/make_*iter5.py"
+      - "scripts/training/make_*iter6.py"
+      - "scripts/training/open_source_corpus_registry.json"
+      - "scripts/training/score_llmsvs_adversarial_eval_iter5.py"
+  workflow_dispatch:
+
+jobs:
+  data-lane-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/dev.txt
+      - name: Run data-lane tests
+        run: bash scripts/run_data_lane_tests.sh

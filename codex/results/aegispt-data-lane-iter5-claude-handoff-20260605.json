@@ -1,0 +1,516 @@
+{
+  "artifact_count": 15,
+  "artifacts": [
+    {
+      "dataset": "aegispt_full_coverage_dora_loraplus_unsloth",
+      "key": "full_coverage_sft",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_full_coverage_dora_loraplus_unsloth_manifest.json",
+      "paths": null,
+      "policy": null,
+      "present": true,
+      "stats": null
+    },
+    {
+      "dataset": "aegispt_open_corpus_iter3",
+      "key": "open_corpus_iter3",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_open_corpus_iter3_manifest.json",
+      "paths": null,
+      "policy": {
+        "exploitdb_mode": "metadata_only",
+        "raw_poc_code": "not_read_or_written",
+        "runtime_mutation": false,
+        "train_eval_test_separated": true
+      },
+      "present": true,
+      "stats": null
+    },
+    {
+      "dataset": "aegispt_payload_capability_iter4",
+      "key": "payload_capability_iter4",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_payload_capability_iter4_manifest.json",
+      "paths": null,
+      "policy": {
+        "lab_only": true,
+        "raw_external_poc_dump": false,
+        "runtime_execution": false,
+        "train_eval_test_separated": true
+      },
+      "present": true,
+      "stats": null
+    },
+    {
+      "dataset": "aegispt_payload_negative_contrastive_iter4",
+      "key": "payload_negative_iter4",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_payload_negative_contrastive_iter4_manifest.json",
+      "paths": null,
+      "policy": {
+        "negative_examples_only": true,
+        "runtime_execution": false,
+        "train_eval_test_separated": true
+      },
+      "present": true,
+      "stats": null
+    },
+    {
+      "dataset": "aegispt_payload_dpo_iter4",
+      "key": "payload_dpo_iter4",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_payload_dpo_iter4_manifest.json",
+      "paths": null,
+      "policy": {
+        "runtime_execution": false,
+        "train_eval_test_separated": true
+      },
+      "present": true,
+      "stats": null
+    },
+    {
+      "dataset": "aegispt_payload_domain_extension_iter4",
+      "key": "payload_domain_extension_iter4",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_payload_domain_extension_iter4_manifest.json",
+      "paths": null,
+      "policy": {
+        "lab_only": true,
+        "no_credential_dumping": true,
+        "runtime_execution": false,
+        "train_eval_test_separated": true
+      },
+      "present": true,
+      "stats": null
+    },
+    {
+      "dataset": "aegispt_live_lab_target_specs_iter5",
+      "key": "live_lab_specs_iter5",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_live_lab_target_specs_iter5_manifest.json",
+      "paths": null,
+      "policy": {
+        "data_lane_only": true,
+        "materializes_targets": false,
+        "runtime_binding": false,
+        "runtime_execution": false
+      },
+      "present": true,
+      "stats": {
+        "classes": {
+          "ad_bloodhound_path_query_lab": 3,
+          "ad_kerberos_preauth_config_query": 3,
+          "ad_ldap_filter_injection_marker": 3,
+          "ad_smb_signing_relay_simulation": 3,
+          "api_mass_assignment": 3,
+          "cloud_iam_policy_simulation": 3,
+          "cloud_imds_mock_token_requirement": 3,
+          "cloud_kube_rbac_selfsubjectreview": 3,
+          "cloud_storage_public_list_marker": 3,
+          "command_injection_echo": 3,
+          "file_upload_benign_polyglot": 3,
+          "graphql_introspection": 3,
+          "idor_object_switch": 3,
+          "iot_modbus_read_device_id": 3,
+          "iot_mqtt_test_topic_marker": 3,
+          "iot_rtsp_options_probe": 3,
+          "iot_upnp_ssdp_probe": 3,
+          "jwt_unsigned_token_lab": 3,
+          "lan_mdns_ssdp_discovery_marker": 3,
+          "lan_segmentation_tcp_marker": 3,
+          "lan_smb_signing_config_probe": 3,
+          "lan_snmp_readonly_oid": 3,
+          "open_redirect_marker": 3,
+          "path_traversal_lab_file": 3,
+          "sqli_boolean": 3,
+          "sqli_union_marker": 3,
+          "ssrf_loopback_probe": 3,
+          "ssti_arithmetic_marker": 3,
+          "xss_reflected_marker": 3,
+          "xss_stored_marker": 3,
+          "xxe_lab_file_read": 3
+        },
+        "domains": {
+          "active_directory": 12,
+          "api": 12,
+          "cloud": 12,
+          "iot": 12,
+          "lan": 12,
+          "web": 33
+        },
+        "source_families": {
+          "aegispt_payload_capability_iter4": 45,
+          "aegispt_payload_domain_extension_iter4": 48
+        },
+        "target_count": 93
+      }
+    },
+    {
+      "dataset": "aegispt_llmsvs_adversarial_eval_iter5",
+      "key": "llmsvs_eval_iter5",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_llmsvs_adversarial_eval_iter5_manifest.json",
+      "paths": null,
+      "policy": {
+        "eval_only": true,
+        "fake_markers_only": true,
+        "runtime_execution": false,
+        "tool_calls_expected": false
+      },
+      "present": true,
+      "stats": {
+        "attack_categories": {
+          "direct_prompt_injection": 80,
+          "indirect_prompt_injection_tool_output": 80,
+          "insecure_tool_argument_injection": 80,
+          "mcp_tool_poisoning": 80,
+          "model_dos_unbounded_consumption": 80,
+          "rag_context_poisoning": 80,
+          "sensitive_info_disclosure": 80,
+          "system_prompt_leakage": 80,
+          "tool_misuse_excessive_agency": 80
+        },
+        "llmsvs_controls": {
+          "V2.16": 80,
+          "V2.8": 80,
+          "V4.2": 80,
+          "V4.3": 160,
+          "V4.6": 80,
+          "V5.10": 160,
+          "V5.11": 80,
+          "V5.12": 240,
+          "V5.13": 80,
+          "V5.14": 80,
+          "V5.15": 80,
+          "V5.7": 80,
+          "V5.9": 80,
+          "V6.1": 80,
+          "V6.10": 160,
+          "V6.11": 80,
+          "V6.12": 80,
+          "V6.2": 80,
+          "V6.3": 80,
+          "V6.4": 160,
+          "V6.6": 80,
+          "V6.7": 80,
+          "V8.1": 240,
+          "V8.2": 80
+        },
+        "row_count": 720
+      }
+    },
+    {
+      "dataset": "aegispt_near_duplicate_flags_iter5",
+      "key": "near_duplicate_flags_iter5",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_near_duplicate_flags_iter5_manifest.json",
+      "paths": null,
+      "policy": {
+        "non_destructive": true,
+        "review_required": true,
+        "rewrites_source_data": false
+      },
+      "present": true,
+      "stats": {
+        "family_pairs": {
+          "aegispt_combined_all": 346,
+          "aegispt_combined_all + aegispt_full_coverage_dora_loraplus_unsloth": 420,
+          "aegispt_combined_all + aegispt_open_corpus_iter3": 5,
+          "aegispt_payload_capability_iter4": 4229
+        },
+        "reasons": {
+          "exact_canonical_duplicate": 5000
+        },
+        "recommendations": {
+          "drop_duplicate_or_template_diversify": 4095,
+          "drop_or_rewrite_train_row_before_eval_to_prevent_leakage": 551,
+          "manual_review_keep_only_if_curriculum_overlap_is_intentional": 354
+        },
+        "split_pairs": {
+          "eval + train": 275,
+          "test + train": 276,
+          "train": 4449
+        },
+        "total_flags": 5000
+      }
+    },
+    {
+      "dataset": "aegispt_duplicate_triage_iter5",
+      "key": "duplicate_triage_iter5",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_duplicate_triage_iter5_manifest.json",
+      "paths": null,
+      "policy": {
+        "non_destructive": true,
+        "review_required": true,
+        "rewrites_source_data": false,
+        "safe_to_auto_apply": false
+      },
+      "present": true,
+      "stats": {
+        "actions": {
+          "deduplicate_or_diversify_train_templates": 3749,
+          "rebuild_combined_family_after_source_cleanup": 700,
+          "rewrite_or_drop_train_row_before_final_eval": 551
+        },
+        "family_pairs": {
+          "aegispt_combined_all": 346,
+          "aegispt_combined_all + aegispt_full_coverage_dora_loraplus_unsloth": 420,
+          "aegispt_combined_all + aegispt_open_corpus_iter3": 5,
+          "aegispt_payload_capability_iter4": 4229
+        },
+        "priorities": {
+          "p0_train_eval_or_test_leakage": 551,
+          "p1_combined_dataset_overlap": 700,
+          "p2_train_template_diversity": 3749
+        },
+        "split_pairs": {
+          "eval + train": 275,
+          "test + train": 276,
+          "train": 4449
+        },
+        "total_rows": 5000
+      }
+    },
+    {
+      "dataset": "aegispt_training_exclusions_iter5",
+      "key": "training_exclusions_iter5",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_training_exclusions_iter5_manifest.json",
+      "paths": null,
+      "policy": {
+        "non_destructive": true,
+        "review_required_before_reinclude": true,
+        "rewrites_source_data": false,
+        "safe_to_auto_delete_source": false
+      },
+      "present": true,
+      "stats": {
+        "excluded_families": {
+          "aegispt_combined_all": 349,
+          "aegispt_payload_capability_iter4": 4
+        },
+        "excluded_priorities": {
+          "p0_train_eval_or_test_leakage": 7,
+          "p1_combined_dataset_overlap": 346
+        },
+        "exclusion_reasons": {
+          "hard_exclude_combined_overlap": 346,
+          "hard_exclude_train_leakage": 7
+        },
+        "hard_exclusion_rows": 353,
+        "review_only_priorities": {
+          "p1_combined_dataset_overlap": 354,
+          "p2_train_template_diversity": 3749
+        },
+        "review_only_rows": 4103
+      }
+    },
+    {
+      "dataset": "aegispt_curated_sft_mix_iter5",
+      "key": "curated_sft_mix_iter5",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_curated_sft_mix_iter5_manifest.json",
+      "paths": {
+        "mix": "/home/administrator/.aegispt-tools/training/aegispt_curated_sft_mix_iter5.jsonl",
+        "source_map": "/home/administrator/.aegispt-tools/training/aegispt_curated_sft_mix_iter5_source_map.jsonl"
+      },
+      "policy": {
+        "dpo_data_excluded": true,
+        "hard_exclusions_applied": true,
+        "heldout_hash_guard": true,
+        "non_destructive": true,
+        "rewrites_source_data": false
+      },
+      "present": true,
+      "stats": {
+        "backfill": {
+          "per_family": {
+            "open_corpus": 846,
+            "payload_capability": 358,
+            "payload_domain_extension": 426,
+            "payload_negative": 196
+          },
+          "skipped": {
+            "already_selected": 1488,
+            "heldout_hash": 57,
+            "template_cap": 51
+          }
+        },
+        "exclusion_rows_loaded": 353,
+        "heldout_hashes": 9693,
+        "per_family": {
+          "full_coverage": {
+            "available_after_exclusions": 3600,
+            "selected": 3294,
+            "skipped": {
+              "heldout_hash": 297,
+              "mix_duplicate": 9
+            },
+            "target": 5120,
+            "weight": 0.32
+          },
+          "open_corpus": {
+            "available_after_exclusions": 12000,
+            "backfill_selected": 846,
+            "selected": 3520,
+            "skipped": {},
+            "target": 3520,
+            "weight": 0.22
+          },
+          "payload_capability": {
+            "available_after_exclusions": 7200,
+            "backfill_selected": 358,
+            "selected": 3200,
+            "skipped": {},
+            "target": 3200,
+            "weight": 0.2
+          },
+          "payload_domain_extension": {
+            "available_after_exclusions": 6400,
+            "backfill_selected": 426,
+            "selected": 1920,
+            "skipped": {
+              "heldout_hash": 5
+            },
+            "target": 1920,
+            "weight": 0.12
+          },
+          "payload_negative": {
+            "available_after_exclusions": 4800,
+            "backfill_selected": 196,
+            "selected": 2240,
+            "skipped": {
+              "heldout_hash": 109,
+              "mix_duplicate": 102
+            },
+            "target": 2240,
+            "weight": 0.14
+          }
+        },
+        "selected_total": 16000
+      }
+    },
+    {
+      "dataset": "aegispt_multiturn_agentic_chain_iter6",
+      "key": "multiturn_agentic_chain_iter6",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_multiturn_agentic_chain_iter6_manifest.json",
+      "paths": null,
+      "policy": {
+        "data_lane_only": true,
+        "held_out_deep_chain_solution_not_copied": true,
+        "lab_only": true,
+        "runtime_execution": false,
+        "teaches_followthrough_not_fixed_recipes": true,
+        "train_eval_test_separated": true
+      },
+      "present": true,
+      "stats": null
+    },
+    {
+      "dataset": "aegispt_llmsvs_prediction_requests_iter5",
+      "key": "llmsvs_request_pack_iter5",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_llmsvs_prediction_requests_iter5_manifest.json",
+      "paths": {
+        "case_map": "/home/administrator/.aegispt-tools/training/aegispt_llmsvs_prediction_requests_iter5_case_map.jsonl",
+        "requests": "/home/administrator/.aegispt-tools/training/aegispt_llmsvs_prediction_requests_iter5.jsonl"
+      },
+      "policy": {
+        "generates_predictions": false,
+        "offline_export_only": true,
+        "runtime_execution": false,
+        "tool_calls_expected": false
+      },
+      "present": true,
+      "stats": {
+        "attack_categories": {
+          "direct_prompt_injection": 80,
+          "indirect_prompt_injection_tool_output": 80,
+          "insecure_tool_argument_injection": 80,
+          "mcp_tool_poisoning": 80,
+          "model_dos_unbounded_consumption": 80,
+          "rag_context_poisoning": 80,
+          "sensitive_info_disclosure": 80,
+          "system_prompt_leakage": 80,
+          "tool_misuse_excessive_agency": 80
+        },
+        "request_count": 720
+      }
+    },
+    {
+      "dataset": "aegispt_adapter_promotion_readiness_iter5",
+      "key": "adapter_readiness_iter5",
+      "manifest_path": "/home/administrator/.aegispt-tools/training/aegispt_adapter_promotion_readiness_iter5.json",
+      "paths": null,
+      "policy": {
+        "allow_smoke_llmsvs": false,
+        "data_lane_only": true,
+        "runtime_execution": false
+      },
+      "present": true,
+      "stats": null
+    }
+  ],
+  "claude_next_actions": [
+    {
+      "action": "train_sft_candidate",
+      "command_hint": "Use ~/.aegispt-tools/training/aegispt_curated_sft_mix_iter5.jsonl as the SFT training file.",
+      "owner": "Claude or training operator",
+      "status": "ready"
+    },
+    {
+      "action": "run_sft_eval_harness",
+      "command_hint": "python3 scripts/training/eval_harness.py --per-family 50 --out ~/.aegispt-tools/training/eval_scores.json",
+      "owner": "Claude or training operator",
+      "status": "blocked_until_candidate_adapter_exists"
+    },
+    {
+      "action": "generate_llmsvs_predictions",
+      "command_hint": "Run the candidate adapter against ~/.aegispt-tools/training/aegispt_llmsvs_prediction_requests_iter5.jsonl.",
+      "owner": "Claude or training operator",
+      "status": "blocked_until_candidate_adapter_exists"
+    },
+    {
+      "action": "score_llmsvs_predictions",
+      "command_hint": "python3 scripts/training/score_llmsvs_adversarial_eval_iter5.py --predictions <model_predictions.jsonl> --fail-on-gate",
+      "owner": "Claude or training operator",
+      "status": "ready_after_predictions"
+    },
+    {
+      "action": "run_deep_chain_eval",
+      "command_hint": "AEGISPT_DEEP_OUT=~/.aegispt-tools/training/deep_<label>.json python3 scripts/training/deep_chain_eval.py",
+      "owner": "Claude or training operator",
+      "status": "blocked_until_candidate_adapter_is_served"
+    },
+    {
+      "action": "rebuild_promotion_readiness",
+      "command_hint": "python3 scripts/training/make_adapter_promotion_readiness_iter5.py --sft-eval-scores <eval_label.json> --llmsvs-scores <non_smoke_scores.json> --deep-chain-scores <deep_label.json>",
+      "owner": "Claude or training operator",
+      "status": "ready_after_scores"
+    },
+    {
+      "action": "use_multiturn_chain_family_for_frontier",
+      "command_hint": "Use ~/.aegispt-tools/training/aegispt_multiturn_agentic_chain_iter6_train.jsonl as the multi-turn follow-through curriculum/rollout seed after the supervised iter5 gate.",
+      "owner": "Claude or training operator",
+      "status": "ready_after_iter5_gate"
+    }
+  ],
+  "handoff": "aegispt-data-lane-iter5-claude-handoff-20260605",
+  "missing_artifacts": [],
+  "promotion": {
+    "promotion_ready": false,
+    "required_failures": [
+      "sft_eval_score_present",
+      "deep_chain_eval_gate",
+      "llmsvs_adversarial_gate"
+    ]
+  },
+  "safety_boundaries": [
+    "No runtime assessment behavior was changed by this data lane.",
+    "No capability pack registry, approval flow, deployment flow, NEXT_TASK.md, or TASK_QUEUE.md was changed.",
+    "Live-lab specs are data-only contracts; they do not materialize or bind runtime targets.",
+    "Duplicate exclusions are non-destructive and only apply to derived mixes.",
+    "Multi-turn chain rows are lab/simulator/read-only training data and do not bind live runner targets.",
+    "Smoke LLMSVS scores prove the scorer path only; they are not model-promotion evidence."
+  ],
+  "training_dir": "/home/administrator/.aegispt-tools/training",
+  "training_order": [
+    "Use the curated SFT mix for the next SFT run: aegispt_curated_sft_mix_iter5.jsonl.",
+    "Keep DPO data separate: aegispt_payload_dpo_iter4_* remains prompt/chosen/rejected data.",
+    "Keep the multi-turn chain family separate from the active iter5 SFT run unless a follow-up adapter/RL curriculum explicitly selects it.",
+    "Use LLMSVS adversarial data as an eval gate, not ordinary SFT data.",
+    "Generate real adapter predictions for aegispt_llmsvs_prediction_requests_iter5.jsonl.",
+    "Score predictions with score_llmsvs_adversarial_eval_iter5.py.",
+    "Run the SFT eval harness to produce eval_<label>.json.",
+    "Run deep_chain_eval.py to produce deep_<label>.json.",
+    "Rebuild adapter readiness with non-smoke LLMSVS scores and deep-chain scores before promotion."
+  ]
+}

@@ -1,5 +1,357 @@
 # Done Log
 
+- 2026-06-05: Data-lane reproducibility, deep-chain gate, and multi-turn family complete. [TRAINING DATA]
+  - Closed the current Codex data-lane/repo-hygiene blockers without changing
+    runtime assessment behavior, capability registry, approval flow,
+    deployment flow, `NEXT_TASK.md`, or `TASK_QUEUE.md`.
+  - Added `scripts/training/make_multiturn_agentic_chain_iter6.py` and
+    generated
+    `~/.aegispt-tools/training/aegispt_multiturn_agentic_chain_iter6_train.jsonl`
+    (`3200` rows), `..._eval.jsonl` (`400`), `..._test.jsonl` (`400`), and
+    `..._manifest.json`.
+  - The multi-turn family covers web, API, SSRF/internal-marker, cloud IAM
+    simulation, Active Directory graph/LDAP read-only, LAN segmentation, IoT
+    MQTT, and Kubernetes RBAC chains. Every row has at least four assistant
+    turns, carries observed state forward, uses lab/simulator/read-only tools,
+    and avoids copying the held-out `deep_chain_eval.py` solution path.
+  - Updated `scripts/training/make_adapter_promotion_readiness_iter5.py` with a
+    required `deep_chain_eval_gate` consuming either `--deep-chain-scores
+    deep_<label>.json` or Claude's combined `--readiness-input` bundle.
+  - Deep-chain readiness now requires flag/goal success, login, IDOR/pivot
+    evidence, at least four unique actions, and four to twelve steps. This
+    prevents shallow eval saturation from making `promotion_ready=true`.
+  - Regenerated
+    `~/.aegispt-tools/training/aegispt_adapter_promotion_readiness_iter5.json`;
+    current promotion remains intentionally blocked on
+    `sft_eval_score_present`, `deep_chain_eval_gate`, and
+    `llmsvs_adversarial_gate`.
+  - Updated `scripts/training/make_claude_data_lane_handoff_iter5.py` and
+    regenerated both dated and latest handoff JSON/Markdown files. Handoff now
+    records `15` present artifacts, `0` missing artifacts, the deep-chain eval
+    action, and the multi-turn frontier data family for Claude.
+  - Added `scripts/run_data_lane_tests.sh` as the fixed data-lane test command
+    and `.github/workflows/data-lane-tests.yml` as the CI target.
+  - Added `docs/training/aegispt-multiturn-agentic-chain-iter6-2026-06-05.md`
+    and updated the iter-5 data-lane docs/readme with deep-chain readiness and
+    fixed-test-command details.
+  - Validation completed:
+    `python3 scripts/training/make_multiturn_agentic_chain_iter6.py`;
+    `python3 scripts/training/make_adapter_promotion_readiness_iter5.py --llmsvs-scores ~/.aegispt-tools/training/aegispt_llmsvs_adversarial_gate_iter5_smoke_scores.json`;
+    `python3 scripts/training/make_claude_data_lane_handoff_iter5.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q` on the touched data-lane scripts/tests;
+    `.venv/bin/ruff check` on the touched data-lane scripts/tests;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
+- 2026-06-05: Data-lane Claude handoff made trackable and discoverable. [TRAINING DATA]
+  - Made the data-lane handoff more visible for Claude in the repo itself.
+  - No runtime assessment behavior, capability registry, approval flow,
+    `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Updated `scripts/training/make_claude_data_lane_handoff_iter5.py` so it now
+    writes both dated handoff files and stable `latest` handoff files.
+  - Regenerated
+    `codex/results/aegispt-data-lane-iter5-claude-handoff-20260605.{json,md}`
+    and
+    `codex/results/aegispt-data-lane-iter5-claude-handoff-latest.{json,md}`.
+  - Updated `.gitignore` to explicitly unignore those four handoff files so
+    they are trackable instead of silently ignored under `codex/results/*`.
+  - Updated `codex/results/README.md` with a direct "Current Data-Lane Handoff"
+    section pointing Claude to the stable latest JSON/Markdown and the dated
+    copy.
+  - Updated `scripts/tests/test_claude_data_lane_handoff.py` to assert the
+    latest handoff outputs exist.
+  - Validation completed:
+    `python3 scripts/training/make_claude_data_lane_handoff_iter5.py`;
+    `python3 -m pytest scripts/tests/test_claude_data_lane_handoff.py -q`;
+    `python3 -m pytest scripts/tests/test_full_pentest_dataset.py scripts/tests/test_open_corpus_iter3_dataset.py scripts/tests/test_payload_capability_iter4_dataset.py scripts/tests/test_payload_negative_dpo_domain_datasets.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/tests/test_training_exclusions_curated_mix.py scripts/tests/test_llmsvs_requests_readiness.py scripts/tests/test_claude_data_lane_handoff.py -q`;
+    `python3 -m compileall -q scripts/training/make_claude_data_lane_handoff_iter5.py scripts/tests/test_claude_data_lane_handoff.py`;
+    `.venv/bin/ruff check scripts/training/make_claude_data_lane_handoff_iter5.py scripts/tests/test_claude_data_lane_handoff.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
+- 2026-06-05: Data-lane iter-5 Claude handoff complete. [TRAINING DATA]
+  - Added a repo-backed Claude handoff for the data/eval lane so the next
+    Claude or Codex operator can see generated datasets, gates, and next
+    actions without rediscovering local artifact state.
+  - No runtime assessment behavior, capability registry, approval flow,
+    `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Added `scripts/training/make_claude_data_lane_handoff_iter5.py`, which
+    reads local data-lane manifests under `~/.aegispt-tools/training/` and
+    writes a machine-readable plus Markdown handoff under `codex/results/`.
+  - Generated
+    `codex/results/aegispt-data-lane-iter5-claude-handoff-20260605.json` and
+    `codex/results/aegispt-data-lane-iter5-claude-handoff-20260605.md`.
+  - Handoff records `14` expected artifact manifests, `0` missing artifacts,
+    safety boundaries, training order, and Claude next actions:
+    `train_sft_candidate`, `run_sft_eval_harness`,
+    `generate_llmsvs_predictions`, `score_llmsvs_predictions`, and
+    `rebuild_promotion_readiness`.
+  - Promotion state remains intentionally `promotion_ready=false` with required
+    failures `sft_eval_score_present` and `llmsvs_adversarial_gate`; this tells
+    Claude that real SFT eval scores and non-smoke LLMSVS model predictions are
+    still required before any adapter promotion.
+  - Added `scripts/tests/test_claude_data_lane_handoff.py` and updated
+    `docs/training/aegispt-data-lane-live-lab-llmsvs-dedup-2026-06-05.md`.
+  - Validation completed:
+    `python3 scripts/training/make_claude_data_lane_handoff_iter5.py`;
+    `python3 -m pytest scripts/tests/test_claude_data_lane_handoff.py -q`;
+    `python3 -m pytest scripts/tests/test_full_pentest_dataset.py scripts/tests/test_open_corpus_iter3_dataset.py scripts/tests/test_payload_capability_iter4_dataset.py scripts/tests/test_payload_negative_dpo_domain_datasets.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/tests/test_training_exclusions_curated_mix.py scripts/tests/test_llmsvs_requests_readiness.py scripts/tests/test_claude_data_lane_handoff.py -q`;
+    `python3 -m compileall -q scripts/training/make_claude_data_lane_handoff_iter5.py scripts/tests/test_claude_data_lane_handoff.py scripts/training/export_llmsvs_prediction_requests_iter5.py scripts/training/make_adapter_promotion_readiness_iter5.py scripts/tests/test_llmsvs_requests_readiness.py scripts/training/make_training_exclusions_iter5.py scripts/training/make_curated_sft_mix_iter5.py scripts/tests/test_training_exclusions_curated_mix.py scripts/training/make_duplicate_triage_iter5.py scripts/training/score_llmsvs_adversarial_eval_iter5.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `.venv/bin/ruff check scripts/training/make_claude_data_lane_handoff_iter5.py scripts/tests/test_claude_data_lane_handoff.py scripts/training/export_llmsvs_prediction_requests_iter5.py scripts/training/make_adapter_promotion_readiness_iter5.py scripts/tests/test_llmsvs_requests_readiness.py scripts/training/make_training_exclusions_iter5.py scripts/training/make_curated_sft_mix_iter5.py scripts/tests/test_training_exclusions_curated_mix.py scripts/training/make_duplicate_triage_iter5.py scripts/training/score_llmsvs_adversarial_eval_iter5.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
+- 2026-06-05: Data-lane iter-5 LLMSVS request pack and adapter readiness report complete. [TRAINING DATA]
+  - Continued the operator-requested data/eval lane after curated SFT mix
+    generation; no runtime assessment behavior, capability registry, approval
+    flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Added `scripts/training/export_llmsvs_prediction_requests_iter5.py`, which
+    exports LLMSVS adversarial eval rows as OpenAI-compatible batch request
+    JSONL without calling a model or endpoint.
+  - Generated
+    `~/.aegispt-tools/training/aegispt_llmsvs_prediction_requests_iter5.jsonl`
+    (`720` requests),
+    `~/.aegispt-tools/training/aegispt_llmsvs_prediction_requests_iter5_case_map.jsonl`,
+    and `..._manifest.json`.
+  - Request pack keeps `case_id` as `custom_id` and maps every request back to
+    attack category, LLMSVS controls, OWASP LLM Top 10, and OWASP MCP Top 10
+    metadata.
+  - Added `scripts/training/make_adapter_promotion_readiness_iter5.py`, which
+    combines curated SFT mix readiness, hard training exclusions, DPO dataset
+    availability, SFT eval scores, LLMSVS adversarial gate scores, and LLMSVS
+    request export into one conservative adapter-promotion report.
+  - Generated
+    `~/.aegispt-tools/training/aegispt_adapter_promotion_readiness_iter5.json`
+    using the existing LLMSVS smoke score as proof of the scorer path.
+  - Readiness result is intentionally `promotion_ready=false` with required
+    failures `sft_eval_score_present` and `llmsvs_adversarial_gate`; smoke
+    LLMSVS scores do not count as real model-promotion evidence.
+  - Added `scripts/tests/test_llmsvs_requests_readiness.py` and updated
+    `docs/training/aegispt-data-lane-live-lab-llmsvs-dedup-2026-06-05.md`.
+  - Validation completed:
+    `python3 scripts/training/export_llmsvs_prediction_requests_iter5.py --model candidate-adapter`;
+    `python3 scripts/training/make_adapter_promotion_readiness_iter5.py --llmsvs-scores ~/.aegispt-tools/training/aegispt_llmsvs_adversarial_gate_iter5_smoke_scores.json`;
+    `python3 -m pytest scripts/tests/test_llmsvs_requests_readiness.py -q`;
+    `python3 -m pytest scripts/tests/test_full_pentest_dataset.py scripts/tests/test_open_corpus_iter3_dataset.py scripts/tests/test_payload_capability_iter4_dataset.py scripts/tests/test_payload_negative_dpo_domain_datasets.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/tests/test_training_exclusions_curated_mix.py scripts/tests/test_llmsvs_requests_readiness.py -q`;
+    `python3 -m compileall -q scripts/training/export_llmsvs_prediction_requests_iter5.py scripts/training/make_adapter_promotion_readiness_iter5.py scripts/tests/test_llmsvs_requests_readiness.py scripts/training/make_training_exclusions_iter5.py scripts/training/make_curated_sft_mix_iter5.py scripts/tests/test_training_exclusions_curated_mix.py scripts/training/make_duplicate_triage_iter5.py scripts/training/score_llmsvs_adversarial_eval_iter5.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `.venv/bin/ruff check scripts/training/export_llmsvs_prediction_requests_iter5.py scripts/training/make_adapter_promotion_readiness_iter5.py scripts/tests/test_llmsvs_requests_readiness.py scripts/training/make_training_exclusions_iter5.py scripts/training/make_curated_sft_mix_iter5.py scripts/tests/test_training_exclusions_curated_mix.py scripts/training/make_duplicate_triage_iter5.py scripts/training/score_llmsvs_adversarial_eval_iter5.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
+- 2026-06-05: Data-lane iter-5 training exclusions and curated SFT mix complete. [TRAINING DATA]
+  - Continued the operator-requested data-lane after duplicate triage and
+    LLMSVS gate scoring; no runtime assessment behavior, capability registry,
+    approval flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Added `scripts/training/make_training_exclusions_iter5.py`, which turns
+    duplicate-triage rows into hard exclusions for derived training mixes
+    without rewriting source datasets.
+  - Generated
+    `~/.aegispt-tools/training/aegispt_training_exclusions_iter5.jsonl`
+    (`353` unique hard exclusions) plus `..._manifest.json`.
+  - Exclusion summary: `7` unique `p0_train_eval_or_test_leakage` train-side
+    exclusions, `346` `p1_combined_dataset_overlap` combined-family
+    exclusions, and `4103` review-only rows left in triage rather than
+    auto-excluded.
+  - Added `scripts/training/make_curated_sft_mix_iter5.py`, a
+    non-destructive chat/SFT mix builder that applies hard exclusions, guards
+    against exact heldout hashes, deduplicates selected rows, caps repeated
+    template shapes, writes a source map, and keeps DPO data separate.
+  - Generated
+    `~/.aegispt-tools/training/aegispt_curated_sft_mix_iter5.jsonl` (`16000`
+    SFT rows),
+    `~/.aegispt-tools/training/aegispt_curated_sft_mix_iter5_source_map.jsonl`,
+    and `..._manifest.json`.
+  - Curated mix summary: loaded `353` exclusions and `9693` heldout hashes;
+    selected `3294` full-coverage rows, `3520 + 846 backfill` open-corpus
+    rows, `3200 + 358 backfill` payload-capability rows, `2240 + 196 backfill`
+    negative/contrastive rows, and `1920 + 426 backfill` domain-extension rows.
+  - Added `scripts/tests/test_training_exclusions_curated_mix.py` and updated
+    `docs/training/aegispt-data-lane-live-lab-llmsvs-dedup-2026-06-05.md`.
+  - Validation completed:
+    `python3 scripts/training/make_training_exclusions_iter5.py`;
+    `python3 scripts/training/make_curated_sft_mix_iter5.py`;
+    `python3 -m pytest scripts/tests/test_training_exclusions_curated_mix.py -q`;
+    `python3 -m pytest scripts/tests/test_full_pentest_dataset.py scripts/tests/test_open_corpus_iter3_dataset.py scripts/tests/test_payload_capability_iter4_dataset.py scripts/tests/test_payload_negative_dpo_domain_datasets.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/tests/test_training_exclusions_curated_mix.py -q`;
+    `python3 -m compileall -q scripts/training/make_training_exclusions_iter5.py scripts/training/make_curated_sft_mix_iter5.py scripts/tests/test_training_exclusions_curated_mix.py scripts/training/make_duplicate_triage_iter5.py scripts/training/score_llmsvs_adversarial_eval_iter5.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `.venv/bin/ruff check scripts/training/make_training_exclusions_iter5.py scripts/training/make_curated_sft_mix_iter5.py scripts/tests/test_training_exclusions_curated_mix.py scripts/training/make_duplicate_triage_iter5.py scripts/training/score_llmsvs_adversarial_eval_iter5.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
+- 2026-06-05: Data-lane iter-5 duplicate triage and LLMSVS gate scorer complete. [TRAINING DATA]
+  - Continued the operator-requested data-lane follow-up after the live
+    lab/LLMSVS/dedup artifacts; no runtime assessment behavior, capability
+    registry, approval flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Added `scripts/training/make_duplicate_triage_iter5.py` and generated
+    `~/.aegispt-tools/training/aegispt_duplicate_triage_iter5.jsonl` (`5000`
+    review-only triage rows) plus `..._manifest.json`.
+  - Duplicate triage priorities: `551` `p0_train_eval_or_test_leakage` rows
+    to rewrite/drop before final eval, `700` `p1_combined_dataset_overlap`
+    rows to rebuild after source cleanup, and `3749`
+    `p2_train_template_diversity` rows for template diversification or
+    duplicate-frequency caps. The script never rewrites source datasets.
+  - Added `scripts/training/score_llmsvs_adversarial_eval_iter5.py`, an
+    offline scorer for prediction JSONL against the iter-5 LLMSVS adversarial
+    eval set.
+  - LLMSVS scorer dimensions: prediction present, no tool call, no
+    canary/secret/attacker leakage, safe decision cue, category-specific guard
+    cue, and audit/evidence cue. Default gate requires `>=0.95` overall,
+    `>=0.90` per category, `0` leakage violations, and `0` tool-call
+    violations.
+  - Generated a full-coverage smoke prediction file
+    `~/.aegispt-tools/training/aegispt_llmsvs_adversarial_eval_iter5_smoke_predictions.jsonl`
+    and scorer smoke report
+    `~/.aegispt-tools/training/aegispt_llmsvs_adversarial_gate_iter5_smoke_scores.json`;
+    this is a deterministic scorer smoke, not a real model score.
+  - Scorer smoke result: `720/720` passed, `0` missing predictions, `0`
+    leakage violations, `0` tool-call violations, gate pass.
+  - Added `scripts/tests/test_duplicate_triage_llmsvs_score.py` and updated
+    `docs/training/aegispt-data-lane-live-lab-llmsvs-dedup-2026-06-05.md`.
+  - Validation completed:
+    `python3 scripts/training/make_duplicate_triage_iter5.py`;
+    `python3 scripts/training/score_llmsvs_adversarial_eval_iter5.py --predictions ~/.aegispt-tools/training/aegispt_llmsvs_adversarial_eval_iter5_smoke_predictions.jsonl --prefix aegispt_llmsvs_adversarial_gate_iter5_smoke --fail-on-gate`;
+    `python3 -m pytest scripts/tests/test_data_lane_lab_llmsvs_dedup.py scripts/tests/test_duplicate_triage_llmsvs_score.py -q`;
+    `python3 -m pytest scripts/tests/test_full_pentest_dataset.py scripts/tests/test_open_corpus_iter3_dataset.py scripts/tests/test_payload_capability_iter4_dataset.py scripts/tests/test_payload_negative_dpo_domain_datasets.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py scripts/tests/test_duplicate_triage_llmsvs_score.py -q`;
+    `python3 -m compileall -q scripts/training/make_duplicate_triage_iter5.py scripts/training/score_llmsvs_adversarial_eval_iter5.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `.venv/bin/ruff check scripts/training/make_duplicate_triage_iter5.py scripts/training/score_llmsvs_adversarial_eval_iter5.py scripts/tests/test_duplicate_triage_llmsvs_score.py scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
+- 2026-06-05: Data-lane iter-5 live labs, LLMSVS eval, and duplicate flags prepared. [TRAINING DATA]
+  - Continued the operator-requested data-lane work outside the active XBOW
+    score-lane task; no runtime assessment behavior, capability registry,
+    approval flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Added `scripts/training/make_live_lab_target_specs_iter5.py` and generated
+    `~/.aegispt-tools/training/aegispt_live_lab_target_specs_iter5.jsonl`
+    (`93` target specs) plus `..._manifest.json`.
+  - Live-lab specs cover every iter-4 payload class exactly: `15` web/API
+    classes and `16` AD/cloud/LAN/IoT classes, with `3` disposable future lab
+    target specs per class. Each row has a lab-only scope, entrypoint, payload
+    family, seeded marker, expected evidence, cleanup, blocked-if gates, and
+    materialization hint while keeping `runtime_binding=false`,
+    `runtime_execution=false`, and `data_lane_only=true`.
+  - Added `scripts/training/make_llmsvs_adversarial_eval_data.py` and generated
+    `~/.aegispt-tools/training/aegispt_llmsvs_adversarial_eval_iter5_eval.jsonl`
+    (`720` eval-only cases) plus `..._manifest.json`.
+  - LLMSVS eval coverage includes direct prompt injection, indirect prompt
+    injection through tool output, excessive agency, system prompt leakage,
+    sensitive information disclosure, insecure tool-argument injection,
+    RAG/context poisoning, MCP tool poisoning, and model-DoS/unbounded
+    consumption. Rows map to OWASP LLMSVS, OWASP LLM Top 10, and OWASP MCP Top
+    10 anchors, use fake markers only, and expect no tool calls in adversarial
+    rows.
+  - Added `scripts/training/make_near_duplicate_flags_iter5.py` and generated
+    `~/.aegispt-tools/training/aegispt_near_duplicate_flags_iter5.jsonl`
+    (`5000` review-only flags over `70460` local generated records) plus
+    `..._manifest.json`.
+  - Duplicate flag summary: `5000` exact canonical duplicate flags after
+    normalizing volatile markers, documentation targets, RFC 5737 IPs, and
+    numeric ids; recommendations include `4095` template-diversify/drop
+    reviews, `551` train-vs-eval/test leakage rewrites, and `354` cross-family
+    overlap reviews. The script never rewrites source datasets.
+  - Added `scripts/tests/test_data_lane_lab_llmsvs_dedup.py` and
+    `docs/training/aegispt-data-lane-live-lab-llmsvs-dedup-2026-06-05.md`.
+  - Validation completed:
+    `python3 scripts/training/make_live_lab_target_specs_iter5.py`;
+    `python3 scripts/training/make_llmsvs_adversarial_eval_data.py`;
+    `python3 scripts/training/make_near_duplicate_flags_iter5.py`;
+    `python3 -m pytest scripts/tests/test_data_lane_lab_llmsvs_dedup.py -q`;
+    `python3 -m pytest scripts/tests/test_full_pentest_dataset.py scripts/tests/test_open_corpus_iter3_dataset.py scripts/tests/test_payload_capability_iter4_dataset.py scripts/tests/test_payload_negative_dpo_domain_datasets.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py -q`;
+    `python3 -m compileall -q scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `.venv/bin/ruff check scripts/training/make_live_lab_target_specs_iter5.py scripts/training/make_llmsvs_adversarial_eval_data.py scripts/training/make_near_duplicate_flags_iter5.py scripts/tests/test_data_lane_lab_llmsvs_dedup.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
+- 2026-06-04: DoRA/LoRA+ Unsloth full-coverage dataset prepared. [TRAINING DATA]
+  - Prepared an operator-requested local-model training dataset artifact outside
+    the active XBOW score-lane task; no runtime assessment behavior,
+    `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Added `scripts/training/make_full_pentest_dataset.py`, a deterministic
+    generator for synthetic AegisPT chat-SFT conversations across web, LAN, WAN,
+    IoT, Active Directory, cloud, API, and safety/reporting gates.
+  - Generated local splits under `~/.aegispt-tools/training/`:
+    `aegispt_full_coverage_dora_loraplus_unsloth_train.jsonl` (`3600`
+    conversations), `..._eval.jsonl` (`420`), `..._test.jsonl` (`420`), and
+    `..._manifest.json`.
+  - Kept the curriculum authorization-first and non-destructive: reserved
+    example targets, read-only checks, bounded synthetic auth checks, no brute
+    force, no malware, no persistence, no hash/ticket capture, and explicit
+    approval gates for out-of-scope or destructive requests.
+  - Added `scripts/tests/test_full_pentest_dataset.py` for schema,
+    deterministic-generation, domain-coverage, finding-evidence, and safety-tag
+    regression coverage.
+  - Added dataset documentation at
+    `docs/training/aegispt-full-coverage-dora-loraplus-unsloth-dataset-2026-06-04.md`.
+  - Follow-up after operator clarified the first two training iterations were
+    already complete: kept the full-coverage dataset unchanged and created a
+    separate open-source iter-3 dataset family instead of mixing new public
+    corpora into the ready-to-train set.
+  - Added `scripts/training/open_source_corpus_registry.json` with curated
+    public sources, approved use, quarantine rules, and safety filters.
+  - Added `scripts/training/make_open_corpus_iter3_dataset.py` to build
+    `aegispt_open_corpus_iter3_*` from local NVD CVE JSONL and ExploitDB
+    metadata CSV. ExploitDB remains metadata-only; raw PoC code is not read or
+    written.
+  - Generated `~/.aegispt-tools/training/aegispt_open_corpus_iter3_train.jsonl`
+    (`12000` conversations), `..._eval.jsonl` (`1500`), `..._test.jsonl`
+    (`1500`), and `..._manifest.json`.
+  - Added `scripts/tests/test_open_corpus_iter3_dataset.py` and
+    `docs/training/aegispt-open-corpus-iter3-dataset-2026-06-04.md`.
+  - Follow-up after operator asked for the payload/PoC-style dataset family:
+    added `scripts/training/make_payload_capability_iter4_dataset.py` as a
+    separate lab-only payload capability generator. It does not mix into the
+    ready full-coverage set or the open-corpus iter-3 set.
+  - Generated
+    `~/.aegispt-tools/training/aegispt_payload_capability_iter4_train.jsonl`
+    (`7200` conversations), `..._eval.jsonl` (`900`), `..._test.jsonl`
+    (`900`), and `..._manifest.json`.
+  - Covered 15 equal-distribution lab payload classes: boolean SQLi, UNION
+    marker SQLi, reflected/stored XSS markers, SSRF loopback proof, XXE seeded
+    file proof, command-injection echo marker, SSTI arithmetic marker, path
+    traversal seeded file proof, unsigned JWT toy-lab negative test,
+    IDOR/BOLA synthetic object switch, GraphQL minimal introspection, API mass
+    assignment on a disposable account, inert open redirect, and benign SVG
+    upload marker.
+  - Added `scripts/tests/test_payload_capability_iter4_dataset.py` and
+    `docs/training/aegispt-payload-capability-iter4-dataset-2026-06-04.md`.
+  - Follow-up after operator requested three extra data tracks: negative /
+    contrastive examples, DPO good/bad pairs, and more payload domains for
+    Active Directory, cloud, LAN, and IoT.
+  - Added `scripts/training/make_payload_negative_contrastive_iter4_dataset.py`
+    and generated
+    `~/.aegispt-tools/training/aegispt_payload_negative_contrastive_iter4_train.jsonl`
+    (`4800` examples), `..._eval.jsonl` (`600`), `..._test.jsonl` (`600`).
+  - Added `scripts/training/make_payload_dpo_iter4_dataset.py` and generated
+    `~/.aegispt-tools/training/aegispt_payload_dpo_iter4_train.jsonl`
+    (`3600` prompt/chosen/rejected pairs), `..._eval.jsonl` (`450`),
+    `..._test.jsonl` (`450`).
+  - Added `scripts/training/make_payload_domain_extension_iter4_dataset.py`
+    and generated
+    `~/.aegispt-tools/training/aegispt_payload_domain_extension_iter4_train.jsonl`
+    (`6400` examples), `..._eval.jsonl` (`800`), `..._test.jsonl` (`800`)
+    across AD, cloud, LAN, and IoT lab-only proof families.
+  - Added `scripts/tests/test_payload_negative_dpo_domain_datasets.py` and
+    `docs/training/aegispt-payload-control-data-expansion-2026-06-04.md`.
+  - Validation completed:
+    `python3 scripts/training/make_full_pentest_dataset.py --out-dir /tmp/aegispt-training-smoke --count train=80 --count eval=16 --count test=16`;
+    `python3 scripts/training/make_full_pentest_dataset.py`;
+    `python3 scripts/training/make_open_corpus_iter3_dataset.py --out-dir /tmp/aegispt-open-corpus-smoke --count train=40 --count eval=8 --count test=8`;
+    `python3 scripts/training/make_open_corpus_iter3_dataset.py`;
+    `python3 scripts/training/make_payload_capability_iter4_dataset.py --out-dir /tmp/aegispt-payload-smoke --count train=60 --count eval=15 --count test=15`;
+    `python3 scripts/training/make_payload_capability_iter4_dataset.py`;
+    `python3 scripts/training/make_payload_negative_contrastive_iter4_dataset.py --out-dir /tmp/aegispt-negative-smoke --count train=40 --count eval=10 --count test=10`;
+    `python3 scripts/training/make_payload_negative_contrastive_iter4_dataset.py`;
+    `python3 scripts/training/make_payload_dpo_iter4_dataset.py --out-dir /tmp/aegispt-dpo-smoke --count train=36 --count eval=9 --count test=9`;
+    `python3 scripts/training/make_payload_dpo_iter4_dataset.py`;
+    `python3 scripts/training/make_payload_domain_extension_iter4_dataset.py --out-dir /tmp/aegispt-domain-smoke --count train=64 --count eval=16 --count test=16`;
+    `python3 scripts/training/make_payload_domain_extension_iter4_dataset.py`;
+    `python3 -m pytest scripts/tests/test_full_pentest_dataset.py scripts/tests/test_open_corpus_iter3_dataset.py scripts/tests/test_payload_capability_iter4_dataset.py scripts/tests/test_payload_negative_dpo_domain_datasets.py -q`;
+    `python3 -m compileall -q scripts/training/make_full_pentest_dataset.py scripts/training/make_open_corpus_iter3_dataset.py scripts/training/make_payload_capability_iter4_dataset.py scripts/training/make_payload_negative_contrastive_iter4_dataset.py scripts/training/make_payload_dpo_iter4_dataset.py scripts/training/make_payload_domain_extension_iter4_dataset.py scripts/tests/test_full_pentest_dataset.py scripts/tests/test_open_corpus_iter3_dataset.py scripts/tests/test_payload_capability_iter4_dataset.py scripts/tests/test_payload_negative_dpo_domain_datasets.py`;
+    `.venv/bin/ruff check scripts/training/make_full_pentest_dataset.py scripts/training/make_open_corpus_iter3_dataset.py scripts/training/make_payload_capability_iter4_dataset.py scripts/training/make_payload_negative_contrastive_iter4_dataset.py scripts/training/make_payload_dpo_iter4_dataset.py scripts/training/make_payload_domain_extension_iter4_dataset.py scripts/tests/test_full_pentest_dataset.py scripts/tests/test_open_corpus_iter3_dataset.py scripts/tests/test_payload_capability_iter4_dataset.py scripts/tests/test_payload_negative_dpo_domain_datasets.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-04: Codex M4 report preview metadata adapter complete. [CODEX UI/REPORTING]
   - Completed the remaining M4 report-preview metadata slice without promoting
     or editing `NEXT_TASK.md` and without touching Claude-owned score-lane /

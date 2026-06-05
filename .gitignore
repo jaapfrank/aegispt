@@ -37,6 +37,10 @@ scripts/_*.txt
 codex/results/*
 !codex/results/README.md
 !codex/results/validation-matrix-latest.json
+!codex/results/aegispt-data-lane-iter5-claude-handoff-20260605.json
+!codex/results/aegispt-data-lane-iter5-claude-handoff-20260605.md
+!codex/results/aegispt-data-lane-iter5-claude-handoff-latest.json
+!codex/results/aegispt-data-lane-iter5-claude-handoff-latest.md
 validation-status.md
 
 # P4 hygiene 2026-05-26 — keep local-only runtime/scratch out of git.

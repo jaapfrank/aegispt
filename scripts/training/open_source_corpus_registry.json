@@ -1,0 +1,149 @@
+{
+  "created_at": "2026-06-04",
+  "purpose": "Curated external open-source corpora for AegisPT local-model iter-3+ training after the first two internal synthetic iterations.",
+  "policy": {
+    "default_action": "do_not_train_until_normalized",
+    "dedup_required": true,
+    "license_required": true,
+    "runtime_mutation": false,
+    "train_raw_exploit_code": false,
+    "use_eval_split_for_training": false
+  },
+  "sources": [
+    {
+      "id": "trendyol-cybersecurity-instruction-tuning",
+      "name": "Trendyol Cybersecurity Instruction Tuning Dataset",
+      "url": "https://huggingface.co/datasets/Trendyol/Trendyol-Cybersecurity-Instruction-Tuning-Dataset",
+      "license": "apache-2.0",
+      "current_size_note": "53,201 rows, 195 MB as checked 2026-06-04",
+      "priority": "p0",
+      "approved_use": [
+        "train",
+        "eval_slice"
+      ],
+      "normalization": "map instruction/input/output rows into AegisPT messages; tag defensive, SOC, IR, vuln-class, and methodology examples",
+      "safety_filter": "drop requests for unauthorized intrusion, credential theft, destructive actions, persistence, and malware execution",
+      "fit": "broad cyber instruction data for iter-3 VAK grounding"
+    },
+    {
+      "id": "trendyol-all-cve-chat-multiturn-1999-2025",
+      "name": "Trendyol All-CVE Chat MultiTurn 1999-2025 Dataset",
+      "url": "https://huggingface.co/datasets/Trendyol/All-CVE-Chat-MultiTurn-1999-2025-Dataset",
+      "license": "apache-2.0",
+      "current_size_note": "475 MB, 100K-1M size class as checked 2026-06-04",
+      "priority": "p0",
+      "approved_use": [
+        "train",
+        "eval_slice"
+      ],
+      "normalization": "convert CVE chat turns into evidence-first vulnerability triage, affected-component reasoning, mitigations, and standards mapping",
+      "safety_filter": "retain analysis and remediation; drop operational exploit instructions and target-specific payload recipes",
+      "fit": "CVE currency and multi-turn vulnerability reasoning"
+    },
+    {
+      "id": "expertdata-cybersecurity-reasoning-cot-v1",
+      "name": "ExpertData Factory Cybersecurity Reasoning CoT v1",
+      "url": "https://huggingface.co/datasets/expertdata-factory/cybersecurity-reasoning-cot-v1",
+      "license": "apache-2.0",
+      "current_size_note": "89 rows as checked 2026-06-04",
+      "priority": "p0",
+      "approved_use": [
+        "train_high_weight_seed",
+        "eval_slice"
+      ],
+      "normalization": "map threat_logic, vulnerability_analysis, and mitigation_reasoning into concise AegisPT reasoning/evidence/finding conversations",
+      "safety_filter": "preserve defensive analysis and mitigation; redact procedural offensive details if present",
+      "fit": "small high-quality reasoning seed for vulnerability analysis and mitigation"
+    },
+    {
+      "id": "mitre-cti-attack-capec",
+      "name": "MITRE CTI ATT&CK and CAPEC STIX datasets",
+      "url": "https://github.com/mitre/cti",
+      "license": "mitre-terms",
+      "current_size_note": "ATT&CK and CAPEC STIX 2.0 repository; ATT&CK v19.1 release visible 2026-06-04",
+      "priority": "p0",
+      "approved_use": [
+        "train",
+        "mapping_reference",
+        "eval_slice"
+      ],
+      "normalization": "transform techniques and attack patterns into methodology mapping, detection, scope, evidence, and remediation conversations",
+      "safety_filter": "avoid step-by-step intrusion playbooks; train on taxonomy, constraints, evidence expectations, and defensive mappings",
+      "fit": "methodology spine for ATT&CK/CAPEC-aware planning and report mapping"
+    },
+    {
+      "id": "nist-nvd-json-20-feeds",
+      "name": "NIST NVD JSON 2.0 CVE feeds",
+      "url": "https://nvd.nist.gov/vuln/Data-Feeds",
+      "license": "nist-public-data",
+      "current_size_note": "yearly JSON 2.0 feeds plus modified/recent feeds; updated on 2026-06-04 when checked",
+      "priority": "p0",
+      "approved_use": [
+        "train",
+        "eval_slice",
+        "freshness_feed"
+      ],
+      "normalization": "convert CVE descriptions, CWE, CVSS, CPE, SSVC/affected data where present into triage and remediation chat samples",
+      "safety_filter": "do not synthesize exploit steps from CVE text; focus on affected asset reasoning, prioritization, and remediation",
+      "fit": "fresh vulnerability intelligence and severity grounding"
+    },
+    {
+      "id": "projectdiscovery-nuclei-templates",
+      "name": "ProjectDiscovery nuclei-templates",
+      "url": "https://github.com/projectdiscovery/nuclei-templates",
+      "license": "mit",
+      "current_size_note": "11,997 files and MIT license visible 2026-06-04; includes web, cloud, DNS, file, network, SSL, headless categories",
+      "priority": "p1",
+      "approved_use": [
+        "train_metadata_only",
+        "eval_slice"
+      ],
+      "normalization": "extract template id, name, severity, tags, references, protocol, and safe evidence expectations; avoid raw request payload training by default",
+      "safety_filter": "metadata-only unless a template is explicitly classified safe, non-destructive, and in-scope; exclude OOB/destructive/high-risk payload bodies",
+      "fit": "coverage vocabulary for web, cloud, network, API, SSL, exposure, CVE, and headless checks"
+    },
+    {
+      "id": "cybernative-cybersecurityeval",
+      "name": "CyberNative CyberSecurityEval",
+      "url": "https://huggingface.co/datasets/CyberNative/CyberSecurityEval",
+      "license": "dataset-card-says-not-for-training",
+      "current_size_note": "500 rows, 187 kB as checked 2026-06-04",
+      "priority": "p1",
+      "approved_use": [
+        "eval_only"
+      ],
+      "normalization": "keep as external QA benchmark; never mix into train",
+      "safety_filter": "eval-only due dataset card instruction",
+      "fit": "small independent cybersecurity QA smoke benchmark"
+    },
+    {
+      "id": "wnt3d-ultimate-offensive-red-team",
+      "name": "Ultimate Offensive Red Team",
+      "url": "https://huggingface.co/datasets/WNT3D/Ultimate-Offensive-Red-Team",
+      "license": "mit",
+      "current_size_note": "25,620 rows, 396 MB as checked 2026-06-04",
+      "priority": "p2_quarantine",
+      "approved_use": [
+        "quarantine_review",
+        "train_after_sanitization_only"
+      ],
+      "normalization": "sample, classify, deduplicate, and rewrite into ROE, scope validation, evidence, and safe tool-selection conversations",
+      "safety_filter": "drop raw exploit chains, payload recipes, credential theft, persistence, malware, evasion, and autonomous operation claims",
+      "fit": "possible broad red-team operations data, but only after strict sanitizer and manual spot-checks"
+    },
+    {
+      "id": "detoxio-exploit-db-train-v1",
+      "name": "detoxioai exploit_db_train_v1",
+      "url": "https://huggingface.co/datasets/detoxioai/exploit_db_train_v1",
+      "license": "license_review_required",
+      "current_size_note": "Hugging Face dataset with exploit PoC prompt/response examples; license not accepted for training until verified",
+      "priority": "p3_blocked",
+      "approved_use": [
+        "license_review_only"
+      ],
+      "normalization": "do not ingest until license and safety review pass",
+      "safety_filter": "raw exploit PoC generation is not suitable for the current safe SFT mix",
+      "fit": "not approved; possible future metadata-only transformation if legally clear"
+    }
+  ]
+}
