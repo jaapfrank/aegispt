@@ -46,12 +46,17 @@ for ((i=0; i<80; i++)); do
 done
 [ "$HEALTHY" = 1 ] && echo "server up" || echo "WARN: server not healthy after 240s (check: docker logs eval-llm)"
 
-echo "=== [4/4] fast HTTP eval ($PERFAM/family) ==="
+echo "=== [4a] fast HTTP eval ($PERFAM/family) ==="
 cd "$REPO"
 AEGISPT_EVAL_ENDPOINT=http://127.0.0.1:$PORT/v1/chat/completions \
 AEGISPT_EVAL_MODEL=$LABEL \
   "$VENV" scripts/training/eval_harness.py --per-family "$PERFAM" --out "$TRAIN/eval_$LABEL.json"
 RC=$?
+
+echo "=== [4b] deep-chain eval (multi-step follow-through — the real gap) ==="
+AEGISPT_EVAL_ENDPOINT=http://127.0.0.1:$PORT/v1/chat/completions \
+AEGISPT_EVAL_MODEL=$LABEL AEGISPT_DEEP_OUT="$TRAIN/deep_$LABEL.json" \
+  "$VENV" scripts/training/deep_chain_eval.py 2>&1 | tail -16
 
 echo "=== teardown: remove eval-llm, restart qwen-gpu ==="
 docker rm -f eval-llm >/dev/null 2>&1
