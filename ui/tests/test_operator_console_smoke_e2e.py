@@ -8,11 +8,39 @@ from playwright.sync_api import Page, expect
 
 pytestmark = [pytest.mark.ui_fast, pytest.mark.smoke]
 
+SETTINGS_IDLE_SCRIPT = """
+async () => {
+  const runtimeModule = await import('/app/assets/modules/runtime.js');
+  const state = runtimeModule.state;
+  return state.activeScreen === 'settings'
+    && Boolean(state.operatorSettings)
+    && Boolean(state.settingsReadiness || state.settingsReadinessError)
+    && Boolean(state.diagnostics || state.diagnosticsError)
+    && Boolean(state.enterpriseIdentityStatus || state.enterpriseIdentityError)
+    && Boolean(state.threatIntelStatus || state.threatIntelError)
+    && !state.diagnosticsLoading
+    && !state.settingsReadinessLoading
+    && !state.enterpriseIdentityLoading
+    && !state.apiKeysLoading
+    && !state.scheduledRunsLoading
+    && !state.cicdTriggerLoading
+    && !state.jiraIntegrationLoading
+    && !state.siemIntegrationLoading
+    && !state.threatIntelLoading;
+}
+"""
+
 
 def _open_settings_tab(page: Page, tab_id: str) -> None:
     tab = page.get_by_test_id(f"settings-tab-{tab_id}")
     expect(tab).to_be_visible()
     tab.click()
+
+
+def _open_settings_when_idle(page: Page) -> None:
+    page.get_by_test_id("nav-settings").click()
+    expect(page.get_by_test_id("screen-settings")).to_be_visible()
+    page.wait_for_function(SETTINGS_IDLE_SCRIPT, timeout=15000)
 
 
 def test_operator_console_fast_navigation_smoke(loaded_page: Page) -> None:
@@ -588,7 +616,7 @@ def test_topbar_actor_identity_is_read_only_and_settings_backed(loaded_page: Pag
     expect(loaded_page.locator("#topbar-avatar-mark")).to_have_text("O")
     expect(loaded_page.get_by_test_id("topbar-role-badge")).to_contain_text("admin")
 
-    loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_when_idle(loaded_page)
     _open_settings_tab(loaded_page, "identity-users")
     instance_panel = loaded_page.get_by_test_id("settings-instance")
     instance_panel.locator("summary").click()
@@ -1036,12 +1064,12 @@ def test_kill_chain_progress_strip_and_dossier_matrix_render(
 def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
     loaded_page: Page,
 ) -> None:
-    loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_when_idle(loaded_page)
     loaded_page.evaluate(
         """
         async () => {
           const runtimeModule = await import('/app/assets/modules/runtime.js');
-          const settingsModule = await import('/app/assets/modules/settings.js');
+          const settingsModule = await import('/app/assets/modules/settings.js?v=20260506-stabilize-readiness-1');
           runtimeModule.patchState({
             activeScreen: 'settings',
             chatgptOAuthStatus: { connected: true, status: 'connected' },
@@ -2839,144 +2867,138 @@ def test_dashboard_setup_checklist_dismiss_persists_in_settings(loaded_page: Pag
 
 
 def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) -> None:
-    loaded_page.get_by_test_id("nav-settings").click()
+    readiness_payload = {
+        "tenant_id": "default",
+        "generated_at": "2026-05-02T08:00:00Z",
+        "overall_status": "degraded",
+        "artifact": {"kind": "aegispt.settings_readiness", "tenant_id": "default"},
+        "capabilities": [
+            {
+                "id": "runtime_concurrency",
+                "title": "Runtime concurrency",
+                "status": "ready",
+                "summary": "6 inline task workers configured.",
+                "details": ["Minimum 1, maximum 32, default 4."],
+                "operator_next_step": "Tune workers when checks are too slow.",
+                "affected_assessment_families": [],
+                "metadata": {"current": 6, "min": 1, "max": 32},
+            },
+            {
+                "id": "wireless_readiness",
+                "title": "Wireless adapter readiness",
+                "status": "ready",
+                "summary": "1 wireless adapter detected and passive WiFi tooling is available.",
+                "details": ["Foundation WiFi support is passive-only."],
+                "operator_next_step": "Use passive WiFi survey only with explicit site, SSID/BSSID allowlist, adapter context, and wireless ROE.",
+                "affected_assessment_families": ["WiFi discovery", "Wireless security review"],
+                "metadata": {"detected_adapters": ["wlan0"], "safe_parallelism_limit": 1},
+            },
+            {
+                "id": "deployment_hardening",
+                "title": "Production deployment hardening",
+                "status": "blocked",
+                "summary": "Production deployment hardening has 2 blocking gaps.",
+                "details": ["Public base URL uses HTTPS: no.", "TLS reverse proxy declared: no."],
+                "operator_next_step": "Resolve blocking deployment gaps before treating this host as enterprise-production ready.",
+                "affected_assessment_families": ["Enterprise deployment", "Offline update operations"],
+                "metadata": {"production_like": True, "secrets_plaintext_exposed": False},
+            },
+            {
+                "id": "ai_provider",
+                "title": "AI provider and ChatGPT OAuth",
+                "status": "degraded",
+                "summary": "AI provider is disabled.",
+                "details": ["Feature toggles enabled: no."],
+                "operator_next_step": "Select ChatGPT OAuth and connect an engagement-scoped account.",
+                "affected_assessment_families": [],
+                "metadata": {
+                    "actions": [
+                        {
+                            "id": "enable_chatgpt_oauth_provider",
+                            "kind": "setting_patch",
+                            "label": "Enable ChatGPT OAuth",
+                            "settings_patch": {"ai.provider": "chatgpt_oauth"},
+                            "safety_note": "Writes provider configuration only.",
+                        }
+                    ]
+                },
+            },
+        ],
+        "tools": [
+            {
+                "id": "nmap",
+                "title": "Nmap",
+                "binary_names": ["nmap"],
+                "required_binary_groups": [["nmap"]],
+                "missing_binaries": [],
+                "required": True,
+                "installed": True,
+                "detected_path": "/usr/bin/nmap",
+                "detected_paths": {"nmap": "/usr/bin/nmap"},
+                "status": "ready",
+                "affected_assessment_families": ["LAN discovery"],
+                "operator_next_step": "Ready.",
+                "repair_command": "sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh",
+            },
+            {
+                "id": "wifi",
+                "title": "WiFi analysis tools",
+                "binary_names": ["iw", "airodump-ng", "aircrack-ng"],
+                "required_binary_groups": [["iw"], ["airodump-ng"], ["aircrack-ng"]],
+                "missing_binaries": [],
+                "required": False,
+                "installed": True,
+                "detected_path": "/usr/bin/iw",
+                "detected_paths": {"iw": "/usr/bin/iw"},
+                "status": "ready",
+                "affected_assessment_families": ["WiFi discovery", "Wireless security review"],
+                "operator_next_step": "Ready for passive fixture or authorized hardware evidence.",
+                "hardware_required": True,
+            },
+            {
+                "id": "metasploit",
+                "title": "Metasploit",
+                "binary_names": ["msfconsole", "msfrpcd"],
+                "required_binary_groups": [["msfconsole"], ["msfrpcd"]],
+                "missing_binaries": ["msfconsole", "msfrpcd"],
+                "required": False,
+                "installed": False,
+                "detected_path": None,
+                "detected_paths": {},
+                "status": "degraded",
+                "affected_assessment_families": ["Exploit confirmation"],
+                "operator_next_step": "Install Metasploit before exploit confirmation. Missing: msfconsole, msfrpcd.",
+                "repair_command": "sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh",
+                "repair_action_label": "Copy Install/Repair Command",
+            },
+        ],
+    }
+    loaded_page.route(
+        "**/api/v1/settings/readiness",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(readiness_payload),
+        ),
+    )
+    _open_settings_when_idle(loaded_page)
     loaded_page.evaluate(
         """
-        async () => {
+        async (readinessPayload) => {
           const runtimeModule = await import('/app/assets/modules/runtime.js');
-          const settingsModule = await import('/app/assets/modules/settings.js');
+          const settingsModule = await import('/app/assets/modules/settings.js?v=20260506-stabilize-readiness-1');
           runtimeModule.patchState({
             activeScreen: 'settings',
             operatorSettings: { tenant_id: 'default', sections: [] },
             settingsUi: { openPanels: { runtime_readiness: true } },
             settingsReadinessLoading: false,
             settingsReadinessError: null,
-            settingsReadiness: {
-              tenant_id: 'default',
-              generated_at: new Date().toISOString(),
-              overall_status: 'degraded',
-              artifact: { kind: 'aegispt.settings_readiness', tenant_id: 'default' },
-              capabilities: [
-                {
-                  id: 'runtime_concurrency',
-                  title: 'Runtime concurrency',
-                  status: 'ready',
-                  summary: '6 inline task workers configured.',
-                  details: ['Minimum 1, maximum 32, default 4.', 'Applies to newly dispatched inline tasks.'],
-                  operator_next_step: 'Tune workers when checks are too slow.',
-                  affected_assessment_families: [],
-                  metadata: { current: 6, min: 1, max: 32 },
-                },
-                {
-                  id: 'tool_readiness',
-                  title: 'Pentest tool readiness',
-                  status: 'degraded',
-                  summary: '1 optional tool group is not installed.',
-                  details: ['3 of 4 tracked tool groups detected.'],
-                  operator_next_step: 'Use missing tool rows as checklist.',
-                  affected_assessment_families: ['Exploit confirmation'],
-                  metadata: {},
-                },
-                {
-                  id: 'wireless_readiness',
-                  title: 'Wireless adapter readiness',
-                  status: 'ready',
-                  summary: '1 wireless adapter detected and passive WiFi tooling is available.',
-                  details: ['Foundation WiFi support is passive-only.', 'No deauth, capture, WPS brute force, jamming, or rogue AP actions are enabled.'],
-                  operator_next_step: 'Use passive WiFi survey only with explicit site, SSID/BSSID allowlist, adapter context, and wireless ROE.',
-                  affected_assessment_families: ['WiFi discovery', 'Wireless security review'],
-                  metadata: { detected_adapters: ['wlan0'], safe_parallelism_limit: 1 },
-                },
-                {
-                  id: 'deployment_hardening',
-                  title: 'Production deployment hardening',
-                  status: 'blocked',
-                  summary: 'Production deployment hardening has 2 blocking gaps.',
-                  details: [
-                    'Public base URL uses HTTPS: no.',
-                    'TLS reverse proxy declared: no.',
-                    'Secure browser cookies declared: no.',
-                  ],
-                  operator_next_step: 'Resolve blocking deployment gaps before treating this host as enterprise-production ready.',
-                  affected_assessment_families: ['Enterprise deployment', 'Offline update operations'],
-                  metadata: { production_like: true, secrets_plaintext_exposed: false },
-                },
-                {
-                  id: 'ai_provider',
-                  title: 'AI provider and ChatGPT OAuth',
-                  status: 'degraded',
-                  summary: 'AI provider is disabled.',
-                  details: ['Feature toggles enabled: no.'],
-                  operator_next_step: 'Select ChatGPT OAuth and connect an engagement-scoped account.',
-                  affected_assessment_families: [],
-                  metadata: {
-                    provider: 'disabled',
-                    actions: [
-                      {
-                        id: 'enable_chatgpt_oauth_provider',
-                        kind: 'setting_patch',
-                        label: 'Enable ChatGPT OAuth',
-                        settings_patch: { 'ai.provider': 'chatgpt_oauth' },
-                        safety_note: 'Writes provider configuration only.',
-                      },
-                    ],
-                  },
-                },
-              ],
-              tools: [
-                {
-                  id: 'nmap',
-                  title: 'Nmap',
-                  binary_names: ['nmap'],
-                  required_binary_groups: [['nmap']],
-                  missing_binaries: [],
-                  required: true,
-                  installed: true,
-                  detected_path: '/usr/bin/nmap',
-                  detected_paths: { nmap: '/usr/bin/nmap' },
-                  status: 'ready',
-                  affected_assessment_families: ['LAN discovery'],
-                  operator_next_step: 'Ready.',
-                  repair_command: 'sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh',
-                },
-                {
-                  id: 'wifi',
-                  title: 'WiFi analysis tools',
-                  binary_names: ['iw', 'airodump-ng', 'aircrack-ng'],
-                  required_binary_groups: [['iw'], ['airodump-ng'], ['aircrack-ng']],
-                  missing_binaries: [],
-                  required: false,
-                  installed: true,
-                  detected_path: '/usr/bin/iw',
-                  detected_paths: { iw: '/usr/bin/iw' },
-                  status: 'ready',
-                  affected_assessment_families: ['WiFi discovery', 'Wireless security review'],
-                  operator_next_step: 'Ready for passive fixture or authorized hardware evidence.',
-                  repair_command: 'sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh',
-                  hardware_required: true,
-                },
-                {
-                  id: 'metasploit',
-                  title: 'Metasploit',
-                  binary_names: ['msfconsole', 'msfrpcd'],
-                  required_binary_groups: [['msfconsole'], ['msfrpcd']],
-                  missing_binaries: ['msfconsole', 'msfrpcd'],
-                  required: false,
-                  installed: false,
-                  detected_path: null,
-                  detected_paths: {},
-                  status: 'degraded',
-                  affected_assessment_families: ['Exploit confirmation'],
-                  operator_next_step: 'Install Metasploit before exploit confirmation. Missing: msfconsole, msfrpcd.',
-                  repair_command: 'sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh',
-                  repair_action_label: 'Copy Install/Repair Command',
-                },
-              ],
-            },
+            settingsReadiness: readinessPayload,
           }, 'ui.test.settingsReadiness');
           settingsModule.createSettingsModule().renderSettingsScreen();
         }
-        """
+        """,
+        readiness_payload,
     )
 
     _open_settings_tab(loaded_page, "tools-runtime")
@@ -3079,12 +3101,12 @@ def test_settings_diagnostics_panel_exposes_subsystems_failures_and_bundle_expor
 
 
 def test_settings_scheduled_scans_panel_exposes_required_fields(loaded_page: Page) -> None:
-    loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_when_idle(loaded_page)
     loaded_page.evaluate(
         """
         async () => {
           const runtimeModule = await import('/app/assets/modules/runtime.js');
-          const settingsModule = await import('/app/assets/modules/settings.js');
+          const settingsModule = await import('/app/assets/modules/settings.js?v=20260506-stabilize-readiness-1');
           const engagementId = '12121212-1212-4121-8121-121212121212';
           runtimeModule.patchState({
             activeScreen: 'settings',
@@ -3129,12 +3151,12 @@ def test_settings_scheduled_scans_panel_exposes_required_fields(loaded_page: Pag
 def test_settings_threat_intel_nvd_rate_limit_hint_focuses_api_key_field(
     loaded_page: Page,
 ) -> None:
-    loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_when_idle(loaded_page)
     loaded_page.evaluate(
         """
         async () => {
           const runtimeModule = await import('/app/assets/modules/runtime.js');
-          const settingsModule = await import('/app/assets/modules/settings.js');
+          const settingsModule = await import('/app/assets/modules/settings.js?v=20260506-stabilize-readiness-1');
           runtimeModule.patchState({
             activeScreen: 'settings',
             operatorSettings: {
@@ -3315,12 +3337,12 @@ def test_surface_map_empty_state_names_discovery_run_that_populates_it(
 
 
 def test_settings_jira_panel_exposes_configuration_fields(loaded_page: Page) -> None:
-    loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_when_idle(loaded_page)
     loaded_page.evaluate(
         """
         async () => {
           const runtimeModule = await import('/app/assets/modules/runtime.js');
-          const settingsModule = await import('/app/assets/modules/settings.js');
+          const settingsModule = await import('/app/assets/modules/settings.js?v=20260506-stabilize-readiness-1');
           runtimeModule.patchState({
             activeScreen: 'settings',
             selectedEngagementId: '11111111-1111-4111-8111-111111111111',
@@ -3548,12 +3570,12 @@ def test_findings_jira_configured_fetch_still_enables_handoff(loaded_page: Page)
 
 def test_topbar_role_badge_and_settings_users_panel_render(loaded_page: Page) -> None:
     expect(loaded_page.get_by_test_id("topbar-role-badge")).to_contain_text("admin")
-    loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_when_idle(loaded_page)
     loaded_page.evaluate(
         """
         async () => {
           const runtimeModule = await import('/app/assets/modules/runtime.js');
-          const settingsModule = await import('/app/assets/modules/settings.js');
+          const settingsModule = await import('/app/assets/modules/settings.js?v=20260506-stabilize-readiness-1');
           runtimeModule.patchState({
             activeScreen: 'settings',
             currentActor: { actor_name: 'admin-ui', role: 'admin', auth_method: 'api_key' },
@@ -3591,12 +3613,12 @@ def test_topbar_role_badge_and_settings_users_panel_render(loaded_page: Page) ->
 
 
 def test_settings_enterprise_identity_panel_shows_sso_and_session_state(loaded_page: Page) -> None:
-    loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_when_idle(loaded_page)
     loaded_page.evaluate(
         """
         async () => {
           const runtimeModule = await import('/app/assets/modules/runtime.js');
-          const settingsModule = await import('/app/assets/modules/settings.js');
+          const settingsModule = await import('/app/assets/modules/settings.js?v=20260506-stabilize-readiness-1');
           runtimeModule.patchState({
             activeScreen: 'settings',
             currentActor: { actor_name: 'admin-ui', role: 'admin', auth_method: 'x_actor_fallback' },

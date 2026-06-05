@@ -127,6 +127,9 @@ def _start_operator_console(
                 log_tail = server_log_path.read_text(encoding="utf-8", errors="replace")[-4000:]
                 raise RuntimeError(f"{exc}\nUvicorn log tail:\n{log_tail}") from exc
             finally:
+                if process.poll() is not None:
+                    preserved_log = ARTIFACTS_DIR / f"uvicorn-{dispatch_mode}-{port}.log"
+                    shutil.copyfile(server_log_path, preserved_log)
                 if process.poll() is None:
                     os.killpg(process.pid, signal.SIGTERM)
                 try:

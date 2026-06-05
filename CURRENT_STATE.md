@@ -1,5 +1,46 @@
 # Current State
 
+## Latest Continuation - Legacy `/app` test lane stabilized after UI split (2026-06-05)
+
+Codex continued the UI/repo-hygiene lane after the legacy `/app` and React
+`/app-v2` harness split. The previous legacy residual failures are no longer
+current: `bash scripts/run_app_tests.sh` now passes with `63 passed`.
+
+Scope and boundaries:
+
+- no `NEXT_TASK.md` or `TASK_QUEUE.md` changes were made
+- no score-lane runner behavior, runtime assessment behavior, capability
+  registry, approval flow, deployment flow, or training/eval defaults were
+  changed
+- this was a legacy `/app` test stability and backend SQLite test-infra fix
+
+Stability fixes:
+
+- changed plain file-SQLite engine construction in `api/app/db.py` to use the
+  real SQLite URL plus per-connection `foreign_keys`, `busy_timeout`, WAL, and
+  `synchronous=NORMAL` pragmas, instead of a `sqlite://` custom creator that
+  could use thread-local pooling and close active browser-startup connections
+- added a regression test proving concurrent thread-held SQLite connections
+  remain usable
+- preserved uvicorn logs from unexpected UI test-server exits under
+  `ui/test-results/uvicorn-<mode>-<port>.log` for future diagnosis
+- stabilized legacy settings smoke tests by waiting for settings autoload
+  readiness before save/state-patch assertions and by importing the same
+  cache-busted settings module as the app
+- mocked the readiness payload in the readiness rendering/export smoke test so
+  it no longer depends on whatever tools are installed on the current host
+- updated the cinema copy expectation from the older "No selected run" text to
+  the current "no scan active" narration
+
+Validation completed:
+
+- `python3 -m pytest -q api/tests/test_database_encryption.py::test_plain_sqlite_still_reads_and_writes_without_key api/tests/test_database_encryption.py::test_plain_sqlite_file_engine_keeps_concurrent_thread_connections_open api/tests/test_settings.py::test_patch_settings_persists_plain_and_encrypted_sensitive_values`
+- `python3 -m pytest -q -s ui/tests/test_operator_console_smoke_e2e.py::test_settings_readiness_panel_exposes_tools_and_export ui/tests/test_operator_console_smoke_e2e.py::test_topbar_actor_identity_is_read_only_and_settings_backed ui/tests/test_operator_console_smoke_e2e.py::test_settings_collapsed_sections_show_status_summaries_and_still_toggle ui/tests/test_operator_console_smoke_e2e.py::test_settings_threat_intel_nvd_rate_limit_hint_focuses_api_key_field ui/tests/test_operator_console_smoke_e2e.py::test_topbar_role_badge_and_settings_users_panel_render ui/tests/test_mockup_port_e2e.py::test_exact_mockup_port_tiles_sidebar_stepper_and_cinema` (`6 passed`)
+- `bash scripts/run_app_tests.sh` (`63 passed`)
+- `python3 -m compileall -q api/app/db.py api/tests/test_database_encryption.py ui/tests/conftest.py ui/tests/test_operator_console_smoke_e2e.py ui/tests/test_mockup_port_e2e.py`
+- `.venv/bin/ruff check api/app/db.py api/tests/test_database_encryption.py ui/tests/conftest.py ui/tests/test_operator_console_smoke_e2e.py ui/tests/test_mockup_port_e2e.py`
+- `git diff --check`
+
 ## Latest Continuation - UI test lanes split for legacy app and React v2 (2026-06-05)
 
 Codex fixed the UI test-harness drift where `scripts/run_ui_fast_tests.sh`

@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from api.app.config import Settings
 from api.app.models import Base
@@ -56,33 +57,33 @@ def build_engine(database_url: str, db_key: str | None = None) -> Engine:
             creator=lambda: _connect_sqlcipher_sqlite(database_url, db_key),
         )
 
-    connect_args: dict = {}
     if database_url.startswith("sqlite"):
-        connect_args["check_same_thread"] = False
-        # Enable WAL mode and high busy timeout for concurrent access
-        # (sweeper background thread + AI analysis + loop iteration + worker)
-        def _sqlite_connect():
-            import sqlite3 as _sqlite3
-            url_path = database_url.replace("sqlite+pysqlite:///", "").replace("sqlite:///", "")
-            conn = _sqlite3.connect(url_path, check_same_thread=False, timeout=30.0)
-            conn.execute("PRAGMA journal_mode=WAL")
-            # Wait up to 30s for a contended lock to release before raising
-            conn.execute("PRAGMA busy_timeout=30000")
-            conn.execute("PRAGMA synchronous=NORMAL")  # faster writes, still durable with WAL
-            return conn
-        return create_engine(
-            "sqlite://",
+        url = make_url(database_url)
+        database = url.database or ":memory:"
+        is_memory = database == ":memory:"
+        engine = create_engine(
+            database_url,
             pool_pre_ping=True,
             future=True,
-            creator=_sqlite_connect,
+            connect_args={"check_same_thread": False, "timeout": 30.0},
+            **({"poolclass": StaticPool} if is_memory else {}),
         )
+
+        @event.listens_for(engine, "connect")
+        def _sqlite_connect_pragmas(connection, _connection_record) -> None:
+            connection.execute("PRAGMA foreign_keys=ON")
+            connection.execute("PRAGMA busy_timeout=30000")
+            if not is_memory:
+                connection.execute("PRAGMA journal_mode=WAL")
+                connection.execute("PRAGMA synchronous=NORMAL")
+
+        return engine
 
     # PostgreSQL or other RDBMS: enable a healthy connection pool for concurrent access
     return create_engine(
         database_url,
         pool_pre_ping=True,
         future=True,
-        connect_args=connect_args,
         pool_size=10,
         max_overflow=20,
         pool_recycle=3600,

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from types import ModuleType
 
 import pytest
@@ -61,6 +63,29 @@ def test_plain_sqlite_still_reads_and_writes_without_key(tmp_path) -> None:
         rows = connection.exec_driver_sql("SELECT name FROM sample").fetchall()
 
     assert rows == [("ok",)]
+
+
+def test_plain_sqlite_file_engine_keeps_concurrent_thread_connections_open(tmp_path) -> None:
+    from api.app.db import build_engine
+
+    engine = build_engine(f"sqlite+pysqlite:///{tmp_path / 'concurrent.db'}")
+    with engine.begin() as connection:
+        connection.exec_driver_sql("CREATE TABLE sample (id integer primary key, name text)")
+
+    barrier = Barrier(8)
+
+    def read_twice(index: int) -> tuple[int, int]:
+        with engine.connect() as connection:
+            first = int(connection.exec_driver_sql("SELECT COUNT(*) FROM sample").scalar_one())
+            barrier.wait(timeout=10)
+            second = int(connection.exec_driver_sql("SELECT ? + COUNT(*) FROM sample", (index,)).scalar_one())
+            return first, second
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        counts = list(executor.map(read_twice, range(8)))
+
+    assert [first for first, _second in counts] == [0] * 8
+    assert sorted(second for _first, second in counts) == list(range(8))
 
 
 def test_production_startup_raises_when_database_key_missing() -> None:

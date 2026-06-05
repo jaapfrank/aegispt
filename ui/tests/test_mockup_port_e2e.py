@@ -59,7 +59,7 @@ def test_exact_mockup_port_tiles_sidebar_stepper_and_cinema(loaded_page: Page) -
     expect(loaded_page.locator("#cinema-overlay")).to_contain_text("CINEMA MODE")
     expect(loaded_page.get_by_test_id("cinema-visualization")).to_be_visible()
     expect(loaded_page.get_by_test_id("cinema-counter-exposure")).to_contain_text("n/a")
-    expect(loaded_page.get_by_test_id("cinema-narrator")).to_contain_text("No selected run")
+    expect(loaded_page.get_by_test_id("cinema-narrator")).to_contain_text("no scan active")
     expect(loaded_page.locator("#cinema-overlay")).not_to_contain_text("10.0.20.5")
     loaded_page.keyboard.press("Escape")
     expect(loaded_page.locator("#cinema-overlay")).to_have_count(0)

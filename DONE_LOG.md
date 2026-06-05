@@ -1,5 +1,34 @@
 # Done Log
 
+- 2026-06-05: Legacy `/app` test lane stabilized after UI split. [CODEX UI/REPO HYGIENE]
+  - Continued from the UI lane split and resolved the previously recorded
+    legacy residual status. `bash scripts/run_app_tests.sh` now passes with
+    `63 passed`.
+  - No `NEXT_TASK.md`, `TASK_QUEUE.md`, score-lane runner code, runtime
+    assessment behavior, capability registry, approval flow, deployment flow,
+    or training/eval defaults were changed.
+  - Fixed file-SQLite engine construction in `api/app/db.py` to use the real
+    SQLite URL with per-connection `foreign_keys`, `busy_timeout`, WAL, and
+    `synchronous=NORMAL` pragmas instead of a `sqlite://` custom creator that
+    could close active browser-startup connections under thread-local pooling.
+  - Added a concurrent thread-held SQLite regression test in
+    `api/tests/test_database_encryption.py`.
+  - Preserved uvicorn logs from unexpected UI test-server exits under
+    `ui/test-results/uvicorn-<mode>-<port>.log` for future diagnosis.
+  - Stabilized settings smoke tests by waiting for settings autoload idle state,
+    using the same cache-busted settings module path as the app, and mocking
+    the readiness payload for host-independent readiness rendering/export
+    assertions.
+  - Updated the legacy cinema copy expectation to the current "no scan active"
+    narration.
+  - Validation completed:
+    `python3 -m pytest -q api/tests/test_database_encryption.py::test_plain_sqlite_still_reads_and_writes_without_key api/tests/test_database_encryption.py::test_plain_sqlite_file_engine_keeps_concurrent_thread_connections_open api/tests/test_settings.py::test_patch_settings_persists_plain_and_encrypted_sensitive_values`;
+    targeted UI subset with `6 passed`;
+    `bash scripts/run_app_tests.sh` (`63 passed`);
+    `python3 -m compileall -q api/app/db.py api/tests/test_database_encryption.py ui/tests/conftest.py ui/tests/test_operator_console_smoke_e2e.py ui/tests/test_mockup_port_e2e.py`;
+    `.venv/bin/ruff check api/app/db.py api/tests/test_database_encryption.py ui/tests/conftest.py ui/tests/test_operator_console_smoke_e2e.py ui/tests/test_mockup_port_e2e.py`;
+    `git diff --check`.
+
 - 2026-06-05: UI test lanes split for legacy `/app` and React `/app-v2`. [CODEX UI/REPO HYGIENE]
   - Fixed the UI test-harness drift where `scripts/run_ui_fast_tests.sh` built
     React v2 but ran legacy `/app` pytest/Playwright tests.
