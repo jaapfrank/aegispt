@@ -17,15 +17,21 @@ VENV=$TOOLS/train-venv/bin/python
 LLAMA=$TOOLS/llama.cpp
 REPO="/home/administrator/project/automation skill/AegisPT"
 MERGED=$TRAIN/merged-$LABEL
-GGUF_NAME=eval-$LABEL-f16.gguf
+GGUF_NAME=eval-$LABEL-q8.gguf
 GGUF=$TOOLS/models/$GGUF_NAME
 
 echo "=== [1/4] merge ($ADAPTER) -> $MERGED ==="
-AEGISPT_MERGE_ADAPTER="$ADAPTER" AEGISPT_MERGE_OUT="$MERGED" \
-  "$VENV" "$REPO/scripts/training/merge_adapter.py" || { echo "MERGE FAILED"; exit 1; }
+if ls "$MERGED"/*.safetensors >/dev/null 2>&1; then
+  echo "merged dir already populated — skipping merge (resume)"
+else
+  AEGISPT_MERGE_ADAPTER="$ADAPTER" AEGISPT_MERGE_OUT="$MERGED" \
+    "$VENV" "$REPO/scripts/training/merge_adapter.py" || { echo "MERGE FAILED"; exit 1; }
+fi
 
-echo "=== [2/4] convert -> GGUF f16 ($GGUF) ==="
-"$VENV" "$LLAMA/convert_hf_to_gguf.py" "$MERGED" --outfile "$GGUF" --outtype f16 \
+echo "=== [2/4] convert -> GGUF q8_0 ($GGUF) — fits the 16GB GPU ==="
+# convert_hf_to_gguf needs sentencepiece+protobuf for the Qwen tokenizer (idempotent)
+"$VENV" -c "import sentencepiece, google.protobuf" 2>/dev/null || "$VENV" -m pip install -q sentencepiece protobuf
+"$VENV" "$LLAMA/convert_hf_to_gguf.py" "$MERGED" --outfile "$GGUF" --outtype q8_0 \
   || { echo "CONVERT FAILED"; exit 1; }
 
 echo "=== [3/4] serve on llama.cpp server-cuda (port $PORT) ==="

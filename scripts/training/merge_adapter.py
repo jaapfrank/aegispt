@@ -26,8 +26,12 @@ def main():
     if not OUT:
         raise SystemExit("set AEGISPT_MERGE_OUT")
     tok = AutoTokenizer.from_pretrained(BASE)
+    # Merge on CPU. The fp16 base is ~16GB; an "auto" device map offloads to the
+    # meta device whenever the GPU is busy (qwen-gpu) or too small (16GB 5080),
+    # and merge_and_unload() then breaks on meta tensors. CPU RAM is plentiful and
+    # this frees the whole GPU for the serve step that follows.
     model = AutoModelForCausalLM.from_pretrained(
-        BASE, torch_dtype=torch.float16, device_map="auto", low_cpu_mem_usage=True)
+        BASE, dtype=torch.float16, low_cpu_mem_usage=True)
     if ADAPTER and ADAPTER.lower() not in {"base", "none", ""}:
         model = PeftModel.from_pretrained(model, ADAPTER)
         model = model.merge_and_unload()
