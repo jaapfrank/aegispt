@@ -1,5 +1,13 @@
 """Weighted dataset MIXER for AegisPT training (quality phase, 2026-06-04).
 
+DEPRECATED (2026-06-05): SUPERSEDED by the iter5 curated mix. This mixer only
+blends 3 families (full_coverage/open_corpus/payload) and is NOT the training
+source-of-truth. Use `aegispt_curated_sft_mix_iter5.jsonl` (built by Codex's
+make_curated_sft_mix_iter5.py — 5 families incl. negative/contrastive +
+domain-extension, dedup, hard-exclusions, held-out hash guard). The SFT trainer
+default (qlora_train.py) and the eval gate (eval_harness.py) now point at iter5.
+Kept only for reference/history; do not extend.
+
 Blends the three curated families with controlled weights, dedups, and GUARDS
 against eval/test leakage. Operator priority: without a controlled mix you cannot
 tell whether payload-training makes the system better or just "payload-happy".

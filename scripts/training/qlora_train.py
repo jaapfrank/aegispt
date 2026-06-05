@@ -18,10 +18,14 @@ from transformers import (AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfi
 from trl import SFTTrainer
 
 BASE = os.environ.get("AEGISPT_TRAIN_BASE", "mlabonne/Qwen3-8B-abliterated")
+# iter5 source-of-truth: Codex's curated, dedup'd, held-out-guarded SFT mix
+# (codex/results aegispt-data-lane-iter5-claude-handoff). Override per run with
+# AEGISPT_TRAIN_DATA. NOTE: this mix is single-turn — it does NOT close the
+# multi-step deep-chain gap [[project_multistep_gap_is_the_frontier]].
 DATA = os.environ.get("AEGISPT_TRAIN_DATA",
-                      "/home/administrator/.aegispt-tools/training/agentic_followthrough.jsonl")
+                      "/home/administrator/.aegispt-tools/training/aegispt_curated_sft_mix_iter5.jsonl")
 OUT = os.environ.get("AEGISPT_TRAIN_OUT",
-                     "/home/administrator/.aegispt-tools/training/qlora-followthrough")
+                     "/home/administrator/.aegispt-tools/training/qlora-iter5-sft")
 MAXSTEPS = int(os.environ.get("AEGISPT_TRAIN_STEPS", "300"))
 
 print(f"[qlora] base={BASE}  data={DATA}  out={OUT}  max_steps={MAXSTEPS}", flush=True)

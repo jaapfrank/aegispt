@@ -27,7 +27,8 @@ from trl import DPOConfig, DPOTrainer
 DIR = Path.home() / ".aegispt-tools" / "training"
 BASE = os.environ.get("AEGISPT_DPO_BASE", "mlabonne/Qwen3-8B-abliterated")
 SFT_ADAPTER = os.environ.get("AEGISPT_DPO_ADAPTER", "")
-DATA = os.environ.get("AEGISPT_DPO_DATA", str(DIR / "aegispt_preference_pairs_train.jsonl"))
+# iter5 source-of-truth DPO preference data (prompt/chosen/rejected) per the handoff
+DATA = os.environ.get("AEGISPT_DPO_DATA", str(DIR / "aegispt_payload_dpo_iter4_train.jsonl"))
 OUT = os.environ.get("AEGISPT_DPO_OUT", str(DIR / "dpo-stage"))
 MAXSTEPS = int(os.environ.get("AEGISPT_DPO_STEPS", "200"))
 BETA = float(os.environ.get("AEGISPT_DPO_BETA", "0.1"))
