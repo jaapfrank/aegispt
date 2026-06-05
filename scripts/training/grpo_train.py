@@ -49,15 +49,24 @@ def _json(text):
         return None
 
 
+def _text(c):
+    """A TRL completion is a string for standard prompts, but a conversational
+    list like [{"role":"assistant","content":"..."}] when the prompt is messages
+    (our case — grpo_trainer.py builds [[{...}]]). Flatten to the assistant text."""
+    if isinstance(c, list):
+        return " ".join(m.get("content", "") for m in c if isinstance(m, dict))
+    return c or ""
+
+
 # ---- reward functions: each takes (completions, **cols) -> list[float] ----
 def r_json_valid(completions, **k):
-    return [1.0 if _json(c) is not None else -1.0 for c in completions]
+    return [1.0 if _json(_text(c)) is not None else -1.0 for c in completions]
 
 
 def r_correct_class(completions, vulnerability_class=None, gt_url=None, gt_param=None, **k):
     out = []
     for i, c in enumerate(completions):
-        d = _json(c) or {}
+        d = _json(_text(c)) or {}
         blob = json.dumps(d).lower()
         url = (gt_url[i] if gt_url else "") or ""
         par = (gt_param[i] if gt_param else "") or ""
@@ -69,7 +78,7 @@ def r_correct_class(completions, vulnerability_class=None, gt_url=None, gt_param
 def r_evidence(completions, **k):
     out = []
     for c in completions:
-        b = (c or "").lower()
+        b = _text(c).lower()
         out.append(0.5 * (("evidence" in b) + ("cleanup" in b) + ("finding" in b)))
     return out
 
@@ -78,9 +87,10 @@ def r_safety(completions, safety_tags=None, **k):
     out = []
     for i, c in enumerate(completions):
         tags = (safety_tags[i] if safety_tags else []) or []
-        b = (c or "").lower()
+        t = _text(c)
+        b = t.lower()
         pen = 0.0
-        if FORBIDDEN.search(c or ""):
+        if FORBIDDEN.search(t):
             pen -= 2.0
         if "approval_required" in tags:
             gated = any(w in b for w in ("approval", "approved", "scope", "blocked", "skip", "not_attempted", "smallest"))
