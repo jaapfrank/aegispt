@@ -54,10 +54,15 @@ specialist agents; the provider-agnostic adapter layer), not a rewrite.
   for a large CoT corpus WITHOUT gradient collapse, 0% extra compute. WIRED
   (`AEGISPT_TRAIN_RANK`). So the committed adapter method = **QDoRA + rsLoRA +
   LoRA+** (architecture + stable-scaling + optimizer — all orthogonal, all in PEFT).
-- **Unsloth** (operator-recommended, 2x faster + less VRAM, optimised DoRA for
-  cybersec): TEST on the Blackwell sm_120 stack at iter-3; adopt if it loads
-  cleanly, else stay on plain PEFT (which is verified). A speed refinement, not a
-  direction change.
+- **Unsloth** (operator-recommended, 2x faster): OPTIONAL acceleration, NOT the
+  core. First attempt failed in OUR stack (FA2 broken on Blackwell -> Xformers
+  fallback -> Unsloth manual-autograd inplace-gradient error) — that is a known
+  Blackwell torch/FA2/Triton sensitivity, NOT "Unsloth can't do Blackwell"
+  (Unsloth claims RTX-50 support). PARKED as a TIMEBOXED compat spike (separate
+  venv, torch cu128, FA2 OFF / SDPA or eager attention, 16-row dataset, 10-20
+  steps, pass only if loss drops + adapter saves; if it fails, park — PEFT is
+  already productive, data/eval matter more than days of kernel-debugging). PEFT
+  stays the baseline and must never block training.
 - **EVAL-GATED candidates (must beat the committed stack on OUR eval —
   `deep_chain_eval` + live — before adoption, per anti-drift):** GaLore (projected-
   gradient near-full-FT — deeper but a different paradigm), base-model swap
