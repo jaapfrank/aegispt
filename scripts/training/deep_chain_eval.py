@@ -78,7 +78,7 @@ def make_act():
         print(f"backend: HTTP {ENDPOINT} (model={MODEL_NAME})", flush=True)
 
         def act(convo):
-            data = json.dumps({"model": MODEL_NAME, "messages": convo, "max_tokens": 220,
+            data = json.dumps({"model": MODEL_NAME, "messages": convo, "max_tokens": 512,
                                "temperature": 0, "stream": False}).encode()
             req = urllib.request.Request(ENDPOINT, data=data, headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=120) as r:
@@ -105,7 +105,7 @@ def make_act():
         prompt = tok.apply_chat_template(convo, tokenize=False, add_generation_prompt=True)
         ids = tok(prompt, return_tensors="pt").to("cuda")
         with torch.no_grad():
-            out = mdl.generate(**ids, max_new_tokens=220, do_sample=False, temperature=None,
+            out = mdl.generate(**ids, max_new_tokens=512, do_sample=False, temperature=None,
                                top_p=None, pad_token_id=tok.eos_token_id)
         return tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True).strip()
 
@@ -120,6 +120,7 @@ def main():
     steps = 0
     for i in range(12):
         txt = act(convo)
+        txt = re.sub(r"<think>.*?</think>", "", txt, flags=re.S)  # Qwen reasoning block
         m = re.search(r"\{.*\}", txt, re.S)
         try:
             obj = json.loads(m.group(0)); req = obj.get("request") or {}
