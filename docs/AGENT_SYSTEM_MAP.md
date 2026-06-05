@@ -192,7 +192,14 @@ last_verified: 2026-05-15
 
 **Narrator panels** stream via GET `/api/v1/runs/{run_id}/narrative-panels` (polling). Data lives in `audit_events` (append-only, race-safe).
 
-**Build**: `bash scripts/build_ui_v2.sh`. Tests: `bash scripts/run_ui_fast_tests.sh`.
+**Build**: `bash scripts/build_ui_v2.sh`.
+**Tests**:
+
+- legacy `/app`: `bash scripts/run_app_tests.sh`
+- React `/app-v2`: `bash scripts/run_app_v2_tests.sh`
+
+`bash scripts/run_ui_fast_tests.sh` remains a compatibility wrapper for the
+legacy `/app` fast tests only.
 
 **Recent UI work** (parked per user): comic-strip narrative view styling.
 

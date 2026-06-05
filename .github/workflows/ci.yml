@@ -33,5 +33,5 @@ jobs:
       - run: python3 scripts/validate_backlog_tasks.py
       - name: Run API, worker, and script tests
         run: python -m pytest -q -s api/tests workers/tests scripts/tests
-      - name: Run fast UI smoke tests
-        run: python -m pytest -q -s -m ui_fast ui/tests/test_operator_console_smoke_e2e.py ui/tests/test_mockup_port_e2e.py
+      - name: Run legacy /app fast UI smoke tests
+        run: bash scripts/run_app_tests.sh

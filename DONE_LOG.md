@@ -1,5 +1,38 @@
 # Done Log
 
+- 2026-06-05: UI test lanes split for legacy `/app` and React `/app-v2`. [CODEX UI/REPO HYGIENE]
+  - Fixed the UI test-harness drift where `scripts/run_ui_fast_tests.sh` built
+    React v2 but ran legacy `/app` pytest/Playwright tests.
+  - No `NEXT_TASK.md`, `TASK_QUEUE.md`, score-lane runner code, runtime
+    assessment behavior, capability registry, approval flow, or deployment flow
+    was changed.
+  - Added `scripts/run_app_tests.sh` for legacy `/app` fast tests under
+    `ui/tests`.
+  - Added `scripts/run_app_v2_tests.sh` for React `/app-v2` build, i18n parity,
+    and Node Playwright tests under `ui-v2/tests`.
+  - Changed `scripts/run_ui_fast_tests.sh` into a compatibility wrapper for the
+    legacy `/app` test lane only; it no longer calls `scripts/build_ui_v2.sh`.
+  - Updated `.github/workflows/ci.yml` to call the legacy `/app` script by
+    name, and added `.github/workflows/app-v2-tests.yml` as the separate React
+    `/app-v2` CI target.
+  - Added `scripts/tests/test_ui_test_split_scripts.py` to prevent the harnesses
+    from drifting back together.
+  - Updated `docs/AGENT_SYSTEM_MAP.md` and added
+    `docs/validation/codex-ui-test-lane-split-2026-06-05.md`.
+  - Validation completed:
+    `bash -n scripts/run_app_tests.sh scripts/run_app_v2_tests.sh scripts/run_ui_fast_tests.sh`;
+    `python3 -m pytest -q scripts/tests/test_ui_test_split_scripts.py`;
+    `python3 -m compileall -q scripts/tests/test_ui_test_split_scripts.py`;
+    `.venv/bin/ruff check scripts/tests/test_ui_test_split_scripts.py`;
+    `bash scripts/run_app_v2_tests.sh tests/i18n.spec.ts` (`3 passed`);
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - Legacy residual: `bash scripts/run_app_tests.sh` now reaches the legacy
+    `/app` tests without building React v2, but existing legacy UI behavior /
+    fixture assertions currently report `54 passed, 5 failed, 4 errors`
+    (`conversation-question` visibility, settings dynamic imports, and actor /
+    API-key state assertions).
+
 - 2026-06-05: Data-lane reproducibility, deep-chain gate, and multi-turn family complete. [TRAINING DATA]
   - Closed the current Codex data-lane/repo-hygiene blockers without changing
     runtime assessment behavior, capability registry, approval flow,

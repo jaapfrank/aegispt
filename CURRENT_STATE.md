@@ -1,5 +1,49 @@
 # Current State
 
+## Latest Continuation - UI test lanes split for legacy app and React v2 (2026-06-05)
+
+Codex fixed the UI test-harness drift where `scripts/run_ui_fast_tests.sh`
+was building React v2 while running legacy `/app` pytest/Playwright tests.
+This was a Codex UI/repo-hygiene change only; `NEXT_TASK.md`, `TASK_QUEUE.md`,
+score-lane runner code, runtime assessment behavior, capability registry,
+approval flow, and deployment flow were not changed.
+
+UI test lanes are now explicit:
+
+- added `scripts/run_app_tests.sh` for legacy `/app` fast pytest/Playwright
+  tests under `ui/tests`
+- added `scripts/run_app_v2_tests.sh` for React `/app-v2` build, i18n parity,
+  and Node Playwright tests under `ui-v2/tests`
+- changed `scripts/run_ui_fast_tests.sh` into a compatibility wrapper for the
+  legacy `/app` tests only; it no longer calls `scripts/build_ui_v2.sh`
+- updated `.github/workflows/ci.yml` so the main CI step is named and routed as
+  legacy `/app`
+- added `.github/workflows/app-v2-tests.yml` as the separate React `/app-v2`
+  CI target
+- added `scripts/tests/test_ui_test_split_scripts.py` to prevent the two
+  harnesses from drifting back together
+- updated `docs/AGENT_SYSTEM_MAP.md` and added
+  `docs/validation/codex-ui-test-lane-split-2026-06-05.md`
+
+Validation completed:
+
+- `bash -n scripts/run_app_tests.sh scripts/run_app_v2_tests.sh scripts/run_ui_fast_tests.sh`
+- `python3 -m pytest -q scripts/tests/test_ui_test_split_scripts.py`
+- `python3 -m compileall -q scripts/tests/test_ui_test_split_scripts.py`
+- `.venv/bin/ruff check scripts/tests/test_ui_test_split_scripts.py`
+- `bash scripts/run_app_v2_tests.sh tests/i18n.spec.ts` (`3 passed`)
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
+Legacy residual status:
+
+- `bash scripts/run_app_tests.sh` now reaches the legacy `/app` test files
+  without building React v2, but the existing legacy suite currently reports
+  `54 passed, 5 failed, 4 errors`
+- failures are in existing legacy UI behavior/fixtures (`conversation-question`
+  visibility, dynamic settings module imports during settings tests, and
+  actor/API-key state assertions), not in React v2 coupling
+
 ## Latest Continuation - Data-lane reproducibility, deep-chain gate, and multi-turn family complete (2026-06-05)
 
 Codex closed the current data-lane/repo-hygiene blockers while leaving the
