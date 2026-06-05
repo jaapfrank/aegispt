@@ -53,9 +53,20 @@ def main():
                               target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"])
 
     ds = load_dataset("json", data_files=DATA, split="train")
+
+    # Normalise to TRL conversational DPO: prompt=[msgs], chosen/rejected=[msg].
+    # Codex emits chosen/rejected as a single {role,content} dict — wrap in a list.
+    def _norm(ex):
+        ch, rj = ex["chosen"], ex["rejected"]
+        return {"prompt": ex["prompt"],
+                "chosen": [ch] if isinstance(ch, dict) else ch,
+                "rejected": [rj] if isinstance(rj, dict) else rj}
+
+    keep = {"prompt", "chosen", "rejected"}
+    ds = ds.map(_norm, remove_columns=[c for c in ds.column_names if c not in keep])
     cfg = DPOConfig(output_dir=OUT, per_device_train_batch_size=1, gradient_accumulation_steps=8,
                     max_steps=MAXSTEPS, learning_rate=5e-6, bf16=True, logging_steps=10,
-                    save_steps=MAXSTEPS, beta=BETA, max_length=2048, max_prompt_length=1536, report_to=[])
+                    save_steps=MAXSTEPS, beta=BETA, max_length=2048, report_to=[])
     trainer = DPOTrainer(model=model, args=cfg, train_dataset=ds, processing_class=tok, peft_config=peft_cfg)
     print(f"[dpo] training (beta={BETA}, prefer good>bad) ...", flush=True)
     trainer.train()

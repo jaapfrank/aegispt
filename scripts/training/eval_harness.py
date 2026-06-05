@@ -104,9 +104,13 @@ def main():
                              bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_use_double_quant=True)
     model = AutoModelForCausalLM.from_pretrained(BASE, quantization_config=bnb, device_map={"": 0},
                                                  torch_dtype=torch.bfloat16)
-    model = PeftModel.from_pretrained(model, ADAPTER)
+    # ADAPTER=base|none -> evaluate the UN-TRAINED base (the "before" baseline)
+    if ADAPTER.lower() not in {"base", "none", ""}:
+        model = PeftModel.from_pretrained(model, ADAPTER)
+        print(f"adapter: {ADAPTER}", flush=True)
+    else:
+        print("adapter: (BASE — un-trained baseline)", flush=True)
     model.eval()
-    print(f"adapter: {ADAPTER}", flush=True)
 
     overall = {"schema_ok": 0, "action_match": 0, "evidence_ok": 0, "safety_ok": 0, "n": 0}
     per_family = {}
