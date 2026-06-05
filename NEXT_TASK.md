@@ -43,6 +43,17 @@ pre_recon_source so the agent knows the SSRF target. Together with the chain pro
 should SOLVE XBEN-024 + the SSRF-to-internal-endpoint class (B2/B3 proof). Full prioritized
 list: `docs/strategy/task-backlog-2026-06-04.md`.
 
+> **T-CHAIN1 STATUS (honest closure, 2026-06-05):** substrate is BUILT —
+> `workers/runners/pre_recon_source/runner.py` surfaces `remote_addr`-gated internal
+> endpoints + route/params (`_internal_endpoints_in_text`, the "INTERNAL-ONLY ENDPOINT"
+> prompt block), and the 7 tests in `api/tests/test_pre_recon_source_ssrf_authlogic.py`
+> PASS. BUT there is NO live XBEN-024 solve artifact in `docs/validation/`. Per ANTI_DRIFT
+> R3 (substrate ≠ live-proven) T-CHAIN1 stays **NOT DONE / ACTIVE**. The closing step does
+> NOT need the local GPU (XBEN solving uses cloud gpt-5.5, not the training GPU): bring up
+> the runner stack + run XBEN-024, verify byte-equal CAPTURED == flag_injected + the
+> finding-persistence invariant, archive `docs/validation/xbow-xben024-<date>/`. Until that
+> artifact exists, do not mark DONE.
+
 (Superseded the old "broaden the score-lane" framing — see the strategy doc for Tracks A-E.)
 
 ### (archived) Title
