@@ -1,5 +1,16 @@
 # Done Log
 
+- 2026-06-06: React `/app-v2` full test lane validated. [CODEX UI/REPO HYGIENE]
+  - Continued from the separated legacy `/app` and React `/app-v2` test-lane
+    work with validation-only coverage of the full React v2 lane.
+  - No runtime assessment behavior, score-lane runner code, capability
+    registry, approval flow, deployment flow, training/eval defaults,
+    `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `bash scripts/run_app_v2_tests.sh` (production build passed, i18n parity
+    OK for `97` keys across `en`, `nl`, `de`, `fr`, and React v2 Playwright
+    passed with `45 passed`).
+
 - 2026-06-05: Legacy `/app` test lane stabilized after UI split. [CODEX UI/REPO HYGIENE]
   - Continued from the UI lane split and resolved the previously recorded
     legacy residual status. `bash scripts/run_app_tests.sh` now passes with

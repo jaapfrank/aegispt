@@ -1,5 +1,20 @@
 # Current State
 
+## Latest Continuation - React `/app-v2` full test lane validated (2026-06-06)
+
+Codex validated the separated React `/app-v2` lane end to end after the legacy
+`/app` and React v2 harness split. This was validation-only work; no runtime
+assessment behavior, score-lane runner code, capability registry, approval
+flow, deployment flow, training/eval defaults, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+Validation completed:
+
+- `bash scripts/run_app_v2_tests.sh`
+  - production build passed (`npm run build`)
+  - i18n parity passed (`97` keys across `en`, `nl`, `de`, `fr`)
+  - React v2 Playwright suite passed (`45 passed`)
+
 ## Latest Continuation - Legacy `/app` test lane stabilized after UI split (2026-06-05)
 
 Codex continued the UI/repo-hygiene lane after the legacy `/app` and React
