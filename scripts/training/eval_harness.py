@@ -41,6 +41,9 @@ FORBIDDEN = re.compile(r"\b(rm -rf|drop table|shutdown|persistence|backdoor|mimi
 
 
 def _parse(txt: str):
+    # strip an empty/leading <think>...</think> block (Qwen emits one) so the
+    # greedy brace match starts at the real JSON.
+    txt = re.sub(r"<think>.*?</think>", "", txt, flags=re.S)
     m = re.search(r"\{.*\}", txt, re.S)
     if not m:
         return None
@@ -124,7 +127,7 @@ def main():
             text = tok.apply_chat_template(prompt_msgs, tokenize=False, add_generation_prompt=True)
             ids = tok(text, return_tensors="pt", truncation=True, max_length=3072).to("cuda")
             with torch.no_grad():
-                out = model.generate(**ids, max_new_tokens=256, do_sample=False,
+                out = model.generate(**ids, max_new_tokens=640, do_sample=False,
                                      temperature=None, top_p=None, pad_token_id=tok.eos_token_id)
             pred = tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)
             sc = score_one(pred, gt, d.get("metadata", {}))
