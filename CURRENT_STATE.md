@@ -91,7 +91,7 @@ Validation completed:
 - `python3 scripts/validate_backlog_tasks.py`
 - `git diff --check`
 
-Legacy residual status:
+Superseded legacy residual status:
 
 - `bash scripts/run_app_tests.sh` now reaches the legacy `/app` test files
   without building React v2, but the existing legacy suite currently reports
@@ -99,6 +99,9 @@ Legacy residual status:
 - failures are in existing legacy UI behavior/fixtures (`conversation-question`
   visibility, dynamic settings module imports during settings tests, and
   actor/API-key state assertions), not in React v2 coupling
+- this residual status was resolved by the later "Legacy `/app` test lane
+  stabilized after UI split" continuation; current validation is
+  `bash scripts/run_app_tests.sh` with `63 passed`
 
 ## Latest Continuation - Data-lane reproducibility, deep-chain gate, and multi-turn family complete (2026-06-05)
 
