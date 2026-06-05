@@ -123,7 +123,15 @@ def main():
         txt = re.sub(r"<think>.*?</think>", "", txt, flags=re.S)  # Qwen reasoning block
         m = re.search(r"\{.*\}", txt, re.S)
         try:
-            obj = json.loads(m.group(0)); req = obj.get("request") or {}
+            obj = json.loads(m.group(0))
+            # Schema-flexible: accept {"request": {...}} (single-turn families) OR
+            # {"next_action": {"args": {...}}} (iter6 multi-turn family). Without
+            # this an iter6-trained model would fail the chain on a schema mismatch,
+            # not on capability.
+            req = obj.get("request") or {}
+            if not req:
+                na = obj.get("next_action") or {}
+                req = (na.get("args") if isinstance(na, dict) else None) or (na if isinstance(na, dict) else {})
         except Exception:
             print(f"STEP {i+1}: UNPARSEABLE: {txt[:90]}", flush=True); break
         steps += 1
