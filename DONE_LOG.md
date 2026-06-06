@@ -1,5 +1,32 @@
 # Done Log
 
+- 2026-06-07: V4-Pro demonstration ingest guard. [TRAINING DATA]
+  - Added `scripts/training/ingest_v4pro_demonstrated_chains_iter8.py` as the
+    guarded import path for future real V4-Pro/frontier-teacher trajectory
+    exports.
+  - The script emits train-only `aegispt_v4pro_demonstrated_chains_iter8`
+    JSONL data, normalizes metadata/safety fields, preserves
+    `original_case_id`, and marks rows as
+    `frontier_model_demonstrated_non_held_out`.
+  - The ingest fails closed by default on held-out IDs, held-out marker/route
+    strings, unsafe markers, invalid assistant JSON, missing
+    `next_action.args`, premature `done=true`, missing final
+    `evidence.goal_satisfied=true`, or `runtime_execution=true`.
+  - Added `scripts/tests/test_v4pro_demonstrated_ingest_iter8.py` and included
+    it in `scripts/run_data_lane_tests.sh`.
+  - This does not fake V4-Pro rows; it makes the future Claude/V4-Pro teacher
+    export path safe and reproducible.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_v4pro_demonstrated_ingest_iter8.py`;
+    `python3 -m compileall -q scripts/training/ingest_v4pro_demonstrated_chains_iter8.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m ruff check scripts/training/ingest_v4pro_demonstrated_chains_iter8.py scripts/tests/test_v4pro_demonstrated_ingest_iter8.py`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-07: Iter8 multi-service chain-type diversity pack. [TRAINING DATA]
   - Added `scripts/training/make_multiservice_chaintype_diversity_iter8.py` to
     generate the `aegispt_multiservice_chaintype_diversity_iter8` family.

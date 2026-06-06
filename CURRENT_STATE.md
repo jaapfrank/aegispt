@@ -1,5 +1,52 @@
 # Current State
 
+## Latest Continuation - V4-Pro demonstration ingest guard (2026-06-07)
+
+Codex cannot generate genuine V4-Pro-demonstrated trajectories in this shell
+because no teacher endpoint or API key is exposed. Instead, Codex added the
+guarded ingest layer that will accept Claude/V4-Pro teacher exports once they
+exist.
+
+New ingest contract:
+
+- `scripts/training/ingest_v4pro_demonstrated_chains_iter8.py`
+- output family: `aegispt_v4pro_demonstrated_chains_iter8`
+- train-only JSONL output
+- accepts external JSONL chat SFT rows, normalizes metadata/safety fields, and
+  preserves the original teacher case id in `original_case_id`
+- fails closed by default on rejected rows; `--allow-rejected` writes a
+  rejected JSONL for audit instead
+
+Guards enforced before training emission:
+
+- held-out registry lookup against exact `scenario_id`, `case_id`,
+  `qualified_scenario_id`, and target IDs
+- held-out marker/route rejection for deep-chain/XBEN-like leaked strings
+- assistant content must be valid JSON with `done`, `evidence`, `next_action`,
+  `reasoning`, `safety`, and `state`
+- `next_action.args` is required on every assistant turn
+- no premature `done=true`; final turn must have
+  `evidence.goal_satisfied=true`
+- `runtime_execution` is normalized to false and any true runtime execution
+  input is rejected
+
+`scripts/run_data_lane_tests.sh` now includes the V4-Pro ingest tests. This
+does not create fake teacher data; it creates the safe import path for real
+model-demonstrated non-held-out trajectories.
+
+No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_v4pro_demonstrated_ingest_iter8.py`
+- `python3 -m compileall -q scripts/training/ingest_v4pro_demonstrated_chains_iter8.py`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m ruff check scripts/training/ingest_v4pro_demonstrated_chains_iter8.py scripts/tests/test_v4pro_demonstrated_ingest_iter8.py`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Iter8 multi-service chain data pack (2026-06-07)
 
 Codex added the iter8 data-lane lever requested after the iter7 scaffold:

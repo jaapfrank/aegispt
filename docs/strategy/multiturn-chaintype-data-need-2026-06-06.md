@@ -109,3 +109,22 @@ and the generated gzip artifact pack under
 `codex/results/training/iter8-multiservice-diversity-20260607/`. The canonical
 lab-truth/held-out registry now includes iter8 eval/test scenario IDs, so those
 splits are protected from Claude's jury/factory feedback loop.
+
+## V4-Pro demonstrated ingest guard
+
+Codex did not fabricate V4-Pro rows. Instead, it added
+`scripts/training/ingest_v4pro_demonstrated_chains_iter8.py` as the safe import
+contract for future real teacher exports. It emits the train-only family
+`aegispt_v4pro_demonstrated_chains_iter8` after validating:
+
+- exact held-out registry IDs do not match the candidate row
+- held-out deep-chain/XBEN-like marker and route strings are absent
+- assistant turns are JSON with `done`, `evidence`, `next_action`,
+  `reasoning`, `safety`, and `state`
+- every `next_action` includes `args`
+- `done=true` occurs only on the final turn with
+  `evidence.goal_satisfied=true`
+- runtime execution is false
+
+This keeps the strongest future lever ready without pretending Codex has real
+V4-Pro teacher access in this shell.

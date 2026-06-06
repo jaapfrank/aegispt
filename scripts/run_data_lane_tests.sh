@@ -16,6 +16,7 @@ python3 -m pytest -q \
   scripts/tests/test_multiservice_chaintype_diversity_iter8.py \
   scripts/tests/test_iter7_training_artifact_pack.py \
   scripts/tests/test_iter8_training_artifact_pack.py \
+  scripts/tests/test_v4pro_demonstrated_ingest_iter8.py \
   scripts/tests/test_jury_system.py \
   scripts/tests/test_jury_review.py \
   scripts/tests/test_trace_record.py \

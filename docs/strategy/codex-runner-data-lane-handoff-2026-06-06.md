@@ -66,6 +66,20 @@ python3 scripts/training/make_multiservice_chaintype_diversity_iter8.py
 python3 scripts/training/build_iter8_training_artifact_pack.py
 ```
 
+Ingest future real V4-Pro/frontier-teacher demonstrated rows with:
+
+```bash
+python3 scripts/training/ingest_v4pro_demonstrated_chains_iter8.py \
+  --registry ~/.aegispt-tools/training/aegispt_lab_truth_heldout_registry_iter6.json \
+  --out-dir ~/.aegispt-tools/training \
+  <teacher-export.jsonl>
+```
+
+This ingest path is intentionally train-only and fails closed by default if a
+candidate row matches held-out IDs, leaks held-out markers/routes, has invalid
+assistant JSON, finishes early, lacks final goal evidence, or claims runtime
+execution.
+
 Claude's existing held-out guard can consume either the generated registry JSON
 or the generated `_held_out.jsonl` extract:
 
