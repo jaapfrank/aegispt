@@ -13,4 +13,5 @@ python3 -m pytest -q \
   scripts/tests/test_claude_data_lane_handoff.py \
   scripts/tests/test_multiturn_agentic_chain_dataset.py \
   scripts/tests/test_jury_review.py \
-  scripts/tests/test_trace_record.py
+  scripts/tests/test_trace_record.py \
+  scripts/tests/test_lab_truth_heldout_registry.py

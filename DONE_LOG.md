@@ -1,5 +1,36 @@
 # Done Log
 
+- 2026-06-06: Lab-truth and held-out registry wired for jury factory. [TRAINING DATA]
+  - Added `scripts/training/make_lab_truth_heldout_registry_iter6.py` to build
+    canonical `aegispt_lab_truth_heldout_registry_iter6` artifacts: registry
+    JSON, lab-truth JSONL, held-out JSONL, and a manifest.
+  - Completed Codex task #2 from the handoff for current lab assets:
+    generated live-lab target specs and the standalone AegisPT lab suite are
+    tagged `known_vulnerable`; unknown live targets still default to
+    `live_no_oracle`.
+  - Completed Codex task #4 from the handoff for current eval assets: exact
+    held-out scenario IDs now cover `deep_chain_eval`, LLMSVS adversarial eval,
+    iter6 multi-turn eval/test splits, and standalone lab-suite benchmark IDs.
+  - Extended `scripts/training/jury_factory.py::load_held_out(...)` so
+    Claude's factory guard can read the new registry JSON directly while still
+    accepting existing JSONL eval/test files.
+  - Added `scripts/tests/test_lab_truth_heldout_registry.py` and included it in
+    `scripts/run_data_lane_tests.sh`.
+  - Updated `docs/strategy/codex-runner-data-lane-handoff-2026-06-06.md` so
+    Claude can see that Codex tasks #2 and #4 are done; task #3 remains partial.
+  - No runtime assessment behavior, score-lane runner code, capability
+    registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 -m compileall -q scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/training/jury_factory.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 -m ruff check scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/training/jury_factory.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 scripts/training/make_lab_truth_heldout_registry_iter6.py --out-dir <tmp> --prefix smoke_lab_truth_heldout --live-lab-variants 1 --llmsvs-count 18 --multiturn-count eval=16 --multiturn-count test=16`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: Codex runner/data-lane handoff recorded. [TRAINING DATA]
   - Added `docs/strategy/codex-runner-data-lane-handoff-2026-06-06.md` to
     record the Codex-side tasks that complement Claude's Trace -> Jury ->

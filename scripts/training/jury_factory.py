@@ -23,6 +23,40 @@ def scenario_hash(scenario_id: str) -> str:
     return hashlib.sha256(str(scenario_id).strip().lower().encode()).hexdigest()
 
 
+def _held_out_rows_from_json(value) -> list[dict]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    if not isinstance(value, dict):
+        return []
+    rows = []
+    if isinstance(value.get("held_out_scenarios"), list):
+        rows.extend(item for item in value["held_out_scenarios"] if isinstance(item, dict))
+    held_out = value.get("held_out")
+    if isinstance(held_out, list):
+        rows.extend(item for item in held_out if isinstance(item, dict))
+    elif isinstance(held_out, dict):
+        scenarios = held_out.get("scenarios")
+        if isinstance(scenarios, list):
+            rows.extend(item for item in scenarios if isinstance(item, dict))
+    return rows or [value]
+
+
+def _ids_from_row(row: dict, id_keys: tuple[str, ...]) -> list[str]:
+    ids = []
+    candidates = [row]
+    if isinstance(row.get("metadata"), dict):
+        candidates.insert(0, row["metadata"])
+    for candidate in candidates:
+        for key in id_keys:
+            if candidate.get(key):
+                ids.append(str(candidate[key]))
+                break
+    qualified = row.get("qualified_scenario_id")
+    if qualified:
+        ids.append(str(qualified))
+    return ids
+
+
 def load_held_out(paths: list[str], *, id_keys=("scenario_id", "case_id", "id")) -> set[str]:
     """Collect scenario hashes from held-out eval/test files so they can NEVER be
     minted into training data."""
@@ -31,18 +65,26 @@ def load_held_out(paths: list[str], *, id_keys=("scenario_id", "case_id", "id"))
         fp = Path(p)
         if not fp.exists():
             continue
-        for line in fp.read_text().splitlines():
-            if not line.strip():
-                continue
+        text = fp.read_text()
+        if fp.suffix == ".json":
             try:
-                row = json.loads(line)
+                rows = _held_out_rows_from_json(json.loads(text))
             except Exception:
-                continue
-            meta = row.get("metadata", row)
-            for k in id_keys:
-                if meta.get(k):
-                    out.add(scenario_hash(meta[k]))
-                    break
+                rows = []
+        else:
+            rows = []
+            for line in text.splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(row, dict):
+                    rows.append(row)
+        for row in rows:
+            for scenario_id in _ids_from_row(row, tuple(id_keys)):
+                out.add(scenario_hash(scenario_id))
     return out
 
 
@@ -85,7 +127,7 @@ def build_training_sets(items: list[dict], *, held_out: set[str] | None = None,
         proc.extend(_proc_rewards(it))
 
     dpo = []
-    for scn, d in by_scn.items():
+    for _scn, d in by_scn.items():
         pos = d.get("sft_positive") or d.get("safety_positive")
         neg = d.get("dpo_negative") or d.get("missed_finding")
         if pos and neg:
