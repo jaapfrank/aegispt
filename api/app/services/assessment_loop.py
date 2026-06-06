@@ -6151,6 +6151,36 @@ def _exec_plan_fallback_candidate(
     )
 
 
+def _emit_jury_trace(run: Run) -> None:
+    """OPT-IN (AEGISPT_RUN_TRACE_DIR): after a run finalizes, write a frozen-schema
+    run_trace.jsonl so the jury (evidence/coverage arbiter) can mint training data
+    from real runs. OFF by default -> no runtime/artifact change unless enabled.
+    Guarded: a trace-emission failure must NEVER affect the run."""
+    try:
+        import json
+        import os
+        import sys
+        from pathlib import Path
+
+        tr_dir = os.environ.get("AEGISPT_RUN_TRACE_DIR", "")
+        if not tr_dir:
+            return
+        scripts_training = "/home/administrator/project/automation skill/AegisPT/scripts/training"
+        if scripts_training not in sys.path:
+            sys.path.insert(0, scripts_training)
+        from trace_record import from_runner_tasks
+
+        tasks = list(run.tasks or [])
+        findings = list(getattr(run, "findings", None) or [])
+        trace = from_runner_tasks(tasks, run=run, findings=findings)
+        Path(tr_dir).mkdir(parents=True, exist_ok=True)
+        out = Path(tr_dir) / f"run_{run.id}.jsonl"
+        out.write_text("\n".join(json.dumps(step) for step in trace) + "\n")
+        logger.info("JURY_TRACE_EMITTED run=%s steps=%d -> %s", str(run.id)[:8], len(trace), out)
+    except Exception as exc:  # never break finalize
+        logger.warning("jury trace emission failed (non-fatal): %s", exc)
+
+
 def _finalize_run_after_loop_stop(run: Run, *, stop_reason: str) -> None:
     """Transition ``run.status`` to a terminal value when the picker emits a
     STOP. Without this hook the picker would set ``loop_state.status=stopped``
@@ -6182,6 +6212,7 @@ def _finalize_run_after_loop_stop(run: Run, *, stop_reason: str) -> None:
         sum(1 for s in statuses if s == "completed"),
         sum(1 for s in statuses if s == "failed"),
     )
+    _emit_jury_trace(run)
 
 
 def build_assessment_loop_state(session: Session, *, run: Run, scope: Scope) -> dict[str, Any]:
