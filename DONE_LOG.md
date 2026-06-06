@@ -1,5 +1,31 @@
 # Done Log
 
+- 2026-06-06: Auto lab-truth lookup wired into trace export. [TRAINING DATA]
+  - Extended `scripts/training/make_lab_truth_heldout_registry_iter6.py` with
+    `load_registry(...)` so both the full registry JSON and the lighter
+    `_lab_truth.jsonl` extract can be consumed by exporter code.
+  - Extended `scripts/training/trace_record.py` with `lab_truth=auto`
+    resolution through `--lab-truth-registry`, `--scenario-id`, and
+    `--target-id`; run configuration metadata and task params/targets are also
+    considered as candidate IDs.
+  - Unknown or unmatched live targets still resolve to `live_no_oracle`, and
+    explicit `known_clean`, `known_vulnerable`, or `live_no_oracle` overrides
+    the registry.
+  - Added regressions proving known lab-suite targets resolve to
+    `known_vulnerable`, unknown targets remain `live_no_oracle`, explicit
+    labels win, and JSON/JSONL registry shapes both load.
+  - No live runner dispatch, automatic post-run artifact persistence, runtime
+    assessment behavior, score-lane runner code, capability registry, approval
+    flow, deployment flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_trace_record.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 -m compileall -q scripts/training/trace_record.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_trace_record.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 -m ruff check scripts/training/trace_record.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_trace_record.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 scripts/training/trace_record.py --help`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: Phase-3 reviewer rubric family added. [TRAINING DATA]
   - Added `scripts/training/make_reviewer_rubrics_iter6.py` to generate
     `aegispt_reviewer_rubrics_iter6`, a prep-only rubric/prompt family for

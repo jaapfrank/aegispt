@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+VALID_LAB_TRUTHS = {"known_clean", "known_vulnerable", "live_no_oracle"}
+
 
 class TraceRecorder:
     """Append one frozen-schema step per agent turn, then finalize with the outcome."""
@@ -162,6 +164,55 @@ def _failure_reason(task: Any, execution: Any | None) -> str:
 
 def _dedupe(values: list[str]) -> list[str]:
     return sorted({value for value in values if value})
+
+
+def _candidate_lab_truth_ids(
+    tasks: list[Any],
+    *,
+    run: Any | None,
+    scenario_id: str | None = None,
+    target_id: str | None = None,
+) -> list[str]:
+    candidates = [str(value).strip() for value in (scenario_id, target_id) if value]
+    config = _safe_dict(getattr(run, "configuration_json", None))
+    for key in ("scenario_id", "lab_target_id", "target_id", "challenge_id"):
+        if config.get(key):
+            candidates.append(str(config[key]).strip())
+    for task in tasks:
+        task_target = str(getattr(task, "target_id", "") or "").strip()
+        if task_target:
+            candidates.append(task_target)
+        params = _safe_dict(getattr(task, "params_json", None))
+        for key in ("scenario_id", "lab_target_id", "target_id", "challenge_id"):
+            if params.get(key):
+                candidates.append(str(params[key]).strip())
+    return _dedupe(candidates)
+
+
+def resolve_lab_truth_label(
+    lab_truth: str,
+    *,
+    registry_path: str | Path | None = None,
+    candidate_ids: list[str] | None = None,
+) -> str:
+    """Resolve `auto` lab truth from a generated registry, else stay conservative."""
+    if lab_truth != "auto":
+        if lab_truth not in VALID_LAB_TRUTHS:
+            raise ValueError(f"invalid lab_truth: {lab_truth}")
+        return lab_truth
+    if not registry_path:
+        return "live_no_oracle"
+    from scripts.training.make_lab_truth_heldout_registry_iter6 import (
+        lab_truth_for_scenario,
+        load_registry,
+    )
+
+    registry = load_registry(Path(registry_path))
+    for candidate_id in candidate_ids or []:
+        resolved = lab_truth_for_scenario(registry, candidate_id, default="")
+        if resolved in VALID_LAB_TRUTHS:
+            return resolved
+    return "live_no_oracle"
 
 
 def _coverage_truth_no_finding_artifact(coverage_truth: dict[str, Any] | None) -> dict[str, Any]:
@@ -325,6 +376,9 @@ def _load_run_trace_from_db(
     run_id: str,
     *,
     lab_truth: str,
+    lab_truth_registry: str | None,
+    scenario_id: str | None,
+    target_id: str | None,
     final_outcome: str | None,
     include_coverage_truth: bool,
 ) -> list[dict]:
@@ -349,12 +403,22 @@ def _load_run_trace_from_db(
         ).all()
         findings = session.scalars(select(Finding).where(Finding.run_id == run.id)).all()
         coverage_truth = _load_run_coverage_truth(session, run) if include_coverage_truth else None
+        resolved_lab_truth = resolve_lab_truth_label(
+            lab_truth,
+            registry_path=lab_truth_registry,
+            candidate_ids=_candidate_lab_truth_ids(
+                list(tasks),
+                run=run,
+                scenario_id=scenario_id,
+                target_id=target_id,
+            ),
+        )
         return from_runner_tasks(
             list(tasks),
             run=run,
             findings=list(findings),
             final_outcome=final_outcome,
-            lab_truth=lab_truth,
+            lab_truth=resolved_lab_truth,
             coverage_truth=coverage_truth,
         )
 
@@ -365,9 +429,24 @@ def main() -> None:
     parser.add_argument("--out", required=True, help="Output run_trace.jsonl path")
     parser.add_argument(
         "--lab-truth",
-        default="live_no_oracle",
-        choices=["live_no_oracle", "known_clean", "known_vulnerable"],
-        help="Oracle label for no-finding traces. Live runs should keep the default.",
+        default="auto",
+        choices=["auto", "live_no_oracle", "known_clean", "known_vulnerable"],
+        help="Oracle label for no-finding traces. Auto uses a registry match, else live_no_oracle.",
+    )
+    parser.add_argument(
+        "--lab-truth-registry",
+        default=None,
+        help="Optional registry JSON or lab-truth JSONL from make_lab_truth_heldout_registry_iter6.py.",
+    )
+    parser.add_argument(
+        "--scenario-id",
+        default=None,
+        help="Optional canonical scenario id to resolve lab_truth from the registry.",
+    )
+    parser.add_argument(
+        "--target-id",
+        default=None,
+        help="Optional canonical lab target id to resolve lab_truth from the registry.",
     )
     parser.add_argument(
         "--final-outcome",
@@ -384,6 +463,9 @@ def main() -> None:
     trace = _load_run_trace_from_db(
         args.run_id,
         lab_truth=args.lab_truth,
+        lab_truth_registry=args.lab_truth_registry,
+        scenario_id=args.scenario_id,
+        target_id=args.target_id,
         final_outcome=args.final_outcome,
         include_coverage_truth=not args.no_coverage_truth,
     )

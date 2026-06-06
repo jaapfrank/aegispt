@@ -3,7 +3,17 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from scripts.training.jury_review import review_trace
-from scripts.training.trace_record import from_runner_tasks, write_trace_jsonl
+from scripts.training.make_lab_truth_heldout_registry_iter6 import (
+    DEFAULT_PREFIX as LAB_TRUTH_PREFIX,
+)
+from scripts.training.make_lab_truth_heldout_registry_iter6 import (
+    build_dataset as build_lab_truth_dataset,
+)
+from scripts.training.trace_record import (
+    from_runner_tasks,
+    resolve_lab_truth_label,
+    write_trace_jsonl,
+)
 
 
 def ns(**kwargs):
@@ -128,6 +138,66 @@ def test_known_vulnerable_runner_no_finding_becomes_dpo_negative():
     assert result["decision"] == "missed_finding"
     assert result["training"]["use"] is True
     assert result["training"]["training_value"] == "dpo_negative"
+
+
+def test_auto_lab_truth_resolves_known_lab_registry_match(tmp_path):
+    build_lab_truth_dataset(
+        tmp_path,
+        LAB_TRUTH_PREFIX,
+        live_lab_variants=1,
+        llmsvs_count=18,
+        multiturn_counts={"eval": 16, "test": 16},
+    )
+    registry_path = tmp_path / f"{LAB_TRUTH_PREFIX}.json"
+    lab_truth = resolve_lab_truth_label(
+        "auto",
+        registry_path=registry_path,
+        candidate_ids=["ssrf-loopback-metadata"],
+    )
+    trace = from_runner_tasks(
+        [
+            task(
+                tool="interactive-exploit",
+                executions=[execution(stdout_text="attempted chain, no flag")],
+            )
+        ],
+        run=ns(id="run-lab", status="completed"),
+        findings=[],
+        lab_truth=lab_truth,
+    )
+    result = review_trace(trace, [])
+
+    assert lab_truth == "known_vulnerable"
+    assert trace[-1]["no_finding"]["lab_truth"] == "known_vulnerable"
+    assert result["decision"] == "missed_finding"
+
+
+def test_auto_lab_truth_is_conservative_without_registry_match(tmp_path):
+    build_lab_truth_dataset(
+        tmp_path,
+        LAB_TRUTH_PREFIX,
+        live_lab_variants=1,
+        llmsvs_count=18,
+        multiturn_counts={"eval": 16, "test": 16},
+    )
+    registry_path = tmp_path / f"{LAB_TRUTH_PREFIX}_lab_truth.jsonl"
+
+    assert (
+        resolve_lab_truth_label(
+            "auto",
+            registry_path=registry_path,
+            candidate_ids=["unknown-live-target"],
+        )
+        == "live_no_oracle"
+    )
+    assert (
+        resolve_lab_truth_label(
+            "known_clean",
+            registry_path=registry_path,
+            candidate_ids=["ssrf-loopback-metadata"],
+        )
+        == "known_clean"
+    )
 
 
 def test_runner_no_finding_uses_existing_coverage_truth_state():

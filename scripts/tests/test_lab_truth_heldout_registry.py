@@ -7,6 +7,7 @@ from scripts.training.make_lab_truth_heldout_registry_iter6 import (
     build_registry,
     is_held_out_scenario,
     lab_truth_for_scenario,
+    load_registry,
 )
 from scripts.training.make_live_lab_target_specs_iter5 import ALL_CLASSES
 from scripts.training.make_llmsvs_adversarial_eval_data import DEFAULT_PREFIX as LLMSVS_PREFIX
@@ -85,3 +86,25 @@ def test_registry_json_and_jsonl_are_consumed_by_jury_held_out_loader(tmp_path):
     assert held_from_registry == held_from_jsonl
     assert jury_factory.scenario_hash("deep_chain_eval") in held_from_registry
     assert jury_factory.scenario_hash("ssrf-loopback-metadata") in held_from_registry
+
+
+def test_lab_truth_registry_loader_accepts_json_and_lab_truth_jsonl(tmp_path):
+    build_dataset(
+        tmp_path,
+        DEFAULT_PREFIX,
+        live_lab_variants=1,
+        llmsvs_count=18,
+        multiturn_counts={"eval": 16, "test": 16},
+    )
+    registry_from_json = load_registry(tmp_path / f"{DEFAULT_PREFIX}.json")
+    registry_from_jsonl = load_registry(tmp_path / f"{DEFAULT_PREFIX}_lab_truth.jsonl")
+
+    assert (
+        lab_truth_for_scenario(registry_from_json, "ssrf-loopback-metadata")
+        == "known_vulnerable"
+    )
+    assert (
+        lab_truth_for_scenario(registry_from_jsonl, "ssrf-loopback-metadata")
+        == "known_vulnerable"
+    )
+    assert registry_from_jsonl["held_out_scenarios"] == []

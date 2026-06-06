@@ -1,5 +1,40 @@
 # Current State
 
+## Latest Continuation - Auto lab-truth lookup wired into trace export (2026-06-06)
+
+Codex completed an exporter-only follow-up for the lab-truth registry. The
+read-only `run_trace.jsonl` exporter can now resolve `lab_truth=auto` from the
+generated registry using an explicit `scenario_id`, `target_id`, run
+configuration metadata, or task params/targets. Unknown live targets still fall
+back to `live_no_oracle`.
+
+This is data-lane/exporter work only; no live runner dispatch, automatic
+post-run persistence, runtime assessment behavior, score-lane runner code,
+capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+Updated exporter behavior:
+
+- `scripts/training/make_lab_truth_heldout_registry_iter6.py::load_registry(...)`
+  loads the full registry JSON or the lighter `_lab_truth.jsonl` extract
+- `scripts/training/trace_record.py::resolve_lab_truth_label(...)` resolves
+  `auto` to `known_vulnerable` / `known_clean` only when the registry has an
+  exact scenario/target match
+- `scripts/training/trace_record.py --lab-truth auto --lab-truth-registry ...`
+  remains conservative and emits `live_no_oracle` on no match
+- explicit `--lab-truth known_clean|known_vulnerable|live_no_oracle` still wins
+  over registry lookup
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_trace_record.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `python3 -m compileall -q scripts/training/trace_record.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_trace_record.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `python3 -m ruff check scripts/training/trace_record.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_trace_record.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 scripts/training/trace_record.py --help`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Reviewer rubric family added (2026-06-06)
 
 Codex added the Phase-3 reviewer rubric/prompt family for the Trace -> Jury ->

@@ -20,7 +20,7 @@ note, not an active `NEXT_TASK.md` promotion and not a runtime permission change
 | # | Codex task | Current status | Next Codex action |
 |---|---|---|---|
 | 1 | Runner-side trace recorder for `assessment_loop` / stored `tool_executions` into `run_trace.jsonl` using `jury_review.TRACE_FIELDS` | Foundation done in `4730591`: `from_runner_tasks(...)` and read-only `--run-id` exporter convert persisted Task/ToolExecution records into the frozen trace schema. | Add a governed, opt-in artifact path after run completion so real runs can persist/export `run_trace.jsonl` without changing dispatch behavior. |
-| 2 | `lab_truth` tagging: `known_clean` / `known_vulnerable` / `live_no_oracle` | DONE for current generated lab specs and local benchmark suites. `scripts/training/make_lab_truth_heldout_registry_iter6.py` emits a lab-truth registry; generated live-lab specs and the standalone lab suite are `known_vulnerable`, and unknown live targets still default to `live_no_oracle`. | Later slice: wire runner export to look up this registry automatically when a run has a canonical lab/target ID. |
+| 2 | `lab_truth` tagging: `known_clean` / `known_vulnerable` / `live_no_oracle` | DONE for current generated lab specs and local benchmark suites, and wired into the read-only exporter. `scripts/training/make_lab_truth_heldout_registry_iter6.py` emits the registry; `trace_record.py --lab-truth auto --lab-truth-registry ...` resolves known IDs and falls back to `live_no_oracle` on no match. | Later slice: automatic post-run trace persistence can pass canonical lab IDs through the governed artifact path in task #1. |
 | 3 | No-finding artifact from runner state: coverage, untested boundaries, blockers | DONE for the read-only exporter path. `from_runner_tasks(...)` derives tool-level coverage and can now merge existing `coverage_truth` surfaces, stop conditions, and blocker IDs. The `--run-id` exporter builds `coverage_truth` by default and offers `--no-coverage-truth` for a minimal trace. | Later slice: persist/export `run_trace.jsonl` automatically after run completion through the governed artifact path in task #1. |
 | 4 | Held-out registry of scenario IDs for Claude's `load_held_out()` / pipeline guard | DONE for current eval/lab assets. The registry has exact IDs for `deep_chain_eval`, LLMSVS adversarial eval, iter6 multi-turn eval/test, and standalone lab-suite benchmark challenges. `jury_factory.load_held_out(...)` can now read the registry JSON directly as well as JSONL files. | Later slice: keep adding new eval/test scenario IDs to the registry whenever new held-out families are introduced. |
 | 5 | Reviewer rubric/prompts for structured verdicts by perspective | DONE as Phase-3 prep only. `scripts/training/make_reviewer_rubrics_iter6.py` emits prompt/schema rows for Codex code/logic, Claude reasoning/safety, DeepSeek alternative routes, Grok counterexamples, and a local schema/evidence guard. Every row has `execution_enabled=false`, `provider_binding=null`, and `runtime_execution=false`. | Later slice: wire real reviewer adapters only after capability is confirmed and real trajectories exist. |
@@ -39,6 +39,17 @@ Generate the Codex registry / extracts with:
 
 ```bash
 python3 scripts/training/make_lab_truth_heldout_registry_iter6.py
+```
+
+Use the registry during read-only runner trace export with:
+
+```bash
+python3 scripts/training/trace_record.py \
+  --run-id <run-id> \
+  --out run_trace.jsonl \
+  --lab-truth auto \
+  --lab-truth-registry ~/.aegispt-tools/training/aegispt_lab_truth_heldout_registry_iter6.json \
+  --scenario-id <scenario-or-lab-target-id>
 ```
 
 Generate the gated reviewer rubric prep family with:

@@ -286,6 +286,8 @@ def lab_truth_for_scenario(
     *,
     default: str = "live_no_oracle",
 ) -> str:
+    if not scenario_id:
+        return default
     for row in registry.get("lab_truth_scenarios", []):
         if scenario_id in {
             row.get("scenario_id"),
@@ -294,6 +296,37 @@ def lab_truth_for_scenario(
         }:
             return str(row["lab_truth"])
     return default
+
+
+def load_registry(path: Path) -> dict[str, Any]:
+    """Load a full registry JSON or a lab-truth JSONL extract.
+
+    The JSONL extract shape is useful for lightweight exporter use: it carries
+    only the lab-truth rows, while the full registry also carries held-out rows.
+    """
+    if path.suffix == ".jsonl":
+        rows = [
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        return {
+            "dataset": path.stem,
+            "held_out_scenarios": [],
+            "lab_truth_scenarios": [row for row in rows if isinstance(row, dict)],
+            "schema_version": 1,
+        }
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(value, list):
+        return {
+            "dataset": path.stem,
+            "held_out_scenarios": [],
+            "lab_truth_scenarios": [row for row in value if isinstance(row, dict)],
+            "schema_version": 1,
+        }
+    if not isinstance(value, dict):
+        raise ValueError(f"unsupported registry shape: {path}")
+    return value
 
 
 def is_held_out_scenario(registry: dict[str, Any], scenario_id: str) -> bool:
