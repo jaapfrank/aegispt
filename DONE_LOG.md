@@ -1,5 +1,37 @@
 # Done Log
 
+- 2026-06-06: Phase-3 reviewer rubric family added. [TRAINING DATA]
+  - Added `scripts/training/make_reviewer_rubrics_iter6.py` to generate
+    `aegispt_reviewer_rubrics_iter6`, a prep-only rubric/prompt family for
+    future committee reviewer adapters.
+  - Defined five structured reviewer perspectives:
+    `codex_code_logic`, `claude_reasoning_safety`,
+    `deepseek_alternative_routes`, `grok_adversarial_counterexample`, and
+    `local_schema_evidence_guard`.
+  - Locked every row to `execution_enabled=false`, `provider_binding=null`,
+    `runtime_execution=false`, and `provider_calls=false`; this does not call
+    models, bind credentials, install plugins, or enable adapters.
+  - The output schema is tied to `jury_review.VERDICT_FIELDS`, the input
+    contract is tied to `jury_review.TRACE_FIELDS`, and every prompt preserves
+    the evidence-first/no-tool-call rule.
+  - Added `scripts/tests/test_reviewer_rubrics.py` and included it in
+    `scripts/run_data_lane_tests.sh`.
+  - Updated `CURRENT_STATE.md` and
+    `docs/strategy/codex-runner-data-lane-handoff-2026-06-06.md` so Claude can
+    see Codex task #5 is done as Phase-3 prep only.
+  - No runtime assessment behavior, score-lane runner code, capability
+    registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_reviewer_rubrics.py`;
+    `python3 -m compileall -q scripts/training/make_reviewer_rubrics_iter6.py scripts/tests/test_reviewer_rubrics.py`;
+    `python3 -m ruff check scripts/training/make_reviewer_rubrics_iter6.py scripts/tests/test_reviewer_rubrics.py`;
+    `python3 scripts/training/make_reviewer_rubrics_iter6.py --out-dir <tmp> --prefix smoke_reviewer_rubrics`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: Coverage-truth no-finding artifacts wired into trace export. [TRAINING DATA]
   - Completed Codex task #3 from the runner/data-lane handoff for the read-only
     exporter path.

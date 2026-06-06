@@ -1,5 +1,42 @@
 # Current State
 
+## Latest Continuation - Reviewer rubric family added (2026-06-06)
+
+Codex added the Phase-3 reviewer rubric/prompt family for the Trace -> Jury ->
+Factory loop. This is prep-only data-lane work: no provider adapters, model
+calls, runtime tools, credentials, capability registry changes, approval-flow
+changes, deployment-flow changes, `NEXT_TASK.md`, or `TASK_QUEUE.md` were
+changed.
+
+New reviewer rubric contract:
+
+- `scripts/training/make_reviewer_rubrics_iter6.py` builds
+  `aegispt_reviewer_rubrics_iter6`
+- five reviewer perspectives are defined:
+  - `codex_code_logic`
+  - `claude_reasoning_safety`
+  - `deepseek_alternative_routes`
+  - `grok_adversarial_counterexample`
+  - `local_schema_evidence_guard`
+- all rows have `execution_enabled=false`, `provider_binding=null`,
+  `runtime_execution=false`, and `provider_calls=false`
+- prompts require JSON-only structured verdicts matching
+  `jury_review.VERDICT_FIELDS` and trace inputs matching
+  `jury_review.TRACE_FIELDS`
+- each prompt preserves the shared rule that runner evidence beats model
+  opinion and reviewers do not call tools
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_reviewer_rubrics.py`
+- `python3 -m compileall -q scripts/training/make_reviewer_rubrics_iter6.py scripts/tests/test_reviewer_rubrics.py`
+- `python3 -m ruff check scripts/training/make_reviewer_rubrics_iter6.py scripts/tests/test_reviewer_rubrics.py`
+- `python3 scripts/training/make_reviewer_rubrics_iter6.py --out-dir <tmp> --prefix smoke_reviewer_rubrics`
+- `bash scripts/run_data_lane_tests.sh`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Coverage-truth no-finding artifacts wired (2026-06-06)
 
 Codex completed the next no-finding data-lane slice for the Trace -> Jury ->
