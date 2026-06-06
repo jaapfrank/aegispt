@@ -1,5 +1,19 @@
 # Done Log
 
+- 2026-06-06: Codex runner/data-lane handoff recorded. [TRAINING DATA]
+  - Added `docs/strategy/codex-runner-data-lane-handoff-2026-06-06.md` to
+    record the Codex-side tasks that complement Claude's Trace -> Jury ->
+    Factory Phase-1 work.
+  - Captured status for runner trace export, `lab_truth` tagging,
+    no-finding coverage artifacts, held-out scenario registry, and reviewer
+    rubric prep.
+  - Noted that runner trace export foundation is done in `4730591`, while
+    `lab_truth` tagging, richer coverage artifacts, and held-out scenario IDs
+    remain Codex TODOs.
+  - No runtime assessment behavior, score-lane runner code, capability
+    registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed.
+
 - 2026-06-06: Runner-side trace export wired to jury schema. [TRAINING DATA]
   - Completed the Codex runner-side half of Claude's `65fe05c`
     trace-recorder plan without changing live runner dispatch or runtime

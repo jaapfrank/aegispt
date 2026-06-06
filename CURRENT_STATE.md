@@ -1,5 +1,26 @@
 # Current State
 
+## Latest Continuation - Codex runner/data-lane handoff recorded (2026-06-06)
+
+Codex recorded the remaining runner/data-side responsibilities for the
+Trace -> Jury -> Factory loop in
+`docs/strategy/codex-runner-data-lane-handoff-2026-06-06.md`. This is a
+planning/handoff note only; no runtime assessment behavior, score-lane runner
+code, capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+The handoff captures:
+
+- runner-side trace recorder status: foundation done in `4730591`
+  (`from_runner_tasks(...)` plus read-only `--run-id` export), next slice is an
+  opt-in artifact path after run completion
+- `lab_truth` tagging remains a Codex TODO across lab specs and benchmark suites
+- richer no-finding coverage artifacts remain a Codex TODO, ideally fed from
+  existing `coverage_truth` / assessment-plan state
+- held-out scenario registry remains a Codex TODO to feed Claude's guard
+- reviewer rubrics are Fase-3 prep and stay gated until capability and real
+  trajectories exist
+
 ## Latest Continuation - Runner-side trace export wired to jury schema (2026-06-06)
 
 Codex completed the runner-side half of Claude's trace-recorder plan from
