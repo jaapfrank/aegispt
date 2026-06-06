@@ -1,5 +1,33 @@
 # Done Log
 
+- 2026-06-06: Coverage-truth no-finding artifacts wired into trace export. [TRAINING DATA]
+  - Completed Codex task #3 from the runner/data-lane handoff for the read-only
+    exporter path.
+  - Extended `scripts/training/trace_record.py::from_runner_tasks(...)` with
+    optional `coverage_truth` input so no-finding artifacts can include
+    surface-level coverage, untested boundaries, stop conditions, and blockers
+    from the existing AegisPT coverage-truth service.
+  - The `--run-id` exporter now builds existing `coverage_truth` by default and
+    can opt out with `--no-coverage-truth`; it still writes JSONL only and does
+    not mutate run/task/finding state.
+  - Added regression coverage proving tested web surfaces become coverage,
+    not-tested API surfaces become untested boundaries, and approval/prereq
+    blockers are preserved as `coverage_truth:<blocker_id>`.
+  - Updated `CURRENT_STATE.md` and
+    `docs/strategy/codex-runner-data-lane-handoff-2026-06-06.md` so Claude can
+    see tasks #2/#3/#4 are complete for the exporter/data path.
+  - No live runner dispatch, runtime assessment behavior, score-lane runner
+    code, capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_trace_record.py scripts/tests/test_jury_review.py`;
+    `python3 -m compileall -q scripts/training/trace_record.py scripts/tests/test_trace_record.py`;
+    `python3 -m ruff check scripts/training/trace_record.py scripts/tests/test_trace_record.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 scripts/training/trace_record.py --help`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: Lab-truth and held-out registry wired for jury factory. [TRAINING DATA]
   - Added `scripts/training/make_lab_truth_heldout_registry_iter6.py` to build
     canonical `aegispt_lab_truth_heldout_registry_iter6` artifacts: registry

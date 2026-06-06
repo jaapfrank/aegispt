@@ -130,6 +130,64 @@ def test_known_vulnerable_runner_no_finding_becomes_dpo_negative():
     assert result["training"]["training_value"] == "dpo_negative"
 
 
+def test_runner_no_finding_uses_existing_coverage_truth_state():
+    coverage_truth = {
+        "coverage_truth_version": "coverage-truth-v1",
+        "stop_condition": {
+            "blocker_ids": ["proposal:approval-1"],
+            "reason": "Approval gate remains open.",
+            "state": "approval-needed",
+        },
+        "surfaces": [
+            {
+                "applicable": True,
+                "blocker_ids": [],
+                "key": "web_application",
+                "reason": "Stored task evidence shows this surface was exercised.",
+                "status": "tested",
+            },
+            {
+                "applicable": True,
+                "blocker_ids": ["prerequisite:graphql-probe:configured"],
+                "key": "api",
+                "reason": "No stored task or finding evidence proves this surface was tested.",
+                "status": "not_tested",
+            },
+            {
+                "applicable": False,
+                "key": "wifi_wireless",
+                "status": "not_applicable",
+            },
+        ],
+    }
+    trace = from_runner_tasks(
+        [
+            task(
+                tool="headers-security",
+                executions=[execution(id="exec-a", stdout_text='{"findings": []}')],
+            )
+        ],
+        run=ns(id="run-live", status="completed"),
+        findings=[],
+        coverage_truth=coverage_truth,
+    )
+    artifact = trace[-1]["no_finding"]
+
+    assert artifact["coverage_truth_version"] == "coverage-truth-v1"
+    assert "surface:web_application:tested" in artifact["coverage"]
+    assert "tool:headers-security" in artifact["coverage"]
+    assert "coverage_truth:proposal:approval-1" in artifact["blockers"]
+    assert "coverage_truth:prerequisite:graphql-probe:configured" in artifact["blockers"]
+    assert any(
+        item.startswith("surface:api:not_tested:")
+        for item in artifact["untested_boundaries"]
+    )
+    assert any(
+        item.startswith("stop_condition:approval-needed:")
+        for item in artifact["untested_boundaries"]
+    )
+
+
 def test_failed_runner_tasks_export_failed_outcome_with_reason():
     trace = from_runner_tasks(
         [task(tool="nuclei", status="failed", executions=[execution(exit_code=2, stderr_text="boom")])],

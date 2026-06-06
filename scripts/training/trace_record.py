@@ -160,6 +160,48 @@ def _failure_reason(task: Any, execution: Any | None) -> str:
     return ";".join(reasons)
 
 
+def _dedupe(values: list[str]) -> list[str]:
+    return sorted({value for value in values if value})
+
+
+def _coverage_truth_no_finding_artifact(coverage_truth: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(coverage_truth, dict):
+        return {"coverage": [], "blockers": [], "untested_boundaries": []}
+    coverage: list[str] = []
+    blockers: list[str] = []
+    untested: list[str] = []
+    for surface in list(coverage_truth.get("surfaces") or []):
+        if not isinstance(surface, dict) or surface.get("applicable") is False:
+            continue
+        key = str(surface.get("key") or "unknown_surface")
+        status = str(surface.get("status") or "unknown")
+        reason = str(surface.get("reason") or "").strip()
+        if status == "tested":
+            coverage.append(f"surface:{key}:tested")
+        elif status == "partially_tested":
+            coverage.append(f"surface:{key}:partially_tested")
+            untested.append(f"surface:{key}:partial:{reason or 'coverage gap'}")
+        elif status == "blocked":
+            blockers.append(f"surface:{key}:blocked:{reason or 'blocked'}")
+        elif status in {"not_tested", "skipped"}:
+            untested.append(f"surface:{key}:{status}:{reason or 'not covered'}")
+        for blocker in list(surface.get("blocker_ids") or []):
+            blockers.append(f"coverage_truth:{blocker}")
+    stop_condition = coverage_truth.get("stop_condition")
+    if isinstance(stop_condition, dict):
+        state = str(stop_condition.get("state") or "").strip()
+        reason = str(stop_condition.get("reason") or "").strip()
+        if state and state != "complete":
+            untested.append(f"stop_condition:{state}:{reason or 'coverage incomplete'}")
+        for blocker in list(stop_condition.get("blocker_ids") or []):
+            blockers.append(f"coverage_truth:{blocker}")
+    return {
+        "coverage": _dedupe(coverage),
+        "blockers": _dedupe(blockers),
+        "untested_boundaries": _dedupe(untested),
+    }
+
+
 def _classify_runner_outcome(
     *,
     run: Any | None,
@@ -187,6 +229,7 @@ def from_runner_tasks(
     findings: list[Any] | None = None,
     final_outcome: str | None = None,
     lab_truth: str = "live_no_oracle",
+    coverage_truth: dict[str, Any] | None = None,
 ) -> list[dict]:
     """Build a jury trace from stored AegisPT Task/ToolExecution records.
 
@@ -247,14 +290,19 @@ def from_runner_tasks(
 
     outcome = _classify_runner_outcome(run=run, findings=finding_rows, final_outcome=final_outcome)
     if outcome in {"no_confirmed_finding", "no_finding"}:
+        truth_artifact = _coverage_truth_no_finding_artifact(coverage_truth)
         no_finding = {
             "lab_truth": lab_truth,
-            "coverage": sorted(set(coverage)),
+            "coverage": _dedupe([*coverage, *truth_artifact["coverage"]]),
             "negative_evidence_refs": sorted(set(all_evidence)),
-            "blockers": sorted(set(blockers)),
-            "untested_boundaries": sorted(set(untested)),
+            "blockers": _dedupe([*blockers, *truth_artifact["blockers"]]),
+            "untested_boundaries": _dedupe(
+                [*untested, *truth_artifact["untested_boundaries"]]
+            ),
             "conscious_restraint": False,
         }
+        if isinstance(coverage_truth, dict) and coverage_truth.get("coverage_truth_version"):
+            no_finding["coverage_truth_version"] = coverage_truth["coverage_truth_version"]
         return rec.finalize("no_confirmed_finding", no_finding=no_finding)
     return rec.finalize(outcome)
 
@@ -267,7 +315,19 @@ def write_trace_jsonl(trace: list[dict], path: str | Path) -> list[dict]:
     return trace
 
 
-def _load_run_trace_from_db(run_id: str, *, lab_truth: str, final_outcome: str | None) -> list[dict]:
+def _load_run_coverage_truth(session: Any, run: Any) -> dict[str, Any]:
+    from api.app.services.coverage_truth import build_coverage_truth
+
+    return build_coverage_truth(session, run=run)
+
+
+def _load_run_trace_from_db(
+    run_id: str,
+    *,
+    lab_truth: str,
+    final_outcome: str | None,
+    include_coverage_truth: bool,
+) -> list[dict]:
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload, sessionmaker
 
@@ -288,12 +348,14 @@ def _load_run_trace_from_db(run_id: str, *, lab_truth: str, final_outcome: str |
             .where(Task.run_id == run.id)
         ).all()
         findings = session.scalars(select(Finding).where(Finding.run_id == run.id)).all()
+        coverage_truth = _load_run_coverage_truth(session, run) if include_coverage_truth else None
         return from_runner_tasks(
             list(tasks),
             run=run,
             findings=list(findings),
             final_outcome=final_outcome,
             lab_truth=lab_truth,
+            coverage_truth=coverage_truth,
         )
 
 
@@ -312,12 +374,18 @@ def main() -> None:
         default=None,
         help="Optional explicit final_outcome override for the final trace step.",
     )
+    parser.add_argument(
+        "--no-coverage-truth",
+        action="store_true",
+        help="Do not enrich no-finding traces with existing coverage_truth state.",
+    )
     args = parser.parse_args()
 
     trace = _load_run_trace_from_db(
         args.run_id,
         lab_truth=args.lab_truth,
         final_outcome=args.final_outcome,
+        include_coverage_truth=not args.no_coverage_truth,
     )
     write_trace_jsonl(trace, args.out)
     print(json.dumps({"path": args.out, "steps": len(trace), "final_outcome": trace[-1].get("final_outcome")}))

@@ -1,5 +1,42 @@
 # Current State
 
+## Latest Continuation - Coverage-truth no-finding artifacts wired (2026-06-06)
+
+Codex completed the next no-finding data-lane slice for the Trace -> Jury ->
+Factory loop. The read-only runner trace exporter can now enrich no-finding
+artifacts with existing `coverage_truth` state: tested surfaces, partially
+tested surfaces, not-tested/skipped boundaries, stop conditions, and blocker
+IDs. This remains data-lane/exporter work only; no live runner dispatch,
+runtime assessment behavior, score-lane runner code, capability registry,
+approval flow, deployment flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+
+Updated exporter behavior:
+
+- `scripts/training/trace_record.py::from_runner_tasks(...)` accepts optional
+  `coverage_truth`
+- no-finding artifacts merge tool-level coverage with coverage-truth surface
+  evidence:
+  - `surface:<key>:tested`
+  - `surface:<key>:partially_tested`
+  - `surface:<key>:not_tested:<reason>`
+  - `surface:<key>:skipped:<reason>`
+  - `stop_condition:<state>:<reason>`
+  - `coverage_truth:<blocker_id>`
+- the read-only `--run-id` exporter now builds existing `coverage_truth` by
+  default and can disable that enrichment with `--no-coverage-truth`
+- this completes Codex task #3 for the exporter path; automatic post-run trace
+  artifact persistence remains the separate task #1 follow-up
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_trace_record.py scripts/tests/test_jury_review.py`
+- `python3 -m compileall -q scripts/training/trace_record.py scripts/tests/test_trace_record.py`
+- `python3 -m ruff check scripts/training/trace_record.py scripts/tests/test_trace_record.py`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 scripts/training/trace_record.py --help`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Lab-truth and held-out registry wired (2026-06-06)
 
 Codex completed the next runner/data-lane slice for Claude's Trace -> Jury ->
@@ -34,9 +71,7 @@ Updated handoff status for Claude:
   for current lab specs/benchmark suites
 - Codex task #4 (held-out scenario registry) is now covered by the registry JSON
   and held-out JSONL extract
-- Codex task #3 remains partial: `from_runner_tasks(...)` has tool-level
-  coverage/blockers/untested state, but richer route/auth/input coverage should
-  still be fed from runner/assessment-plan state in a later slice
+- Codex task #3 was completed in the later coverage-truth exporter slice above
 
 Validation completed:
 
