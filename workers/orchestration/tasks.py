@@ -124,10 +124,6 @@ from workers.runners.api_assessment.runner import (
     execute_api_assessment,
 )
 from workers.runners.auth_flow.runner import execute_auth_flow_analysis
-from workers.runners.recon_deliverable.runner import execute_recon_deliverable
-from workers.runners.code_exec_attack.runner import execute_code_exec_attack
-from workers.runners.pre_recon_source.runner import execute_pre_recon_source
-from workers.runners.pre_recon_cpg.runner import execute_pre_recon_cpg
 from workers.runners.aws_inventory.runner import execute_aws_inventory
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution, RunnerRequest
 from workers.runners.base.stdout_stream import (
@@ -153,6 +149,7 @@ from workers.runners.cloud_native.runner import (
     CLOUD_NATIVE_INVENTORY_ARTIFACT_NAME,
     execute_cloud_native_assessment,
 )
+from workers.runners.code_exec_attack.runner import execute_code_exec_attack
 from workers.runners.cookie_tamper_probe.runner import execute_cookie_tamper_probe
 from workers.runners.credential_attacks.runner import execute_credential_attacks
 from workers.runners.crypto_audit.runner import execute_crypto_audit
@@ -204,7 +201,10 @@ from workers.runners.nuclei.runner import execute_nuclei_scan
 from workers.runners.oauth_probe.runner import execute_oauth_probe
 from workers.runners.param_pollution_probe.runner import execute_param_pollution_probe
 from workers.runners.playwright_web.runner import execute_playwright_web_validation
+from workers.runners.pre_recon_cpg.runner import execute_pre_recon_cpg
+from workers.runners.pre_recon_source.runner import execute_pre_recon_source
 from workers.runners.priv_esc_linux.runner import execute_priv_esc_linux
+from workers.runners.recon_deliverable.runner import execute_recon_deliverable
 from workers.runners.responder.runner import execute_responder_capture
 from workers.runners.semgrep.runner import execute_semgrep_scan
 from workers.runners.session_security.runner import execute_session_security_analysis
@@ -5327,6 +5327,23 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             else:
                 task.status = "failed"
             _update_run_status(session, task.run)
+            try:
+                from api.app.services.run_trace_artifacts import (
+                    maybe_persist_run_trace_artifact,
+                )
+
+                maybe_persist_run_trace_artifact(
+                    session=session,
+                    run=task.run,
+                    actor=f"runner:{task.tool}",
+                )
+            except Exception as trace_exc:
+                logger.warning(
+                    "run_trace_artifact: post-task hook skipped for run=%s task=%s: %s",
+                    task.run_id,
+                    task.id,
+                    trace_exc,
+                )
             # Persist auth-flow's working credentials into the run credential
             # vault so downstream chain dispatches (autonomous agent sequence,
             # session-security with the same creds) can resolve `auth.username`

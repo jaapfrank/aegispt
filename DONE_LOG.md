@@ -1,5 +1,39 @@
 # Done Log
 
+- 2026-06-06: Iter7 artifact pack, held-out registry, and trace artifact hook. [TRAINING DATA]
+  - Added `scripts/training/build_iter7_training_artifact_pack.py` to build a
+    deterministic committed artifact pack for the iter7 chain-type lever.
+  - Committed gzip-compressed iter7 chain-type train/eval/test splits, LLMSVS
+    eval data, lab-truth extracts, held-out extracts, and a manifest under
+    `codex/results/training/iter7-chaintype-diversity-20260606/`.
+  - Extended `scripts/training/make_lab_truth_heldout_registry_iter6.py` so
+    iter7 chain-type diversity eval/test cases are registered as held-out
+    scenarios alongside deep-chain, LLMSVS, iter6, and lab-suite benchmark IDs.
+  - Extended the Claude data-lane handoff manifest list with
+    `multiturn_chaintype_diversity_iter7` and
+    `lab_truth_heldout_registry_iter6`.
+  - Added `api/app/services/run_trace_artifacts.py` and a post-task hook in
+    `workers/orchestration/tasks.py` for disabled-by-default production trace
+    persistence. When a terminal run opts in, AegisPT writes a derived
+    `run-trace.jsonl` artifact on the latest existing tool execution without
+    adding a synthetic task. The hook is best-effort/log-only.
+  - Did not generate V4-Pro-demonstrated rows in Codex because no
+    V4/OpenAI-compatible endpoint or API key is exposed in this environment.
+    The committed data is the deterministic iter7 scaffold plus LLMSVS and
+    registry; Claude's V4-Pro path can add genuine demonstrated trajectories.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_iter7_training_artifact_pack.py scripts/tests/test_claude_data_lane_handoff.py scripts/tests/test_multiturn_chaintype_diversity_dataset.py api/tests/test_run_trace_artifacts.py scripts/tests/test_trace_record.py`;
+    `python3 -m ruff check scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/training/build_iter7_training_artifact_pack.py scripts/training/make_claude_data_lane_handoff_iter5.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_iter7_training_artifact_pack.py scripts/tests/test_claude_data_lane_handoff.py api/app/services/run_trace_artifacts.py api/tests/test_run_trace_artifacts.py workers/orchestration/tasks.py`;
+    `python3 -m compileall -q scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/training/build_iter7_training_artifact_pack.py scripts/training/make_claude_data_lane_handoff_iter5.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_iter7_training_artifact_pack.py api/app/services/run_trace_artifacts.py api/tests/test_run_trace_artifacts.py workers/orchestration/tasks.py`;
+    `python3 scripts/training/build_iter7_training_artifact_pack.py --out-dir /tmp/aegispt-iter7-pack-smoke --chaintype-count train=8 --chaintype-count eval=8 --chaintype-count test=8 --llmsvs-count 18 --multiturn-count eval=8 --multiturn-count test=8`;
+    `python3 scripts/training/build_iter7_training_artifact_pack.py --out-dir codex/results/training/iter7-chaintype-diversity-20260606`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: Multi-turn chain-type diversity family added. [TRAINING DATA]
   - Added `scripts/training/make_multiturn_chaintype_diversity_iter7.py` to
     generate `aegispt_multiturn_chaintype_diversity_iter7`, an additive SFT

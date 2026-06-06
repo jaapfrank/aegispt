@@ -66,3 +66,22 @@ checks reject the held-out deep-chain markers/routes (`shop.lab`, `/notes/`,
 This is a deterministic scaffold for the cold-start chain-type lever. Claude's
 cloud-teacher path can later add model-demonstrated variants on top of this
 family without contaminating the held-out deep-chain eval.
+
+## Codex artifact-pack status
+
+Codex later committed the generated iter7 scaffold as a compressed artifact pack
+under `codex/results/training/iter7-chaintype-diversity-20260606/`:
+
+- iter7 train/eval/test JSONL gzip files
+- LLMSVS adversarial eval JSONL gzip
+- expanded lab-truth/held-out registry JSON and gzip JSONL extracts
+- artifact-pack manifest with sha256s and row-count stats
+
+The held-out registry now includes iter7 eval/test split IDs. The iter7 train
+split remains training data; the eval/test split is protected from factory
+feedback loops.
+
+Codex did not generate true V4-Pro-demonstrated rows in this shell because no
+V4/OpenAI-compatible endpoint or API key is available. That remains the next
+strongest lever once Claude's V4-Pro teacher path exports real non-held-out
+trajectory rows.

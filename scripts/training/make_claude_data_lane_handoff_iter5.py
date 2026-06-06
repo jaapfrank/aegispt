@@ -32,6 +32,8 @@ MANIFESTS = {
     "training_exclusions_iter5": "aegispt_training_exclusions_iter5_manifest.json",
     "curated_sft_mix_iter5": "aegispt_curated_sft_mix_iter5_manifest.json",
     "multiturn_agentic_chain_iter6": "aegispt_multiturn_agentic_chain_iter6_manifest.json",
+    "multiturn_chaintype_diversity_iter7": "aegispt_multiturn_chaintype_diversity_iter7_manifest.json",
+    "lab_truth_heldout_registry_iter6": "aegispt_lab_truth_heldout_registry_iter6_manifest.json",
     "llmsvs_request_pack_iter5": "aegispt_llmsvs_prediction_requests_iter5_manifest.json",
     "adapter_readiness_iter5": "aegispt_adapter_promotion_readiness_iter5.json",
 }
@@ -40,6 +42,7 @@ TRAINING_ORDER = [
     "Use the curated SFT mix for the next SFT run: aegispt_curated_sft_mix_iter5.jsonl.",
     "Keep DPO data separate: aegispt_payload_dpo_iter4_* remains prompt/chosen/rejected data.",
     "Keep the multi-turn chain family separate from the active iter5 SFT run unless a follow-up adapter/RL curriculum explicitly selects it.",
+    "Use iter7 chain-type diversity as the next multi-turn curriculum lever; train split is SFT data, eval/test split is held out.",
     "Use LLMSVS adversarial data as an eval gate, not ordinary SFT data.",
     "Generate real adapter predictions for aegispt_llmsvs_prediction_requests_iter5.jsonl.",
     "Score predictions with score_llmsvs_adversarial_eval_iter5.py.",

@@ -14,6 +14,9 @@ from scripts.training.make_llmsvs_adversarial_eval_data import DEFAULT_PREFIX as
 from scripts.training.make_multiturn_agentic_chain_iter6 import (
     DEFAULT_PREFIX as MULTITURN_PREFIX,
 )
+from scripts.training.make_multiturn_chaintype_diversity_iter7 import (
+    DEFAULT_PREFIX as CHAINTYPE_PREFIX,
+)
 
 
 def small_registry():
@@ -21,6 +24,7 @@ def small_registry():
         live_lab_variants=1,
         llmsvs_count=18,
         multiturn_counts={"eval": 16, "test": 16},
+        chaintype_counts={"eval": 8, "test": 8},
     )
 
 
@@ -53,6 +57,7 @@ def test_held_out_registry_contains_exact_eval_test_and_benchmark_ids():
     assert stats["held_out_by_family"]["deep_chain_eval"] == 1
     assert stats["held_out_by_family"][LLMSVS_PREFIX] == 18
     assert stats["held_out_by_family"][MULTITURN_PREFIX] == 32
+    assert stats["held_out_by_family"][CHAINTYPE_PREFIX] == 16
     assert stats["held_out_by_family"]["aegispt-lab-suite-v1"] >= 1
     assert is_held_out_scenario(registry, "deep_chain_eval")
     assert is_held_out_scenario(registry, "ssrf-loopback-metadata")
@@ -75,6 +80,7 @@ def test_registry_json_and_jsonl_are_consumed_by_jury_held_out_loader(tmp_path):
         live_lab_variants=1,
         llmsvs_count=18,
         multiturn_counts={"eval": 16, "test": 16},
+        chaintype_counts={"eval": 8, "test": 8},
     )
     registry_path = tmp_path / f"{DEFAULT_PREFIX}.json"
     held_out_path = tmp_path / f"{DEFAULT_PREFIX}_held_out.jsonl"
@@ -95,6 +101,7 @@ def test_lab_truth_registry_loader_accepts_json_and_lab_truth_jsonl(tmp_path):
         live_lab_variants=1,
         llmsvs_count=18,
         multiturn_counts={"eval": 16, "test": 16},
+        chaintype_counts={"eval": 8, "test": 8},
     )
     registry_from_json = load_registry(tmp_path / f"{DEFAULT_PREFIX}.json")
     registry_from_jsonl = load_registry(tmp_path / f"{DEFAULT_PREFIX}_lab_truth.jsonl")

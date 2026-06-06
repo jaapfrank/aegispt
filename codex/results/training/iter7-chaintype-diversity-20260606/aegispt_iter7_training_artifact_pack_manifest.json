@@ -1,0 +1,171 @@
+{
+  "dataset": "aegispt_iter7_training_artifact_pack",
+  "files": {
+    "chaintype_eval": {
+      "bytes": 119798,
+      "path": "codex/results/training/iter7-chaintype-diversity-20260606/aegispt_multiturn_chaintype_diversity_iter7_eval.jsonl.gz",
+      "row_count": 320,
+      "sha256": "b7776a75aca414f910311dcb4ad4222d7c2004addad3b4806f1c53cea52e11b5"
+    },
+    "chaintype_test": {
+      "bytes": 119762,
+      "path": "codex/results/training/iter7-chaintype-diversity-20260606/aegispt_multiturn_chaintype_diversity_iter7_test.jsonl.gz",
+      "row_count": 320,
+      "sha256": "a1bce39b3aa897d06bb1f10911aae7447bde7042a2362a54345f8d9a8daa138d"
+    },
+    "chaintype_train": {
+      "bytes": 1037538,
+      "path": "codex/results/training/iter7-chaintype-diversity-20260606/aegispt_multiturn_chaintype_diversity_iter7_train.jsonl.gz",
+      "row_count": 2800,
+      "sha256": "822bd2be90d27a74d62d4fad5793b2a1be8ad7c2aff46472f6bf0fcb6f07d334"
+    },
+    "held_out_jsonl": {
+      "bytes": 19159,
+      "path": "codex/results/training/iter7-chaintype-diversity-20260606/aegispt_lab_truth_heldout_registry_iter6_held_out.jsonl.gz",
+      "row_count": 2211,
+      "sha256": "a61d24114968bfee5c059d2664a80e4c98bcf0f0ec652d1b4b986780c325941d"
+    },
+    "held_out_registry": {
+      "bytes": 1030589,
+      "path": "codex/results/training/iter7-chaintype-diversity-20260606/aegispt_lab_truth_heldout_registry_iter6.json",
+      "sha256": "21af88d799d56b48bc776164542e08e31a1468a5bbbaa63e8a057e2e9499aaa4"
+    },
+    "lab_truth_jsonl": {
+      "bytes": 4692,
+      "path": "codex/results/training/iter7-chaintype-diversity-20260606/aegispt_lab_truth_heldout_registry_iter6_lab_truth.jsonl.gz",
+      "row_count": 143,
+      "sha256": "1acb4a771e4a94421e821399e0797152bf8447025255fd7fd50b520058a492c3"
+    },
+    "llmsvs_eval": {
+      "bytes": 24577,
+      "path": "codex/results/training/iter7-chaintype-diversity-20260606/aegispt_llmsvs_adversarial_eval_iter5.jsonl.gz",
+      "row_count": 720,
+      "sha256": "10c147a7cccfa6e02d8af3a6fe8e26d1789b192aa0cd0ce3088521e196363a05"
+    }
+  },
+  "format": "deterministic gzip-compressed jsonl plus registry json",
+  "policy": {
+    "chain_type_diversity_for_cold_start": true,
+    "committed_artifact_pack": true,
+    "data_lane_only": true,
+    "held_out_deep_chain_solution_not_copied": true,
+    "iter7_eval_test_registered_as_held_out": true,
+    "llmsvs_eval_only": true,
+    "runtime_execution": false
+  },
+  "stats": {
+    "chaintype": {
+      "eval": {
+        "assistant_turns": {
+          "5": 320
+        },
+        "chain_classes": {
+          "idor_object_swap_token_reuse_chain": 80,
+          "info_disclosure_credential_reuse_lateral_chain": 80,
+          "lowpriv_privilege_escalation_admin_resource_chain": 80,
+          "ssrf_internal_endpoint_admin_action_chain": 80
+        },
+        "domains": {
+          "api": 160,
+          "web": 160
+        },
+        "row_count": 320
+      },
+      "test": {
+        "assistant_turns": {
+          "5": 320
+        },
+        "chain_classes": {
+          "idor_object_swap_token_reuse_chain": 80,
+          "info_disclosure_credential_reuse_lateral_chain": 80,
+          "lowpriv_privilege_escalation_admin_resource_chain": 80,
+          "ssrf_internal_endpoint_admin_action_chain": 80
+        },
+        "domains": {
+          "api": 160,
+          "web": 160
+        },
+        "row_count": 320
+      },
+      "train": {
+        "assistant_turns": {
+          "5": 2800
+        },
+        "chain_classes": {
+          "idor_object_swap_token_reuse_chain": 700,
+          "info_disclosure_credential_reuse_lateral_chain": 700,
+          "lowpriv_privilege_escalation_admin_resource_chain": 700,
+          "ssrf_internal_endpoint_admin_action_chain": 700
+        },
+        "domains": {
+          "api": 1400,
+          "web": 1400
+        },
+        "row_count": 2800
+      }
+    },
+    "held_out_registry": {
+      "held_out_by_family": {
+        "aegispt-lab-suite-v1": 50,
+        "aegispt_llmsvs_adversarial_eval_iter5": 720,
+        "aegispt_multiturn_agentic_chain_iter6": 800,
+        "aegispt_multiturn_chaintype_diversity_iter7": 640,
+        "deep_chain_eval": 1
+      },
+      "held_out_by_split": {
+        "benchmark": 50,
+        "eval": 1441,
+        "test": 720
+      },
+      "held_out_count": 2211,
+      "lab_truth_by_family": {
+        "aegispt-lab-suite-v1": 50,
+        "aegispt_live_lab_target_specs_iter5": 93
+      },
+      "lab_truth_by_value": {
+        "known_vulnerable": 143
+      },
+      "lab_truth_count": 143
+    },
+    "llmsvs": {
+      "attack_categories": {
+        "direct_prompt_injection": 80,
+        "indirect_prompt_injection_tool_output": 80,
+        "insecure_tool_argument_injection": 80,
+        "mcp_tool_poisoning": 80,
+        "model_dos_unbounded_consumption": 80,
+        "rag_context_poisoning": 80,
+        "sensitive_info_disclosure": 80,
+        "system_prompt_leakage": 80,
+        "tool_misuse_excessive_agency": 80
+      },
+      "llmsvs_controls": {
+        "V2.16": 80,
+        "V2.8": 80,
+        "V4.2": 80,
+        "V4.3": 160,
+        "V4.6": 80,
+        "V5.10": 160,
+        "V5.11": 80,
+        "V5.12": 240,
+        "V5.13": 80,
+        "V5.14": 80,
+        "V5.15": 80,
+        "V5.7": 80,
+        "V5.9": 80,
+        "V6.1": 80,
+        "V6.10": 160,
+        "V6.11": 80,
+        "V6.12": 80,
+        "V6.2": 80,
+        "V6.3": 80,
+        "V6.4": 160,
+        "V6.6": 80,
+        "V6.7": 80,
+        "V8.1": 240,
+        "V8.2": 80
+      },
+      "row_count": 720
+    }
+  }
+}
