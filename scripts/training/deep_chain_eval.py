@@ -113,6 +113,9 @@ def make_act():
 
 
 def main():
+    from trace_record import TraceRecorder  # Phase-1 jury: emit a run_trace.jsonl
+    trace_out = os.environ.get("AEGISPT_TRACE_OUT", "")
+    rec = TraceRecorder()
     act = make_act()
     convo = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": GOAL}]
     seen = set()
@@ -141,6 +144,10 @@ def main():
         tag = "  (REPEAT)" if sig in seen else ""
         seen.add(sig)
         print(f"STEP {i+1}: {sig}{tag}  -> {status}", flush=True)
+        rec.step(state=f"step{i+1}", action=m.group(0),
+                 tool_result=json.dumps({"status": status, "body": str(body)[:300]}),
+                 evidence=[f"deep_chain-step-{i+1}"], objective_progress=round((i + 1) / 12, 3),
+                 failure_reason=("repeat_action" if tag else ""))
         if obj.get("done"):
             print("   [agent done]", flush=True); break
         rhdr = {}
@@ -156,6 +163,22 @@ def main():
     print("\nRESULT:", json.dumps(result), flush=True)
     if OUT:
         Path(OUT).write_text(json.dumps(result))
+    if trace_out:
+        if got:
+            rec.finalize("solved")
+        else:
+            # the deep-chain HAS a flag, so a no-flag run is a MISSED finding
+            coverage = [f"routes_seen:{len(seen)}"]
+            if state["logged_in"]:
+                coverage.append("auth_checked")
+            if state["saw_idor"]:
+                coverage.append("idor_probed")
+            untested = [] if state["saw_idor"] else ["admin/token path not reached"]
+            rec.finalize("no_confirmed_finding", no_finding={
+                "lab_truth": "known_vulnerable", "coverage": coverage, "blockers": [],
+                "untested_boundaries": untested, "conscious_restraint": False})
+        rec.write(trace_out)
+        print(f"trace -> {trace_out} ({len(rec.steps)} steps)", flush=True)
 
 
 if __name__ == "__main__":
