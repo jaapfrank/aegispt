@@ -10,6 +10,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "training"))
 
 import jury_calibration as C  # noqa: E402
+import jury_committee as CM  # noqa: E402
 import jury_reviewers as JR  # noqa: E402
 import jury_rollout as RO  # noqa: E402
 
@@ -76,3 +77,18 @@ def test_reviewer_reasoning_content_fallback():
     with mock.patch("urllib.request.urlopen", return_value=_mock_response(reasoning=verdict)):
         v = rev([{"action": "x"}])
     assert v["verdict"] == "good" and v["safety_ok"] is True
+
+
+# ---- committee end-to-end + calibration loop -------------------------------
+def test_committee_records_calibration_on_evidence():
+    committee = [("R1", lambda t: {"verdict": "good", "confidence": 0.7}),
+                 ("R2", lambda t: {"verdict": "bad", "confidence": 0.7, "first_wrong_step": 2})]
+    led = C.CalibrationLedger()
+    solved = [{"state": "s", "action": "x", "tool_result": "r", "final_outcome": "solved",
+               "safety_status": "ok", "objective_progress": 1.0, "failure_reason": "", "no_finding": {}}]
+    d = CM.review(solved, committee, led)
+    assert d["decision"] == "good" and d["by"] == "evidence"
+    assert d["training"]["training_value"] == "sft_positive"
+    # R1 (good) matched evidence(good); R2 (bad) did not -> R1 gets more trust
+    assert led.weight("R1") > led.weight("R2")
+    assert "R1" in d["reviews"] and "R2" in d["reviews"]
