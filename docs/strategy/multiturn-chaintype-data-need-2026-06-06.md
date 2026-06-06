@@ -43,3 +43,26 @@ deep-chain IDOR scenario is held-out — training on it would contaminate the ev
 
 Sequence: richer chain-type data (teacher) → model learns the pivots → jury/RL
 refines → the deep-chain (and the live XBEN auth class) gets solved.
+
+## Codex data-lane status
+
+Codex added `scripts/training/make_multiturn_chaintype_diversity_iter7.py` as
+the additive family for this handoff. It covers the four requested non-held-out
+chain types:
+
+- `idor_object_swap_token_reuse_chain`
+- `ssrf_internal_endpoint_admin_action_chain`
+- `lowpriv_privilege_escalation_admin_resource_chain`
+- `info_disclosure_credential_reuse_lateral_chain`
+
+The generator emits the iter6 chat SFT shape with system + alternating
+user/assistant turns, `next_action.args`, carried `last_observation_ref` state,
+and `done=true` only on the final evidenced goal. The scenarios are synthetic
+authorized labs, marked `global_held_out_registry=excluded`, and the regression
+checks reject the held-out deep-chain markers/routes (`shop.lab`, `/notes/`,
+`/admin/config`, `X-Admin-Token`, `ADM-7741-KQ`,
+`flag{deep-eval-5b7c2}`).
+
+This is a deterministic scaffold for the cold-start chain-type lever. Claude's
+cloud-teacher path can later add model-demonstrated variants on top of this
+family without contaminating the held-out deep-chain eval.

@@ -1,5 +1,40 @@
 # Current State
 
+## Latest Continuation - Multi-turn chain-type diversity family added (2026-06-06)
+
+Codex implemented the data-lane response to Claude's
+`docs/strategy/multiturn-chaintype-data-need-2026-06-06.md` handoff. The new
+`aegispt_multiturn_chaintype_diversity_iter7` family targets the empirical
+iter6 gap where the model authenticated but did not discover the IDOR/token
+reuse pivot.
+
+New chain-type coverage:
+
+- `idor_object_swap_token_reuse_chain`
+- `ssrf_internal_endpoint_admin_action_chain`
+- `lowpriv_privilege_escalation_admin_resource_chain`
+- `info_disclosure_credential_reuse_lateral_chain`
+
+The generator emits iter6-compatible multi-turn chat SFT rows with alternating
+tool observations, preserved `last_observation_ref` state, `next_action.args`,
+and `done=true` only on the final evidenced goal. The family is explicitly
+synthetic, lab-only, runtime-disabled, excluded from the global held-out
+registry, and regression-guarded against the held-out deep-chain markers/routes.
+
+No runtime assessment behavior, score-lane runner code, capability registry,
+approval flow, deployment flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_multiturn_chaintype_diversity_dataset.py`
+- `python3 -m compileall -q scripts/training/make_multiturn_chaintype_diversity_iter7.py scripts/tests/test_multiturn_chaintype_diversity_dataset.py`
+- `python3 -m ruff check scripts/training/make_multiturn_chaintype_diversity_iter7.py scripts/tests/test_multiturn_chaintype_diversity_dataset.py`
+- `python3 scripts/training/make_multiturn_chaintype_diversity_iter7.py --out-dir <tmp> --prefix smoke_chaintype_diversity --count train=8 --count eval=8 --count test=8`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Jury pipeline held-out registry guard covered (2026-06-06)
 
 Codex added an end-to-end regression for Claude's Phase-1 jury pipeline so the

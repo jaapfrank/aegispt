@@ -1,5 +1,39 @@
 # Done Log
 
+- 2026-06-06: Multi-turn chain-type diversity family added. [TRAINING DATA]
+  - Added `scripts/training/make_multiturn_chaintype_diversity_iter7.py` to
+    generate `aegispt_multiturn_chaintype_diversity_iter7`, an additive SFT
+    family for the cold-start chain-type gap Claude found after iter6 expert
+    iteration.
+  - Covered the four requested non-held-out pivot chains:
+    `idor_object_swap_token_reuse_chain`,
+    `ssrf_internal_endpoint_admin_action_chain`,
+    `lowpriv_privilege_escalation_admin_resource_chain`, and
+    `info_disclosure_credential_reuse_lateral_chain`.
+  - Rows follow the iter6 multi-turn chat shape with system + alternating
+    observations, `next_action.args`, carried `last_observation_ref`, and
+    `done=true` only after the final evidenced goal.
+  - Kept the family synthetic, lab-only, runtime-disabled, excluded from the
+    global held-out registry, and regression-guarded against the deep-chain
+    held-out route/marker strings.
+  - Added `scripts/tests/test_multiturn_chaintype_diversity_dataset.py` and
+    included it in `scripts/run_data_lane_tests.sh`.
+  - Updated
+    `docs/strategy/multiturn-chaintype-data-need-2026-06-06.md` so Claude can
+    see the Codex-side data-lane response.
+  - No runtime assessment behavior, score-lane runner code, capability
+    registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_multiturn_chaintype_diversity_dataset.py`;
+    `python3 -m compileall -q scripts/training/make_multiturn_chaintype_diversity_iter7.py scripts/tests/test_multiturn_chaintype_diversity_dataset.py`;
+    `python3 -m ruff check scripts/training/make_multiturn_chaintype_diversity_iter7.py scripts/tests/test_multiturn_chaintype_diversity_dataset.py`;
+    `python3 scripts/training/make_multiturn_chaintype_diversity_iter7.py --out-dir <tmp> --prefix smoke_chaintype_diversity --count train=8 --count eval=8 --count test=8`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: Jury pipeline held-out registry guard covered. [TRAINING DATA]
   - Added an end-to-end regression in `scripts/tests/test_jury_system.py`
     proving `jury_pipeline.run(... held_out_paths=[registry.json])` skips a
