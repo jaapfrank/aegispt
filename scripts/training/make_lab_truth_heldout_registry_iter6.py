@@ -37,6 +37,15 @@ from scripts.training.make_llmsvs_adversarial_eval_data import (
     DEFAULT_PREFIX as LLMSVS_PREFIX,
 )
 from scripts.training.make_llmsvs_adversarial_eval_data import generate_rows as generate_llmsvs_rows
+from scripts.training.make_multiservice_chaintype_diversity_iter8 import (
+    DEFAULT_COUNTS as DEFAULT_MULTISERVICE_COUNTS,
+)
+from scripts.training.make_multiservice_chaintype_diversity_iter8 import (
+    DEFAULT_PREFIX as MULTISERVICE_PREFIX,
+)
+from scripts.training.make_multiservice_chaintype_diversity_iter8 import (
+    generate_rows as generate_multiservice_rows,
+)
 from scripts.training.make_multiturn_agentic_chain_iter6 import (
     DEFAULT_COUNTS as DEFAULT_MULTITURN_COUNTS,
 )
@@ -187,6 +196,25 @@ def _chaintype_held_out(*, counts: dict[str, int]) -> list[dict[str, Any]]:
     return rows
 
 
+def _multiservice_held_out(*, counts: dict[str, int]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for split in ("eval", "test"):
+        for item in generate_multiservice_rows(counts[split], split=split):
+            metadata = item["metadata"]
+            rows.append(
+                {
+                    "case_id": metadata["case_id"],
+                    "chain_class": metadata["chain_class"],
+                    "dataset_family": MULTISERVICE_PREFIX,
+                    "holdout_reason": "iter8_multiservice_chaintype_gate_split",
+                    "scenario_id": metadata["case_id"],
+                    "source": "scripts/training/make_multiservice_chaintype_diversity_iter8.py",
+                    "split": split,
+                }
+            )
+    return rows
+
+
 def _lab_suite_held_out(lab_truth_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for item in lab_truth_rows:
@@ -213,11 +241,13 @@ def held_out_entries(
     llmsvs_count: int,
     multiturn_counts: dict[str, int],
     chaintype_counts: dict[str, int],
+    multiservice_counts: dict[str, int],
 ) -> list[dict[str, Any]]:
     rows = [_deep_chain_held_out()]
     rows.extend(_llmsvs_held_out(count=llmsvs_count))
     rows.extend(_multiturn_held_out(counts=multiturn_counts))
     rows.extend(_chaintype_held_out(counts=chaintype_counts))
+    rows.extend(_multiservice_held_out(counts=multiservice_counts))
     rows.extend(_lab_suite_held_out(lab_truth_rows))
     return rows
 
@@ -248,6 +278,19 @@ def parse_chaintype_counts(values: list[str] | None) -> dict[str, int]:
     return counts
 
 
+def parse_multiservice_counts(values: list[str] | None) -> dict[str, int]:
+    counts = {
+        "eval": DEFAULT_MULTISERVICE_COUNTS["eval"],
+        "test": DEFAULT_MULTISERVICE_COUNTS["test"],
+    }
+    for value in values or []:
+        split, raw_count = value.split("=", 1)
+        if split not in counts:
+            raise ValueError(f"unknown held-out multiservice split {split!r}")
+        counts[split] = int(raw_count)
+    return counts
+
+
 def validate_registry(registry: dict[str, Any]) -> dict[str, Any]:
     lab_rows = list(registry["lab_truth_scenarios"])
     held_rows = list(registry["held_out_scenarios"])
@@ -268,6 +311,7 @@ def validate_registry(registry: dict[str, Any]) -> dict[str, Any]:
         LLMSVS_PREFIX,
         MULTITURN_PREFIX,
         CHAINTYPE_PREFIX,
+        MULTISERVICE_PREFIX,
         "aegispt-lab-suite-v1",
     }
     missing_families = sorted(required_families - set(held_out_by_family))
@@ -290,6 +334,7 @@ def build_registry(
     llmsvs_count: int = DEFAULT_LLMSVS_COUNT,
     multiturn_counts: dict[str, int] | None = None,
     chaintype_counts: dict[str, int] | None = None,
+    multiservice_counts: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     counts = dict(DEFAULT_MULTITURN_COUNTS)
     counts = {"eval": counts["eval"], "test": counts["test"]}
@@ -299,6 +344,11 @@ def build_registry(
         "test": DEFAULT_CHAINTYPE_COUNTS["test"],
     }
     chaintype.update(chaintype_counts or {})
+    multiservice = {
+        "eval": DEFAULT_MULTISERVICE_COUNTS["eval"],
+        "test": DEFAULT_MULTISERVICE_COUNTS["test"],
+    }
+    multiservice.update(multiservice_counts or {})
     lab_rows = lab_truth_entries(
         variants=live_lab_variants,
         lab_suite_manifest=lab_suite_manifest,
@@ -308,6 +358,7 @@ def build_registry(
         llmsvs_count=llmsvs_count,
         multiturn_counts=counts,
         chaintype_counts=chaintype,
+        multiservice_counts=multiservice,
     )
     registry = {
         "dataset": DEFAULT_PREFIX,
@@ -325,6 +376,7 @@ def build_registry(
             "live_lab_variants": live_lab_variants,
             "llmsvs_count": llmsvs_count,
             "chaintype_counts": chaintype,
+            "multiservice_counts": multiservice,
             "multiturn_counts": counts,
         },
     }
@@ -434,6 +486,7 @@ def build_dataset(
     llmsvs_count: int = DEFAULT_LLMSVS_COUNT,
     multiturn_counts: dict[str, int] | None = None,
     chaintype_counts: dict[str, int] | None = None,
+    multiservice_counts: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     registry = build_registry(
         live_lab_variants=live_lab_variants,
@@ -441,6 +494,7 @@ def build_dataset(
         llmsvs_count=llmsvs_count,
         multiturn_counts=multiturn_counts,
         chaintype_counts=chaintype_counts,
+        multiservice_counts=multiservice_counts,
     )
     return write_registry(out_dir, prefix, registry)
 
@@ -462,6 +516,11 @@ def main() -> None:
         action="append",
         help="Override an iter7 chain-type held-out split size, e.g. eval=40.",
     )
+    parser.add_argument(
+        "--multiservice-count",
+        action="append",
+        help="Override an iter8 multi-service held-out split size, e.g. eval=40.",
+    )
     args = parser.parse_args()
     manifest = build_dataset(
         args.out_dir,
@@ -471,6 +530,7 @@ def main() -> None:
         llmsvs_count=args.llmsvs_count,
         multiturn_counts=parse_multiturn_counts(args.multiturn_count),
         chaintype_counts=parse_chaintype_counts(args.chaintype_count),
+        multiservice_counts=parse_multiservice_counts(args.multiservice_count),
     )
     print(json.dumps(manifest["stats"], indent=2, sort_keys=True))
     print(f"manifest: {args.out_dir / (args.prefix + '_manifest.json')}")

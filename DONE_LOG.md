@@ -1,5 +1,39 @@
 # Done Log
 
+- 2026-06-07: Iter8 multi-service chain-type diversity pack. [TRAINING DATA]
+  - Added `scripts/training/make_multiservice_chaintype_diversity_iter8.py` to
+    generate the `aegispt_multiservice_chaintype_diversity_iter8` family.
+  - Covered four longer multi-service pivot classes:
+    `ssrf_recovery_ticket_admin_session_chain`,
+    `graphql_idor_worker_queue_chain`,
+    `oauth_callback_misbind_api_lateral_chain`, and
+    `nosql_role_confusion_admin_chain`.
+  - Rows use iter6-style chat SFT shape with 6 assistant turns, alternating
+    observations, preserved state, `next_action.args`, lab-only safety metadata,
+    and final `done=true` only when proof evidence is present.
+  - Added `scripts/training/build_iter8_training_artifact_pack.py` and
+    committed gzip-compressed iter8 train/eval/test splits, LLMSVS eval data,
+    refreshed lab-truth/held-out registry extracts, and a manifest under
+    `codex/results/training/iter8-multiservice-diversity-20260607/`.
+  - Extended `scripts/training/make_lab_truth_heldout_registry_iter6.py` so
+    iter8 eval/test IDs are registered as held-out scenarios.
+  - Added tests for the iter8 generator and artifact pack, and included them in
+    `scripts/run_data_lane_tests.sh`.
+  - Updated Codex/Claude handoff docs so Claude can see that iter8 is available
+    and runner trace persistence is now opt-in wired.
+  - Did not generate V4-Pro-demonstrated rows in Codex because no
+    V4/OpenAI-compatible endpoint or API key is exposed in this environment.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_multiservice_chaintype_diversity_iter8.py scripts/tests/test_iter8_training_artifact_pack.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 -m compileall -q scripts/training/make_multiservice_chaintype_diversity_iter8.py scripts/training/build_iter8_training_artifact_pack.py scripts/training/make_lab_truth_heldout_registry_iter6.py`;
+    `python3 scripts/training/build_iter8_training_artifact_pack.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m ruff check scripts/training/make_multiservice_chaintype_diversity_iter8.py scripts/training/build_iter8_training_artifact_pack.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_multiservice_chaintype_diversity_iter8.py scripts/tests/test_iter8_training_artifact_pack.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: Iter7 artifact pack, held-out registry, and trace artifact hook. [TRAINING DATA]
   - Added `scripts/training/build_iter7_training_artifact_pack.py` to build a
     deterministic committed artifact pack for the iter7 chain-type lever.

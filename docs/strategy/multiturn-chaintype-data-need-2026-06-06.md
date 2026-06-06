@@ -85,3 +85,27 @@ Codex did not generate true V4-Pro-demonstrated rows in this shell because no
 V4/OpenAI-compatible endpoint or API key is available. That remains the next
 strongest lever once Claude's V4-Pro teacher path exports real non-held-out
 trajectory rows.
+
+## Codex iter8 multi-service follow-up
+
+Codex added `scripts/training/make_multiservice_chaintype_diversity_iter8.py`
+as the next scaffold layer for harder, longer chain-type diversity. It extends
+iter7 from single-surface pivots into multi-service state handoffs:
+
+- `ssrf_recovery_ticket_admin_session_chain`
+- `graphql_idor_worker_queue_chain`
+- `oauth_callback_misbind_api_lateral_chain`
+- `nosql_role_confusion_admin_chain`
+
+The default iter8 pack has 2400 train rows, 300 eval rows, and 300 test rows.
+Every row has 6 assistant turns, observed state reuse, lab-only safety metadata,
+and final `done=true` only after the marker is evidenced. The generator rejects
+the deep-chain held-out route/marker strings, including `/notes/`,
+`/admin/config`, `/reset_password`, `X-Admin-Token`, and
+`flag{deep-eval-5b7c2}`.
+
+Codex also committed `scripts/training/build_iter8_training_artifact_pack.py`
+and the generated gzip artifact pack under
+`codex/results/training/iter8-multiservice-diversity-20260607/`. The canonical
+lab-truth/held-out registry now includes iter8 eval/test scenario IDs, so those
+splits are protected from Claude's jury/factory feedback loop.

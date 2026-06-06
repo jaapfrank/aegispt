@@ -1,0 +1,199 @@
+{
+  "dataset": "aegispt_iter8_multiservice_training_artifact_pack",
+  "files": {
+    "held_out_jsonl": {
+      "bytes": 23798,
+      "path": "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_lab_truth_heldout_registry_iter6_held_out.jsonl.gz",
+      "row_count": 2811,
+      "sha256": "48b2b2f6bf6d3d56fd46bc0759d520b90ba8ce213dd7cbed46243821297f68a7"
+    },
+    "held_out_registry": {
+      "bytes": 1321874,
+      "path": "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_lab_truth_heldout_registry_iter6.json",
+      "sha256": "439020d5218875707af986eee943419b1c44c87b8f1009f72b059c3077a45c9d"
+    },
+    "lab_truth_jsonl": {
+      "bytes": 4692,
+      "path": "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_lab_truth_heldout_registry_iter6_lab_truth.jsonl.gz",
+      "row_count": 143,
+      "sha256": "1acb4a771e4a94421e821399e0797152bf8447025255fd7fd50b520058a492c3"
+    },
+    "llmsvs_eval": {
+      "bytes": 24577,
+      "path": "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_llmsvs_adversarial_eval_iter5.jsonl.gz",
+      "row_count": 720,
+      "sha256": "10c147a7cccfa6e02d8af3a6fe8e26d1789b192aa0cd0ce3088521e196363a05"
+    },
+    "multiservice_eval": {
+      "bytes": 196177,
+      "path": "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_multiservice_chaintype_diversity_iter8_eval.jsonl.gz",
+      "row_count": 300,
+      "sha256": "3b3379730b9a880dd8f6d494ba423d8baccf50ff55d512d72428959354e842d4"
+    },
+    "multiservice_test": {
+      "bytes": 196240,
+      "path": "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_multiservice_chaintype_diversity_iter8_test.jsonl.gz",
+      "row_count": 300,
+      "sha256": "428b769a4fe56b2ea7de7ec1b7bbbcaf5f469669ab7e5040bde8212c5f70e15a"
+    },
+    "multiservice_train": {
+      "bytes": 1558866,
+      "path": "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_multiservice_chaintype_diversity_iter8_train.jsonl.gz",
+      "row_count": 2400,
+      "sha256": "ead62336954e077715f6a2175721eb08b890cce6a56064960834738dfe4e51ce"
+    }
+  },
+  "format": "deterministic gzip-compressed jsonl plus registry json",
+  "policy": {
+    "committed_artifact_pack": true,
+    "data_lane_only": true,
+    "held_out_deep_chain_solution_not_copied": true,
+    "iter8_eval_test_registered_as_held_out": true,
+    "llmsvs_eval_only": true,
+    "multi_service_chain_type_diversity": true,
+    "runtime_execution": false
+  },
+  "stats": {
+    "held_out_registry": {
+      "held_out_by_family": {
+        "aegispt-lab-suite-v1": 50,
+        "aegispt_llmsvs_adversarial_eval_iter5": 720,
+        "aegispt_multiservice_chaintype_diversity_iter8": 600,
+        "aegispt_multiturn_agentic_chain_iter6": 800,
+        "aegispt_multiturn_chaintype_diversity_iter7": 640,
+        "deep_chain_eval": 1
+      },
+      "held_out_by_split": {
+        "benchmark": 50,
+        "eval": 1741,
+        "test": 1020
+      },
+      "held_out_count": 2811,
+      "lab_truth_by_family": {
+        "aegispt-lab-suite-v1": 50,
+        "aegispt_live_lab_target_specs_iter5": 93
+      },
+      "lab_truth_by_value": {
+        "known_vulnerable": 143
+      },
+      "lab_truth_count": 143
+    },
+    "llmsvs": {
+      "attack_categories": {
+        "direct_prompt_injection": 80,
+        "indirect_prompt_injection_tool_output": 80,
+        "insecure_tool_argument_injection": 80,
+        "mcp_tool_poisoning": 80,
+        "model_dos_unbounded_consumption": 80,
+        "rag_context_poisoning": 80,
+        "sensitive_info_disclosure": 80,
+        "system_prompt_leakage": 80,
+        "tool_misuse_excessive_agency": 80
+      },
+      "llmsvs_controls": {
+        "V2.16": 80,
+        "V2.8": 80,
+        "V4.2": 80,
+        "V4.3": 160,
+        "V4.6": 80,
+        "V5.10": 160,
+        "V5.11": 80,
+        "V5.12": 240,
+        "V5.13": 80,
+        "V5.14": 80,
+        "V5.15": 80,
+        "V5.7": 80,
+        "V5.9": 80,
+        "V6.1": 80,
+        "V6.10": 160,
+        "V6.11": 80,
+        "V6.12": 80,
+        "V6.2": 80,
+        "V6.3": 80,
+        "V6.4": 160,
+        "V6.6": 80,
+        "V6.7": 80,
+        "V8.1": 240,
+        "V8.2": 80
+      },
+      "row_count": 720
+    },
+    "multiservice": {
+      "eval": {
+        "assistant_turns": [
+          6
+        ],
+        "case_count": 300,
+        "chain_classes": {
+          "graphql_idor_worker_queue_chain": 75,
+          "nosql_role_confusion_admin_chain": 75,
+          "oauth_callback_misbind_api_lateral_chain": 75,
+          "ssrf_recovery_ticket_admin_session_chain": 75
+        },
+        "domains": {
+          "api_worker": 75,
+          "cloud_api": 75,
+          "lan_web": 75,
+          "web_api": 75
+        },
+        "tools": {
+          "lab_api_request": 525,
+          "lab_graphql_request": 225,
+          "lab_http_request": 675,
+          "lab_queue_request": 75,
+          "none": 300
+        }
+      },
+      "test": {
+        "assistant_turns": [
+          6
+        ],
+        "case_count": 300,
+        "chain_classes": {
+          "graphql_idor_worker_queue_chain": 75,
+          "nosql_role_confusion_admin_chain": 75,
+          "oauth_callback_misbind_api_lateral_chain": 75,
+          "ssrf_recovery_ticket_admin_session_chain": 75
+        },
+        "domains": {
+          "api_worker": 75,
+          "cloud_api": 75,
+          "lan_web": 75,
+          "web_api": 75
+        },
+        "tools": {
+          "lab_api_request": 525,
+          "lab_graphql_request": 225,
+          "lab_http_request": 675,
+          "lab_queue_request": 75,
+          "none": 300
+        }
+      },
+      "train": {
+        "assistant_turns": [
+          6
+        ],
+        "case_count": 2400,
+        "chain_classes": {
+          "graphql_idor_worker_queue_chain": 600,
+          "nosql_role_confusion_admin_chain": 600,
+          "oauth_callback_misbind_api_lateral_chain": 600,
+          "ssrf_recovery_ticket_admin_session_chain": 600
+        },
+        "domains": {
+          "api_worker": 600,
+          "cloud_api": 600,
+          "lan_web": 600,
+          "web_api": 600
+        },
+        "tools": {
+          "lab_api_request": 4200,
+          "lab_graphql_request": 1800,
+          "lab_http_request": 5400,
+          "lab_queue_request": 600,
+          "none": 2400
+        }
+      }
+    }
+  }
+}

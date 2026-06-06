@@ -1,5 +1,78 @@
 # Current State
 
+## Latest Continuation - Iter8 multi-service chain data pack (2026-06-07)
+
+Codex added the iter8 data-lane lever requested after the iter7 scaffold:
+longer multi-service chain-type diversity, with eval/test IDs protected in the
+canonical held-out registry.
+
+New generator:
+
+- `scripts/training/make_multiservice_chaintype_diversity_iter8.py`
+- dataset family: `aegispt_multiservice_chaintype_diversity_iter8`
+- default split sizes:
+  - train: 2400
+  - eval: 300
+  - test: 300
+- each row has 6 assistant turns, alternating tool observations,
+  `next_action.args`, carried state, and `done=true` only at the evidenced
+  final goal
+
+New chain coverage:
+
+- `ssrf_recovery_ticket_admin_session_chain`
+- `graphql_idor_worker_queue_chain`
+- `oauth_callback_misbind_api_lateral_chain`
+- `nosql_role_confusion_admin_chain`
+
+New committed training artifacts live under
+`codex/results/training/iter8-multiservice-diversity-20260607/`:
+
+- gzip-compressed iter8 train/eval/test JSONL files
+- gzip-compressed LLMSVS adversarial eval JSONL
+- refreshed `aegispt_lab_truth_heldout_registry_iter6.json`
+- gzip-compressed lab-truth and held-out JSONL extracts
+- `aegispt_iter8_multiservice_training_artifact_pack_manifest.json`
+
+Registry changes:
+
+- `scripts/training/make_lab_truth_heldout_registry_iter6.py` now includes
+  iter8 multi-service eval/test split IDs as held-out scenarios
+- default full registry now covers:
+  - `deep_chain_eval`
+  - LLMSVS adversarial eval
+  - iter6 multi-turn eval/test
+  - iter7 chain-type diversity eval/test
+  - iter8 multi-service chain-type diversity eval/test
+  - standalone lab-suite benchmark IDs
+
+Handoff / Claude-awareness:
+
+- `docs/strategy/multiturn-chaintype-data-need-2026-06-06.md` now records the
+  iter8 family and artifact pack
+- `docs/strategy/codex-runner-data-lane-handoff-2026-06-06.md` now reflects
+  that opt-in runner trace artifact persistence is already wired and that
+  iter8 eval/test IDs are in the held-out registry
+
+This is still deterministic synthetic scaffold data, not V4-Pro demonstrated
+trajectory data. Codex still cannot generate genuine V4/OpenAI-compatible
+teacher rows in this shell because no endpoint or API key is exposed. The
+artifact pack is ready for Claude to train/evaluate while the separate
+V4-Pro teacher path can add genuine model-demonstrated non-held-out rows later.
+
+No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_multiservice_chaintype_diversity_iter8.py scripts/tests/test_iter8_training_artifact_pack.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `python3 -m compileall -q scripts/training/make_multiservice_chaintype_diversity_iter8.py scripts/training/build_iter8_training_artifact_pack.py scripts/training/make_lab_truth_heldout_registry_iter6.py`
+- `python3 scripts/training/build_iter8_training_artifact_pack.py`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m ruff check scripts/training/make_multiservice_chaintype_diversity_iter8.py scripts/training/build_iter8_training_artifact_pack.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_multiservice_chaintype_diversity_iter8.py scripts/tests/test_iter8_training_artifact_pack.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Iter7 artifact pack, held-out registry, and trace artifact hook (2026-06-06)
 
 Codex extended the iter7 data-lane from generator-only to committed artifacts

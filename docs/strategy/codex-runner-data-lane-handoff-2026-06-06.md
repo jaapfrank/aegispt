@@ -19,10 +19,10 @@ note, not an active `NEXT_TASK.md` promotion and not a runtime permission change
 
 | # | Codex task | Current status | Next Codex action |
 |---|---|---|---|
-| 1 | Runner-side trace recorder for `assessment_loop` / stored `tool_executions` into `run_trace.jsonl` using `jury_review.TRACE_FIELDS` | Foundation done in `4730591`: `from_runner_tasks(...)` and read-only `--run-id` exporter convert persisted Task/ToolExecution records into the frozen trace schema. | Add a governed, opt-in artifact path after run completion so real runs can persist/export `run_trace.jsonl` without changing dispatch behavior. |
-| 2 | `lab_truth` tagging: `known_clean` / `known_vulnerable` / `live_no_oracle` | DONE for current generated lab specs and local benchmark suites, and wired into the read-only exporter. `scripts/training/make_lab_truth_heldout_registry_iter6.py` emits the registry; `trace_record.py --lab-truth auto --lab-truth-registry ...` resolves known IDs and falls back to `live_no_oracle` on no match. | Later slice: automatic post-run trace persistence can pass canonical lab IDs through the governed artifact path in task #1. |
-| 3 | No-finding artifact from runner state: coverage, untested boundaries, blockers | DONE for the read-only exporter path. `from_runner_tasks(...)` derives tool-level coverage and can now merge existing `coverage_truth` surfaces, stop conditions, and blocker IDs. The `--run-id` exporter builds `coverage_truth` by default and offers `--no-coverage-truth` for a minimal trace. | Later slice: persist/export `run_trace.jsonl` automatically after run completion through the governed artifact path in task #1. |
-| 4 | Held-out registry of scenario IDs for Claude's `load_held_out()` / pipeline guard | DONE for current eval/lab assets. The registry has exact IDs for `deep_chain_eval`, LLMSVS adversarial eval, iter6 multi-turn eval/test, and standalone lab-suite benchmark challenges. `jury_factory.load_held_out(...)` can now read the registry JSON directly as well as JSONL files. | Later slice: keep adding new eval/test scenario IDs to the registry whenever new held-out families are introduced. |
+| 1 | Runner-side trace recorder for `assessment_loop` / stored `tool_executions` into `run_trace.jsonl` using `jury_review.TRACE_FIELDS` | DONE for exporter plus governed persistence. `from_runner_tasks(...)` and the read-only `--run-id` exporter convert persisted Task/ToolExecution records into the frozen trace schema; `api/app/services/run_trace_artifacts.py` can now persist `run-trace.jsonl` for terminal runs only when run config opts in. The artifact attaches to the latest existing `ToolExecution`, is duplicate-guarded by artifact kind, and the orchestration hook is best-effort/log-only. | Keep future live/lab run configs carrying canonical `scenario_id` / `target_id` / `lab_target_id` so `lab_truth=auto` can resolve precisely. |
+| 2 | `lab_truth` tagging: `known_clean` / `known_vulnerable` / `live_no_oracle` | DONE for current generated lab specs and local benchmark suites, and wired into the exporter and opt-in artifact path. `scripts/training/make_lab_truth_heldout_registry_iter6.py` emits the registry; `trace_record.py --lab-truth auto --lab-truth-registry ...` and the artifact hook resolve known IDs and fall back to `live_no_oracle` on no match. | Keep adding canonical lab/spec IDs when new live targets are introduced. |
+| 3 | No-finding artifact from runner state: coverage, untested boundaries, blockers | DONE for exporter and opt-in artifact path. `from_runner_tasks(...)` derives tool-level coverage and can merge existing `coverage_truth` surfaces, stop conditions, and blocker IDs. The artifact hook calls `build_coverage_truth(...)` and remains conservative if coverage extraction fails. | Add richer coverage extractors only as existing runner evidence schemas grow. |
+| 4 | Held-out registry of scenario IDs for Claude's `load_held_out()` / pipeline guard | DONE for current eval/lab assets. The registry has exact IDs for `deep_chain_eval`, LLMSVS adversarial eval, iter6 multi-turn eval/test, iter7 chain-type eval/test, iter8 multi-service eval/test, and standalone lab-suite benchmark challenges. `jury_factory.load_held_out(...)` can now read the registry JSON directly as well as JSONL files. | Keep adding new eval/test scenario IDs to the registry whenever new held-out families are introduced. |
 | 5 | Reviewer rubric/prompts for structured verdicts by perspective | DONE as Phase-3 prep only. `scripts/training/make_reviewer_rubrics_iter6.py` emits prompt/schema rows for Codex code/logic, Claude reasoning/safety, DeepSeek alternative routes, Grok counterexamples, and a local schema/evidence guard. Every row has `execution_enabled=false`, `provider_binding=null`, and `runtime_execution=false`. | Later slice: wire real reviewer adapters only after capability is confirmed and real trajectories exist. |
 
 ## Current Contract
@@ -58,6 +58,14 @@ Generate the gated reviewer rubric prep family with:
 python3 scripts/training/make_reviewer_rubrics_iter6.py
 ```
 
+Generate the iter8 multi-service chain-type family or committed artifact pack
+with:
+
+```bash
+python3 scripts/training/make_multiservice_chaintype_diversity_iter8.py
+python3 scripts/training/build_iter8_training_artifact_pack.py
+```
+
 Claude's existing held-out guard can consume either the generated registry JSON
 or the generated `_held_out.jsonl` extract:
 
@@ -90,9 +98,8 @@ No-finding is not clean truth by default.
 Codex tasks #2 and #3 are therefore high leverage: without lab truth and real
 coverage evidence, the coverage arbiter must stay conservative.
 
-Current status update: task #2 now supplies canonical lab truth for the current
-generated lab specs and standalone benchmark suite. Task #3 now consumes the
-existing runner/report `coverage_truth` artifact for the read-only exporter
-path; the remaining integration work is task #1's governed post-run artifact
-persistence. Task #5 is also complete as prep-only rubric data; provider
-adapter execution remains intentionally disabled until Phase 3.
+Current status update: tasks #1-#4 are now done for the current data-lane scope:
+read-only export, opt-in post-run trace artifact persistence, lab-truth lookup,
+coverage/no-finding evidence, and held-out protection for iter6/iter7/iter8 are
+wired. Task #5 is complete as prep-only rubric data; provider adapter execution
+remains intentionally disabled until Phase 3.
