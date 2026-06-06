@@ -106,7 +106,8 @@ def aggregate(reviews: list[dict]) -> dict:
     reviewer leads; disagreement is surfaced, not hidden."""
     reviews = [r for r in reviews if r]
     if not reviews:
-        return {"verdict": "unknown", "confidence": 0.0, "agreement": 0.0, "first_wrong_step": None}
+        return {"verdict": "unknown", "confidence": 0.0, "agreement": 0.0,
+                "first_wrong_step": None, "safety_ok": True, "n_reviewers": 0}
     verdicts = [str(r.get("verdict", "unknown")) for r in reviews]
     top = max(set(verdicts), key=verdicts.count)
     agreement = verdicts.count(top) / len(verdicts)
