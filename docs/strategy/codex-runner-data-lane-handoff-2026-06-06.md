@@ -74,6 +74,10 @@ The fixed validation command for this data lane is:
 bash scripts/run_data_lane_tests.sh
 ```
 
+That command now includes `scripts/tests/test_jury_system.py`, including an
+end-to-end guard that verifies `jury_pipeline.run(... --held-out registry.json)`
+skips held-out scenarios before dataset emission.
+
 ## Important No-Finding Rule
 
 No-finding is not clean truth by default.

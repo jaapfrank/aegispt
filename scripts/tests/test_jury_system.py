@@ -112,7 +112,8 @@ def test_factory_pairs_and_guard(tmp_path):
 
 
 def test_pipeline_end_to_end(tmp_path):
-    tdir = tmp_path / "traces"; tdir.mkdir()
+    tdir = tmp_path / "traces"
+    tdir.mkdir()
     odir = tmp_path / "out"
     solved = {"flag": True, "idor": True, "logged_in": True, "steps": 6, "unique": 5}
     failed = {"flag": False, "idor": False, "logged_in": False, "steps": 2, "unique": 1}
@@ -120,3 +121,39 @@ def test_pipeline_end_to_end(tmp_path):
         (tdir / name).write_text("\n".join(json.dumps(s) for s in TR.from_deep_chain(res, sigs)) + "\n")
     m = P.run(str(tdir), held_out_paths=[], out_dir=str(odir))
     assert m["traces_seen"] == 2 and m["sft"] == 1 and m["dpo_pairs"] == 1
+
+
+def test_pipeline_honors_registry_json_held_out_guard(tmp_path):
+    tdir = tmp_path / "traces"
+    tdir.mkdir()
+    odir = tmp_path / "out"
+    held_out_path = tmp_path / "held_out_registry.json"
+    held_out_path.write_text(
+        json.dumps({"held_out_scenarios": [{"scenario_id": "deep_chain_eval"}]})
+        + "\n"
+    )
+    solved = {"flag": True, "idor": True, "logged_in": True, "steps": 6, "unique": 5}
+    failed = {"flag": False, "idor": False, "logged_in": False, "steps": 2, "unique": 1}
+    traces = {
+        "deep_chain_eval__held.jsonl": TR.from_deep_chain(solved, list("abcdef")),
+        "shop__win.jsonl": TR.from_deep_chain(solved, list("abcdef")),
+        "shop__fail.jsonl": TR.from_deep_chain(failed, list("xy")),
+    }
+    for name, trace in traces.items():
+        (tdir / name).write_text(
+            "\n".join(json.dumps(step) for step in trace) + "\n"
+        )
+
+    manifest = P.run(
+        str(tdir),
+        held_out_paths=[str(held_out_path)],
+        out_dir=str(odir),
+    )
+
+    assert manifest["traces_seen"] == 3
+    assert manifest["held_out_scenarios"] == 1
+    assert manifest["skipped_held_out"] == 1
+    assert manifest["sft"] == 1
+    assert manifest["dpo_pairs"] == 1
+    assert "deep_chain_eval" not in (odir / "sft.jsonl").read_text()
+    assert "deep_chain_eval" not in (odir / "dpo_pairs.jsonl").read_text()

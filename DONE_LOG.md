@@ -1,5 +1,23 @@
 # Done Log
 
+- 2026-06-06: Jury pipeline held-out registry guard covered. [TRAINING DATA]
+  - Added an end-to-end regression in `scripts/tests/test_jury_system.py`
+    proving `jury_pipeline.run(... held_out_paths=[registry.json])` skips a
+    held-out scenario before emitting SFT/DPO data.
+  - Added `scripts/tests/test_jury_system.py` to
+    `scripts/run_data_lane_tests.sh`, bringing the fixed data-lane command to
+    `53` passing tests.
+  - Kept this as test/data-lane hardening only; no runtime assessment behavior,
+    score-lane runner code, capability registry, approval flow, deployment
+    flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_jury_system.py`;
+    `python3 -m ruff check scripts/tests/test_jury_system.py`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: Auto lab-truth lookup wired into trace export. [TRAINING DATA]
   - Extended `scripts/training/make_lab_truth_heldout_registry_iter6.py` with
     `load_registry(...)` so both the full registry JSON and the lighter
