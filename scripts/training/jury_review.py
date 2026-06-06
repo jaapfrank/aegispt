@@ -47,6 +47,40 @@ def evidence_verdict(trace: list[dict]) -> Optional[dict]:
     return None
 
 
+# ---- the "found nothing" arbiter ------------------------------------------
+# A no-finding on a LIVE target is COVERAGE evidence, never hard negative truth. The
+# question is not "is the model right?" but "did it do enough to responsibly say
+# no-confirmed-finding?". 5 labels (Codex + Claude, 2026-06-06).
+NO_FINDING_LABELS = ("true_negative", "missed_finding", "inconclusive", "blocked", "correct_restraint")
+NO_FINDING_ARTIFACT = ("outcome", "confidence", "coverage", "negative_evidence_refs",
+                       "untested_boundaries", "blockers", "lab_truth", "conscious_restraint")
+
+
+def coverage_verdict(trace: list[dict], *, min_coverage: int = 3) -> dict:
+    """Classify a no-confirmed-finding trace. lab_truth in {known_clean,
+    known_vulnerable, live_no_oracle}. The hard rule: a LIVE no-finding is NEVER a
+    'safe'/true-negative label — only process/coverage training."""
+    last = trace[-1] if trace else {}
+    art = last.get("no_finding") or {}
+    lab = (art.get("lab_truth") or "live_no_oracle").lower()
+    blockers = art.get("blockers") or []
+    coverage = art.get("coverage") or []
+    untested = art.get("untested_boundaries") or []
+    restraint = bool(art.get("conscious_restraint"))
+
+    if blockers:                       # external block (no creds / target down / tool / policy)
+        return {"label": "blocked", "training_use": "exclude", "human_review": False, "lab_truth": lab}
+    if lab == "known_vulnerable":      # an oracle existed and was MISSED -> gold for DPO/contrastive
+        return {"label": "missed_finding", "training_use": "dpo_negative", "human_review": False, "lab_truth": lab}
+    if restraint:                      # suspicion, no proof/authz, deliberately did NOT report
+        return {"label": "correct_restraint", "training_use": "safety_positive", "human_review": False, "lab_truth": lab}
+    if lab == "known_clean" and len(coverage) >= min_coverage and not untested:
+        return {"label": "true_negative", "training_use": "sft_positive", "human_review": False, "lab_truth": lab}
+    # live target OR thin coverage OR reachable-but-untested -> NEVER 'safe', process only
+    return {"label": "inconclusive", "training_use": "do_not_reward",
+            "human_review": bool(untested), "lab_truth": lab}
+
+
 def aggregate(reviews: list[dict]) -> dict:
     """Median/consensus over the committee — robust to one model's bias. No single
     reviewer leads; disagreement is surfaced, not hidden."""
@@ -72,6 +106,14 @@ def aggregate(reviews: list[dict]) -> dict:
 def arbitrate(trace: list[dict], reviews: list[dict], *, conflict_threshold: float = 0.67) -> dict:
     """Evidence first; else jury consensus; flag for HUMAN on conflict / safety /
     novelty. Returns the final decision + why."""
+    last = trace[-1] if trace else {}
+    # 0. "found nothing" routes to the coverage arbiter (responsible no-finding vs
+    # should-have-continued), NOT the good/bad jury.
+    if (last.get("final_outcome") or "").lower() in ("no_confirmed_finding", "no_finding"):
+        cov = coverage_verdict(trace)
+        return {"decision": cov["label"], "by": "coverage_arbiter", "human_review": cov["human_review"],
+                "jury": aggregate(reviews), "coverage": cov, "evidence": evidence_verdict(trace)}
+
     ev = evidence_verdict(trace)
     jury = aggregate(reviews)
     jbad = jury["verdict"] in ("bad", "bad_step")
@@ -97,6 +139,13 @@ def arbitrate(trace: list[dict], reviews: list[dict], *, conflict_threshold: flo
 def to_training(trace: list[dict], decision: dict, bad_trace: Optional[list[dict]] = None) -> dict:
     """Turn an arbitrated trace into training data. Evidence-anchored: only
     human_review==False decisions become auto-training data."""
+    # no-finding coverage labels carry their own training_use (do_not_reward /
+    # exclude are kept for audit but NOT used as positive training signal)
+    cov = decision.get("coverage")
+    if cov:
+        tv = cov["training_use"]
+        use = tv not in ("do_not_reward", "exclude") and not decision["human_review"]
+        return {"training_value": tv, "use": use, "label": decision["decision"], "trace": trace}
     if decision["human_review"]:
         return {"training_value": "needs_human_review", "use": False}
     d = decision["decision"]
