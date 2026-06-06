@@ -1,5 +1,35 @@
 # Done Log
 
+- 2026-06-06: Jury-review no-finding guardrails verified. [TRAINING DATA]
+  - Verified Claude's `c8044f2` jury-review decision core locally and tightened
+    the "what if we find nothing?" path so no-finding traces cannot become
+    accidental clean/positive training examples.
+  - No runtime assessment behavior, score-lane runner code, capability
+    registry, approval flow, deployment flow, live target action,
+    `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - `scripts/training/jury_review.py` now accepts nested `no_finding` payloads
+    and top-level no-finding fields from a future trace-recorder.
+  - No-finding coverage labels are explicitly wired through the training
+    factory:
+    `known_clean` with complete lab coverage can become `sft_positive`;
+    `known_vulnerable` no-finding traces become rejected
+    `dpo_negative`/`contrastive` signals; live/no-oracle no-finding traces are
+    `do_not_reward`; blocked traces are `exclude`; untested boundaries require
+    review.
+  - Added `scripts/tests/test_jury_review.py` covering solved-evidence wins,
+    done-too-early contrastive output, known-clean true negatives, known-vuln
+    missed findings, live/no-oracle no reward, untested-boundary review, and
+    blocked no-finding exclusion.
+  - Added the new jury-review test to `scripts/run_data_lane_tests.sh` so the
+    fixed data-lane command covers this guardrail.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_jury_review.py` (`7 passed`);
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/jury_review.py scripts/tests/test_jury_review.py`;
+    `python3 -m ruff check scripts/training/jury_review.py scripts/tests/test_jury_review.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: React `/app-v2` full test lane validated. [CODEX UI/REPO HYGIENE]
   - Continued from the separated legacy `/app` and React `/app-v2` test-lane
     work with validation-only coverage of the full React v2 lane.

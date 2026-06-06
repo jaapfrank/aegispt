@@ -1,5 +1,50 @@
 # Current State
 
+## Latest Continuation - Jury-review no-finding guardrails verified (2026-06-06)
+
+Codex verified Claude's `c8044f2` jury-review decision core locally and tightened
+the "what if we find nothing?" path so no-finding traces cannot be promoted as
+clean truth without evidence. This is training/data-lane decision-core work only;
+no runtime assessment behavior, score-lane runner code, capability registry,
+approval flow, deployment flow, live target action, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+Jury-review behavior now records and validates these cases:
+
+- solved/flag evidence wins over model reviewer disagreement
+- done-too-early or no-flag traces with a reviewer-identified wrong step become
+  contrastive training candidates
+- `known_clean` lab no-finding traces require complete coverage before positive
+  SFT use
+- `known_vulnerable` lab no-finding traces become rejected DPO/contrastive
+  signals instead of accidental positives
+- live/no-oracle no-finding traces are `do_not_reward`
+- no-finding traces with untested boundaries require review and are not used
+  automatically
+- blocked no-finding traces are excluded, not rewarded
+
+Implementation notes for Claude handoff:
+
+- `scripts/training/jury_review.py` accepts both nested `no_finding` payloads
+  and top-level no-finding fields from a future trace-recorder
+- no-finding coverage labels are wired through `to_training()` so the factory
+  output is explicit (`sft_positive`, `safety_positive`, `dpo_negative`,
+  `contrastive`, `do_not_reward`, or `exclude`)
+- `scripts/run_data_lane_tests.sh` now includes `scripts/tests/test_jury_review.py`
+  so the fixed data-lane command covers the jury-review guardrail
+- this still does not implement the next planned trace-recorder, provider
+  reviewer adapters, historical reviewer calibration, or end-to-end factory
+  export wiring
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_jury_review.py` (`7 passed`)
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m compileall -q scripts/training/jury_review.py scripts/tests/test_jury_review.py`
+- `python3 -m ruff check scripts/training/jury_review.py scripts/tests/test_jury_review.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - React `/app-v2` full test lane validated (2026-06-06)
 
 Codex validated the separated React `/app-v2` lane end to end after the legacy

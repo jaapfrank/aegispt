@@ -20,7 +20,7 @@ from typing import Any, Callable, Optional
 
 # ---- frozen trace schema (one dict per step) -------------------------------
 TRACE_FIELDS = ("state", "action", "tool_result", "evidence", "safety_status",
-                "objective_progress", "failure_reason", "final_outcome")
+                "objective_progress", "failure_reason", "final_outcome", "no_finding")
 # ---- reviewer verdict schema ----------------------------------------------
 VERDICT_FIELDS = ("verdict", "confidence", "first_wrong_step", "reason",
                   "better_action_type", "safety_ok", "training_value")
@@ -56,16 +56,36 @@ NO_FINDING_ARTIFACT = ("outcome", "confidence", "coverage", "negative_evidence_r
                        "untested_boundaries", "blockers", "lab_truth", "conscious_restraint")
 
 
+def _listish(value: Any) -> list:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple | set):
+        return list(value)
+    return [value]
+
+
+def _no_finding_artifact(last: dict) -> dict:
+    """Accept both nested trace-recorder payloads and older top-level fields."""
+    nested = last.get("no_finding") or {}
+    artifact = dict(nested) if isinstance(nested, dict) else {}
+    for key in NO_FINDING_ARTIFACT:
+        if key not in artifact and key in last:
+            artifact[key] = last[key]
+    return artifact
+
+
 def coverage_verdict(trace: list[dict], *, min_coverage: int = 3) -> dict:
     """Classify a no-confirmed-finding trace. lab_truth in {known_clean,
     known_vulnerable, live_no_oracle}. The hard rule: a LIVE no-finding is NEVER a
     'safe'/true-negative label — only process/coverage training."""
     last = trace[-1] if trace else {}
-    art = last.get("no_finding") or {}
+    art = _no_finding_artifact(last)
     lab = (art.get("lab_truth") or "live_no_oracle").lower()
-    blockers = art.get("blockers") or []
-    coverage = art.get("coverage") or []
-    untested = art.get("untested_boundaries") or []
+    blockers = _listish(art.get("blockers"))
+    coverage = _listish(art.get("coverage"))
+    untested = _listish(art.get("untested_boundaries"))
     restraint = bool(art.get("conscious_restraint"))
 
     if blockers:                       # external block (no creds / target down / tool / policy)
@@ -145,7 +165,16 @@ def to_training(trace: list[dict], decision: dict, bad_trace: Optional[list[dict
     if cov:
         tv = cov["training_use"]
         use = tv not in ("do_not_reward", "exclude") and not decision["human_review"]
-        return {"training_value": tv, "use": use, "label": decision["decision"], "trace": trace}
+        out = {"training_value": tv, "use": use, "label": decision["decision"], "coverage": cov}
+        if decision["decision"] == "missed_finding":
+            fws = decision["jury"].get("first_wrong_step")
+            out["first_wrong_step"] = fws
+            out["rejected"] = trace
+            if fws is not None:
+                out["training_value"] = "contrastive"
+        else:
+            out["trace"] = trace
+        return out
     if decision["human_review"]:
         return {"training_value": "needs_human_review", "use": False}
     d = decision["decision"]
