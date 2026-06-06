@@ -1,5 +1,33 @@
 # Done Log
 
+- 2026-06-06: Runner-side trace export wired to jury schema. [TRAINING DATA]
+  - Completed the Codex runner-side half of Claude's `65fe05c`
+    trace-recorder plan without changing live runner dispatch or runtime
+    assessment behavior.
+  - Added `from_runner_tasks(...)` to `scripts/training/trace_record.py` so
+    stored AegisPT `Task` / `ToolExecution` style objects can be exported into
+    the same frozen `run_trace.jsonl` schema consumed by `jury_review.py`.
+  - Added a read-only CLI path:
+    `python3 scripts/training/trace_record.py --run-id <uuid> --out run_trace.jsonl`.
+    The CLI reads existing run/tasks/findings/artifacts and writes JSONL only;
+    it does not mutate the database.
+  - Runner traces now distinguish persisted findings (`objective_met`),
+    live/no-oracle no-finding traces (`do_not_reward` after jury review),
+    known-vulnerable lab misses (`missed_finding` / `dpo_negative`), and failed
+    runner tasks with task-status/exit-code failure reasons.
+  - Added `scripts/tests/test_trace_record.py` and included it in
+    `scripts/run_data_lane_tests.sh`.
+  - No score-lane runner code, capability registry, approval flow, deployment
+    flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_trace_record.py scripts/tests/test_jury_review.py` (`11 passed`);
+    `bash scripts/run_data_lane_tests.sh`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/trace_record.py scripts/tests/test_trace_record.py`;
+    `python3 -m ruff check scripts/training/trace_record.py scripts/tests/test_trace_record.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-06: Jury-review no-finding guardrails verified. [TRAINING DATA]
   - Verified Claude's `c8044f2` jury-review decision core locally and tightened
     the "what if we find nothing?" path so no-finding traces cannot become

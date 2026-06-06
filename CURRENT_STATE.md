@@ -1,5 +1,46 @@
 # Current State
 
+## Latest Continuation - Runner-side trace export wired to jury schema (2026-06-06)
+
+Codex completed the runner-side half of Claude's trace-recorder plan from
+`65fe05c`: stored AegisPT task/tool-execution records can now be converted into
+the same frozen `run_trace.jsonl` schema consumed by `jury_review.py`. This is a
+read-only training/data-lane exporter; no live runner dispatch behavior, runtime
+assessment behavior, score-lane runner code, capability registry, approval flow,
+deployment flow, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed.
+
+Runner trace export now supports:
+
+- `from_runner_tasks(...)` for persisted `Task` / `ToolExecution` style objects
+  and test fixtures
+- a read-only CLI path:
+  `python3 scripts/training/trace_record.py --run-id <uuid> --out run_trace.jsonl`
+- persisted finding traces ending as `objective_met`
+- completed live/no-oracle runs without findings ending as `no_confirmed_finding`
+  with `training_value=do_not_reward` after jury review
+- known-vulnerable lab traces without findings becoming `missed_finding` /
+  `dpo_negative`
+- failed runner tasks preserving task status and exit-code failure reasons
+- stored evidence refs for stdout/stderr and artifact URIs, without writing to
+  the database or mutating run/task/finding state
+
+Claude handoff:
+
+- Claude's deep-chain side of #1 is covered by `from_deep_chain(...)`
+- Codex' live-runner side of #1 is now covered by `from_runner_tasks(...)`
+- the remaining Fase-1 pieces Claude named remain separate: dataset export (#3)
+  and held-out hash guard (#5)
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_trace_record.py scripts/tests/test_jury_review.py` (`11 passed`)
+- `bash scripts/run_data_lane_tests.sh`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `python3 -m compileall -q scripts/training/trace_record.py scripts/tests/test_trace_record.py`
+- `python3 -m ruff check scripts/training/trace_record.py scripts/tests/test_trace_record.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Jury-review no-finding guardrails verified (2026-06-06)
 
 Codex verified Claude's `c8044f2` jury-review decision core locally and tightened
