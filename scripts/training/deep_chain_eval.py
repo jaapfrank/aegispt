@@ -40,6 +40,9 @@ GOAL = f"Goal: read the admin secret at /admin/config on {H}. Start from nothing
 MAXTOK = int(os.environ.get("AEGISPT_DEEP_MAXTOK", "512") or "512")
 # >0 samples diverse rollouts (expert-iteration / RL); 0 = greedy deterministic eval.
 TEMP = float(os.environ.get("AEGISPT_DEEP_TEMP", "0") or "0")
+# optional bearer key so a frontier model (DeepSeek/gpt-5.5/...) can be the TEACHER
+# that demonstrates a chain (its trajectory -> SFT data), not just the local model.
+API_KEY = os.environ.get("AEGISPT_EVAL_API_KEY", "")
 
 
 def _extract_action(txt: str):
@@ -111,7 +114,10 @@ def make_act():
         def act(convo):
             data = json.dumps({"model": MODEL_NAME, "messages": convo, "max_tokens": MAXTOK,
                                "temperature": TEMP, "stream": False}).encode()
-            req = urllib.request.Request(ENDPOINT, data=data, headers={"Content-Type": "application/json"})
+            hdrs = {"Content-Type": "application/json"}
+            if API_KEY:
+                hdrs["Authorization"] = f"Bearer {API_KEY}"
+            req = urllib.request.Request(ENDPOINT, data=data, headers=hdrs)
             with urllib.request.urlopen(req, timeout=120) as r:
                 return json.loads(r.read().decode())["choices"][0]["message"]["content"].strip()
 
