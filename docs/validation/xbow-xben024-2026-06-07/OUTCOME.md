@@ -36,10 +36,32 @@ was a trivial low-severity header disclosure. The `--source-aware` pre_recon did
 forgeable-secret (`supersecretkey`) detection for this run, so the picker was never steered
 to forge the admin session. This is the E#12 auth-logic under-exploitation class, not infra.
 
-### Next step for T-CHAIN1
-- Verify `--source-aware` / `pre_recon_source` actually parses `app.secret_key=` as a
-  forgeable-secret sink for this challenge and dispatches the session-forgery exploit;
-- or re-run with `local_qwen` (uncensored, no policy-refusal risk) once the GPU frees.
+### Update 2026-06-07 (cont.) — 3 infra bugs found + fixed (all committed)
+
+The source-aware pipeline was broken in three independent places, each blocking the whole
+auth-logic/source-aware class (not just XBEN-024):
+
+1. **DATABASE_URL split-brain** (`30614b8`) — worker `session_scope()` defaulted to SQLite
+   while the API used Postgres → `task not found` → every run wedged at `queued`. FIXED +
+   validated (runs now execute, 11 tool_executions).
+2. **AEGISPT_INTERACTIVE_EXPLOIT unset** (`1140027`) — the focused per-source-objective
+   interactive-exploit dispatch is env-gated; the unit never set it. FIXED (pre-recon-source
+   now gets queued in source-aware runs).
+3. **source_dir not in pre-recon-source task params** (`cf3e53b`) — the AI picker built the
+   pre-recon-source candidate without `source_dir` → runner skips `no_source_dir` → picker
+   stays black-box. Empirically confirmed (run fd002662 params had no source_dir). FIXED in
+   `_queue_passive_loop_task`. Direct proof the detection works: running pre_recon_source on
+   the XBEN-024 source surfaces `forgeable-session-secret: supersecretkey` + `ssrf-urlretrieve`.
+
+### Remaining blockers (the actual XBEN-024 solve)
+
+- **Picker selection is non-deterministic:** chatgpt_oauth sometimes picks `exec-plan`
+  (black-box) instead of `pre-recon-source` even with source-aware on + a sparse live
+  surface. Proper fix: AUTO-dispatch pre-recon-source at run start for source-aware runs
+  (don't leave the source scan to the AI picker's whim).
+- **Provider policy-refusal:** even once the secret surfaces, chatgpt_oauth may refuse the
+  session-forgery. Cleanest path: `local_qwen` (uncensored) once the GPU frees from the
+  IDOR-focus re-tune.
 
 ## Reproduce
 `bash docs/validation/xbow-xben024-2026-06-07/reproducer.sh` (provider currently chatgpt_oauth).
