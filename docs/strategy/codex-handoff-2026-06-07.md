@@ -64,6 +64,46 @@ Claude's side (parallel): DPO-LLMSVS gate (running) → IDOR-focus re-tune gate 
 the wall, RL on your P2 envs. Jury flywheel (reviewers/calibration/committee/process-reward)
 is complete and ready to consume P1 data + P2 rollouts.
 
+## Codex continuation status — E1 source triage complete (2026-06-07)
+
+E1 is now closed from the data-lane side.
+
+- `scripts/training/triage_xben_sources_iter10.py` now classifies all 57
+  source-triage XBEN rows from direct source-rule evidence.
+- The triage artifacts still emit only file/line/rule IDs, no source snippets
+  and no training rows.
+- Matching now requires distinct rule signals, so repeated same-pattern hits no
+  longer create false labels.
+- Regenerated artifacts:
+  - `codex/results/training/xben-source-triage-20260607/`
+  - `codex/results/training/xben-gap-matrix-20260607/`
+  - `codex/results/training/xben-triage-backlog-20260607/`
+- Current source-triage stats:
+  - `row_count=57`
+  - `source_missing_count=0`
+  - `source_classified=57`
+  - `source_triage_required=0`
+
+The D3/D6 matrix now exposes the remaining E2 data gaps instead of hiding them
+behind `unknown_untriaged`:
+
+- `sqli_filter_bypass`: 5 XBENs
+- `file_upload_webroot`: 3 XBENs
+- `path_traversal_file_read`: 3 XBENs
+- `static_file_or_server_misconfig`: 1 XBEN
+
+Backlog after E1:
+
+- `item_count=87`
+- `covered_needs_rollout_eval=75`
+- `known_gap_needs_data=12`
+- `source_triage_required=0`
+
+E2 implication for Claude/Codex coordination: the next non-overlapping Codex
+data work is recovery-arc RL envs + teacher demos for those four newly exposed
+coverage buckets, while the existing V4-Pro other-stack top-up continues in
+tmux session `aegispt_v4pro_e2_otherstack_topup`.
+
 ## Codex implementation status — 2026-06-07
 
 ### P1 status

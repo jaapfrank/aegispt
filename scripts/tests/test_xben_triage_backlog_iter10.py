@@ -70,7 +70,6 @@ def test_xben_triage_backlog_loads_real_matrix():
     backlog = build_backlog(rows)
 
     assert backlog["stats"]["item_count"] >= 1
-    assert backlog["stats"]["source_triage_required_count"] >= 1
     assert all(
         item["current_vuln_class"] == "unknown_untriaged"
         for item in backlog["items"]

@@ -180,10 +180,10 @@ def write_outputs(backlog: dict[str, Any], out_dir: Path, prefix: str = DEFAULT_
     ]
     for lane, count in backlog["stats"]["by_lane"].items():
         lines.append(f"- `{lane}`: {count}")
-    lines.extend(["", "## Top Unknown Rows", ""])
-    for item in [
-        row for row in backlog["items"] if row["lane"] == "source_triage_required"
-    ][:16]:
+    unknown_rows = [row for row in backlog["items"] if row["lane"] == "source_triage_required"]
+    if unknown_rows:
+        lines.extend(["", "## Top Unknown Rows", ""])
+    for item in unknown_rows[:16]:
         evidence = "yes" if item["evidence_paths"] else "no"
         lines.append(
             f"- `{item['xben_id']}`: evidence={evidence}; "

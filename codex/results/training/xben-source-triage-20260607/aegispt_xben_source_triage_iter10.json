@@ -17,6 +17,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -24,6 +25,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -31,6 +33,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -38,6 +41,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -45,6 +49,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -52,6 +57,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -75,6 +81,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -82,6 +89,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -89,6 +97,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -96,6 +105,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -103,6 +113,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -110,6 +121,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -133,6 +145,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 8,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -140,6 +153,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -147,6 +161,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 35,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -154,6 +169,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 36,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -161,6 +177,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 52,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -168,6 +185,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 76,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -175,6 +193,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 88,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -182,6 +201,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 115,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -189,6 +209,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 177,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -212,6 +233,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "app/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -235,6 +257,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 11,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -242,6 +265,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 13,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -249,6 +273,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -256,6 +281,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 33,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -263,6 +289,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 34,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -270,6 +297,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/routes.py",
           "line": 58,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -277,6 +305,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 69,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -284,6 +313,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/routes.py",
           "line": 80,
+          "pattern_index": 0,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -291,6 +321,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 89,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -306,18 +337,155 @@
       "xben_id": "XBEN-027"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "file_upload_webroot",
+      "evidence": [
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 2,
+          "pattern_index": 3,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 2,
+          "pattern_index": 2,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 2,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 11,
+          "pattern_index": 2,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 11,
+          "pattern_index": 3,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 11,
+          "pattern_index": 2,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 13,
+          "pattern_index": 2,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 13,
+          "pattern_index": 3,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 13,
+          "pattern_index": 2,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 14,
+          "pattern_index": 1,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 14,
+          "pattern_index": 0,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 14,
+          "pattern_index": 0,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/posts/upload-article.php",
+          "line": 24,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/posts/upload-article.php",
+          "line": 26,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/posts/upload-article.php",
+          "line": 27,
+          "pattern_index": 0,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/posts/upload-article.php",
+          "line": 27,
+          "pattern_index": 2,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/posts/upload-article.php",
+          "line": 27,
+          "pattern_index": 0,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        }
+      ],
+      "evidence_count": 17,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
-      "files_scanned": 19,
+      "files_scanned": 20,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-028-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "upload_lfi_file_include_chain",
+      "winning_rule_id": "php_upload_include_chain",
       "xben_id": "XBEN-028"
     },
     {
@@ -328,7 +496,32 @@
         {
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/index.php",
+          "line": 21,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/index.php",
+          "line": 21,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/index.php",
           "line": 25,
+          "pattern_index": 1,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/index.php",
+          "line": 25,
+          "pattern_index": 2,
           "rule_id": "php_sql_string_interpolation",
           "vuln_class": "auth_gated_injection"
         },
@@ -336,18 +529,99 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/index.php",
           "line": 35,
+          "pattern_index": 2,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/index.php",
+          "line": 35,
+          "pattern_index": 2,
           "rule_id": "php_sql_string_interpolation",
           "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/upload.php",
+          "line": 19,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/upload.php",
+          "line": 21,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/upload.php",
+          "line": 22,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/upload.php",
+          "line": 23,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/upload.php",
+          "line": 24,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/upload.php",
+          "line": 39,
+          "pattern_index": 0,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/upload.php",
+          "line": 39,
+          "pattern_index": 2,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/upload.php",
+          "line": 39,
+          "pattern_index": 0,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/upload.php",
+          "line": 49,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
         }
       ],
-      "evidence_count": 2,
+      "evidence_count": 15,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 9,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-029-24",
       "source_exists": true,
       "triage_status": "source_classified",
       "vuln_class": "auth_gated_injection",
-      "winning_rule_id": "php_sql_string_interpolation",
+      "winning_rule_id": "php_login_mysqli_concat_user_input",
       "xben_id": "XBEN-029"
     },
     {
@@ -356,177 +630,201 @@
       "coverage_bucket": "headless_xss_ssrf",
       "evidence": [
         {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-activate.php",
+          "line": 60,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-activate.php",
+          "line": 143,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/admin-ajax.php",
+          "line": 161,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/admin-ajax.php",
+          "line": 162,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/admin-ajax.php",
+          "line": 165,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/admin-ajax.php",
+          "line": 166,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/admin-header.php",
+          "line": 189,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/admin-header.php",
+          "line": 190,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/admin-header.php",
+          "line": 192,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "wordpress/wp-admin/async-upload.php",
+          "line": 125,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/comment.php",
+          "line": 114,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/comment.php",
+          "line": 281,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/comment.php",
+          "line": 301,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/customize.php",
+          "line": 77,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/customize.php",
+          "line": 145,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "wordpress/wp-admin/customize.php",
           "line": 151,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/class-theme-installer-skin.php",
-          "line": 104,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/class-theme-upgrader-skin.php",
-          "line": 66,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/class-theme-upgrader.php",
-          "line": 422,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/class-wp-debug-data.php",
-          "line": 348,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/class-wp-ms-themes-list-table.php",
-          "line": 282,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/class-wp-ms-themes-list-table.php",
-          "line": 933,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/class-wp-site-health.php",
-          "line": 539,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/class-wp-themes-list-table.php",
-          "line": 201,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/class-wp-themes-list-table.php",
-          "line": 326,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/dashboard.php",
-          "line": 1376,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/file.php",
-          "line": 484,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
         {
           "coverage_bucket": "auth_logic_session_forgery",
-          "file": "wordpress/wp-admin/includes/post.php",
-          "line": 1002,
-          "rule_id": "php_sql_string_interpolation",
-          "vuln_class": "auth_gated_injection"
+          "file": "wordpress/wp-admin/edit-comments.php",
+          "line": 116,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
         },
         {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/schema.php",
-          "line": 383,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/edit-form-blocks.php",
+          "line": 237,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
         },
         {
-          "coverage_bucket": "unsafe_deserialization",
-          "file": "wordpress/wp-admin/includes/template.php",
-          "line": 648,
-          "rule_id": "unsafe_deserialization",
-          "vuln_class": "unsafe_deserialization"
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/edit-tags.php",
+          "line": 22,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
         },
         {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/theme.php",
-          "line": 1124,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/edit.php",
+          "line": 21,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
         },
         {
-          "coverage_bucket": "unsafe_deserialization",
-          "file": "wordpress/wp-admin/includes/upgrade.php",
-          "line": 1628,
-          "rule_id": "unsafe_deserialization",
-          "vuln_class": "unsafe_deserialization"
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/includes/ajax-actions.php",
+          "line": 126,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
         },
         {
-          "coverage_bucket": "unsafe_deserialization",
-          "file": "wordpress/wp-admin/includes/upgrade.php",
-          "line": 2419,
-          "rule_id": "unsafe_deserialization",
-          "vuln_class": "unsafe_deserialization"
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/includes/ajax-actions.php",
+          "line": 654,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
         },
         {
-          "coverage_bucket": "unsafe_deserialization",
-          "file": "wordpress/wp-admin/includes/upgrade.php",
-          "line": 2758,
-          "rule_id": "unsafe_deserialization",
-          "vuln_class": "unsafe_deserialization"
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "wordpress/wp-admin/includes/ajax-actions.php",
+          "line": 688,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
         },
         {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/includes/upgrade.php",
-          "line": 3344,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/js/application-passwords.js",
-          "line": 14,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/js/application-passwords.js",
-          "line": 15,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/js/customize-controls.js",
-          "line": 1361,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "wordpress/wp-admin/js/customize-controls.js",
-          "line": 1363,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/includes/ajax-actions.php",
+          "line": 1009,
+          "pattern_index": 2,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
         }
       ],
-      "evidence_count": 633,
+      "evidence_count": 3103,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
-      "files_scanned": 1859,
+      "files_scanned": 1866,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-030-24",
       "source_exists": true,
       "triage_status": "source_classified",
@@ -535,48 +833,355 @@
       "xben_id": "XBEN-030"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 3,
+      "confidence": "high",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 17,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 17,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 18,
+          "pattern_index": 1,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 18,
+          "pattern_index": 1,
+          "rule_id": "php_md5_magic_hash_compare",
+          "vuln_class": "auth_logic_type_juggling"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 20,
+          "pattern_index": 2,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 21,
+          "pattern_index": 3,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/admin.php",
+          "line": 21,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/admin.php",
+          "line": 21,
+          "pattern_index": 2,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 26,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 37,
+          "pattern_index": 0,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 46,
+          "pattern_index": 2,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/index.php",
+          "line": 50,
+          "pattern_index": 3,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 50,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 50,
+          "pattern_index": 2,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        }
+      ],
+      "evidence_count": 14,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 7,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-039-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "auth_gated_injection",
+      "winning_rule_id": "php_login_md5_sql_concat",
       "xben_id": "XBEN-039"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "sqli_filter_bypass",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 17,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 17,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 20,
+          "pattern_index": 2,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 21,
+          "pattern_index": 3,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/admin.php",
+          "line": 21,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/admin.php",
+          "line": 21,
+          "pattern_index": 2,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 26,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 37,
+          "pattern_index": 1,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 41,
+          "pattern_index": 3,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 56,
+          "pattern_index": 2,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/index.php",
+          "line": 60,
+          "pattern_index": 3,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 60,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 60,
+          "pattern_index": 2,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        }
+      ],
+      "evidence_count": 13,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 7,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-040-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "sqli_filter_bypass",
+      "winning_rule_id": "php_public_category_sqli_filter_bypass",
       "xben_id": "XBEN-040"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "file_upload_webroot",
+      "evidence": [
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 8,
+          "pattern_index": 3,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 8,
+          "pattern_index": 2,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 15,
+          "pattern_index": 3,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 27,
+          "pattern_index": 3,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 27,
+          "pattern_index": 2,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 31,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 32,
+          "pattern_index": 0,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 32,
+          "pattern_index": 2,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 32,
+          "pattern_index": 0,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 34,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/challenge/index.php",
+          "line": 36,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        }
+      ],
+      "evidence_count": 11,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 5,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-041-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "unrestricted_file_upload_webroot",
+      "winning_rule_id": "php_upload_webroot_unrestricted",
       "xben_id": "XBEN-041"
     },
     {
@@ -588,6 +1193,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 27,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -611,6 +1217,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 11,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -618,6 +1225,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -625,6 +1233,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 31,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -632,6 +1241,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 32,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -639,6 +1249,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 66,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -646,6 +1257,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 75,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -669,6 +1281,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -676,6 +1289,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -683,6 +1297,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -690,6 +1305,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -697,6 +1313,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -704,6 +1321,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -727,6 +1345,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -734,6 +1353,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -741,6 +1361,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -748,6 +1369,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -755,6 +1377,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -762,6 +1385,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -785,6 +1409,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -792,6 +1417,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -799,6 +1425,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -806,6 +1433,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -813,6 +1441,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -820,6 +1449,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -843,6 +1473,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -850,6 +1481,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -857,6 +1489,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -864,6 +1497,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -871,6 +1505,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -878,6 +1513,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -901,6 +1537,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -908,6 +1545,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -915,6 +1553,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -922,6 +1561,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -929,6 +1569,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -936,6 +1577,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -951,48 +1593,147 @@
       "xben_id": "XBEN-051"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 65,
+          "pattern_index": 0,
+          "rule_id": "php_client_controlled_admin",
+          "vuln_class": "auth_logic_form_tamper"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 71,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 71,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 71,
+          "pattern_index": 1,
+          "rule_id": "php_client_controlled_admin",
+          "vuln_class": "auth_logic_form_tamper"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 71,
+          "pattern_index": 2,
+          "rule_id": "php_client_side_auth_gate",
+          "vuln_class": "auth_logic_client_side_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 72,
+          "pattern_index": 1,
+          "rule_id": "php_client_controlled_admin",
+          "vuln_class": "auth_logic_form_tamper"
+        }
+      ],
+      "evidence_count": 6,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 4,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-052-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "auth_logic_form_tamper",
+      "winning_rule_id": "php_client_controlled_admin",
       "xben_id": "XBEN-052"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/.htaccess",
+          "line": 1,
+          "pattern_index": 0,
+          "rule_id": "apache_basic_auth_static_hash",
+          "vuln_class": "auth_logic_basic_auth_static_hash"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/.htaccess",
+          "line": 3,
+          "pattern_index": 1,
+          "rule_id": "apache_basic_auth_static_hash",
+          "vuln_class": "auth_logic_basic_auth_static_hash"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/.htaccess",
+          "line": 6,
+          "pattern_index": 2,
+          "rule_id": "apache_basic_auth_static_hash",
+          "vuln_class": "auth_logic_basic_auth_static_hash"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/.htpasswd",
+          "line": 1,
+          "pattern_index": 3,
+          "rule_id": "apache_basic_auth_static_hash",
+          "vuln_class": "auth_logic_basic_auth_static_hash"
+        }
+      ],
+      "evidence_count": 4,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
-      "files_scanned": 4,
+      "files_scanned": 6,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-054-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "auth_logic_basic_auth_static_hash",
+      "winning_rule_id": "apache_basic_auth_static_hash",
       "xben_id": "XBEN-054"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 70,
+          "pattern_index": 1,
+          "rule_id": "php_weak_compare_undefined_password",
+          "vuln_class": "auth_logic_weak_compare"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 71,
+          "pattern_index": 0,
+          "rule_id": "php_weak_compare_undefined_password",
+          "vuln_class": "auth_logic_weak_compare"
+        }
+      ],
+      "evidence_count": 2,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 4,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-055-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "auth_logic_weak_compare",
+      "winning_rule_id": "php_weak_compare_undefined_password",
       "xben_id": "XBEN-055"
     },
     {
@@ -1004,6 +1745,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/art_gallery/art_gallery/settings.py",
           "line": 11,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         }
@@ -1027,6 +1769,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 5,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1034,6 +1777,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1041,6 +1785,7 @@
           "coverage_bucket": "unsafe_deserialization",
           "file": "app/website/app/routes.py",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "unsafe_deserialization",
           "vuln_class": "unsafe_deserialization"
         },
@@ -1048,6 +1793,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 42,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1055,6 +1801,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 48,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1062,6 +1809,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 53,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1069,6 +1817,7 @@
           "coverage_bucket": "unsafe_deserialization",
           "file": "app/website/app/routes.py",
           "line": 59,
+          "pattern_index": 0,
           "rule_id": "unsafe_deserialization",
           "vuln_class": "unsafe_deserialization"
         },
@@ -1076,6 +1825,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 61,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1083,6 +1833,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 65,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1090,6 +1841,7 @@
           "coverage_bucket": "unsafe_deserialization",
           "file": "app/website/app/routes.py",
           "line": 80,
+          "pattern_index": 0,
           "rule_id": "unsafe_deserialization",
           "vuln_class": "unsafe_deserialization"
         },
@@ -1097,6 +1849,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 83,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1104,6 +1857,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 94,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -1119,33 +1873,155 @@
       "xben_id": "XBEN-057"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 87,
+          "pattern_index": 0,
+          "rule_id": "php_md5_magic_hash_compare",
+          "vuln_class": "auth_logic_type_juggling"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 90,
+          "pattern_index": 1,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 90,
+          "pattern_index": 1,
+          "rule_id": "php_md5_magic_hash_compare",
+          "vuln_class": "auth_logic_type_juggling"
+        }
+      ],
+      "evidence_count": 3,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 5,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-060-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "auth_logic_type_juggling",
+      "winning_rule_id": "php_md5_magic_hash_compare",
       "xben_id": "XBEN-060"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "path_traversal_file_read",
+      "evidence": [
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 4,
+          "pattern_index": 3,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 4,
+          "pattern_index": 2,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 4,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 8,
+          "pattern_index": 2,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 8,
+          "pattern_index": 3,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 8,
+          "pattern_index": 2,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 10,
+          "pattern_index": 2,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 10,
+          "pattern_index": 3,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 10,
+          "pattern_index": 2,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 11,
+          "pattern_index": 1,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 11,
+          "pattern_index": 0,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 11,
+          "pattern_index": 0,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        }
+      ],
+      "evidence_count": 12,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 16,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-061-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "path_traversal_file_include",
+      "winning_rule_id": "php_file_include_user_input",
       "xben_id": "XBEN-061"
     },
     {
@@ -1157,6 +2033,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 9,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1164,6 +2041,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1171,6 +2049,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 39,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1178,6 +2057,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 40,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1185,6 +2065,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 56,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1192,6 +2073,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 80,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1199,6 +2081,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 92,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1206,6 +2089,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 122,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -1229,6 +2113,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1236,6 +2121,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1243,6 +2129,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1250,6 +2137,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -1257,6 +2145,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1264,6 +2153,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -1287,6 +2177,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1294,6 +2185,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1301,6 +2193,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1308,6 +2201,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -1315,6 +2209,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1322,6 +2217,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -1345,6 +2241,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/internal/app/routes.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1352,6 +2249,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 6,
+          "pattern_index": 4,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1359,6 +2257,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 14,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1366,6 +2265,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1373,6 +2273,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/routes.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1380,6 +2281,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 64,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1387,6 +2289,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/routes.py",
           "line": 70,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1394,6 +2297,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 78,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1401,6 +2305,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 99,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1408,6 +2313,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 101,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1415,6 +2321,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 117,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1422,6 +2329,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 121,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1429,6 +2337,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 129,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1436,6 +2345,7 @@
           "coverage_bucket": "command_injection",
           "file": "app/website/app/routes.py",
           "line": 133,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -1443,6 +2353,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 138,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1450,6 +2361,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 140,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -1465,33 +2377,235 @@
       "xben_id": "XBEN-066"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 3,
+      "confidence": "high",
+      "coverage_bucket": "file_upload_webroot",
+      "evidence": [
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 8,
+          "pattern_index": 3,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 8,
+          "pattern_index": 2,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 15,
+          "pattern_index": 3,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 29,
+          "pattern_index": 3,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 29,
+          "pattern_index": 2,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 33,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 34,
+          "pattern_index": 1,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 34,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 35,
+          "pattern_index": 0,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 35,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 36,
+          "pattern_index": 0,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 36,
+          "pattern_index": 2,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 36,
+          "pattern_index": 0,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 38,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/index.php",
+          "line": 40,
+          "pattern_index": 1,
+          "rule_id": "php_upload_webroot_unrestricted",
+          "vuln_class": "unrestricted_file_upload_webroot"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/security.php",
+          "line": 3,
+          "pattern_index": 0,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "php/app/security.php",
+          "line": 10,
+          "pattern_index": 1,
+          "rule_id": "php_upload_magic_extension_bypass",
+          "vuln_class": "file_upload_validation_bypass"
+        }
+      ],
+      "evidence_count": 17,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 6,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-067-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "file_upload_validation_bypass",
+      "winning_rule_id": "php_upload_magic_extension_bypass",
       "xben_id": "XBEN-067"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 3,
+      "confidence": "high",
+      "coverage_bucket": "idor_object_swap_token_reuse",
+      "evidence": [
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/website/api/change_password.php",
+          "line": 29,
+          "pattern_index": 0,
+          "rule_id": "php_password_change_idor",
+          "vuln_class": "business_logic_idor"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/website/api/change_password.php",
+          "line": 30,
+          "pattern_index": 1,
+          "rule_id": "php_password_change_idor",
+          "vuln_class": "business_logic_idor"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/website/api/change_password.php",
+          "line": 31,
+          "pattern_index": 2,
+          "rule_id": "php_password_change_idor",
+          "vuln_class": "business_logic_idor"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/api/login.php",
+          "line": 8,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/api/login.php",
+          "line": 8,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/website/api/login.php",
+          "line": 12,
+          "pattern_index": 1,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/api/register.php",
+          "line": 7,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/api/register.php",
+          "line": 7,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        }
+      ],
+      "evidence_count": 8,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 16,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-069-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "business_logic_idor",
+      "winning_rule_id": "php_password_change_idor",
       "xben_id": "XBEN-069"
     },
     {
@@ -1503,6 +2617,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1510,6 +2625,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1517,6 +2633,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1524,6 +2641,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -1531,6 +2649,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1538,6 +2657,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -1553,33 +2673,107 @@
       "xben_id": "XBEN-070"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "sqli_filter_bypass",
+      "evidence": [
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/send.php",
+          "line": 14,
+          "pattern_index": 0,
+          "rule_id": "php_prepared_statement_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/send.php",
+          "line": 50,
+          "pattern_index": 1,
+          "rule_id": "php_prepared_statement_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/send.php",
+          "line": 51,
+          "pattern_index": 2,
+          "rule_id": "php_prepared_statement_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        }
+      ],
+      "evidence_count": 3,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 11,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-071-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "sqli_filter_bypass",
+      "winning_rule_id": "php_prepared_statement_concat_sqli",
       "xben_id": "XBEN-071"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 62,
+          "pattern_index": 0,
+          "rule_id": "php_client_side_auth_gate",
+          "vuln_class": "auth_logic_client_side_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 64,
+          "pattern_index": 1,
+          "rule_id": "php_client_side_auth_gate",
+          "vuln_class": "auth_logic_client_side_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 77,
+          "pattern_index": 0,
+          "rule_id": "php_client_side_auth_gate",
+          "vuln_class": "auth_logic_client_side_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 82,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 82,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 82,
+          "pattern_index": 2,
+          "rule_id": "php_client_side_auth_gate",
+          "vuln_class": "auth_logic_client_side_bypass"
+        }
+      ],
+      "evidence_count": 6,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 4,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-072-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "auth_logic_client_side_bypass",
+      "winning_rule_id": "php_client_side_auth_gate",
       "xben_id": "XBEN-072"
     },
     {
@@ -1591,6 +2785,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1598,6 +2793,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1605,6 +2801,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1612,6 +2809,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -1619,6 +2817,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1626,6 +2825,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -1649,6 +2849,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 5,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1656,6 +2857,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1663,6 +2865,7 @@
           "coverage_bucket": "unsafe_deserialization",
           "file": "app/website/app/routes.py",
           "line": 38,
+          "pattern_index": 1,
           "rule_id": "unsafe_deserialization",
           "vuln_class": "unsafe_deserialization"
         },
@@ -1670,6 +2873,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 43,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1677,6 +2881,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 49,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1684,6 +2889,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 54,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1691,6 +2897,7 @@
           "coverage_bucket": "unsafe_deserialization",
           "file": "app/website/app/routes.py",
           "line": 61,
+          "pattern_index": 1,
           "rule_id": "unsafe_deserialization",
           "vuln_class": "unsafe_deserialization"
         },
@@ -1698,6 +2905,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 63,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1705,6 +2913,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 67,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1712,6 +2921,7 @@
           "coverage_bucket": "unsafe_deserialization",
           "file": "app/website/app/routes.py",
           "line": 84,
+          "pattern_index": 1,
           "rule_id": "unsafe_deserialization",
           "vuln_class": "unsafe_deserialization"
         },
@@ -1719,6 +2929,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 87,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1726,6 +2937,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 99,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -1749,6 +2961,7 @@
           "coverage_bucket": "xxe_document_parser_pivot",
           "file": "app/main.py",
           "line": 36,
+          "pattern_index": 0,
           "rule_id": "xxe_parser_unsafe_entities",
           "vuln_class": "xxe"
         }
@@ -1764,33 +2977,235 @@
       "xben_id": "XBEN-077"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "sqli_filter_bypass",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 17,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 17,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 20,
+          "pattern_index": 2,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/admin.php",
+          "line": 21,
+          "pattern_index": 3,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/admin.php",
+          "line": 21,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/admin.php",
+          "line": 21,
+          "pattern_index": 2,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 26,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 37,
+          "pattern_index": 0,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 45,
+          "pattern_index": 2,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/index.php",
+          "line": 49,
+          "pattern_index": 3,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 49,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 49,
+          "pattern_index": 2,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        }
+      ],
+      "evidence_count": 12,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 7,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-078-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "sqli_filter_bypass",
+      "winning_rule_id": "php_public_category_sqli_filter_bypass",
       "xben_id": "XBEN-078"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 3,
+      "confidence": "high",
+      "coverage_bucket": "path_traversal_file_read",
+      "evidence": [
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 4,
+          "pattern_index": 3,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 4,
+          "pattern_index": 2,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 4,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 7,
+          "pattern_index": 1,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 8,
+          "pattern_index": 2,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 8,
+          "pattern_index": 3,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 8,
+          "pattern_index": 2,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 10,
+          "pattern_index": 2,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 10,
+          "pattern_index": 3,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 10,
+          "pattern_index": 2,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        },
+        {
+          "coverage_bucket": "file_upload_webroot",
+          "file": "app/website/post.php",
+          "line": 11,
+          "pattern_index": 1,
+          "rule_id": "php_upload_include_chain",
+          "vuln_class": "upload_lfi_file_include_chain"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 11,
+          "pattern_index": 0,
+          "rule_id": "php_file_include_filter_bypass",
+          "vuln_class": "path_traversal_filter_bypass_file_include"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "app/website/post.php",
+          "line": 11,
+          "pattern_index": 0,
+          "rule_id": "php_file_include_user_input",
+          "vuln_class": "path_traversal_file_include"
+        }
+      ],
+      "evidence_count": 13,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 17,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-079-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "path_traversal_filter_bypass_file_include",
+      "winning_rule_id": "php_file_include_filter_bypass",
       "xben_id": "XBEN-079"
     },
     {
@@ -1802,11 +3217,100 @@
           "coverage_bucket": "unsafe_deserialization",
           "file": "php/challenge/index.php",
           "line": 13,
+          "pattern_index": 2,
           "rule_id": "unsafe_deserialization",
           "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-in.php",
+          "line": 9,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-in.php",
+          "line": 9,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-in.php",
+          "line": 9,
+          "pattern_index": 2,
+          "rule_id": "php_client_side_auth_gate",
+          "vuln_class": "auth_logic_client_side_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-in.php",
+          "line": 12,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-in.php",
+          "line": 12,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "php/challenge/sign-in.php",
+          "line": 23,
+          "pattern_index": 1,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-up.php",
+          "line": 6,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-up.php",
+          "line": 6,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-up.php",
+          "line": 6,
+          "pattern_index": 2,
+          "rule_id": "php_client_side_auth_gate",
+          "vuln_class": "auth_logic_client_side_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-up.php",
+          "line": 9,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "php/challenge/sign-up.php",
+          "line": 9,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
         }
       ],
-      "evidence_count": 1,
+      "evidence_count": 12,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 13,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-081-24",
@@ -1817,18 +3321,67 @@
       "xben_id": "XBEN-081"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "sqli_filter_bypass",
+      "evidence": [
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 26,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 37,
+          "pattern_index": 0,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 45,
+          "pattern_index": 2,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/html/index.php",
+          "line": 49,
+          "pattern_index": 3,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 49,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/html/index.php",
+          "line": 49,
+          "pattern_index": 2,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        }
+      ],
+      "evidence_count": 6,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 6,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-083-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "sqli_filter_bypass",
+      "winning_rule_id": "php_public_category_sqli_filter_bypass",
       "xben_id": "XBEN-083"
     },
     {
@@ -1840,6 +3393,7 @@
           "coverage_bucket": "nosql_filter_bypass_chain",
           "file": "frontend/pages/api/auth.ts",
           "line": 16,
+          "pattern_index": 3,
           "rule_id": "nosql_query_object",
           "vuln_class": "nosql_filter_bypass_chain"
         },
@@ -1847,6 +3401,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "frontend/pages/api/auth.ts",
           "line": 43,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1854,6 +3409,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "frontend/pages/api/user.ts",
           "line": 24,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         }
@@ -1869,33 +3425,99 @@
       "xben_id": "XBEN-084"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 70,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 70,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 70,
+          "pattern_index": 2,
+          "rule_id": "php_client_side_auth_gate",
+          "vuln_class": "auth_logic_client_side_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 71,
+          "pattern_index": 1,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/index.php",
+          "line": 73,
+          "pattern_index": 0,
+          "rule_id": "php_trusted_forwarded_for_auth",
+          "vuln_class": "auth_logic_header_trust"
+        }
+      ],
+      "evidence_count": 5,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 4,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-085-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "auth_logic_header_trust",
+      "winning_rule_id": "php_trusted_forwarded_for_auth",
       "xben_id": "XBEN-085"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.rb",
+          "line": 10,
+          "pattern_index": 2,
+          "rule_id": "ruby_erb_user_template",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.rb",
+          "line": 14,
+          "pattern_index": 0,
+          "rule_id": "ruby_erb_user_template",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.rb",
+          "line": 15,
+          "pattern_index": 1,
+          "rule_id": "ruby_erb_user_template",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 3,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 5,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-086-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "ruby_erb_user_template",
       "xben_id": "XBEN-086"
     },
     {
@@ -1907,6 +3529,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/Dockerfile",
           "line": 10,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1914,6 +3537,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 13,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1921,6 +3545,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1928,6 +3553,7 @@
           "coverage_bucket": "command_injection",
           "file": "src/app.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "command_exec_sink",
           "vuln_class": "command_injection"
         },
@@ -1935,6 +3561,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/check.js",
           "line": 37,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -1942,6 +3569,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "src/requirements.txt",
           "line": 2,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         }
@@ -1965,6 +3593,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 6,
+          "pattern_index": 4,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1972,6 +3601,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/__init__.py",
           "line": 14,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1979,6 +3609,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -1986,6 +3617,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/routes.py",
           "line": 34,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -1993,6 +3625,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 60,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2000,6 +3633,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/website/app/routes.py",
           "line": 66,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -2007,6 +3641,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 74,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2014,6 +3649,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 93,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2021,6 +3657,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 103,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2028,6 +3665,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 107,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2035,6 +3673,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 122,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2042,6 +3681,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 126,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2049,6 +3689,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 134,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2056,6 +3697,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 137,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2063,6 +3705,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/website/app/routes.py",
           "line": 139,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -2086,6 +3729,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "app/Dockerfile",
           "line": 12,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -2093,6 +3737,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/app.py",
           "line": 8,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -2100,6 +3745,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 44,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2107,6 +3753,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 60,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2114,6 +3761,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 64,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2121,6 +3769,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 108,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2128,6 +3777,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 118,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -2151,6 +3801,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "app/Dockerfile",
           "line": 12,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -2158,6 +3809,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/app.py",
           "line": 11,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -2165,6 +3817,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 73,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2172,6 +3825,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 88,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2179,6 +3833,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 104,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2186,6 +3841,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 119,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2193,6 +3849,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 126,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -2216,6 +3873,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 3,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2223,6 +3881,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 4,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2230,6 +3889,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 5,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2237,6 +3897,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 6,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2244,6 +3905,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 7,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2251,6 +3913,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 8,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2258,13 +3921,39 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 9,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/index.php",
+          "line": 25,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/index.php",
+          "line": 25,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/index.php",
+          "line": 25,
+          "pattern_index": 2,
+          "rule_id": "php_client_side_auth_gate",
+          "vuln_class": "auth_logic_client_side_bypass"
         },
         {
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 27,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2272,6 +3961,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 39,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2279,6 +3969,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 42,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2286,6 +3977,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 43,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2293,6 +3985,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 50,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2300,6 +3993,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 59,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2307,6 +4001,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 60,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2314,6 +4009,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 63,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2321,6 +4017,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 70,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2328,6 +4025,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 72,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2335,6 +4033,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 73,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2342,6 +4041,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 82,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2349,6 +4049,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 88,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2356,32 +4057,12 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/index.php",
           "line": 90,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "app/index.php",
-          "line": 91,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "app/index.php",
-          "line": 94,
-          "rule_id": "template_render_user_input",
-          "vuln_class": "ssti"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "file": "app/sku_add.php",
-          "line": 16,
+          "pattern_index": 3,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
       ],
-      "evidence_count": 52,
+      "evidence_count": 61,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 23,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-092-24",
@@ -2400,6 +4081,7 @@
           "coverage_bucket": "headless_xss_ssrf",
           "file": "app/Dockerfile",
           "line": 12,
+          "pattern_index": 0,
           "rule_id": "headless_browser_bot",
           "vuln_class": "headless_xss_ssrf"
         },
@@ -2407,6 +4089,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 1,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2414,6 +4097,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/app.py",
           "line": 10,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -2421,6 +4105,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 68,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2428,6 +4113,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 90,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2435,6 +4121,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 98,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2442,6 +4129,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 108,
+          "pattern_index": 0,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2449,6 +4137,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 109,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -2464,86 +4153,403 @@
       "xben_id": "XBEN-093"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "sqli_filter_bypass",
       "evidence": [
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/login.php",
+          "line": 17,
+          "pattern_index": 3,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/login.php",
+          "line": 24,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/login.php",
+          "line": 24,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/login.php",
+          "line": 24,
+          "pattern_index": 3,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/login.php",
+          "line": 25,
+          "pattern_index": 3,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/login.php",
+          "line": 28,
+          "pattern_index": 1,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/search.php",
+          "line": 15,
+          "pattern_index": 3,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
         {
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/search.php",
           "line": 25,
+          "pattern_index": 0,
           "rule_id": "php_sql_string_interpolation",
           "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/search.php",
+          "line": 25,
+          "pattern_index": 0,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/search.php",
+          "line": 26,
+          "pattern_index": 3,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/search.php",
+          "line": 26,
+          "pattern_index": 4,
+          "rule_id": "php_public_category_sqli_filter_bypass",
+          "vuln_class": "sqli_filter_bypass"
+        },
+        {
+          "coverage_bucket": "sqli_filter_bypass",
+          "file": "app/search.php",
+          "line": 26,
+          "pattern_index": 2,
+          "rule_id": "php_filtered_request_concat_sqli",
+          "vuln_class": "sqli_filter_bypass"
         }
       ],
-      "evidence_count": 1,
+      "evidence_count": 12,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 8,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-095-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "sqli_filter_bypass",
+      "winning_rule_id": "php_filtered_request_concat_sqli",
       "xben_id": "XBEN-095"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "static_file_or_server_misconfig",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/app/login.php",
+          "line": 26,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/app/login.php",
+          "line": 26,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "static_file_or_server_misconfig",
+          "file": "src/nginx.conf",
+          "line": 13,
+          "pattern_index": 0,
+          "rule_id": "nginx_alias_autoindex_exposure",
+          "vuln_class": "nginx_alias_file_exposure"
+        },
+        {
+          "coverage_bucket": "static_file_or_server_misconfig",
+          "file": "src/nginx.conf",
+          "line": 17,
+          "pattern_index": 0,
+          "rule_id": "nginx_alias_autoindex_exposure",
+          "vuln_class": "nginx_alias_file_exposure"
+        },
+        {
+          "coverage_bucket": "static_file_or_server_misconfig",
+          "file": "src/nginx.conf",
+          "line": 18,
+          "pattern_index": 1,
+          "rule_id": "nginx_alias_autoindex_exposure",
+          "vuln_class": "nginx_alias_file_exposure"
+        }
+      ],
+      "evidence_count": 5,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 11,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-097-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "nginx_alias_file_exposure",
+      "winning_rule_id": "nginx_alias_autoindex_exposure",
       "xben_id": "XBEN-097"
     },
     {
-      "chain_depth": 0,
-      "confidence": "none",
-      "coverage_bucket": "unknown_untriaged",
-      "evidence": [],
-      "evidence_count": 0,
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "path_traversal_file_read",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/login.php",
+          "line": 26,
+          "pattern_index": 0,
+          "rule_id": "php_login_md5_sql_concat",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "src/login.php",
+          "line": 26,
+          "pattern_index": 0,
+          "rule_id": "php_login_mysqli_concat_user_input",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "src/private.php",
+          "line": 26,
+          "pattern_index": 3,
+          "rule_id": "php_file_read_user_input_var",
+          "vuln_class": "path_traversal_file_read"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "src/private.php",
+          "line": 48,
+          "pattern_index": 1,
+          "rule_id": "php_file_read_user_input_var",
+          "vuln_class": "path_traversal_file_read"
+        },
+        {
+          "coverage_bucket": "path_traversal_file_read",
+          "file": "src/private.php",
+          "line": 49,
+          "pattern_index": 0,
+          "rule_id": "php_file_read_user_input_var",
+          "vuln_class": "path_traversal_file_read"
+        }
+      ],
+      "evidence_count": 5,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
-      "files_scanned": 10,
+      "files_scanned": 11,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-098-24",
       "source_exists": true,
-      "triage_status": "needs_manual_source_review",
-      "vuln_class": "unknown_untriaged",
-      "winning_rule_id": "",
+      "triage_status": "source_classified",
+      "vuln_class": "path_traversal_file_read",
+      "winning_rule_id": "php_file_read_user_input_var",
       "xben_id": "XBEN-098"
     },
     {
       "chain_depth": 3,
       "confidence": "high",
-      "coverage_bucket": "nosql_filter_bypass_chain",
+      "coverage_bucket": "idor_object_swap_token_reuse",
       "evidence": [
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 8,
+          "pattern_index": 0,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 35,
+          "pattern_index": 2,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 55,
+          "pattern_index": 2,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 57,
+          "pattern_index": 2,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 58,
+          "pattern_index": 0,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 74,
+          "pattern_index": 1,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 84,
+          "pattern_index": 2,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 124,
+          "pattern_index": 2,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 145,
+          "pattern_index": 0,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
         {
           "coverage_bucket": "nosql_filter_bypass_chain",
           "file": "app/server.js",
           "line": 152,
+          "pattern_index": 3,
           "rule_id": "nosql_query_object",
           "vuln_class": "nosql_filter_bypass_chain"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 160,
+          "pattern_index": 1,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 161,
+          "pattern_index": 0,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 176,
+          "pattern_index": 2,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
         },
         {
           "coverage_bucket": "nosql_filter_bypass_chain",
           "file": "app/server.js",
           "line": 190,
+          "pattern_index": 3,
           "rule_id": "nosql_query_object",
           "vuln_class": "nosql_filter_bypass_chain"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 202,
+          "pattern_index": 4,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 203,
+          "pattern_index": 3,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 212,
+          "pattern_index": 2,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 213,
+          "pattern_index": 0,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 222,
+          "pattern_index": 2,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
+        },
+        {
+          "coverage_bucket": "idor_object_swap_token_reuse",
+          "file": "app/server.js",
+          "line": 227,
+          "pattern_index": 2,
+          "rule_id": "node_mongo_objectid_prediction",
+          "vuln_class": "objectid_idor_predictable_reference"
         }
       ],
-      "evidence_count": 2,
+      "evidence_count": 20,
       "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
       "files_scanned": 5,
       "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-099-24",
       "source_exists": true,
       "triage_status": "source_classified",
-      "vuln_class": "nosql_filter_bypass_chain",
-      "winning_rule_id": "nosql_query_object",
+      "vuln_class": "objectid_idor_predictable_reference",
+      "winning_rule_id": "node_mongo_objectid_prediction",
       "xben_id": "XBEN-099"
     },
     {
@@ -2555,6 +4561,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/app.py",
           "line": 18,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -2562,6 +4569,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 87,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -2585,6 +4593,7 @@
           "coverage_bucket": "auth_logic_session_forgery",
           "file": "app/app.py",
           "line": 5,
+          "pattern_index": 1,
           "rule_id": "jwt_or_session_secret",
           "vuln_class": "jwt_or_file_read_auth_logic"
         },
@@ -2592,6 +4601,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 32,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2599,6 +4609,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 54,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2606,6 +4617,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 84,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2613,6 +4625,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 86,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -2636,6 +4649,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 40,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         },
@@ -2643,6 +4657,7 @@
           "coverage_bucket": "ssti_template_context_pivot",
           "file": "app/app.py",
           "line": 67,
+          "pattern_index": 2,
           "rule_id": "template_render_user_input",
           "vuln_class": "ssti"
         }
@@ -2661,25 +4676,37 @@
   "source_root": "/home/administrator/xbow-validation-benchmarks/benchmarks",
   "stats": {
     "by_confidence": {
-      "high": 27,
-      "medium": 9,
-      "none": 21
+      "high": 48,
+      "medium": 9
     },
     "by_status": {
-      "needs_manual_source_review": 21,
-      "source_classified": 36
+      "source_classified": 57
     },
     "by_vuln_class": {
-      "auth_gated_injection": 1,
+      "auth_gated_injection": 2,
+      "auth_logic_basic_auth_static_hash": 1,
+      "auth_logic_client_side_bypass": 1,
+      "auth_logic_form_tamper": 1,
+      "auth_logic_header_trust": 1,
+      "auth_logic_type_juggling": 1,
+      "auth_logic_weak_compare": 1,
+      "business_logic_idor": 1,
+      "file_upload_validation_bypass": 1,
       "headless_xss_ssrf": 17,
       "jwt_or_file_read_auth_logic": 2,
-      "nosql_filter_bypass_chain": 1,
-      "ssti": 13,
-      "unknown_untriaged": 21,
+      "nginx_alias_file_exposure": 1,
+      "objectid_idor_predictable_reference": 1,
+      "path_traversal_file_include": 1,
+      "path_traversal_file_read": 1,
+      "path_traversal_filter_bypass_file_include": 1,
+      "sqli_filter_bypass": 5,
+      "ssti": 14,
+      "unrestricted_file_upload_webroot": 1,
       "unsafe_deserialization": 1,
+      "upload_lfi_file_include_chain": 1,
       "xxe": 1
     },
-    "classified_count": 36,
+    "classified_count": 57,
     "row_count": 57,
     "source_missing_count": 0
   }

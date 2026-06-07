@@ -47,6 +47,7 @@ TEXT_SUFFIXES = {
     ".yaml",
     ".yml",
 }
+SPECIAL_TEXT_FILE_NAMES = {"Dockerfile", "Makefile", ".htaccess", ".htpasswd"}
 SKIP_DIRS = {"__pycache__", ".git", "node_modules", "vendor"}
 
 
@@ -72,6 +73,140 @@ RULES = (
         priority=100,
     ),
     Rule(
+        "php_upload_include_chain",
+        "upload_lfi_file_include_chain",
+        4,
+        "file_upload_webroot",
+        (
+            "move_uploaded_file",
+            "include($file_to_include",
+            "file_to_include",
+            r"re:\$_get\[['\"]id['\"]\]",
+        ),
+        min_hits=4,
+        priority=98,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_upload_magic_extension_bypass",
+        "file_upload_validation_bypass",
+        3,
+        "file_upload_webroot",
+        ("hasvalidmagicnumber", "hasvalidextension", "move_uploaded_file", "/var/www/html/upload"),
+        min_hits=4,
+        priority=96,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "apache_basic_auth_static_hash",
+        "auth_logic_basic_auth_static_hash",
+        2,
+        "auth_logic_session_forgery",
+        ("authtype basic", "authuserfile", "require valid-user", r"re:^\s*[^:\s]+:\$apr1\$"),
+        min_hits=3,
+        priority=95,
+    ),
+    Rule(
+        "php_upload_webroot_unrestricted",
+        "unrestricted_file_upload_webroot",
+        2,
+        "file_upload_webroot",
+        ("move_uploaded_file", r"re:\$_files\[", "/var/www/html/upload", "upload/"),
+        min_hits=3,
+        priority=94,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_file_include_filter_bypass",
+        "path_traversal_filter_bypass_file_include",
+        3,
+        "path_traversal_file_read",
+        (
+            "include($file_to_include",
+            "str_replace",
+            r"re:\$_get\[['\"]id['\"]\]",
+            "file_to_include",
+        ),
+        min_hits=4,
+        priority=93,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_login_md5_sql_concat",
+        "auth_gated_injection",
+        3,
+        "auth_logic_session_forgery",
+        (
+            r"re:\$_post\[['\"]username['\"]\]",
+            r"re:md5\s*\(\s*\$_post\[['\"]password['\"]\]",
+            r"re:where\s+username\s*=\s*'\$username'",
+            r"re:->query\s*\(\s*\$sql\s*\)",
+        ),
+        min_hits=4,
+        priority=92,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_login_mysqli_concat_user_input",
+        "auth_gated_injection",
+        3,
+        "auth_logic_session_forgery",
+        (
+            r"re:\$_post\[['\"]username['\"]\]",
+            r"re:where\s+username\s*=\s*'\$realusername'",
+            "password = md5(concat",
+            r"re:mysqli_query\s*\(\s*\$db_connect",
+        ),
+        min_hits=3,
+        priority=91,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_file_include_user_input",
+        "path_traversal_file_include",
+        2,
+        "path_traversal_file_read",
+        (
+            "include($file_to_include",
+            r"re:\$_get\[['\"]id['\"]\]",
+            "file_to_include",
+        ),
+        min_hits=3,
+        priority=91,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_file_read_user_input_var",
+        "path_traversal_file_read",
+        2,
+        "path_traversal_file_read",
+        (
+            "file_get_contents($file)",
+            "file_exists($file)",
+            "is_readable($file)",
+            r"re:\$file\s*=\s*isset\s*\(\s*\$_get\[['\"]file['\"]\]",
+        ),
+        min_hits=3,
+        priority=91,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_public_category_sqli_filter_bypass",
+        "sqli_filter_bypass",
+        2,
+        "sqli_filter_bypass",
+        (
+            r"re:\$category\s*=\s*isset\s*\(\s*\$_get\[['\"]category['\"]\]",
+            r"re:\$unescaped_category\s*=\s*isset\s*\(\s*\$_get\[['\"]category['\"]\]",
+            r"re:category\s*=\s*['\"]+\s*\.\s*\$category",
+            r"re:category\s*=\s*['\"]+\s*\.\s*\$unescaped_category",
+            r"re:->query\s*\(",
+        ),
+        min_hits=3,
+        priority=90,
+        file_suffixes=(".php",),
+    ),
+    Rule(
         "php_sql_string_interpolation",
         "auth_gated_injection",
         3,
@@ -83,6 +218,35 @@ RULES = (
         ),
         min_hits=2,
         priority=92,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_prepared_statement_concat_sqli",
+        "sqli_filter_bypass",
+        2,
+        "sqli_filter_bypass",
+        (
+            r"re:\$name\s*=\s*\$_post\[['\"]fullname['\"]\]",
+            r"re:name\s*=\s*'\$name'",
+            r"re:->prepare\s*\(\s*\$sql\s*\)",
+        ),
+        min_hits=3,
+        priority=89,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_filtered_request_concat_sqli",
+        "sqli_filter_bypass",
+        2,
+        "sqli_filter_bypass",
+        (
+            r"re:\$_request\[['\"]username['\"]\]",
+            r"re:select\s+\*\s+from\s+users\s+where\s+username",
+            r"re:->query\s*\(\s*\$sql\s*\)",
+            "filter_chars",
+        ),
+        min_hits=3,
+        priority=89,
         file_suffixes=(".php",),
     ),
     Rule(
@@ -100,6 +264,16 @@ RULES = (
         file_suffixes=(".py",),
     ),
     Rule(
+        "ruby_erb_user_template",
+        "ssti",
+        1,
+        "ssti_template_context_pivot",
+        ("erb.new", "template.result", "params[:sentence]"),
+        min_hits=2,
+        priority=89,
+        file_suffixes=(".rb",),
+    ),
+    Rule(
         "template_render_user_input",
         "ssti",
         1,
@@ -107,6 +281,96 @@ RULES = (
         ("render_template_string", "jinja2.template", "template(", "twig", "nunjucks", "ejs.render"),
         priority=88,
         file_suffixes=(".js", ".jsp", ".php", ".py", ".rb", ".ts"),
+    ),
+    Rule(
+        "php_client_controlled_admin",
+        "auth_logic_form_tamper",
+        2,
+        "auth_logic_session_forgery",
+        (r"re:name=[\"']isadmin[\"']", r"re:\$_post\[['\"]isadmin['\"]\]", r"re:==\s*[\"']true[\"']"),
+        min_hits=2,
+        priority=87,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_weak_compare_undefined_password",
+        "auth_logic_weak_compare",
+        2,
+        "auth_logic_session_forgery",
+        ("strcmp", r"re:\$_get\[['\"]password['\"]\]", r"re:\$_get\[['\"]username['\"]\]"),
+        min_hits=2,
+        priority=87,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_md5_magic_hash_compare",
+        "auth_logic_type_juggling",
+        2,
+        "auth_logic_session_forgery",
+        (r"re:0e\d+", r"re:md5\s*\(\s*\$_post\[['\"]password['\"]\]", "== $result_password"),
+        min_hits=2,
+        priority=87,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_client_side_auth_gate",
+        "auth_logic_client_side_bypass",
+        2,
+        "auth_logic_session_forgery",
+        ("funcion_login", "document.form.submit", r"re:isset\s*\(\s*\$_post\[['\"]username['\"]\]\s*\)"),
+        min_hits=3,
+        priority=87,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_trusted_forwarded_for_auth",
+        "auth_logic_header_trust",
+        2,
+        "auth_logic_session_forgery",
+        ("http_x_forwarded_for", "allowed_ips", "in_array"),
+        min_hits=2,
+        priority=87,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "php_password_change_idor",
+        "business_logic_idor",
+        3,
+        "idor_object_swap_token_reuse",
+        (
+            "password_verify($oldpassword",
+            "update users set password",
+            r"re:\$_post\[['\"]userid['\"]\]",
+        ),
+        min_hits=3,
+        priority=86,
+        file_suffixes=(".php",),
+    ),
+    Rule(
+        "node_mongo_objectid_prediction",
+        "objectid_idor_predictable_reference",
+        3,
+        "idor_object_swap_token_reuse",
+        (
+            "firstuserid",
+            "getobjectidcounter",
+            "appstarttimestamp",
+            "findbyid(req.params.id)",
+            "profile/:id",
+        ),
+        min_hits=4,
+        priority=86,
+        file_suffixes=(".js",),
+    ),
+    Rule(
+        "nginx_alias_autoindex_exposure",
+        "nginx_alias_file_exposure",
+        2,
+        "static_file_or_server_misconfig",
+        ("alias /var/www/html", "autoindex on", "copy flag.txt /var/www"),
+        min_hits=2,
+        priority=86,
+        file_suffixes=(".conf",),
     ),
     Rule(
         "xxe_parser_unsafe_entities",
@@ -248,7 +512,7 @@ def iter_text_files(root: Path) -> list[Path]:
             continue
         if not path.is_file():
             continue
-        if path.suffix.lower() not in TEXT_SUFFIXES and path.name not in {"Dockerfile", "Makefile"}:
+        if path.suffix.lower() not in TEXT_SUFFIXES and path.name not in SPECIAL_TEXT_FILE_NAMES:
             continue
         if path.name.endswith(".min.js") or path.name in {"package-lock.json", "yarn.lock"}:
             continue
@@ -275,13 +539,14 @@ def scan_file(path: Path, root: Path) -> list[dict[str, Any]]:
         for rule in RULES:
             if rule.file_suffixes and path.suffix.lower() not in rule.file_suffixes:
                 continue
-            for pattern in rule.patterns:
+            for pattern_index, pattern in enumerate(rule.patterns):
                 if pattern_matches(pattern, lowered):
                     matches.append(
                         {
                             "coverage_bucket": rule.coverage_bucket,
                             "file": str(path.relative_to(root)),
                             "line": line_no,
+                            "pattern_index": pattern_index,
                             "rule_id": rule.rule_id,
                             "vuln_class": rule.vuln_class,
                         }
@@ -292,9 +557,14 @@ def scan_file(path: Path, root: Path) -> list[dict[str, Any]]:
 
 def classify(matches: list[dict[str, Any]]) -> dict[str, Any]:
     by_rule = Counter(match["rule_id"] for match in matches)
+    distinct_patterns_by_rule: dict[str, set[int]] = {}
+    for match in matches:
+        distinct_patterns_by_rule.setdefault(str(match["rule_id"]), set()).add(
+            int(match.get("pattern_index", -1))
+        )
     candidates: list[tuple[int, Rule]] = []
     for rule in RULES:
-        if by_rule.get(rule.rule_id, 0) >= rule.min_hits:
+        if len(distinct_patterns_by_rule.get(rule.rule_id, set())) >= rule.min_hits:
             candidates.append((rule.priority, rule))
     if not candidates:
         return {

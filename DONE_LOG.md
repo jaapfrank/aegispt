@@ -1,5 +1,56 @@
 # Done Log
 
+- 2026-06-07: E1 source triage completed and D3/D6 refreshed. [TRAINING DATA]
+  - Extended `scripts/training/triage_xben_sources_iter10.py` with stricter,
+    source-backed rules for PHP upload/include chains, file include/read,
+    SQLi filter bypass, auth-logic variants, Basic Auth static hash, forwarded
+    header trust, Ruby ERB SSTI, nginx alias/autoindex exposure, and ObjectId
+    IDOR prediction.
+  - The classifier now counts distinct rule signals instead of repeated line
+    hits, so direct file include does not get mislabeled as upload-chain.
+  - Added regression coverage in
+    `scripts/tests/test_xben_source_triage_iter10.py` for direct include vs
+    upload-chain, client-controlled admin form fields, and ObjectId IDOR.
+  - Updated `scripts/training/build_xben_gap_matrix_iter10.py` so new
+    source-backed classes map into the correct coverage buckets.
+  - Adjusted `scripts/training/build_xben_triage_backlog_iter10.py` so the
+    markdown summary handles the zero-unknown case cleanly.
+  - Regenerated:
+    `codex/results/training/xben-source-triage-20260607/`,
+    `codex/results/training/xben-gap-matrix-20260607/`, and
+    `codex/results/training/xben-triage-backlog-20260607/`.
+  - E1 result:
+    - `row_count=57`
+    - `source_missing_count=0`
+    - `source_classified=57`
+    - `source_triage_required=0`
+  - Refreshed backlog:
+    - `item_count=87`
+    - `covered_needs_rollout_eval=75`
+    - `known_gap_needs_data=12`
+    - `source_triage_required=0`
+  - New source-proven E2 data gaps:
+    - `sqli_filter_bypass`: 5 XBENs
+    - `file_upload_webroot`: 3 XBENs
+    - `path_traversal_file_read`: 3 XBENs
+    - `static_file_or_server_misconfig`: 1 XBEN
+  - E2 V4-Pro other-stack top-up remains active in tmux
+    `aegispt_v4pro_e2_otherstack_topup`; latest checked status was 6 accepted
+    rows / 22 attempts.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`;
+    `python3 scripts/training/triage_xben_sources_iter10.py --out-dir codex/results/training/xben-source-triage-20260607`;
+    `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`;
+    `python3 scripts/training/build_xben_triage_backlog_iter10.py --out-dir codex/results/training/xben-triage-backlog-20260607`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/triage_xben_sources_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/build_xben_triage_backlog_iter10.py scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`;
+    `python3 -m ruff check scripts/training/triage_xben_sources_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/build_xben_triage_backlog_iter10.py scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh && git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: E2 V4-Pro other-stack top-up tooling and supervised job. [TRAINING DATA TOOLING]
   - Added `scripts/training/generate_v4pro_other_stack_topup_iter10.py`.
   - Added `scripts/tests/test_v4pro_other_stack_topup_iter10.py` and wired it

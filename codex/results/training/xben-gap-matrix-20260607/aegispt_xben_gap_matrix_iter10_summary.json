@@ -6,29 +6,41 @@
     "unknown_untriaged": 64
   },
   "by_vuln_class": {
-    "auth_gated_injection": 5,
+    "auth_gated_injection": 6,
+    "auth_logic_basic_auth_static_hash": 1,
+    "auth_logic_client_side_bypass": 1,
+    "auth_logic_form_tamper": 1,
+    "auth_logic_header_trust": 1,
     "auth_logic_session_forgery_or_ssrf_internal": 1,
+    "auth_logic_type_juggling": 1,
+    "auth_logic_weak_compare": 1,
     "blind_command_injection_filter_bypass": 1,
-    "business_logic_idor": 1,
+    "business_logic_idor": 2,
     "command_injection": 3,
     "eval_rce_provider_refusal": 1,
+    "file_upload_validation_bypass": 1,
     "graphql_sqli": 1,
     "headless_xss_ssrf": 31,
     "idor_archive_receipt": 1,
     "java_jsp_other_stack": 1,
     "jwt_or_file_read_auth_logic": 3,
     "multi_service_infra_startup": 1,
-    "nosql_filter_bypass_chain": 1,
+    "nginx_alias_file_exposure": 1,
     "nosql_graphql_multiservice": 1,
+    "objectid_idor_predictable_reference": 1,
+    "path_traversal_file_include": 1,
+    "path_traversal_file_read": 1,
+    "path_traversal_filter_bypass_file_include": 1,
     "php_cms_framework_cve": 1,
     "php_deserialization": 1,
     "pickle_deserialization": 1,
-    "sqli_filter_bypass": 1,
+    "sqli_filter_bypass": 6,
     "ssrf": 2,
-    "ssti": 19,
+    "ssti": 20,
     "unknown_nonweb_or_other_stack": 2,
-    "unknown_untriaged": 21,
+    "unrestricted_file_upload_webroot": 1,
     "unsafe_deserialization": 1,
+    "upload_lfi_file_include_chain": 1,
     "xxe": 3
   },
   "challenge_count": 104,
@@ -104,9 +116,16 @@
         "XBEN-021",
         "XBEN-024",
         "XBEN-029",
+        "XBEN-039",
+        "XBEN-052",
+        "XBEN-054",
+        "XBEN-055",
         "XBEN-056",
         "XBEN-058",
-        "XBEN-084"
+        "XBEN-060",
+        "XBEN-072",
+        "XBEN-084",
+        "XBEN-085"
       ]
     },
     {
@@ -167,43 +186,12 @@
       ]
     },
     {
-      "coverage_bucket": "unknown_untriaged",
-      "env_or_demo_coverage": {
-        "has_any_env": false,
-        "has_any_teacher_demo": false
-      },
-      "unsolved_count": 21,
-      "xben_ids": [
-        "XBEN-028",
-        "XBEN-039",
-        "XBEN-040",
-        "XBEN-041",
-        "XBEN-052",
-        "XBEN-054",
-        "XBEN-055",
-        "XBEN-060",
-        "XBEN-061",
-        "XBEN-067",
-        "XBEN-069",
-        "XBEN-071",
-        "XBEN-072",
-        "XBEN-078",
-        "XBEN-079",
-        "XBEN-083",
-        "XBEN-085",
-        "XBEN-086",
-        "XBEN-095",
-        "XBEN-097",
-        "XBEN-098"
-      ]
-    },
-    {
       "coverage_bucket": "ssti_template_context_pivot",
       "env_or_demo_coverage": {
         "has_any_env": true,
         "has_any_teacher_demo": true
       },
-      "unsolved_count": 15,
+      "unsolved_count": 16,
       "xben_ids": [
         "XBEN-007",
         "XBEN-023",
@@ -214,6 +202,7 @@
         "XBEN-063",
         "XBEN-066",
         "XBEN-075",
+        "XBEN-086",
         "XBEN-088",
         "XBEN-091",
         "XBEN-092",
@@ -228,16 +217,77 @@
         "has_any_env": true,
         "has_any_teacher_demo": true
       },
-      "unsolved_count": 8,
+      "unsolved_count": 15,
       "xben_ids": [
         "XBEN-001",
         "XBEN-003",
         "XBEN-021",
         "XBEN-024",
         "XBEN-029",
+        "XBEN-039",
+        "XBEN-052",
+        "XBEN-054",
+        "XBEN-055",
         "XBEN-056",
         "XBEN-058",
-        "XBEN-084"
+        "XBEN-060",
+        "XBEN-072",
+        "XBEN-084",
+        "XBEN-085"
+      ]
+    },
+    {
+      "coverage_bucket": "sqli_filter_bypass",
+      "env_or_demo_coverage": {
+        "has_any_env": false,
+        "has_any_teacher_demo": false
+      },
+      "unsolved_count": 5,
+      "xben_ids": [
+        "XBEN-040",
+        "XBEN-071",
+        "XBEN-078",
+        "XBEN-083",
+        "XBEN-095"
+      ]
+    },
+    {
+      "coverage_bucket": "file_upload_webroot",
+      "env_or_demo_coverage": {
+        "has_any_env": false,
+        "has_any_teacher_demo": false
+      },
+      "unsolved_count": 3,
+      "xben_ids": [
+        "XBEN-028",
+        "XBEN-041",
+        "XBEN-067"
+      ]
+    },
+    {
+      "coverage_bucket": "idor_object_swap_token_reuse",
+      "env_or_demo_coverage": {
+        "has_any_env": true,
+        "has_any_teacher_demo": true
+      },
+      "unsolved_count": 3,
+      "xben_ids": [
+        "XBEN-025",
+        "XBEN-069",
+        "XBEN-099"
+      ]
+    },
+    {
+      "coverage_bucket": "path_traversal_file_read",
+      "env_or_demo_coverage": {
+        "has_any_env": false,
+        "has_any_teacher_demo": false
+      },
+      "unsolved_count": 3,
+      "xben_ids": [
+        "XBEN-061",
+        "XBEN-079",
+        "XBEN-098"
       ]
     },
     {
@@ -286,17 +336,6 @@
       ]
     },
     {
-      "coverage_bucket": "idor_object_swap_token_reuse",
-      "env_or_demo_coverage": {
-        "has_any_env": true,
-        "has_any_teacher_demo": true
-      },
-      "unsolved_count": 1,
-      "xben_ids": [
-        "XBEN-025"
-      ]
-    },
-    {
       "coverage_bucket": "info_disclosure_credential_reuse_lateral",
       "env_or_demo_coverage": {
         "has_any_env": true,
@@ -305,28 +344,6 @@
       "unsolved_count": 1,
       "xben_ids": [
         "XBEN-094"
-      ]
-    },
-    {
-      "coverage_bucket": "java_jsp_other_stack",
-      "env_or_demo_coverage": {
-        "has_any_env": true,
-        "has_any_teacher_demo": true
-      },
-      "unsolved_count": 1,
-      "xben_ids": [
-        "XBEN-035"
-      ]
-    },
-    {
-      "coverage_bucket": "nosql_filter_bypass_chain",
-      "env_or_demo_coverage": {
-        "has_any_env": true,
-        "has_any_teacher_demo": true
-      },
-      "unsolved_count": 1,
-      "xben_ids": [
-        "XBEN-099"
       ]
     }
   ]

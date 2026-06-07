@@ -1,5 +1,77 @@
 # Current State
 
+## Latest Continuation - E1 source triage complete (2026-06-07)
+
+Codex continued the data-lane without changing the active score-lane task.
+T-CHAIN1 remains active and not live-proven; `NEXT_TASK.md` and
+`TASK_QUEUE.md` were not changed.
+
+E1 source-backed XBEN triage is now closed:
+
+- `scripts/training/triage_xben_sources_iter10.py` now covers the remaining
+  source-proven XBEN classes without emitting source snippets
+- classifier matching now requires distinct rule signals instead of repeated
+  same-pattern line hits
+- new source-backed families include:
+  - PHP upload/include and upload-to-webroot variants
+  - path traversal file include/read variants
+  - SQLi filter-bypass / prepared-statement concat variants
+  - auth-logic variants: Basic Auth static hash, form tamper, weak compare,
+    type juggling, client-side gate, forwarded-header trust
+  - Ruby ERB SSTI
+  - nginx alias/autoindex file exposure
+  - ObjectId IDOR/predictable reference
+- `scripts/training/build_xben_gap_matrix_iter10.py` maps those new
+  vuln-classes into coverage buckets
+- `scripts/training/build_xben_triage_backlog_iter10.py` now handles the
+  zero-source-unknown markdown case cleanly
+
+Regenerated artifacts:
+
+- `codex/results/training/xben-source-triage-20260607/`
+- `codex/results/training/xben-gap-matrix-20260607/`
+- `codex/results/training/xben-triage-backlog-20260607/`
+
+Current E1/D3/D6 numbers:
+
+- source triage:
+  - `row_count=57`
+  - `source_missing_count=0`
+  - `source_classified=57`
+- refreshed backlog:
+  - `item_count=87`
+  - `covered_needs_rollout_eval=75`
+  - `known_gap_needs_data=12`
+  - `source_triage_required=0`
+
+The source-proven E2 data gaps are now explicit:
+
+- `sqli_filter_bypass`: 5 XBENs
+- `file_upload_webroot`: 3 XBENs
+- `path_traversal_file_read`: 3 XBENs
+- `static_file_or_server_misconfig`: 1 XBEN
+
+E2 V4-Pro other-stack top-up remains active:
+
+- tmux session: `aegispt_v4pro_e2_otherstack_topup`
+- latest checked manifest: 6 accepted rows / 22 attempts
+- accepted classes so far:
+  `unsafe_deserialization=2`, `eval_rce_provider_refusal=1`,
+  `java_jsp_other_stack=1`, `php_cms_framework_cve=1`,
+  `unknown_nonweb_or_other_stack=1`
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`
+- `python3 scripts/training/triage_xben_sources_iter10.py --out-dir codex/results/training/xben-source-triage-20260607`
+- `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`
+- `python3 scripts/training/build_xben_triage_backlog_iter10.py --out-dir codex/results/training/xben-triage-backlog-20260607`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m compileall -q scripts/training/triage_xben_sources_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/build_xben_triage_backlog_iter10.py scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`
+- `python3 -m ruff check scripts/training/triage_xben_sources_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/build_xben_triage_backlog_iter10.py scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh && git diff --check`
+
 ## Latest Continuation - E2 V4-Pro other-stack top-up active (2026-06-07)
 
 Codex continued the data-lane after `37e1cab` without changing the active
