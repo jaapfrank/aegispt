@@ -77,6 +77,10 @@ def test_multichain_rl_oracle_rollouts_are_rankable_by_jury_rollout(tmp_path):
 
     assert result["rollouts"] == 6
     assert result["any_flag"] is True
+    assert result["any_idor"] is True
+    assert result["any_recovered_after_block"] is True
+    assert result["any_used_revealed_value"] is True
+    assert result["best_reward"] >= 25
     assert result["kept"] >= 1
     assert (tmp_path / "best.jsonl").read_text(encoding="utf-8").strip()
 

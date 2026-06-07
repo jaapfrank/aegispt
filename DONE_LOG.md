@@ -1,5 +1,38 @@
 # Done Log
 
+- 2026-06-07: Iter9 combined SFT mix builder and V4-Pro scale runner started. [TRAINING DATA]
+  - Added `scripts/training/build_iter9_combined_sft_mix.py`.
+  - The mix builder combines iter5 curated SFT rows, selected iter6 auth/authz
+    follow-through rows, and only V4-Pro demonstrated rows that pass the
+    blocked-goal recovery arc guard.
+  - Built the bootstrap mix at
+    `codex/results/training/iter9-combined-sft-mix-20260607/`.
+    Current stats before the V4-Pro scale job has accepted rows:
+    `selected_total=16799`, `curated_iter5=15999`, `iter6_auth=800`.
+    The old single V4 smoke row is skipped as
+    `missing_blocked_goal_recovery_arc=1`.
+  - Updated `scripts/training/jury_rollout.py` so P2 rollout ranking accounts
+    for `pivot`, `recovered_after_block`, and `used_revealed_value`.
+  - Added `scripts/tests/test_iter9_combined_sft_mix.py` and extended the P2
+    rollout integration assertions in `scripts/tests/test_multichain_rl_envs_iter9.py`.
+  - Started the C1 V4-Pro scale batch in tmux session
+    `aegispt_v4pro_iter9_scale`; output/log dir:
+    `codex/results/training/v4pro-demonstrated-chains-20260607-scale/`.
+  - Started tmux watcher `aegispt_v4pro_iter9_mixwatch`, which rebuilds the C3
+    mix after the scale session exits.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_iter9_combined_sft_mix.py scripts/tests/test_multichain_rl_envs_iter9.py`;
+    `python3 -m ruff check scripts/training/build_iter9_combined_sft_mix.py scripts/training/jury_rollout.py scripts/tests/test_iter9_combined_sft_mix.py scripts/tests/test_multichain_rl_envs_iter9.py`;
+    `python3 scripts/training/build_iter9_combined_sft_mix.py`;
+    `python3 scripts/training/jury_rollout.py --rollouts codex/results/training/multichain-rl-envs-20260607 --out /tmp/aegispt_iter9_p2_jury_best.jsonl --top-frac 1.0 --min-reward 1`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/build_iter9_combined_sft_mix.py scripts/training/jury_rollout.py scripts/tests/test_iter9_combined_sft_mix.py scripts/tests/test_multichain_rl_envs_iter9.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `git diff --check`.
+
 - 2026-06-07: V4-Pro teacher skeleton recovery guard. [TRAINING DATA]
   - Updated `scripts/training/teacher_demonstration_gen.py` so the older
     skeleton prompt also requires the blocked-goal recovery arc:

@@ -15,9 +15,12 @@ from pathlib import Path
 
 
 def reward(result: dict) -> int:
-    """Shaped env reward: flag dominates, then the IDOR pivot, then auth, then depth."""
+    """Shaped env reward: flag dominates; recovery signals rank P2 rollouts."""
+    pivot = result.get("pivot", result.get("idor"))
     return (10 * int(bool(result.get("flag")))
-            + 3 * int(bool(result.get("idor")))
+            + 4 * int(bool(result.get("recovered_after_block")))
+            + 3 * int(bool(result.get("used_revealed_value")))
+            + 3 * int(bool(pivot))
             + 2 * int(bool(result.get("logged_in")))
             + int(result.get("steps", 0)))
 
@@ -61,7 +64,9 @@ def run(rollout_dir: str, *, out: str, top_frac: float = 0.34, min_reward: int =
     Path(out).write_text("\n".join(json.dumps(r) for r in sft) + ("\n" if sft else ""))
     return {"rollouts": len(rolls), "best_reward": rolls[0][0], "median_reward": rolls[len(rolls) // 2][0],
             "kept": len(sft), "any_flag": any(r[1].get("flag") for r in rolls),
-            "any_idor": any(r[1].get("idor") for r in rolls)}
+            "any_idor": any(r[1].get("idor") or r[1].get("pivot") for r in rolls),
+            "any_recovered_after_block": any(r[1].get("recovered_after_block") for r in rolls),
+            "any_used_revealed_value": any(r[1].get("used_revealed_value") for r in rolls)}
 
 
 def main() -> None:

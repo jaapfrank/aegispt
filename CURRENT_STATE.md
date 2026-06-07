@@ -1,5 +1,64 @@
 # Current State
 
+## Latest Continuation - Iter9 combined SFT mix and V4-Pro scale runner (2026-06-07)
+
+Codex picked up C1/C2/C3 from the 2026-06-07 data-lane handoff.
+
+C1 V4-Pro scale batch:
+
+- plain `nohup` background children are cleaned up by this shell environment,
+  so Codex started the long generation via `tmux`
+- active scale session: `aegispt_v4pro_iter9_scale`
+- active post-build watcher: `aegispt_v4pro_iter9_mixwatch`
+- output dir:
+  `codex/results/training/v4pro-demonstrated-chains-20260607-scale/`
+- target/settings: 20 accepted rows, 100 max attempts, `max_tokens=8192`,
+  `timeout=300`, `wall_seconds=21600`
+- log:
+  `codex/results/training/v4pro-demonstrated-chains-20260607-scale/v4pro_scale_generation.log`
+- the watcher rebuilds the iter9 combined SFT mix after the scale session exits
+
+C2 exact gap target:
+
+- already implemented by the blocked-goal recovery commits
+- P2 envs carry shaped reward/signals for `blocked_goal`,
+  `recovered_after_block`, and `used_revealed_value`
+- P1 V4-Pro generator/skeleton reject happy-path-only rows that do not include
+  premature-goal -> block -> recover -> retry
+
+C3 combined SFT mix:
+
+- added `scripts/training/build_iter9_combined_sft_mix.py`
+- stable output path:
+  `codex/results/training/iter9-combined-sft-mix-20260607/`
+- current bootstrap mix was built before the scale job had accepted rows:
+  - `selected_total=16799`
+  - `curated_iter5=15999`
+  - `iter6_auth=800`
+  - the old single V4 smoke row was skipped as
+    `missing_blocked_goal_recovery_arc=1`
+- `scripts/training/jury_rollout.py` now scores `pivot`,
+  `recovered_after_block`, and `used_revealed_value`
+- P2 rollout smoke against
+  `codex/results/training/multichain-rl-envs-20260607` returned
+  `rollouts=6`, `kept=6`, `any_flag=true`, `any_idor=true`,
+  `any_recovered_after_block=true`, `any_used_revealed_value=true`
+
+No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed. T-CHAIN1 remains active and not live-proven.
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_iter9_combined_sft_mix.py scripts/tests/test_multichain_rl_envs_iter9.py`
+- `python3 -m ruff check scripts/training/build_iter9_combined_sft_mix.py scripts/training/jury_rollout.py scripts/tests/test_iter9_combined_sft_mix.py scripts/tests/test_multichain_rl_envs_iter9.py`
+- `python3 scripts/training/build_iter9_combined_sft_mix.py`
+- `python3 scripts/training/jury_rollout.py --rollouts codex/results/training/multichain-rl-envs-20260607 --out /tmp/aegispt_iter9_p2_jury_best.jsonl --top-frac 1.0 --min-reward 1`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m compileall -q scripts/training/build_iter9_combined_sft_mix.py scripts/training/jury_rollout.py scripts/tests/test_iter9_combined_sft_mix.py scripts/tests/test_multichain_rl_envs_iter9.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `git diff --check`
+
 ## Latest Continuation - Teacher skeleton recovery guard (2026-06-07)
 
 Codex tightened the older `scripts/training/teacher_demonstration_gen.py`

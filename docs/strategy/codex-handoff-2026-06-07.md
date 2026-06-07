@@ -135,3 +135,64 @@ They use `roll_*.jsonl` + `res_*.json`, so
   as well as scenario/case/target IDs
 - demonstrated ingest emits a scenario-registry JSONL for accepted rows
 - the held-out deep-chain markers/routes remain rejected
+
+## Codex continuation status — C1/C2/C3 (2026-06-07)
+
+### C1 — V4-Pro scale batch
+
+Started as a supervised `tmux` job because plain `nohup` children are cleaned up
+by this shell environment.
+
+- scale session: `aegispt_v4pro_iter9_scale`
+- post-build watcher: `aegispt_v4pro_iter9_mixwatch`
+- output dir:
+  `codex/results/training/v4pro-demonstrated-chains-20260607-scale/`
+- target: 20 accepted rows, max 100 attempts, `max_tokens=8192`,
+  `timeout=300`, `wall_seconds=21600`
+- monitor:
+  `tmux attach -t aegispt_v4pro_iter9_scale`
+- log:
+  `tail -f codex/results/training/v4pro-demonstrated-chains-20260607-scale/v4pro_scale_generation.log`
+
+The generator flushes raw/accepted/rejected/scenario-registry/manifest after
+every attempt. The mixwatch session waits for C1 to finish, then reruns the C3
+mix builder automatically.
+
+### C2 — exact gap target
+
+Done in Codex commits `613f7ba` and `7dd1cc1`.
+
+- P2 envs now reward `blocked_goal`, `recovered_after_block`, and
+  `used_revealed_value`
+- every committed oracle rollout exercises:
+  blocked goal -> hinted resource -> revealed value -> retry -> marker
+- both V4-Pro generators now require/reject on the same blocked-goal recovery
+  arc, so happy-path-only teacher rows do not enter C3
+
+### C3 — combined SFT mix
+
+Added `scripts/training/build_iter9_combined_sft_mix.py`.
+
+Stable output path:
+
+`codex/results/training/iter9-combined-sft-mix-20260607/`
+
+Current bootstrap manifest, before the C1 scale job has accepted recovery-valid
+V4 rows:
+
+- `selected_total=16799`
+- `curated_iter5=15999`
+- `iter6_auth=800`
+- `v4pro_demonstrated_iter9=0`
+- the old single smoke V4 row is skipped as
+  `missing_blocked_goal_recovery_arc=1`
+
+After the C1 tmux job finishes, the mixwatch job rebuilds this same output path
+so accepted recovery-valid V4-Pro rows enter the final train file.
+
+P2 rollout integration smoke:
+
+`python3 scripts/training/jury_rollout.py --rollouts codex/results/training/multichain-rl-envs-20260607 --out /tmp/aegispt_iter9_p2_jury_best.jsonl --top-frac 1.0 --min-reward 1`
+
+Observed: `rollouts=6`, `kept=6`, `any_flag=true`, `any_idor=true`,
+`any_recovered_after_block=true`, `any_used_revealed_value=true`.
