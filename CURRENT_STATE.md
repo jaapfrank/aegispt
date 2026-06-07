@@ -1,5 +1,61 @@
 # Current State
 
+## Latest Continuation - D1 V4-Pro teacher top-up active (2026-06-07)
+
+Codex continued the D1 V4-Pro teacher-corpus work without changing the active
+score-lane task. T-CHAIN1 remains active and not live-proven.
+
+D1 main teacher job status at inspection:
+
+- tmux session: `aegispt_v4pro_d1_teacher64`
+- output dir:
+  `codex/results/training/v4pro-teacher-corpus-d1-20260607/`
+- still running
+- current manifest snapshot when supervised:
+  - `accepted_count=45`
+  - `attempts=77`
+  - `requested_count=64`
+  - quota met for `idor_object_swap_token_reuse` and
+    `ssti_template_context_pivot`
+  - under quota: auth, info-disclosure/lateral, low-priv delegation, NoSQL,
+    SSRF-internal, and XXE
+
+D1 top-up runner:
+
+- added `scripts/training/generate_v4pro_teacher_topup_iter10.py`
+- added `scripts/tests/test_v4pro_teacher_topup_iter10.py`
+- the runner reads the D1 manifest, computes per-class deficits, and generates
+  only under-quota classes into a separate output directory
+- it uses the same V4-Pro endpoint path, held-out registry guard,
+  blocked-goal recovery guard, and ingest guard as the main D1 generator
+- active top-up session: `aegispt_v4pro_d1_topup`
+- top-up output dir:
+  `codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/`
+- top-up artifacts are still in progress and were not committed yet
+
+D1 final mix watcher:
+
+- active watcher session: `aegispt_v4pro_d1_final_mixwatch`
+- waits for both `aegispt_v4pro_d1_teacher64` and
+  `aegispt_v4pro_d1_topup`
+- after both finish, rebuilds
+  `codex/results/training/iter9-combined-sft-mix-20260607/` with:
+  - main D1 train JSONL
+  - top-up train JSONL
+  - existing accepted V4-Pro smoke row
+
+No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_v4pro_teacher_topup_iter10.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_iter9_combined_sft_mix.py`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m compileall -q scripts/training/generate_v4pro_teacher_topup_iter10.py scripts/tests/test_v4pro_teacher_topup_iter10.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh && git diff --check`
+- `python3 -m ruff check scripts/training/generate_v4pro_teacher_topup_iter10.py scripts/tests/test_v4pro_teacher_topup_iter10.py`
+
 ## Latest Continuation - D6 XBEN unknown-triage backlog (2026-06-07)
 
 Codex continued the data-lane after D5 without changing the active score-lane

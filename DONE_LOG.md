@@ -1,5 +1,38 @@
 # Done Log
 
+- 2026-06-07: D1 V4-Pro teacher corpus supervised top-up runner. [TRAINING DATA]
+  - Inspected the live D1 tmux job `aegispt_v4pro_d1_teacher64`.
+    At inspection it was still running with `accepted_count=45`,
+    `attempts=77`, `requested_count=64`, and only IDOR/SSTI at the 8-per-class
+    quota.
+  - Added `scripts/training/generate_v4pro_teacher_topup_iter10.py`.
+    The top-up runner reads the live D1 manifest, computes per-class deficits,
+    and generates only under-quota classes into a separate output directory
+    using the same V4-Pro endpoint, held-out registry guard, blocked-goal
+    recovery guard, and ingest guard.
+  - Added `scripts/tests/test_v4pro_teacher_topup_iter10.py` and included it
+    in `scripts/run_data_lane_tests.sh`.
+  - Started separate supervised tmux session
+    `aegispt_v4pro_d1_topup`; output dir:
+    `codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/`.
+    The top-up session is active and no generated top-up artifacts were
+    committed yet.
+  - Started `aegispt_v4pro_d1_final_mixwatch`, which waits for both
+    `aegispt_v4pro_d1_teacher64` and `aegispt_v4pro_d1_topup`, then rebuilds
+    `codex/results/training/iter9-combined-sft-mix-20260607/` with the main D1
+    train JSONL, the top-up train JSONL, and the existing accepted V4-Pro smoke
+    row.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_v4pro_teacher_topup_iter10.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_iter9_combined_sft_mix.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/generate_v4pro_teacher_topup_iter10.py scripts/tests/test_v4pro_teacher_topup_iter10.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh && git diff --check`;
+    `python3 -m ruff check scripts/training/generate_v4pro_teacher_topup_iter10.py scripts/tests/test_v4pro_teacher_topup_iter10.py`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: D6 XBEN unknown-triage backlog. [TRAINING DATA]
   - Added `scripts/training/build_xben_triage_backlog_iter10.py`.
   - The backlog consumes the committed D3/D5 XBEN solve-gap matrix and emits a

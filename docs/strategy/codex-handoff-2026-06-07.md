@@ -451,3 +451,39 @@ Interpretation for Claude:
 - the 57 `source_triage_required` rows must be source/readout triaged before
   they become training data; neighbor context is only prioritization metadata,
   not a vulnerability label
+
+## Codex continuation status — D1 supervised top-up active (2026-06-07)
+
+Codex inspected the long-running D1 V4-Pro teacher corpus. Main D1 is still
+running in `aegispt_v4pro_d1_teacher64`; at supervision it had:
+
+- `accepted_count=45`
+- `attempts=77`
+- `requested_count=64`
+- quota met only for IDOR and SSTI
+- NoSQL was the riskiest under-quota class (`1/8`)
+
+Added `scripts/training/generate_v4pro_teacher_topup_iter10.py`.
+
+Purpose:
+
+- read the live D1 manifest
+- compute per-class deficits
+- generate only under-quota classes into a separate output dir
+- reuse the same V4-Pro prompt, held-out registry guard, blocked-goal recovery
+  guard, and ingest guard
+
+Active sessions:
+
+- `aegispt_v4pro_d1_teacher64`: original D1 run
+- `aegispt_v4pro_d1_topup`: focused top-up run
+- `aegispt_v4pro_d1_final_mixwatch`: waits for both, then rebuilds
+  `codex/results/training/iter9-combined-sft-mix-20260607/` using main D1,
+  top-up D1, and the existing accepted V4-Pro smoke row
+
+Top-up output dir:
+
+`codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/`
+
+Generated top-up artifacts are in progress and are intentionally not committed
+until the run finishes and the final mix can be verified.

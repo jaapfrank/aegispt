@@ -19,6 +19,7 @@ python3 -m pytest -q \
   scripts/tests/test_iter9_combined_sft_mix.py \
   scripts/tests/test_v4pro_demonstrated_ingest_iter8.py \
   scripts/tests/test_v4pro_teacher_generator_iter9.py \
+  scripts/tests/test_v4pro_teacher_topup_iter10.py \
   scripts/tests/test_teacher_demonstration_gen.py \
   scripts/tests/test_multichain_rl_envs_iter9.py \
   scripts/tests/test_headless_oob_chain_envs_iter10.py \
