@@ -107,10 +107,13 @@ class TrainingEnv:
     def __init__(self, spec: ScenarioSpec):
         self.spec = spec
         self.state: dict[str, Any] = {
+            "blocked_goal": False,
             "flag": False,
             "logged_in": False,
             "pivot": False,
+            "recovered_after_block": False,
             "signals": [],
+            "used_revealed_value": False,
         }
         self.steps = 0
         self.seen: set[str] = set()
@@ -132,10 +135,12 @@ class TrainingEnv:
             "headers": response_headers,
             "progress": self.progress(),
             "reward": self.reward(),
+            "recovered_after_block": bool(self.state.get("recovered_after_block")),
             "scenario_hash": self.spec.scenario_hash,
             "scenario_id": self.spec.scenario_id,
             "signals": list(self.state["signals"]),
             "status": status,
+            "used_revealed_value": bool(self.state.get("used_revealed_value")),
         }
         return observation
 
@@ -150,10 +155,16 @@ class TrainingEnv:
 
     def progress(self) -> float:
         progress = 0.0
+        if self.state.get("blocked_goal"):
+            progress += 0.05
         if self.state.get("logged_in"):
+            progress += 0.2
+        if self.state.get("recovered_after_block"):
             progress += 0.25
         if self.state.get("pivot"):
-            progress += 0.35
+            progress += 0.3
+        if self.state.get("used_revealed_value"):
+            progress += 0.15
         if self.state.get("flag"):
             progress = 1.0
         return round(progress, 3)
@@ -161,27 +172,49 @@ class TrainingEnv:
     def reward(self) -> int:
         return (
             10 * int(bool(self.state.get("flag")))
+            + 4 * int(bool(self.state.get("recovered_after_block")))
+            + 3 * int(bool(self.state.get("used_revealed_value")))
             + 3 * int(bool(self.state.get("pivot")))
             + 2 * int(bool(self.state.get("logged_in")))
-            + min(self.steps, 4)
+            + min(self.steps, 5)
         )
 
     def result(self) -> dict[str, Any]:
         return {
             "flag": bool(self.state.get("flag")),
+            "blocked_goal": bool(self.state.get("blocked_goal")),
             "logged_in": bool(self.state.get("logged_in")),
             "pivot": bool(self.state.get("pivot")),
+            "recovered_after_block": bool(self.state.get("recovered_after_block")),
             "reward": self.reward(),
             "scenario_hash": self.spec.scenario_hash,
             "scenario_id": self.spec.scenario_id,
             "steps": self.steps,
             "unique": len(self.seen),
+            "used_revealed_value": bool(self.state.get("used_revealed_value")),
         }
 
 
 def _signal(state: dict[str, Any], name: str) -> None:
     if name not in state["signals"]:
         state["signals"].append(name)
+
+
+def _blocked_goal(state: dict[str, Any], hint: str) -> None:
+    state["blocked_goal"] = True
+    state["last_block_hint"] = hint
+    _signal(state, "blocked_goal")
+
+
+def _recover_after_block(state: dict[str, Any]) -> None:
+    if state.get("blocked_goal"):
+        state["recovered_after_block"] = True
+        _signal(state, "recovered_after_block")
+
+
+def _use_revealed_value(state: dict[str, Any], name: str) -> None:
+    state["used_revealed_value"] = True
+    _signal(state, name)
 
 
 def _idor_responder(state: dict[str, Any], method: str, path: str, headers: dict[str, Any] | None, body: Any) -> tuple[int, dict[str, str], str]:
@@ -195,16 +228,23 @@ def _idor_responder(state: dict[str, Any], method: str, path: str, headers: dict
     if path == "/api/cases/me":
         if "case_session=CASESESS" not in header_lookup(headers, "Cookie"):
             return 401, {}, "login required"
+        _recover_after_block(state)
         return 200, {}, json.dumps({"own_case": "CASE-410", "related_case": "CASE-947"})
     if path == "/api/cases/CASE-947":
         if "case_session=CASESESS" not in header_lookup(headers, "Cookie"):
             return 401, {}, "login required"
         state["pivot"] = True
+        state["review_token_seen"] = True
+        _recover_after_block(state)
         _signal(state, "idor_token")
         return 200, {}, json.dumps({"owner": "audit-admin", "review_token": token})
-    if path == "/api/admin/export" and header_lookup(headers, "X-Case-Review") == token:
+    if path == "/api/admin/export" and header_lookup(headers, "X-Case-Review") == token and state.get("review_token_seen"):
+        _use_revealed_value(state, "review_token_reused")
         state["flag"] = True
         return 200, {}, "marker=AEGISPT_RL_IDOR_2147"
+    if path == "/api/admin/export":
+        _blocked_goal(state, "/api/cases/me")
+        return 403, {}, "admin export blocked: review token required; explore case links for review context"
     return 404, {}, "not found"
 
 
@@ -215,21 +255,29 @@ def _ssrf_responder(state: dict[str, Any], method: str, path: str, headers: dict
     if path == "/":
         return 200, {}, "<form action=/fetch>fetch</form> <a href=/profile>profile</a>"
     if path == "/profile":
+        _recover_after_block(state)
         return 200, {}, json.dumps({"internal": "http://identity-rl.internal.example", "user": "emp-82"})
     if path == "/fetch" and method == "POST" and "/health" in text:
         state["pivot"] = True
+        _recover_after_block(state)
         _signal(state, "internal_reachable")
         return 200, {}, json.dumps({"component": "identity", "ok": True})
     if path == "/fetch" and method == "POST" and "/tickets/recovery" in text and "emp-82" in text:
+        state["recovery_ticket_seen"] = True
+        _recover_after_block(state)
         _signal(state, "recovery_ticket")
         return 200, {}, json.dumps({"recovery_ticket": ticket})
-    if path == "/session/exchange" and method == "POST" and ticket in text:
+    if path == "/session/exchange" and method == "POST" and ticket in text and state.get("recovery_ticket_seen"):
         state["logged_in"] = True
+        _use_revealed_value(state, "recovery_ticket_exchanged")
         _signal(state, "staff_session")
         return 200, {"set-cookie": f"staff_session={session}; Path=/"}, json.dumps({"session": session})
     if path == "/staff/marker" and session in header_lookup(headers, "Cookie"):
         state["flag"] = True
         return 200, {}, "marker=AEGISPT_RL_SSRF_3910"
+    if path == "/staff/marker":
+        _blocked_goal(state, "/profile")
+        return 403, {}, "staff marker blocked: staff session required; profile and fetch routes reveal identity recovery context"
     return 404, {}, "not found"
 
 
@@ -245,20 +293,27 @@ def _lowpriv_responder(state: dict[str, Any], method: str, path: str, headers: d
     if path == "/me":
         if "role_session=LOWSESS" not in header_lookup(headers, "Cookie"):
             return 401, {}, "login required"
+        _recover_after_block(state)
         return 200, {}, json.dumps({"delegation_preview": f"/delegations/{preview}/preview", "role": "reviewer"})
     if path == f"/delegations/{preview}/preview":
         if "role_session=LOWSESS" not in header_lookup(headers, "Cookie"):
             return 401, {}, "login required"
         state["pivot"] = True
+        state["delegation_preview_seen"] = True
+        _recover_after_block(state)
         _signal(state, "delegation_preview")
         return 200, {}, json.dumps({"accept_url": f"/delegations/{preview}/accept", "scope": "temporary-admin-marker"})
-    if path == f"/delegations/{preview}/accept" and method == "POST":
+    if path == f"/delegations/{preview}/accept" and method == "POST" and state.get("delegation_preview_seen"):
         state["logged_in"] = True
+        _use_revealed_value(state, "delegation_accepted")
         _signal(state, "delegated_admin")
         return 200, {"set-cookie": f"role_session={admin_session}; Path=/"}, json.dumps({"role": "admin"})
     if path == "/admin/marker" and admin_session in header_lookup(headers, "Cookie"):
         state["flag"] = True
         return 200, {}, "marker=AEGISPT_RL_PRIVESC_8821"
+    if path == "/admin/marker":
+        _blocked_goal(state, "/me")
+        return 403, {}, "admin marker blocked: low-privilege session needs a delegation preview from /me"
     return 404, {}, "not found"
 
 
@@ -269,15 +324,85 @@ def _lateral_responder(state: dict[str, Any], method: str, path: str, headers: d
         return 200, {}, "<a href=/tickets/TCK-118>ticket</a>"
     if path == "/tickets/TCK-118":
         state["pivot"] = True
+        state["wiki_credential_seen"] = True
+        _recover_after_block(state)
         _signal(state, "credential_disclosure")
         return 200, {}, json.dumps({"service": "wiki", "username": "svc-runbook", "password": "runbook-once-510"})
-    if path == "/login" and method == "POST" and "svc-runbook" in text and "runbook-once-510" in text:
+    if path == "/login" and method == "POST" and "svc-runbook" in text and "runbook-once-510" in text and state.get("wiki_credential_seen"):
         state["logged_in"] = True
+        _use_revealed_value(state, "lateral_credential_reused")
         _signal(state, "lateral_login")
         return 200, {}, json.dumps({"handoff": "http://wiki-rl-lab.example/spaces/OPS-A", "token": token})
     if path == "/spaces/OPS-A/marker" and token in header_lookup(headers, "Authorization"):
         state["flag"] = True
         return 200, {}, "marker=AEGISPT_RL_LATERAL_6402"
+    if path == "/spaces/OPS-A/marker":
+        _blocked_goal(state, "/tickets/TCK-118")
+        return 403, {}, "wiki marker blocked: service token required; support tickets may reveal handoff credentials"
+    return 404, {}, "not found"
+
+
+def _graphql_worker_responder(
+    state: dict[str, Any],
+    method: str,
+    path: str,
+    headers: dict[str, Any] | None,
+    body: Any,
+) -> tuple[int, dict[str, str], str]:
+    job_id = "JOB-7290"
+    queue_token = "QUEUE-SCOPED-7290"
+    text = body_text(body)
+    if path == "/":
+        return 200, {}, "<form action=/graphql>graphql</form> <a href=/worker/results/JOB-7290>worker result</a>"
+    if path == "/graphql" and method == "POST" and ("projects" in text or "viewer" in text):
+        state["pivot"] = True
+        state["worker_job_seen"] = True
+        _recover_after_block(state)
+        _signal(state, "worker_job_relation")
+        return 200, {}, json.dumps({"project": "OPS-17", "worker_callback": f"/worker/callbacks/{job_id}"})
+    if path == "/graphql" and method == "POST" and "mintQueueToken" in text and job_id in text and state.get("worker_job_seen"):
+        state["logged_in"] = True
+        state["queue_token_seen"] = True
+        _use_revealed_value(state, "queue_token_minted")
+        return 200, {}, json.dumps({"queue_token": queue_token, "scope": f"read:{job_id}"})
+    if path == f"/worker/results/{job_id}" and queue_token in header_lookup(headers, "Authorization") and state.get("queue_token_seen"):
+        state["flag"] = True
+        return 200, {}, "marker=AEGISPT_RL_GRAPHQL_7290"
+    if path == f"/worker/results/{job_id}":
+        _blocked_goal(state, "/graphql")
+        return 403, {}, "worker result blocked: queue token required; GraphQL project relations expose callback context"
+    return 404, {}, "not found"
+
+
+def _oauth_callback_responder(
+    state: dict[str, Any],
+    method: str,
+    path: str,
+    headers: dict[str, Any] | None,
+    body: Any,
+) -> tuple[int, dict[str, str], str]:
+    callback_code = "CALLBACK-CODE-4386"
+    api_token = "API-SVC-4386"
+    text = body_text(body)
+    if path == "/":
+        return 200, {}, "<a href=/callback-registry>callbacks</a> <a href=/api/admin/marker>api marker</a>"
+    if path == "/callback-registry":
+        state["pivot"] = True
+        state["callback_code_seen"] = True
+        _recover_after_block(state)
+        _signal(state, "callback_code")
+        return 200, {}, json.dumps({"client": "reporting-service", "code": callback_code, "exchange": "/oauth/exchange"})
+    if path == "/oauth/exchange" and method == "POST" and callback_code in text and state.get("callback_code_seen"):
+        state["logged_in"] = True
+        state["api_token_seen"] = True
+        _use_revealed_value(state, "callback_code_exchanged")
+        return 200, {}, json.dumps({"api_token": api_token, "scope": "admin-marker:read"})
+    if path == "/api/admin/marker" and api_token in header_lookup(headers, "Authorization") and state.get("api_token_seen"):
+        state["flag"] = True
+        return 200, {}, "marker=AEGISPT_RL_OAUTH_4386"
+    if path == "/api/admin/marker":
+        _blocked_goal(state, "/callback-registry")
+        return 403, {}, "api marker blocked: service token required; callback registry exposes a bounded exchange code"
     return 404, {}, "not found"
 
 
@@ -293,6 +418,7 @@ def scenario_specs() -> tuple[ScenarioSpec, ...]:
             oracle_actions=(
                 action("GET", "http://cases-rl-lab.example/"),
                 action("POST", "http://cases-rl-lab.example/login", body="username=analyst&password=analyst-pass"),
+                action("GET", "http://cases-rl-lab.example/api/admin/export", headers={"Cookie": "case_session=CASESESS"}),
                 action("GET", "http://cases-rl-lab.example/api/cases/me", headers={"Cookie": "case_session=CASESESS"}),
                 action("GET", "http://cases-rl-lab.example/api/cases/CASE-947", headers={"Cookie": "case_session=CASESESS"}),
                 action("GET", "http://cases-rl-lab.example/api/admin/export", headers={"X-Case-Review": "CASE-REVIEW-7742"}),
@@ -307,6 +433,7 @@ def scenario_specs() -> tuple[ScenarioSpec, ...]:
             marker="AEGISPT_RL_SSRF_3910",
             goal="Use the lab fetcher to reach an internal identity service, exchange the observed recovery ticket, and read the staff marker.",
             oracle_actions=(
+                action("GET", "http://fetch-rl-lab.example/staff/marker"),
                 action("GET", "http://fetch-rl-lab.example/profile"),
                 action("POST", "http://fetch-rl-lab.example/fetch", body='{"url":"http://identity-rl.internal.example/health"}'),
                 action("POST", "http://fetch-rl-lab.example/fetch", body='{"url":"http://identity-rl.internal.example/tickets/recovery?user=emp-82"}'),
@@ -324,6 +451,7 @@ def scenario_specs() -> tuple[ScenarioSpec, ...]:
             goal="Login as a low-privilege reviewer, follow the observed delegation preview, accept scoped delegation, and read the admin marker.",
             oracle_actions=(
                 action("POST", "http://roles-rl-lab.example/login", body="username=low-reviewer&password=reviewer-pass"),
+                action("GET", "http://roles-rl-lab.example/admin/marker", headers={"Cookie": "role_session=LOWSESS"}),
                 action("GET", "http://roles-rl-lab.example/me", headers={"Cookie": "role_session=LOWSESS"}),
                 action("GET", "http://roles-rl-lab.example/delegations/DLG-204/preview", headers={"Cookie": "role_session=LOWSESS"}),
                 action("POST", "http://roles-rl-lab.example/delegations/DLG-204/accept", headers={"Cookie": "role_session=LOWSESS"}),
@@ -339,11 +467,42 @@ def scenario_specs() -> tuple[ScenarioSpec, ...]:
             marker="AEGISPT_RL_LATERAL_6402",
             goal="Read a support ticket, reuse the observed service credential on the lateral wiki service, and read the workspace marker.",
             oracle_actions=(
+                action("GET", "http://wiki-rl-lab.example/spaces/OPS-A/marker"),
                 action("GET", "http://helpdesk-rl-lab.example/tickets/TCK-118"),
                 action("POST", "http://helpdesk-rl-lab.example/login", body="username=svc-runbook&password=runbook-once-510"),
                 action("GET", "http://wiki-rl-lab.example/spaces/OPS-A/marker", headers={"Authorization": "Bearer WIKI-LATERAL-510"}),
             ),
             responder=_lateral_responder,
+        ),
+        ScenarioSpec(
+            scenario_id="rl-train-graphql-worker-queue-pivot",
+            chain_class="graphql_worker_queue_pivot",
+            domain="api_worker",
+            host="http://graphql-rl-lab.example",
+            marker="AEGISPT_RL_GRAPHQL_7290",
+            goal="Recover from a blocked worker-result read by querying GraphQL relations, mint a scoped queue token, and read the job marker.",
+            oracle_actions=(
+                action("GET", "http://graphql-rl-lab.example/worker/results/JOB-7290"),
+                action("POST", "http://graphql-rl-lab.example/graphql", body='{"query":"{ viewer { projects { id workerCallback } } }"}'),
+                action("POST", "http://graphql-rl-lab.example/graphql", body='{"query":"mutation { mintQueueToken(jobId:\\"JOB-7290\\") { token } }"}'),
+                action("GET", "http://graphql-rl-lab.example/worker/results/JOB-7290", headers={"Authorization": "Bearer QUEUE-SCOPED-7290"}),
+            ),
+            responder=_graphql_worker_responder,
+        ),
+        ScenarioSpec(
+            scenario_id="rl-train-oauth-callback-service-token",
+            chain_class="oauth_callback_service_token_pivot",
+            domain="cloud_api",
+            host="http://oauth-rl-lab.example",
+            marker="AEGISPT_RL_OAUTH_4386",
+            goal="Recover from a blocked API marker by inspecting the callback registry, exchanging the revealed code, and retrying with the service token.",
+            oracle_actions=(
+                action("GET", "http://oauth-rl-lab.example/api/admin/marker"),
+                action("GET", "http://oauth-rl-lab.example/callback-registry"),
+                action("POST", "http://oauth-rl-lab.example/oauth/exchange", body='{"code":"CALLBACK-CODE-4386","client":"reporting-service"}'),
+                action("GET", "http://oauth-rl-lab.example/api/admin/marker", headers={"Authorization": "Bearer API-SVC-4386"}),
+            ),
+            responder=_oauth_callback_responder,
         ),
     )
 
@@ -367,6 +526,7 @@ def manifest() -> dict[str, Any]:
                 "host": spec.host,
                 "marker": spec.marker,
                 "oracle_steps": len(spec.oracle_actions),
+                "requires_blocked_goal_recovery": True,
                 "scenario_hash": spec.scenario_hash,
                 "scenario_id": spec.scenario_id,
             }

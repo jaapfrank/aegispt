@@ -1,10 +1,13 @@
 {
+  "blocked_goal": true,
   "flag": true,
   "logged_in": true,
   "pivot": true,
-  "reward": 18,
+  "recovered_after_block": true,
+  "reward": 26,
   "scenario_hash": "d880ac0c376d2d550332b5fce46e4471337c51c2f600f90c200f6e932c7b4b78",
   "scenario_id": "rl-train-credential-reuse-lateral-wiki",
-  "steps": 3,
-  "unique": 3
+  "steps": 4,
+  "unique": 3,
+  "used_revealed_value": true
 }

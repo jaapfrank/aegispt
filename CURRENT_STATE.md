@@ -1,5 +1,68 @@
 # Current State
 
+## Latest Continuation - Blocked-goal recovery RL shaping (2026-06-07)
+
+Codex continued the data-lane P1/P2/P3 work from
+`docs/strategy/codex-handoff-2026-06-07.md` without changing the active
+score-lane task.
+
+P2 RL env update:
+
+- `scripts/training/multichain_rl_envs_iter9.py` now explicitly trains the
+  held-out deep-chain failure mode Claude diagnosed:
+  blocked goal attempt -> backtrack -> hinted intermediate resource -> revealed
+  value reuse -> successful goal retry
+- each env state/observation/result now carries:
+  - `blocked_goal`
+  - `recovered_after_block`
+  - `used_revealed_value`
+- shaped reward now rewards recovery after a block and use of a previously
+  revealed token/session/credential, while the final marker still dominates
+- the family expanded from four to six non-held-out RL envs:
+  - `rl-train-idormap-case-review-token`
+  - `rl-train-ssrf-recovery-ticket`
+  - `rl-train-lowpriv-delegated-admin`
+  - `rl-train-credential-reuse-lateral-wiki`
+  - `rl-train-graphql-worker-queue-pivot`
+  - `rl-train-oauth-callback-service-token`
+- oracle rollout artifacts were regenerated under
+  `codex/results/training/multichain-rl-envs-20260607/`; all six scripted
+  rollouts solve and report `blocked_goal=true`,
+  `recovered_after_block=true`, and `used_revealed_value=true`
+
+P1 V4-Pro generator update:
+
+- `scripts/training/generate_v4pro_demonstrated_chains_iter9.py` now instructs
+  V4-Pro to include the same blocked-goal recovery arc in teacher
+  demonstrations
+- the generator rejects teacher rows that lack a 403/blocked observation
+  followed by recovery and a final successful retry
+- long-running V4-Pro batches now flush raw/accepted/rejected/scenario-registry
+  JSONL plus manifest after every attempt, and support `--wall-seconds` for
+  supervised bounded scale runs
+
+P3 hygiene:
+
+- `scripts/tests/test_lab_truth_heldout_registry.py` now expects six iter9 RL
+  env entries
+- the iter7 and iter8 committed registry artifact snapshots were refreshed so
+  both include the six iter9 RL env scenario hashes
+- no capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+  `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_multichain_rl_envs_iter9.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m ruff check scripts/training/generate_v4pro_demonstrated_chains_iter9.py scripts/training/multichain_rl_envs_iter9.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_multichain_rl_envs_iter9.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `python3 -m compileall -q scripts/training/generate_v4pro_demonstrated_chains_iter9.py scripts/training/multichain_rl_envs_iter9.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_multichain_rl_envs_iter9.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `python3 scripts/training/multichain_rl_envs_iter9.py --scripted-oracle --oracle-out-dir codex/results/training/multichain-rl-envs-20260607`
+- `python3 scripts/training/build_iter8_training_artifact_pack.py`
+- `python3 scripts/training/build_iter7_training_artifact_pack.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `git diff --check`
+
 ## Latest Continuation - V4-Pro teacher smoke + RL training envs (2026-06-07)
 
 Codex picked up `docs/strategy/codex-handoff-2026-06-07.md` and implemented

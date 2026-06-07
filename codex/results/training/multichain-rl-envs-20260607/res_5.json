@@ -1,0 +1,13 @@
+{
+  "blocked_goal": true,
+  "flag": true,
+  "logged_in": true,
+  "pivot": true,
+  "recovered_after_block": true,
+  "reward": 26,
+  "scenario_hash": "9e95d2645a3ee27ef54a239f423f957574a4541f668eac65696477b7d7aaafc0",
+  "scenario_id": "rl-train-oauth-callback-service-token",
+  "steps": 4,
+  "unique": 3,
+  "used_revealed_value": true
+}

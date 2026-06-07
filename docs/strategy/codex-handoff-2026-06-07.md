@@ -89,21 +89,35 @@ Live provider proof:
 - stats: `accepted_count=1`, `assistant_turns={"6":1}`, `rejected_count=0`
 
 Scale note: Codex attempted a wider 5-row batch, but stopped it after ~10
-minutes because V4-Pro reasoning was too slow for this turn. The script is ready
-for a supervised longer-running generation job.
+minutes because V4-Pro reasoning was too slow for this turn. The script now
+flushes raw/accepted/rejected/scenario-registry JSONL plus manifest after every
+attempt and supports `--wall-seconds`, so a supervised longer-running
+generation job can be interrupted without losing accepted/rejected progress.
+
+Recovery-shaping update: V4-Pro prompts now require a premature goal attempt,
+403/blocked observation, backtrack to the hinted intermediate resource, reuse
+of a revealed token/session/credential, and final successful retry. Rows that
+do not contain this blocked-goal recovery arc are rejected before ingest.
 
 ### P2 status
 
-Codex added `scripts/training/multichain_rl_envs_iter9.py` with four
+Codex added `scripts/training/multichain_rl_envs_iter9.py` with six
 non-held-out interactive RL envs:
 
 - `rl-train-idormap-case-review-token`
 - `rl-train-ssrf-recovery-ticket`
 - `rl-train-lowpriv-delegated-admin`
 - `rl-train-credential-reuse-lateral-wiki`
+- `rl-train-graphql-worker-queue-pivot`
+- `rl-train-oauth-callback-service-token`
 
 Each env exposes JSON action -> HTTP-style observation, deterministic oracle,
 shaped reward, `logged_in` / `pivot` / `flag` signals, and a `scenario_hash`.
+Each oracle now exercises the diagnosed missing behavior:
+blocked goal attempt -> hinted-resource recovery -> revealed-value reuse ->
+successful goal retry. Env observations/results carry `blocked_goal`,
+`recovered_after_block`, and `used_revealed_value`; all six committed scripted
+rollouts solve with those signals true.
 Oracle rollout artifacts are committed under:
 
 `codex/results/training/multichain-rl-envs-20260607/`
@@ -113,8 +127,10 @@ They use `roll_*.jsonl` + `res_*.json`, so
 
 ### P3 status
 
-- `scripts/training/make_lab_truth_heldout_registry_iter6.py` includes iter9 RL
-  env registry entries with `scenario_hash`
+- `scripts/training/make_lab_truth_heldout_registry_iter6.py` includes all six
+  iter9 RL env registry entries with `scenario_hash`
+- iter7 and iter8 committed registry artifact snapshots were refreshed so both
+  include the six iter9 RL env hashes
 - the V4-Pro ingest guard now rejects held-out collisions by `scenario_hash`
   as well as scenario/case/target IDs
 - demonstrated ingest emits a scenario-registry JSONL for accepted rows

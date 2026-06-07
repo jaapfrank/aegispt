@@ -1,0 +1,13 @@
+{
+  "blocked_goal": true,
+  "flag": true,
+  "logged_in": true,
+  "pivot": true,
+  "recovered_after_block": true,
+  "reward": 26,
+  "scenario_hash": "48941bd4d5cbfb6526f6f50f38593c0ea64ec0b6edde5a18f60d0c4a9b2810a1",
+  "scenario_id": "rl-train-graphql-worker-queue-pivot",
+  "steps": 4,
+  "unique": 2,
+  "used_revealed_value": true
+}

@@ -64,7 +64,7 @@ def test_held_out_registry_contains_exact_eval_test_and_benchmark_ids():
     assert stats["held_out_by_family"][MULTITURN_PREFIX] == 32
     assert stats["held_out_by_family"][CHAINTYPE_PREFIX] == 16
     assert stats["held_out_by_family"][MULTISERVICE_PREFIX] == 16
-    assert stats["held_out_by_family"][RL_ENV_PREFIX] == 4
+    assert stats["held_out_by_family"][RL_ENV_PREFIX] == 6
     assert stats["held_out_by_family"]["aegispt-lab-suite-v1"] >= 1
     assert is_held_out_scenario(registry, "deep_chain_eval")
     assert is_held_out_scenario(registry, "ssrf-loopback-metadata")

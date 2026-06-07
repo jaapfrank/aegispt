@@ -4,14 +4,17 @@
     {
       "res_path": "codex/results/training/multichain-rl-envs-20260607/res_0.json",
       "result": {
+        "blocked_goal": true,
         "flag": true,
         "logged_in": true,
         "pivot": true,
-        "reward": 19,
+        "recovered_after_block": true,
+        "reward": 27,
         "scenario_hash": "3ed82cad39d4274d1a34fbc4f737a5b35d86b76239e0a833b028de2962078149",
         "scenario_id": "rl-train-idormap-case-review-token",
-        "steps": 5,
-        "unique": 5
+        "steps": 6,
+        "unique": 5,
+        "used_revealed_value": true
       },
       "roll_path": "codex/results/training/multichain-rl-envs-20260607/roll_0.jsonl",
       "scenario_id": "rl-train-idormap-case-review-token"
@@ -19,14 +22,17 @@
     {
       "res_path": "codex/results/training/multichain-rl-envs-20260607/res_1.json",
       "result": {
+        "blocked_goal": true,
         "flag": true,
         "logged_in": true,
         "pivot": true,
-        "reward": 19,
+        "recovered_after_block": true,
+        "reward": 27,
         "scenario_hash": "48a56c1124a63343e02f76b8c74d81fa9aefddd86ca93dada1aa6aac84f58d0d",
         "scenario_id": "rl-train-ssrf-recovery-ticket",
-        "steps": 5,
-        "unique": 4
+        "steps": 6,
+        "unique": 4,
+        "used_revealed_value": true
       },
       "roll_path": "codex/results/training/multichain-rl-envs-20260607/roll_1.jsonl",
       "scenario_id": "rl-train-ssrf-recovery-ticket"
@@ -34,14 +40,17 @@
     {
       "res_path": "codex/results/training/multichain-rl-envs-20260607/res_2.json",
       "result": {
+        "blocked_goal": true,
         "flag": true,
         "logged_in": true,
         "pivot": true,
-        "reward": 19,
+        "recovered_after_block": true,
+        "reward": 27,
         "scenario_hash": "4d558093f17120133b79328a1733f76483addbc27ec08c28c1b1201360c113b1",
         "scenario_id": "rl-train-lowpriv-delegated-admin",
-        "steps": 5,
-        "unique": 5
+        "steps": 6,
+        "unique": 5,
+        "used_revealed_value": true
       },
       "roll_path": "codex/results/training/multichain-rl-envs-20260607/roll_2.jsonl",
       "scenario_id": "rl-train-lowpriv-delegated-admin"
@@ -49,17 +58,56 @@
     {
       "res_path": "codex/results/training/multichain-rl-envs-20260607/res_3.json",
       "result": {
+        "blocked_goal": true,
         "flag": true,
         "logged_in": true,
         "pivot": true,
-        "reward": 18,
+        "recovered_after_block": true,
+        "reward": 26,
         "scenario_hash": "d880ac0c376d2d550332b5fce46e4471337c51c2f600f90c200f6e932c7b4b78",
         "scenario_id": "rl-train-credential-reuse-lateral-wiki",
-        "steps": 3,
-        "unique": 3
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
       },
       "roll_path": "codex/results/training/multichain-rl-envs-20260607/roll_3.jsonl",
       "scenario_id": "rl-train-credential-reuse-lateral-wiki"
+    },
+    {
+      "res_path": "codex/results/training/multichain-rl-envs-20260607/res_4.json",
+      "result": {
+        "blocked_goal": true,
+        "flag": true,
+        "logged_in": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 26,
+        "scenario_hash": "48941bd4d5cbfb6526f6f50f38593c0ea64ec0b6edde5a18f60d0c4a9b2810a1",
+        "scenario_id": "rl-train-graphql-worker-queue-pivot",
+        "steps": 4,
+        "unique": 2,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/multichain-rl-envs-20260607/roll_4.jsonl",
+      "scenario_id": "rl-train-graphql-worker-queue-pivot"
+    },
+    {
+      "res_path": "codex/results/training/multichain-rl-envs-20260607/res_5.json",
+      "result": {
+        "blocked_goal": true,
+        "flag": true,
+        "logged_in": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 26,
+        "scenario_hash": "9e95d2645a3ee27ef54a239f423f957574a4541f668eac65696477b7d7aaafc0",
+        "scenario_id": "rl-train-oauth-callback-service-token",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/multichain-rl-envs-20260607/roll_5.jsonl",
+      "scenario_id": "rl-train-oauth-callback-service-token"
     }
   ]
 }

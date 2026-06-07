@@ -1,5 +1,39 @@
 # Done Log
 
+- 2026-06-07: Blocked-goal recovery shaping for iter9 RL/teacher data. [TRAINING DATA]
+  - Updated `scripts/training/multichain_rl_envs_iter9.py` so every RL env
+    includes the diagnosed failure/recovery pattern:
+    premature goal attempt -> 403/blocked hint -> intermediate-resource
+    exploration -> revealed token/session/credential reuse -> successful retry.
+  - Added explicit `blocked_goal`, `recovered_after_block`, and
+    `used_revealed_value` signals to env observations/results and shaped
+    reward.
+  - Expanded the non-held-out RL env family from four to six scenarios by
+    adding GraphQL worker-queue pivot and OAuth callback service-token pivot
+    envs.
+  - Regenerated `codex/results/training/multichain-rl-envs-20260607/`; all six
+    oracle rollouts now solve and carry the recovery signals.
+  - Updated `scripts/training/generate_v4pro_demonstrated_chains_iter9.py` so
+    V4-Pro teacher prompts require the same blocked-goal recovery arc, and the
+    generator rejects rows that lack that arc before ingesting them.
+  - Added per-attempt output flushing and `--wall-seconds` support for
+    supervised, interrupt-tolerant V4-Pro scale runs.
+  - Refreshed iter7 and iter8 committed held-out registry snapshots so both
+    include the six iter9 RL env scenario hashes.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_multichain_rl_envs_iter9.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m ruff check scripts/training/generate_v4pro_demonstrated_chains_iter9.py scripts/training/multichain_rl_envs_iter9.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_multichain_rl_envs_iter9.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 -m compileall -q scripts/training/generate_v4pro_demonstrated_chains_iter9.py scripts/training/multichain_rl_envs_iter9.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_multichain_rl_envs_iter9.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 scripts/training/multichain_rl_envs_iter9.py --scripted-oracle --oracle-out-dir codex/results/training/multichain-rl-envs-20260607`;
+    `python3 scripts/training/build_iter8_training_artifact_pack.py`;
+    `python3 scripts/training/build_iter7_training_artifact_pack.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `git diff --check`.
+
 - 2026-06-07: V4-Pro teacher smoke and non-held-out RL envs. [TRAINING DATA]
   - Added `scripts/training/generate_v4pro_demonstrated_chains_iter9.py`, a
     secret-safe DeepSeek V4-Pro teacher generator that reads

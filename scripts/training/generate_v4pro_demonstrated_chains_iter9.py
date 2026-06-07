@@ -147,9 +147,18 @@ def teacher_messages(spec: TeacherScenario) -> list[dict[str, str]]:
         "actions and user TOOL OBSERVATION messages. The final assistant turn must set "
         "done=true and evidence.goal_satisfied=true. Keep runtime_execution=false and "
         "lab_only=true everywhere. Do not use real public targets, real secrets, malware, "
-        "destructive actions, brute force, credential dumping, or any held-out strings."
+        "destructive actions, brute force, credential dumping, or any held-out strings. "
+        "A valid demonstration must include a blocked-goal recovery arc: attempt the "
+        "goal endpoint too early, observe a bounded 403/blocked response with a hint, "
+        "backtrack to the hinted intermediate resource, use the revealed token/session/"
+        "credential, and retry the goal successfully."
     )
     user = {
+        "blocked_goal_recovery_required": {
+            "arc": "premature_goal_attempt -> 403_or_blocked_observation -> hinted_resource_exploration -> revealed_value_used -> successful_goal_retry",
+            "minimum_blocked_observations": 1,
+            "must_use_revealed_value_after_block": True,
+        },
         "chain_class": spec.chain_class,
         "domain": spec.domain,
         "forbidden_strings": list(HELD_OUT_STRINGS),
@@ -254,6 +263,110 @@ def _write_manifest(path: Path, manifest: dict[str, Any]) -> None:
     path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _has_blocked_goal_recovery_arc(row: dict[str, Any]) -> bool:
+    messages = row.get("messages")
+    if not isinstance(messages, list):
+        return False
+    contents = [str(item.get("content", "")) for item in messages if isinstance(item, dict)]
+    blocked_index = next(
+        (
+            idx
+            for idx, content in enumerate(contents)
+            if any(token in content.lower() for token in ("403", "blocked", "forbidden", "denied"))
+        ),
+        None,
+    )
+    if blocked_index is None:
+        return False
+    later = "\n".join(contents[blocked_index + 1 :]).lower()
+    recovered = any(
+        token in later
+        for token in (
+            "callback",
+            "credential",
+            "delegation",
+            "pivot",
+            "queue",
+            "recovery",
+            "session",
+            "token",
+        )
+    )
+    successful_retry = any('"done": true' in content.lower() or '"done":true' in content.lower() for content in contents[blocked_index + 1 :])
+    return recovered and successful_retry
+
+
+def _scenario_registry_rows(rows: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "case_id": row["metadata"]["case_id"],
+            "dataset_family": prefix,
+            "holdout_reason": "teacher_demonstrated_reserved_train",
+            "original_case_id": row["metadata"]["original_case_id"],
+            "scenario_hash": row["metadata"]["scenario_hash"],
+            "scenario_id": row["metadata"]["case_id"],
+            "source": "scripts/training/generate_v4pro_demonstrated_chains_iter9.py",
+            "split": "train",
+            "teacher_model": row["metadata"]["teacher_model"],
+        }
+        for row in rows
+    ]
+
+
+def _flush_outputs(
+    *,
+    accepted: list[dict[str, Any]],
+    attempts: int,
+    endpoint: str,
+    manifest_path: Path,
+    model: str,
+    prefix: str,
+    raw_path: Path,
+    raw_rows: list[dict[str, Any]],
+    rejected: list[dict[str, Any]],
+    rejected_path: Path,
+    requested_count: int,
+    scenario_registry_path: Path,
+    stopped_reason: str,
+    train_path: Path,
+) -> dict[str, Any]:
+    accepted = accepted[:requested_count]
+    scenario_registry_rows = _scenario_registry_rows(accepted, prefix)
+    write_jsonl(raw_path, raw_rows)
+    write_jsonl(train_path, accepted)
+    write_jsonl(rejected_path, rejected)
+    write_jsonl(scenario_registry_path, scenario_registry_rows)
+    manifest = {
+        "dataset": prefix,
+        "endpoint": endpoint,
+        "files": {
+            "raw_teacher": str(raw_path),
+            "rejected": str(rejected_path),
+            "scenario_registry": str(scenario_registry_path),
+            "train": str(train_path),
+        },
+        "model": model,
+        "policy": {
+            "blocked_goal_recovery_required": True,
+            "data_lane_only": True,
+            "held_out_guard": True,
+            "runtime_execution": False,
+            "secret_committed": False,
+            "train_only": True,
+            "v4pro_demonstrated_rows": True,
+        },
+        "stats": {
+            "accepted_count": len(accepted),
+            "attempts": attempts,
+            "rejected_count": len(rejected),
+            "requested_count": requested_count,
+            "stopped_reason": stopped_reason,
+        },
+    }
+    _write_manifest(manifest_path, manifest)
+    return manifest
+
+
 def build_dataset(
     *,
     count: int,
@@ -269,6 +382,7 @@ def build_dataset(
     registry_path: Path | None = None,
     secret_file: Path | None = None,
     sleep_seconds: float = 0.0,
+    wall_seconds: float | None = None,
 ) -> dict[str, Any]:
     api_key = read_secret_key(secret_file)
     if not api_key:
@@ -281,12 +395,14 @@ def build_dataset(
     scenario_registry_path = out_dir / f"{prefix}_scenario_registry.jsonl"
     manifest_path = out_dir / f"{prefix}_manifest.json"
 
-    plans = scenario_plan(max_attempts or count, seed=seed)
+    limit = max_attempts or max(count * 3, count)
+    plans = scenario_plan(limit, seed=seed)
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     raw_rows: list[dict[str, Any]] = []
     attempts = 0
-    limit = max_attempts or max(count * 3, count)
+    start_time = time.monotonic()
+    stopped_reason = "completed"
     for spec in plans[:limit]:
         if len(accepted) >= count:
             break
@@ -316,6 +432,8 @@ def build_dataset(
             metadata.setdefault("teacher_model", model)
             candidate["metadata"] = metadata
             raw_rows.append(candidate)
+            if not _has_blocked_goal_recovery_arc(candidate):
+                raise ValueError("missing_blocked_goal_recovery_arc")
             ingested = ingest_rows(
                 [candidate],
                 registry=registry,
@@ -342,55 +460,47 @@ def build_dataset(
                     "reason": f"teacher_error:{type(exc).__name__}",
                 }
             )
+        _flush_outputs(
+            accepted=accepted,
+            attempts=attempts,
+            endpoint=endpoint,
+            manifest_path=manifest_path,
+            model=model,
+            prefix=prefix,
+            raw_path=raw_path,
+            raw_rows=raw_rows,
+            rejected=rejected,
+            rejected_path=rejected_path,
+            requested_count=count,
+            scenario_registry_path=scenario_registry_path,
+            stopped_reason="running",
+            train_path=train_path,
+        )
         if sleep_seconds:
             time.sleep(sleep_seconds)
+        if wall_seconds is not None and time.monotonic() - start_time >= wall_seconds and len(accepted) < count:
+            stopped_reason = "wall_seconds"
+            break
 
     accepted = accepted[:count]
-    scenario_registry_rows = [
-        {
-            "case_id": row["metadata"]["case_id"],
-            "dataset_family": prefix,
-            "holdout_reason": "teacher_demonstrated_reserved_train",
-            "original_case_id": row["metadata"]["original_case_id"],
-            "scenario_hash": row["metadata"]["scenario_hash"],
-            "scenario_id": row["metadata"]["case_id"],
-            "source": "scripts/training/generate_v4pro_demonstrated_chains_iter9.py",
-            "split": "train",
-            "teacher_model": row["metadata"]["teacher_model"],
-        }
-        for row in accepted
-    ]
-    write_jsonl(raw_path, raw_rows)
-    write_jsonl(train_path, accepted)
-    write_jsonl(rejected_path, rejected)
-    write_jsonl(scenario_registry_path, scenario_registry_rows)
-    manifest = {
-        "dataset": prefix,
-        "endpoint": endpoint,
-        "files": {
-            "raw_teacher": str(raw_path),
-            "rejected": str(rejected_path),
-            "scenario_registry": str(scenario_registry_path),
-            "train": str(train_path),
-        },
-        "model": model,
-        "policy": {
-            "data_lane_only": True,
-            "held_out_guard": True,
-            "runtime_execution": False,
-            "secret_committed": False,
-            "train_only": True,
-            "v4pro_demonstrated_rows": True,
-        },
-        "stats": {
-            "accepted_count": len(accepted),
-            "attempts": attempts,
-            "rejected_count": len(rejected),
-            "requested_count": count,
-        },
-    }
-    _write_manifest(manifest_path, manifest)
-    return manifest
+    if len(accepted) < count and stopped_reason == "completed":
+        stopped_reason = "attempt_limit"
+    return _flush_outputs(
+        accepted=accepted,
+        attempts=attempts,
+        endpoint=endpoint,
+        manifest_path=manifest_path,
+        model=model,
+        prefix=prefix,
+        raw_path=raw_path,
+        raw_rows=raw_rows,
+        rejected=rejected,
+        rejected_path=rejected_path,
+        requested_count=count,
+        scenario_registry_path=scenario_registry_path,
+        stopped_reason=stopped_reason,
+        train_path=train_path,
+    )
 
 
 def main() -> None:
@@ -408,6 +518,7 @@ def main() -> None:
     parser.add_argument("--registry", type=Path)
     parser.add_argument("--secret-file", type=Path)
     parser.add_argument("--sleep-seconds", type=float, default=0.0)
+    parser.add_argument("--wall-seconds", type=float)
     args = parser.parse_args()
     manifest = build_dataset(
         count=args.count,
@@ -423,6 +534,7 @@ def main() -> None:
         registry_path=args.registry,
         secret_file=args.secret_file,
         sleep_seconds=args.sleep_seconds,
+        wall_seconds=args.wall_seconds,
     )
     print(json.dumps(manifest, indent=2, sort_keys=True))
 
