@@ -40,6 +40,19 @@ interactive envs will — but the deep-chain env is **held-out** (using it = con
 - These become the **rollout/RL training envs** Claude's jury + `jury_rollout.py` consume.
   Claude RLs on these (training) and evaluates on the held-out deep-chain (clean transfer test).
 
+**Diagnostic (Claude, 2026-06-07) — what the reward must target.** On the held-out
+deep-chain, both combined-SFT and DPO now reliably LOG IN (multi-turn auth is solved),
+but the env is *generous* (landing page lists `/notes`; login 302-redirects to `/notes`;
+`/notes` explicitly reveals the IDOR surface; the 403 says "admin token required") and the
+model STILL fails — it tunnel-visions on the goal endpoint, ignores the redirect/links,
+hits the 403, and **gives up instead of backtracking to explore for the pivot**. So the
+env is fair (V4-Pro solves it); the missing behavior is precisely
+**"blocked at the goal → backtrack → explore the hinted intermediate resource → find the
+pivot → retry."** P2 shaped reward should reward exactly that recovery: +reward for
+visiting a hinted-but-not-yet-visited resource after a block, and for using a
+credential/token revealed in an earlier response. P1 teacher demos should include a
+*premature goal attempt → block → recover-by-exploring → succeed* arc, not just the happy path.
+
 ## P3 — Hygiene (with P1/P2)
 
 - Add every new env + every demonstrated-data scenario_hash to the **held-out registry**
