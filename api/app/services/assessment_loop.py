@@ -5942,6 +5942,15 @@ def _queue_passive_loop_task(
         _src_dir = str((_as_dict(getattr(run, "configuration_json", None)) or {}).get("source_dir") or "").strip()
         if _src_dir:
             enriched_params["source_dir"] = _src_dir
+    # The model-driven exploit runners default to _DEFAULT_MODEL=claude-opus-4-8 -> the
+    # anthropic adapter -> "ANTHROPIC_API_KEY not set" -> the core exploit engine FAILS on
+    # every non-anthropic run (observed on Gruyere: the picker drove 37 tasks on
+    # chatgpt_oauth, but interactive-exploit still tried Claude and exit-2'd). Inherit the
+    # run's provider so the exploit tool talks to the same backend the picker does.
+    if candidate.tool in {"interactive-exploit", "code-exec-attack"} and "model" not in enriched_params:
+        _prov = str((_as_dict(getattr(run, "configuration_json", None)) or {}).get("llm_provider") or "").strip()
+        if _prov:
+            enriched_params["model"] = _prov
     task = Task(
         run=run,
         tool=candidate.tool,
