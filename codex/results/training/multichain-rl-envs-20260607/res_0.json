@@ -1,0 +1,10 @@
+{
+  "flag": true,
+  "logged_in": true,
+  "pivot": true,
+  "reward": 19,
+  "scenario_hash": "3ed82cad39d4274d1a34fbc4f737a5b35d86b76239e0a833b028de2962078149",
+  "scenario_id": "rl-train-idormap-case-review-token",
+  "steps": 5,
+  "unique": 5
+}

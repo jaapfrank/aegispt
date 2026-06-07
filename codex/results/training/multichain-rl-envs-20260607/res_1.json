@@ -1,0 +1,10 @@
+{
+  "flag": true,
+  "logged_in": true,
+  "pivot": true,
+  "reward": 19,
+  "scenario_hash": "48a56c1124a63343e02f76b8c74d81fa9aefddd86ca93dada1aa6aac84f58d0d",
+  "scenario_id": "rl-train-ssrf-recovery-ticket",
+  "steps": 5,
+  "unique": 4
+}

@@ -1,5 +1,75 @@
 # Current State
 
+## Latest Continuation - V4-Pro teacher smoke + RL training envs (2026-06-07)
+
+Codex picked up `docs/strategy/codex-handoff-2026-06-07.md` and implemented
+the next data-lane/RL slice without changing the active score-lane task.
+
+P1 V4-Pro demonstrated data:
+
+- added `scripts/training/generate_v4pro_demonstrated_chains_iter9.py`
+- the generator reads `DEEPSEEK_API_KEY` from the environment or
+  `~/.aegispt-secrets` at runtime; the key is never printed or written
+- endpoint/model defaults:
+  - `https://api.deepseek.com/v1/chat/completions`
+  - `deepseek-v4-pro`
+  - `max_tokens=8192`
+  - JSON response mode enabled
+- generated one real DeepSeek V4-Pro teacher row and passed it through the
+  ingest guard into:
+  - `codex/results/training/v4pro-demonstrated-chains-20260607-accepted/aegispt_v4pro_demonstrated_chains_iter9_train.jsonl`
+  - `codex/results/training/v4pro-demonstrated-chains-20260607-accepted/aegispt_v4pro_demonstrated_chains_iter9_scenario_registry.jsonl`
+  - manifest + empty rejected JSONL in the same directory
+- the accepted row has 6 assistant turns and `rejected_count=0`
+- a wider 5-row live batch was attempted but stopped after ~10 minutes because
+  V4-Pro reasoning was too slow for this turn; the generator is now ready for
+  supervised longer-running scale generation
+
+P2 interactive RL envs:
+
+- added `scripts/training/multichain_rl_envs_iter9.py`
+- dataset family: `aegispt_multichain_rl_envs_iter9`
+- four non-held-out envs:
+  - `rl-train-idormap-case-review-token`
+  - `rl-train-ssrf-recovery-ticket`
+  - `rl-train-lowpriv-delegated-admin`
+  - `rl-train-credential-reuse-lateral-wiki`
+- each env exposes JSON action -> HTTP-style observation, deterministic oracle,
+  shaped reward, `logged_in`/`pivot`/`flag` progress signals, and
+  `scenario_hash`
+- oracle rollout artifacts were written under
+  `codex/results/training/multichain-rl-envs-20260607/` as `roll_*.jsonl` plus
+  `res_*.json`, compatible with `scripts/training/jury_rollout.py`
+
+P3 hygiene:
+
+- `scripts/training/make_lab_truth_heldout_registry_iter6.py` now includes the
+  iter9 RL env scenario IDs/hashes as registry entries with
+  `holdout_reason=iter9_rl_training_env_reserved`
+- `scripts/training/ingest_v4pro_demonstrated_chains_iter8.py` now checks
+  `scenario_hash` collisions in addition to scenario/case/target IDs
+- the V4-Pro ingest normalizes safe teacher quirks observed live:
+  non-object `safety` is repaired to lab-only/runtime=false, and a final
+  `none` action without `args` is repaired to `args: {}`
+- demonstrated rows now emit a scenario-registry JSONL alongside train/rejected
+  outputs
+
+No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed. T-CHAIN1 remains active and not live-proven.
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_v4pro_demonstrated_ingest_iter8.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_multichain_rl_envs_iter9.py`
+- `python3 scripts/training/generate_v4pro_demonstrated_chains_iter9.py --count 1 --max-attempts 1 --max-tokens 8192 --temperature 0.2 --timeout 120 --out-dir codex/results/training/v4pro-demonstrated-chains-20260607-smoke-8192`
+- `python3 scripts/training/ingest_v4pro_demonstrated_chains_iter8.py <raw-teacher-jsonl> --out-dir codex/results/training/v4pro-demonstrated-chains-20260607-accepted --prefix aegispt_v4pro_demonstrated_chains_iter9 --teacher-model deepseek-v4-pro`
+- `python3 scripts/training/multichain_rl_envs_iter9.py --scripted-oracle --oracle-out-dir codex/results/training/multichain-rl-envs-20260607`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m ruff check scripts/training/generate_v4pro_demonstrated_chains_iter9.py scripts/training/ingest_v4pro_demonstrated_chains_iter8.py scripts/training/multichain_rl_envs_iter9.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_v4pro_demonstrated_ingest_iter8.py scripts/tests/test_multichain_rl_envs_iter9.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `python3 -m compileall -q scripts/training/generate_v4pro_demonstrated_chains_iter9.py scripts/training/ingest_v4pro_demonstrated_chains_iter8.py scripts/training/multichain_rl_envs_iter9.py scripts/training/make_lab_truth_heldout_registry_iter6.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `git diff --check`
+
 ## Latest Continuation - V4-Pro demonstration ingest guard (2026-06-07)
 
 Codex cannot generate genuine V4-Pro-demonstrated trajectories in this shell

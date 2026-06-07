@@ -63,3 +63,59 @@ credential/token revealed in an earlier response. P1 teacher demos should includ
 Claude's side (parallel): DPO-LLMSVS gate (running) → IDOR-focus re-tune gate → if it hits
 the wall, RL on your P2 envs. Jury flywheel (reviewers/calibration/committee/process-reward)
 is complete and ready to consume P1 data + P2 rollouts.
+
+## Codex implementation status — 2026-06-07
+
+### P1 status
+
+Codex added `scripts/training/generate_v4pro_demonstrated_chains_iter9.py`.
+The generator:
+
+- reads `DEEPSEEK_API_KEY` only at runtime from env or `~/.aegispt-secrets`
+- uses `https://api.deepseek.com/v1/chat/completions`
+- defaults to model `deepseek-v4-pro`, JSON response mode, and
+  `max_tokens=8192`
+- writes raw teacher rows, accepted train rows, rejected rows, manifest, and a
+  demonstrated scenario-registry JSONL
+- immediately routes candidates through
+  `scripts/training/ingest_v4pro_demonstrated_chains_iter8.py`
+
+Live provider proof:
+
+- one real V4-Pro teacher row was generated and accepted after safe ingest
+  normalization
+- accepted artifact:
+  `codex/results/training/v4pro-demonstrated-chains-20260607-accepted/aegispt_v4pro_demonstrated_chains_iter9_train.jsonl`
+- stats: `accepted_count=1`, `assistant_turns={"6":1}`, `rejected_count=0`
+
+Scale note: Codex attempted a wider 5-row batch, but stopped it after ~10
+minutes because V4-Pro reasoning was too slow for this turn. The script is ready
+for a supervised longer-running generation job.
+
+### P2 status
+
+Codex added `scripts/training/multichain_rl_envs_iter9.py` with four
+non-held-out interactive RL envs:
+
+- `rl-train-idormap-case-review-token`
+- `rl-train-ssrf-recovery-ticket`
+- `rl-train-lowpriv-delegated-admin`
+- `rl-train-credential-reuse-lateral-wiki`
+
+Each env exposes JSON action -> HTTP-style observation, deterministic oracle,
+shaped reward, `logged_in` / `pivot` / `flag` signals, and a `scenario_hash`.
+Oracle rollout artifacts are committed under:
+
+`codex/results/training/multichain-rl-envs-20260607/`
+
+They use `roll_*.jsonl` + `res_*.json`, so
+`scripts/training/jury_rollout.py` can rank them directly.
+
+### P3 status
+
+- `scripts/training/make_lab_truth_heldout_registry_iter6.py` includes iter9 RL
+  env registry entries with `scenario_hash`
+- the V4-Pro ingest guard now rejects held-out collisions by `scenario_hash`
+  as well as scenario/case/target IDs
+- demonstrated ingest emits a scenario-registry JSONL for accepted rows
+- the held-out deep-chain markers/routes remain rejected

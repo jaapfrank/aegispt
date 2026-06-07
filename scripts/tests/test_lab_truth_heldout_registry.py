@@ -20,6 +20,7 @@ from scripts.training.make_multiturn_agentic_chain_iter6 import (
 from scripts.training.make_multiturn_chaintype_diversity_iter7 import (
     DEFAULT_PREFIX as CHAINTYPE_PREFIX,
 )
+from scripts.training.multichain_rl_envs_iter9 import DEFAULT_PREFIX as RL_ENV_PREFIX
 
 
 def small_registry():
@@ -63,6 +64,7 @@ def test_held_out_registry_contains_exact_eval_test_and_benchmark_ids():
     assert stats["held_out_by_family"][MULTITURN_PREFIX] == 32
     assert stats["held_out_by_family"][CHAINTYPE_PREFIX] == 16
     assert stats["held_out_by_family"][MULTISERVICE_PREFIX] == 16
+    assert stats["held_out_by_family"][RL_ENV_PREFIX] == 4
     assert stats["held_out_by_family"]["aegispt-lab-suite-v1"] >= 1
     assert is_held_out_scenario(registry, "deep_chain_eval")
     assert is_held_out_scenario(registry, "ssrf-loopback-metadata")
@@ -75,6 +77,10 @@ def test_held_out_registry_contains_exact_eval_test_and_benchmark_ids():
     )
     assert any(
         "-test-" in row["scenario_id"] for row in registry["held_out_scenarios"]
+    )
+    assert any(
+        row["dataset_family"] == RL_ENV_PREFIX and row.get("scenario_hash")
+        for row in registry["held_out_scenarios"]
     )
 
 

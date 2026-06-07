@@ -1,0 +1,26 @@
+{
+  "dataset": "aegispt_v4pro_demonstrated_chains_iter9",
+  "files": {
+    "rejected": "codex/results/training/v4pro-demonstrated-chains-20260607-accepted/aegispt_v4pro_demonstrated_chains_iter9_rejected.jsonl",
+    "scenario_registry": "codex/results/training/v4pro-demonstrated-chains-20260607-accepted/aegispt_v4pro_demonstrated_chains_iter9_scenario_registry.jsonl",
+    "train": "codex/results/training/v4pro-demonstrated-chains-20260607-accepted/aegispt_v4pro_demonstrated_chains_iter9_train.jsonl"
+  },
+  "format": "jsonl chat sft rows",
+  "policy": {
+    "data_lane_only": true,
+    "held_out_guard": true,
+    "runtime_execution": false,
+    "train_only": true,
+    "v4pro_rows_must_be_external_demonstrations": true
+  },
+  "stats": {
+    "accepted_count": 1,
+    "assistant_turns": {
+      "6": 1
+    },
+    "rejected_by_reason": {},
+    "rejected_count": 0,
+    "source_count": 1
+  },
+  "teacher_model": "deepseek-v4-pro"
+}

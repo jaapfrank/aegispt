@@ -30,6 +30,7 @@ def test_v4pro_demonstrated_ingest_normalizes_safe_non_held_out_rows(tmp_path):
     assert row["metadata"]["dataset_family"] == DEFAULT_PREFIX
     assert row["metadata"]["source_dataset_family"] == "external_v4pro_export"
     assert row["metadata"]["original_case_id"] == "teacher-safe-non-held-out"
+    assert row["metadata"]["scenario_hash"]
     assert row["metadata"]["split"] == "train"
     assert "teacher_demonstrated" in row["metadata"]["safety_tags"]
 
@@ -55,6 +56,49 @@ def test_v4pro_demonstrated_ingest_rejects_held_out_rows():
     assert result["stats"]["accepted_count"] == 0
     assert result["stats"]["rejected_count"] == 1
     assert result["rejected"][0]["reason"].startswith("held_out_scenario:")
+
+
+def test_v4pro_demonstrated_ingest_rejects_held_out_scenario_hash():
+    candidate = generate_rows(1, split="train")[0]
+    candidate["metadata"]["scenario_hash"] = "blocked-hash"
+    registry = {
+        "held_out_scenarios": [{"scenario_hash": "blocked-hash", "scenario_id": "some-held-out"}],
+        "lab_truth_scenarios": [],
+    }
+
+    result = ingest_rows([candidate], registry=registry, fail_on_rejected=False)
+
+    assert result["stats"]["accepted_count"] == 0
+    assert result["rejected"][0]["reason"].startswith("held_out_scenario:")
+
+
+def test_v4pro_demonstrated_ingest_repairs_safe_teacher_shape():
+    candidate = generate_rows(1, split="train")[0]
+    for message in candidate["messages"]:
+        if message["role"] != "assistant":
+            continue
+        payload = json.loads(message["content"])
+        payload["safety"] = "lab-only"
+        if payload["done"] is True:
+            payload["next_action"].pop("args", None)
+        message["content"] = json.dumps(payload, sort_keys=True)
+    registry = build_registry(
+        llmsvs_count=18,
+        multiturn_counts={"eval": 1, "test": 1},
+        chaintype_counts={"eval": 1, "test": 1},
+        multiservice_counts={"eval": 1, "test": 1},
+    )
+
+    result = ingest_rows([candidate], registry=registry)
+
+    assert result["stats"]["accepted_count"] == 1
+    final = [
+        json.loads(message["content"])
+        for message in result["accepted"][0]["messages"]
+        if message["role"] == "assistant"
+    ][-1]
+    assert final["next_action"]["args"] == {}
+    assert final["safety"]["runtime_execution"] is False
 
 
 def test_v4pro_demonstrated_ingest_fails_closed_on_rejected_rows():
@@ -90,5 +134,11 @@ def test_v4pro_demonstrated_ingest_writes_train_only_dataset(tmp_path):
         json.loads(line)
         for line in (tmp_path / f"{DEFAULT_PREFIX}_train.jsonl").read_text(encoding="utf-8").splitlines()
     ]
+    registry_rows = [
+        json.loads(line)
+        for line in (tmp_path / f"{DEFAULT_PREFIX}_scenario_registry.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
     assert len(rows) == 1
+    assert len(registry_rows) == 1
+    assert registry_rows[0]["scenario_hash"] == rows[0]["metadata"]["scenario_hash"]
     assert rows[0]["metadata"]["teacher_model"] == "v4-pro-test"

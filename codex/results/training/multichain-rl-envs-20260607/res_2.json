@@ -1,0 +1,10 @@
+{
+  "flag": true,
+  "logged_in": true,
+  "pivot": true,
+  "reward": 19,
+  "scenario_hash": "4d558093f17120133b79328a1733f76483addbc27ec08c28c1b1201360c113b1",
+  "scenario_id": "rl-train-lowpriv-delegated-admin",
+  "steps": 5,
+  "unique": 5
+}

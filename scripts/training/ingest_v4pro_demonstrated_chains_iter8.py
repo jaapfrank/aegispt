@@ -95,7 +95,7 @@ def read_input_rows(paths: list[Path]) -> list[dict[str, Any]]:
 def held_out_ids(registry: dict[str, Any]) -> set[str]:
     ids: set[str] = set()
     for row in registry.get("held_out_scenarios", []):
-        for key in ("scenario_id", "case_id", "qualified_scenario_id", "target_id"):
+        for key in ("scenario_id", "case_id", "qualified_scenario_id", "target_id", "scenario_hash"):
             value = row.get(key)
             if value:
                 ids.add(str(value))
@@ -114,6 +114,7 @@ def candidate_ids(row: dict[str, Any]) -> set[str]:
             "challenge_id",
             "qualified_scenario_id",
             "original_case_id",
+            "scenario_hash",
         ):
             value = source.get(key)
             if value:
@@ -137,6 +138,13 @@ def _assistant_payloads(row: dict[str, Any]) -> list[dict[str, Any]]:
             raise IngestRejected("assistant_content_not_json") from exc
         if set(payload) != REQUIRED_ASSISTANT_KEYS:
             raise IngestRejected("assistant_schema_mismatch")
+        next_action = payload.get("next_action")
+        if isinstance(next_action, dict) and "args" not in next_action:
+            next_action = dict(next_action)
+            next_action["args"] = {}
+            payload["next_action"] = next_action
+        if not isinstance(payload.get("safety"), dict):
+            payload["safety"] = {}
         assistants.append(payload)
     if len(assistants) < 2:
         raise IngestRejected("too_few_assistant_turns")
@@ -201,7 +209,12 @@ def normalize_candidate(
             )
             continue
         payload = json.loads(str(message.get("content", "")))
-        safety = dict(payload["safety"])
+        next_action = payload.get("next_action")
+        if isinstance(next_action, dict) and "args" not in next_action:
+            next_action = dict(next_action)
+            next_action["args"] = {}
+            payload["next_action"] = next_action
+        safety = dict(payload["safety"]) if isinstance(payload.get("safety"), dict) else {}
         safety["dataset_family"] = prefix
         safety["lab_only"] = True
         safety["runtime_execution"] = False
@@ -221,6 +234,7 @@ def normalize_candidate(
             "lab_only": True,
             "original_case_id": original_case_id,
             "runtime_execution": False,
+            "scenario_hash": _sha256_text(original_case_id),
             "source_dataset_family": source_family,
             "split": "train",
             "teacher_model": str(metadata.get("teacher_model") or teacher_model),
@@ -314,12 +328,29 @@ def build_dataset(
     train_path = out_dir / f"{prefix}_train.jsonl"
     manifest_path = out_dir / f"{prefix}_manifest.json"
     rejected_path = out_dir / f"{prefix}_rejected.jsonl"
+    scenario_registry_path = out_dir / f"{prefix}_scenario_registry.jsonl"
     write_jsonl(train_path, result["accepted"])
     write_jsonl(rejected_path, result["rejected"])
+    scenario_registry_rows = [
+        {
+            "case_id": row["metadata"]["case_id"],
+            "dataset_family": prefix,
+            "holdout_reason": "teacher_demonstrated_reserved_train",
+            "original_case_id": row["metadata"]["original_case_id"],
+            "scenario_hash": row["metadata"]["scenario_hash"],
+            "scenario_id": row["metadata"]["case_id"],
+            "source": "scripts/training/ingest_v4pro_demonstrated_chains_iter8.py",
+            "split": "train",
+            "teacher_model": row["metadata"]["teacher_model"],
+        }
+        for row in result["accepted"]
+    ]
+    write_jsonl(scenario_registry_path, scenario_registry_rows)
     manifest = {
         "dataset": prefix,
         "files": {
             "rejected": str(rejected_path),
+            "scenario_registry": str(scenario_registry_path),
             "train": str(train_path),
         },
         "format": "jsonl chat sft rows",
