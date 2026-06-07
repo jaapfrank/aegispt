@@ -1,5 +1,32 @@
 # Done Log
 
+- 2026-06-08: Rework 4 research reset and Shannon comparison. [STRATEGY]
+  - Added `docs/strategy/rework4-shannon-research-reset-2026-06-08.md`.
+  - Inspected KeygraphHQ Shannon at upstream commit
+    `0a1a2eb1c11a05891bcae248bfacd92ee77af1a7` and compared its white-box
+    web/API, source-guided, proof-by-exploitation loop with AegisPT.
+  - Reviewed adjacent research and agent patterns: PentestGPT, EnIGMA,
+    HackSynth, automated penetration-testing research, ReAct, Reflexion,
+    SWE-agent, Tree of Thoughts, and CHECKMATE.
+  - Recorded the main conclusion: AegisPT's live-capability bottleneck is not
+    primarily small-model size; it is the missing hard loop from
+    source/runtime signal to candidate queue to stateful exploit attempt to
+    evidence verdict to report/no-finding label.
+  - Recommended a reset path:
+    canonical score/evidence ledger; narrow source-aware web/API scope;
+    source-to-exploit candidate queue; stateful runner sessions; callback/
+    victim evidence for headless XSS and SSRF; and small-model training only as
+    a bounded policy/ranking layer after live traces exist.
+  - Called out current score drift: generated XBEN gap artifacts still report
+    17/104 solved while older narrative docs mention larger deltas. Generated
+    validation artifacts should become the source of truth.
+  - Noted the queued V4-Pro top-up completion in the iter9 SFT mix:
+    `selected_total=16917`, `v4pro_demonstrated_iter9=118`, and
+    `held_out_hashes=2892`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: E2 web-source V4-Pro top-up tooling. [TRAINING DATA TOOLING]
   - Added `scripts/training/generate_v4pro_web_source_gap_topup_iter10.py`.
   - Added `scripts/tests/test_v4pro_web_source_gap_topup_iter10.py` and

@@ -1,5 +1,62 @@
 # Current State
 
+## Latest Continuation - Rework 4 research reset and Shannon comparison (2026-06-08)
+
+Codex completed an evidence-backed strategy reset after the user flagged that
+the project is in rework 4 and still not gaining live capability despite model
+training and multiple data lanes. The active score-lane task remains T-CHAIN1;
+`NEXT_TASK.md` and `TASK_QUEUE.md` were not changed.
+
+New durable analysis:
+
+- added `docs/strategy/rework4-shannon-research-reset-2026-06-08.md`
+- compared AegisPT against KeygraphHQ Shannon, inspected at upstream commit
+  `0a1a2eb1c11a05891bcae248bfacd92ee77af1a7`
+- reviewed adjacent agent/pentest research: PentestGPT, EnIGMA, HackSynth,
+  automated penetration-testing surveys, ReAct, Reflexion, SWE-agent, Tree of
+  Thoughts, and CHECKMATE
+
+Primary conclusion:
+
+- AegisPT's bottleneck is not mainly small-model capacity; it is the missing
+  hard proof loop between source/runtime signal, candidate queue, stateful
+  exploit attempt, evidence verdict, and report/no-finding label
+- Shannon is ahead because it is narrower and stricter: source-aware web/API
+  scope, specialized vuln/exploit lanes, authenticated configuration,
+  resumable workspace state, and proof-by-exploitation reporting
+- AegisPT should pause broad rework and treat training as a subordinate policy
+  layer until the runner produces canonical evidence traces
+
+Immediate recommended reset path:
+
+- create one canonical score/evidence ledger and demote contradictory narrative
+  docs to history unless regenerated from the ledger
+- narrow the next capability target to source-aware web/API XBEN-style labs
+- build a source-to-exploit candidate queue with mandatory tested/blocked/
+  exploited/false-positive states
+- add stateful exploit sessions and callback/victim evidence for headless XSS
+  and SSRF classes
+- resume small-model training only for bounded policy/ranking decisions after
+  live runner traces exist
+
+Observed repo drift called out by the analysis:
+
+- current generated XBEN gap matrix reports `challenge_count=104`,
+  `solved_count=17`, `attempted_no_solve=18`, `infra_blocked_or_crashed=5`,
+  and `unknown_untriaged=64`
+- current triage backlog reports `item_count=87`, all under
+  `covered_needs_rollout_eval`, with `source_triage_required_count=0`
+- older narrative docs mention larger solved deltas; generated validation
+  artifacts must become the source of truth
+
+Background data-lane completion noticed during this slice:
+
+- the iter9 combined SFT mix was rebuilt by the queued V4-Pro top-up flow
+- manifest now reports `selected_total=16917`,
+  `v4pro_demonstrated_iter9=118`, and `held_out_hashes=2892`
+- this is useful teacher material, but it is not counted as capability progress
+  until it improves the canonical held-out/live evidence ledger
+
 ## Latest Continuation - E2 web-source V4-Pro top-up tooling (2026-06-07)
 
 Codex continued the data-lane without changing the active score-lane task.
