@@ -803,3 +803,57 @@ Commit guidance:
   explicitly reviewed
 - after completion, commit only accepted train rows, manifest, scenario
   registry, and any derived mix/quality report that passes the guard
+
+### E2c — V4-Pro demonstrated web-source-gap top-up
+
+Tooling is done; the cloud generation should wait until the active
+other-stack V4-Pro top-up exits or reaches quota.
+
+Added:
+
+- `scripts/training/generate_v4pro_web_source_gap_topup_iter10.py`
+- `scripts/tests/test_v4pro_web_source_gap_topup_iter10.py`
+
+Dataset family:
+
+- `aegispt_v4pro_web_source_gap_topup_iter10`
+
+Target classes:
+
+- `sqli_filter_bypass`
+- `file_upload_webroot`
+- `path_traversal_file_read`
+- `static_file_or_server_misconfig`
+
+Generator contract:
+
+- reuses the existing DeepSeek/V4-Pro endpoint path
+- reuses `ingest_v4pro_demonstrated_chains_iter8.py`
+- accepted rows require a real blocked/403 `TOOL OBSERVATION`
+- accepted rows then backtrack to the hinted source-backed evidence resource,
+  reuse a bounded evidence/proof value, and end with final `done=true`
+- accepted rows require structured `next_action.args`; request bodies must be
+  empty or bounded lab-evidence JSON
+- payload-like bodies are rejected before ingest
+- policy: data-lane only, fictional lab hosts, payload-free, no runtime
+  execution, no runtime binding, no committed secret
+
+Suggested launch after `aegispt_v4pro_e2_otherstack_topup` finishes:
+
+`python3 scripts/training/generate_v4pro_web_source_gap_topup_iter10.py --out-dir codex/results/training/v4pro-web-source-gap-topup-20260607 --target-min-per-class 4 --max-attempts 96 --max-tokens 8192 --timeout 300 --wall-seconds 21600`
+
+Commit guidance:
+
+- raw teacher/rejected/log/status artifacts should stay uncommitted unless
+  explicitly reviewed
+- after completion, commit only accepted train rows, manifest, and scenario
+  registry that pass the guard
+
+Status checkpoint after this Codex slice:
+
+- E1: source triage closed (`source_triage_required=0`)
+- E2 deterministic env/demo coverage: closed (`known_gap_needs_data=0`)
+- E2 other-stack V4-Pro: active tmux job, checkpoint 12 accepted / 44
+  attempts
+- E2 web-source V4-Pro: tooling ready, generation queued/not parallelized
+- E3: per-class transfer harness done

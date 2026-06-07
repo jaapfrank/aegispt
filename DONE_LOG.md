@@ -1,5 +1,40 @@
 # Done Log
 
+- 2026-06-07: E2 web-source V4-Pro top-up tooling. [TRAINING DATA TOOLING]
+  - Added `scripts/training/generate_v4pro_web_source_gap_topup_iter10.py`.
+  - Added `scripts/tests/test_v4pro_web_source_gap_topup_iter10.py` and
+    wired it into `scripts/run_data_lane_tests.sh`.
+  - Dataset family: `aegispt_v4pro_web_source_gap_topup_iter10`.
+  - Target classes:
+    `sqli_filter_bypass`, `file_upload_webroot`,
+    `path_traversal_file_read`, and
+    `static_file_or_server_misconfig`.
+  - The generator reuses the existing DeepSeek/V4-Pro endpoint path plus
+    `scripts/training/ingest_v4pro_demonstrated_chains_iter8.py`.
+  - Accepted rows require a real blocked/403 `TOOL OBSERVATION`, backtracking
+    to the hinted source-backed evidence resource, reuse of a bounded
+    evidence/proof value, and final `done=true`.
+  - Accepted rows require structured `next_action.args`; request bodies are
+    empty or bounded lab-evidence JSON only, so payload-like bodies are rejected
+    before ingest.
+  - Policy guardrails: data-lane only, fictional lab hosts, payload-free, no
+    runtime execution, no runtime binding, and no committed secret.
+  - The existing other-stack V4-Pro top-up remains active in tmux
+    `aegispt_v4pro_e2_otherstack_topup`; the validation checkpoint during this
+    slice was 12 accepted rows / 44 attempts. The web-source top-up should be
+    launched only after that job exits or reaches quota, not in parallel.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_other_stack_topup_iter10.py scripts/tests/test_web_source_gap_recovery_envs_iter10.py`;
+    `python3 -m compileall -q scripts/training/generate_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_web_source_gap_topup_iter10.py`;
+    `python3 -m ruff check scripts/training/generate_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_web_source_gap_topup_iter10.py`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: E2 web source-gap recovery env/demo coverage. [TRAINING DATA]
   - Added `scripts/training/web_source_gap_recovery_envs_iter10.py`.
   - Added `scripts/tests/test_web_source_gap_recovery_envs_iter10.py` and

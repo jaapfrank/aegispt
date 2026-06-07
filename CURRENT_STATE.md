@@ -1,5 +1,62 @@
 # Current State
 
+## Latest Continuation - E2 web-source V4-Pro top-up tooling (2026-06-07)
+
+Codex continued the data-lane without changing the active score-lane task.
+T-CHAIN1 remains active and not live-proven; `NEXT_TASK.md` and
+`TASK_QUEUE.md` were not changed.
+
+E-lane receipt status:
+
+- E1 source triage is complete: 57/57 source-triage rows classified from
+  direct source-rule evidence; `source_triage_required=0`
+- E2 deterministic recovery envs/demos are complete for both other-stack and
+  web source-gap buckets; D6 backlog reports `known_gap_needs_data=0`
+- E3 per-class transfer matrix harness is complete and consumes D2
+  held-out `res_*.json` artifacts
+
+New E2b web-source V4-Pro top-up tooling:
+
+- added `scripts/training/generate_v4pro_web_source_gap_topup_iter10.py`
+- added `scripts/tests/test_v4pro_web_source_gap_topup_iter10.py`
+- wired the test into `scripts/run_data_lane_tests.sh`
+- dataset family: `aegispt_v4pro_web_source_gap_topup_iter10`
+- target classes:
+  - `sqli_filter_bypass`
+  - `file_upload_webroot`
+  - `path_traversal_file_read`
+  - `static_file_or_server_misconfig`
+- the generator reuses the existing DeepSeek/V4-Pro call path and
+  `ingest_v4pro_demonstrated_chains_iter8.py`
+- accepted rows must include a real blocked/403 `TOOL OBSERVATION`, then
+  backtrack to a hinted evidence resource, reuse a bounded evidence/proof
+  value, and end with final `done=true`
+- accepted rows must keep `next_action.args` structured; request bodies are
+  empty or bounded lab-evidence JSON only
+- policy guards: data-lane only, fictional lab hosts, payload-free, no runtime
+  execution, no runtime binding, and no committed secret
+
+The existing other-stack V4-Pro top-up remains the only active cloud teacher
+job:
+
+- tmux session: `aegispt_v4pro_e2_otherstack_topup`
+- validation checkpoint during this slice: 12 accepted rows / 44 attempts
+- deficits remaining: `unsafe_deserialization=1`,
+  `eval_rce_provider_refusal=2`, `java_jsp_other_stack=2`,
+  `php_cms_framework_cve=2`, `unknown_nonweb_or_other_stack=1`
+- the web-source V4-Pro top-up should not be launched in parallel; queue it
+  only after the other-stack job exits or reaches its quota
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_other_stack_topup_iter10.py scripts/tests/test_web_source_gap_recovery_envs_iter10.py`
+- `python3 -m compileall -q scripts/training/generate_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_web_source_gap_topup_iter10.py`
+- `python3 -m ruff check scripts/training/generate_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_web_source_gap_topup_iter10.py`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - E2 web source-gap recovery envs (2026-06-07)
 
 Codex continued the data-lane after `a1c55f4` without changing the active
