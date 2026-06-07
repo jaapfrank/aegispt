@@ -53,15 +53,28 @@ auth-logic/source-aware class (not just XBEN-024):
    `_queue_passive_loop_task`. Direct proof the detection works: running pre_recon_source on
    the XBEN-024 source surfaces `forgeable-session-secret: supersecretkey` + `ssrf-urlretrieve`.
 
+4. **pre-recon-source not dispatched on non-specialists providers** (`3639e43`) — the
+   source-aware bootstrap (dispatch pre-recon-source FIRST) lived ONLY in the specialists
+   picker; chatgpt_oauth/local_qwen/anthropic never ran the white-box scan. Hoisted to the
+   top of `_claude_select_next_action` (provider-agnostic). PROVEN: XBEN-024 with
+   chatgpt_oauth now runs pre-recon-source as the 2nd task, status=completed, source_dir in
+   params (marker `picker: ... provider-agnostic bootstrap`). The source scan now surfaces
+   `forgeable-session-secret: supersecretkey` + the SSRF chain to the picker.
+
 ### Remaining blockers (the actual XBEN-024 solve)
 
-- **Picker selection is non-deterministic:** chatgpt_oauth sometimes picks `exec-plan`
-  (black-box) instead of `pre-recon-source` even with source-aware on + a sparse live
-  surface. Proper fix: AUTO-dispatch pre-recon-source at run start for source-aware runs
-  (don't leave the source scan to the AI picker's whim).
-- **Provider policy-refusal:** even once the secret surfaces, chatgpt_oauth may refuse the
-  session-forgery. Cleanest path: `local_qwen` (uncensored) once the GPU frees from the
+- **5th gap — focused-exploit dispatch is specialists-only:** the per-source-objective
+  interactive-exploit dispatch lives in `_maybe_dispatch_cpg_seeded_cea`, called ONLY from
+  `_specialists_select_next_action` (3049). So even though the secret now surfaces for
+  chatgpt_oauth, the actual exploit is never dispatched on non-specialists providers. Fix:
+  hoist the focused-exploit dispatch provider-agnostically (same pattern as `3639e43`), OR
+  run with `PICKER_MODE=specialists`.
+- **Provider policy-refusal:** even once the exploit dispatches, chatgpt_oauth may refuse
+  the session-forgery. Cleanest path: `local_qwen` (uncensored) once the GPU frees from the
   IDOR-focus re-tune.
+- **Net:** the source-aware *pipeline* is now fixed end-to-end (secret surfaces for all
+  providers); the *exploit dispatch* + a *non-refusing provider* are the last two steps,
+  both best closed together once the GPU frees (local_qwen + hoisted focused-exploit).
 
 ## Reproduce
 `bash docs/validation/xbow-xben024-2026-06-07/reproducer.sh` (provider currently chatgpt_oauth).
