@@ -5,6 +5,7 @@ import pytest
 from scripts.training.generate_v4pro_demonstrated_chains_iter9 import (
     DEFAULT_MODEL,
     DEFAULT_PREFIX,
+    TEACHER_CHAIN_CLASSES,
     build_dataset,
     read_secret_key,
     scenario_plan,
@@ -140,6 +141,15 @@ def test_teacher_prompt_contains_non_held_out_constraints():
     assert "/admin/config" in payload["forbidden_strings"]
 
 
+def test_scenario_plan_rotates_all_d1_chain_classes():
+    scenarios = scenario_plan(len(TEACHER_CHAIN_CLASSES) * 2)
+    classes = [scenario.chain_class for scenario in scenarios]
+
+    expected = [item.chain_class for item in TEACHER_CHAIN_CLASSES]
+    assert classes[: len(expected)] == expected
+    assert classes[len(expected) :] == expected
+
+
 def test_secret_reader_supports_export_format(tmp_path, monkeypatch):
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     secret = tmp_path / "secrets"
@@ -179,6 +189,36 @@ def test_v4pro_teacher_generator_uses_ingest_guard(monkeypatch, tmp_path):
     assert all(row["metadata"]["dataset_family"] == DEFAULT_PREFIX for row in train_rows)
 
 
+def test_v4pro_teacher_generator_enforces_per_class_quota(monkeypatch, tmp_path):
+    def fake_call(**kwargs):
+        return teacher_row_for_prompt(kwargs["messages"])
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr(
+        "scripts.training.generate_v4pro_demonstrated_chains_iter9.call_deepseek",
+        fake_call,
+    )
+
+    manifest = build_dataset(
+        count=len(TEACHER_CHAIN_CLASSES),
+        out_dir=tmp_path,
+        max_attempts=len(TEACHER_CHAIN_CLASSES),
+        min_per_chain_class=1,
+    )
+
+    expected_classes = [item.chain_class for item in TEACHER_CHAIN_CLASSES]
+    assert manifest["stats"]["accepted_count"] == len(expected_classes)
+    assert manifest["stats"]["min_per_chain_class"] == 1
+    assert manifest["stats"]["stopped_reason"] == "completed"
+    assert manifest["quality_report"]["assistant_turn_distribution"] == {"3": len(expected_classes)}
+    assert set(manifest["quality_report"]["accepted_by_chain_class"]) == set(expected_classes)
+    assert all(
+        manifest["quality_report"]["accepted_by_chain_class"][chain_class] == 1
+        for chain_class in expected_classes
+    )
+    assert all(manifest["quality_report"]["class_quota_satisfied"].values())
+
+
 def test_v4pro_teacher_generator_rejects_missing_blocked_recovery_arc(monkeypatch, tmp_path):
     def fake_call(**kwargs):
         return teacher_row_without_recovery_arc(kwargs["messages"])
@@ -201,6 +241,7 @@ def test_v4pro_teacher_generator_rejects_missing_blocked_recovery_arc(monkeypatc
     ]
     assert manifest["stats"]["accepted_count"] == 0
     assert manifest["stats"]["rejected_count"] == 1
+    assert manifest["stats"]["rejected_by_reason"] == {"missing_blocked_goal_recovery_arc": 1}
     assert manifest["stats"]["stopped_reason"] == "attempt_limit"
     assert "missing_blocked_goal_recovery_arc" in rejected_rows[0]["detail"]
     assert len(raw_rows) == 1

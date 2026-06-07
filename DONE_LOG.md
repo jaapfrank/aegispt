@@ -1,5 +1,75 @@
 # Done Log
 
+- 2026-06-07: D1/D2/D3 data-lane expansion for teacher corpus, held-out eval, and XBEN gap matrix. [TRAINING DATA]
+  - D1:
+    - expanded `scripts/training/generate_v4pro_demonstrated_chains_iter9.py`
+      from 5 to 8 teacher chain classes: IDOR, SSRF-internal, priv-esc,
+      credential/lateral, XXE, SSTI, auth-logic/session-forgery, and NoSQL
+    - added `--min-per-chain-class` and completion logic that requires both
+      total accepted rows and per-class quotas before reporting `completed`
+    - added manifest quality reporting for per-class accepted counts,
+      rejected reasons, rejected chain classes, assistant-turn distribution,
+      and quota satisfaction
+    - stopped the old `aegispt_v4pro_iter9_scale` /
+      `aegispt_v4pro_iter9_mixwatch` 20-row jobs and started the D1 tmux
+      pair:
+      `aegispt_v4pro_d1_teacher64` plus `aegispt_v4pro_d1_mixwatch`
+    - D1 target/output:
+      `codex/results/training/v4pro-teacher-corpus-d1-20260607/`,
+      `--count 64 --min-per-chain-class 8 --max-attempts 512`
+  - D2:
+    - added `scripts/training/multichain_heldout_eval_envs_iter10.py`
+    - created 8 eval-only known-vulnerable held-out scenarios with
+      deterministic oracle actions, `scenario_hash`, and all five
+      no-finding labels:
+      `true_negative`, `missed_finding`, `inconclusive`, `blocked`,
+      `correct_restraint`
+    - generated committed oracle artifacts under
+      `codex/results/training/multichain-heldout-eval-envs-20260607/`
+    - wired D2 entries into
+      `scripts/training/make_lab_truth_heldout_registry_iter6.py`
+    - refreshed iter7 and iter8 registry artifact snapshots so the canonical
+      held-out registry includes the 8 D2 eval hashes
+  - D3:
+    - added `scripts/training/build_xben_gap_matrix_iter10.py`
+    - generated committed artifacts under
+      `codex/results/training/xben-gap-matrix-20260607/`
+    - matrix covers `XBEN-001..XBEN-104` with `vuln_class`, `chain_depth`,
+      `coverage_bucket`, `has_env`, `has_teacher_demo`, `has_solve`,
+      `solve_status`, evidence paths, and recommended data action
+    - current summary: `challenge_count=104`, `solved_count=17`,
+      `attempted_no_solve=21`, `infra_blocked_or_crashed=2`,
+      `unknown_untriaged=64`
+    - targeted coverage now maps auth-logic/session-forgery,
+      SSRF->internal recovery, and multi-service credential/service-boundary
+      pivot to D1/D2/P2 data levers
+  - tests/docs:
+    - added `scripts/tests/test_multichain_heldout_eval_envs_iter10.py`
+    - added `scripts/tests/test_xben_gap_matrix_iter10.py`
+    - extended `scripts/tests/test_v4pro_teacher_generator_iter9.py`
+    - extended `scripts/tests/test_lab_truth_heldout_registry.py`
+    - added the new tests to `scripts/run_data_lane_tests.sh`
+    - updated `docs/strategy/codex-handoff-2026-06-07.md`
+  - validation completed so far:
+    `python3 -m pytest -q scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_multichain_heldout_eval_envs_iter10.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_xben_gap_matrix_iter10.py`;
+    `python3 -m ruff check scripts/training/build_xben_gap_matrix_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py scripts/training/generate_v4pro_demonstrated_chains_iter9.py scripts/training/multichain_heldout_eval_envs_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_multichain_heldout_eval_envs_iter10.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 scripts/training/multichain_heldout_eval_envs_iter10.py --scripted-oracle --oracle-out-dir codex/results/training/multichain-heldout-eval-envs-20260607`;
+    `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`;
+    `python3 scripts/training/jury_rollout.py --rollouts codex/results/training/multichain-heldout-eval-envs-20260607 --out /tmp/aegispt_iter10_heldout_jury_best.jsonl --top-frac 1.0 --min-reward 1`;
+    `python3 scripts/training/build_iter8_training_artifact_pack.py`;
+    `python3 scripts/training/build_iter7_training_artifact_pack.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/generate_v4pro_demonstrated_chains_iter9.py scripts/training/multichain_heldout_eval_envs_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/training/build_xben_gap_matrix_iter10.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_multichain_heldout_eval_envs_iter10.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_xben_gap_matrix_iter10.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `git diff --check`.
+  - boundaries:
+    - no capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+      or `TASK_QUEUE.md` was changed
+    - T-CHAIN1 remains active and not live-proven
+    - other-lane dirty files in `api/app/services/assessment_loop.py` and
+      `scripts/restart_local_inline_host_systemd.sh` were left untouched
+
 - 2026-06-07: Iter9 combined SFT mix builder and V4-Pro scale runner started. [TRAINING DATA]
   - Added `scripts/training/build_iter9_combined_sft_mix.py`.
   - The mix builder combines iter5 curated SFT rows, selected iter6 auth/authz

@@ -64,6 +64,12 @@ from scripts.training.make_multiturn_chaintype_diversity_iter7 import (
 from scripts.training.make_multiturn_chaintype_diversity_iter7 import (
     generate_rows as generate_chaintype_rows,
 )
+from scripts.training.multichain_heldout_eval_envs_iter10 import (
+    DEFAULT_PREFIX as HELDOUT_EVAL_ENV_PREFIX,
+)
+from scripts.training.multichain_heldout_eval_envs_iter10 import (
+    registry_entries as heldout_eval_env_registry_entries,
+)
 from scripts.training.multichain_rl_envs_iter9 import (
     DEFAULT_PREFIX as RL_ENV_PREFIX,
 )
@@ -225,6 +231,10 @@ def _rl_training_env_entries() -> list[dict[str, Any]]:
     return rl_env_registry_entries()
 
 
+def _heldout_eval_env_entries() -> list[dict[str, Any]]:
+    return heldout_eval_env_registry_entries()
+
+
 def _lab_suite_held_out(lab_truth_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for item in lab_truth_rows:
@@ -259,6 +269,7 @@ def held_out_entries(
     rows.extend(_chaintype_held_out(counts=chaintype_counts))
     rows.extend(_multiservice_held_out(counts=multiservice_counts))
     rows.extend(_rl_training_env_entries())
+    rows.extend(_heldout_eval_env_entries())
     rows.extend(_lab_suite_held_out(lab_truth_rows))
     return rows
 
@@ -324,6 +335,7 @@ def validate_registry(registry: dict[str, Any]) -> dict[str, Any]:
         CHAINTYPE_PREFIX,
         MULTISERVICE_PREFIX,
         RL_ENV_PREFIX,
+        HELDOUT_EVAL_ENV_PREFIX,
         "aegispt-lab-suite-v1",
     }
     missing_families = sorted(required_families - set(held_out_by_family))

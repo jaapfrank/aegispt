@@ -18,6 +18,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -51,6 +52,59 @@ HELD_OUT_STRINGS = (
     "/admin/config",
     "/reset_password",
 )
+
+
+@dataclass(frozen=True)
+class TeacherChainClass:
+    chain_class: str
+    domain: str
+    objective: str
+
+
+TEACHER_CHAIN_CLASSES = (
+    TeacherChainClass(
+        "idor_object_swap_token_reuse",
+        "api",
+        "A case-management API leaks one delegated review token through a cross-object read; reuse only the observed token to read the proof marker.",
+    ),
+    TeacherChainClass(
+        "ssrf_internal_endpoint_recovery",
+        "web_api",
+        "A public fetch helper can reach one internal identity route; use observed internal metadata and a scoped recovery ticket to read the proof marker.",
+    ),
+    TeacherChainClass(
+        "lowpriv_to_admin_delegation",
+        "web",
+        "A low-privilege user receives an evidence-derived delegated-admin preview; follow the preview and collect the proof marker without guessing.",
+    ),
+    TeacherChainClass(
+        "info_disclosure_credential_reuse_lateral",
+        "multi_service",
+        "A support ticket discloses one service credential; reuse it on a separate fictional service to read the proof marker.",
+    ),
+    TeacherChainClass(
+        "xxe_document_parser_pivot",
+        "web_api",
+        "A fictional XML document parser exposes one bounded parser-context token; recover via hinted parser metadata and use only that lab token to read the proof marker.",
+    ),
+    TeacherChainClass(
+        "ssti_template_context_pivot",
+        "web",
+        "A fictional template preview reveals one scoped render-context token after a blocked admin preview; reuse only that observed context to read the proof marker.",
+    ),
+    TeacherChainClass(
+        "auth_logic_session_forgery",
+        "web_auth",
+        "A fictional app leaks a bounded session-claims hint and signing context; recover from a blocked admin marker by creating only the lab-scoped session needed for the proof marker.",
+    ),
+    TeacherChainClass(
+        "nosql_filter_bypass_chain",
+        "web_api",
+        "A fictional NoSQL-style filter normalization reveals a related object and scoped proof token; recover from the blocked goal by following the hinted object and retrying.",
+    ),
+)
+
+TEACHER_CHAIN_CLASS_NAMES = tuple(item.chain_class for item in TEACHER_CHAIN_CLASSES)
 
 
 @dataclass(frozen=True)
@@ -89,37 +143,13 @@ def read_secret_key(secret_file: Path | None = None) -> str:
 
 
 def scenario_plan(count: int, *, seed: int = DEFAULT_SEED) -> list[TeacherScenario]:
-    classes = (
-        (
-            "idor_object_swap_token_reuse",
-            "api",
-            "A case-management API leaks one delegated review token through a cross-object read; reuse only the observed token to read the proof marker.",
-        ),
-        (
-            "ssrf_internal_endpoint_recovery",
-            "web_api",
-            "A public fetch helper can reach one internal identity route; use observed internal metadata and a scoped recovery ticket to read the proof marker.",
-        ),
-        (
-            "lowpriv_to_admin_delegation",
-            "web",
-            "A low-privilege user receives an evidence-derived delegated-admin preview; follow the preview and collect the proof marker without guessing.",
-        ),
-        (
-            "info_disclosure_credential_reuse_lateral",
-            "multi_service",
-            "A support ticket discloses one service credential; reuse it on a separate fictional service to read the proof marker.",
-        ),
-        (
-            "graphql_worker_queue_pivot",
-            "api_worker",
-            "A GraphQL relation exposes a worker callback job id; mint a scoped queue token and read the job-result proof marker.",
-        ),
-    )
     rng = random.Random(seed)
     scenarios: list[TeacherScenario] = []
     for idx in range(count):
-        chain_class, domain, objective = classes[idx % len(classes)]
+        class_spec = TEACHER_CHAIN_CLASSES[idx % len(TEACHER_CHAIN_CLASSES)]
+        chain_class = class_spec.chain_class
+        domain = class_spec.domain
+        objective = class_spec.objective
         suffix = f"{idx:04d}-{rng.randint(1000, 9999)}"
         host = f"https://{chain_class.replace('_', '-')}-{suffix}.fictional-lab.example"
         lab_id = f"v4pro-teacher-{chain_class}-{suffix}"
@@ -313,6 +343,60 @@ def _scenario_registry_rows(rows: list[dict[str, Any]], prefix: str) -> list[dic
     ]
 
 
+def _row_chain_class(row: dict[str, Any]) -> str:
+    metadata = row.get("metadata")
+    if isinstance(metadata, dict):
+        value = metadata.get("chain_class")
+        if value:
+            return str(value)
+    return str(row.get("source_chain_class") or "unknown")
+
+
+def _assistant_turn_count(row: dict[str, Any]) -> int:
+    messages = row.get("messages")
+    if not isinstance(messages, list):
+        return 0
+    return sum(
+        1
+        for item in messages
+        if isinstance(item, dict) and str(item.get("role", "")).lower() == "assistant"
+    )
+
+
+def _rejection_reason(row: dict[str, Any]) -> str:
+    detail = str(row.get("detail") or "").strip()
+    if detail in {"missing_blocked_goal_recovery_arc"}:
+        return detail
+    return str(row.get("reason") or detail or "unknown")
+
+
+def _accepted_by_chain_class(rows: list[dict[str, Any]]) -> dict[str, int]:
+    counts = Counter(_row_chain_class(row) for row in rows)
+    return {name: counts.get(name, 0) for name in TEACHER_CHAIN_CLASS_NAMES}
+
+
+def _class_quota_satisfied(
+    accepted: list[dict[str, Any]],
+    *,
+    min_per_chain_class: int,
+) -> dict[str, bool]:
+    counts = _accepted_by_chain_class(accepted)
+    if min_per_chain_class <= 0:
+        return {name: True for name in TEACHER_CHAIN_CLASS_NAMES}
+    return {name: counts.get(name, 0) >= min_per_chain_class for name in TEACHER_CHAIN_CLASS_NAMES}
+
+
+def _dataset_complete(
+    accepted: list[dict[str, Any]],
+    *,
+    min_per_chain_class: int,
+    requested_count: int,
+) -> bool:
+    if len(accepted) < requested_count:
+        return False
+    return all(_class_quota_satisfied(accepted, min_per_chain_class=min_per_chain_class).values())
+
+
 def _flush_outputs(
     *,
     accepted: list[dict[str, Any]],
@@ -325,6 +409,7 @@ def _flush_outputs(
     raw_rows: list[dict[str, Any]],
     rejected: list[dict[str, Any]],
     rejected_path: Path,
+    min_per_chain_class: int,
     requested_count: int,
     scenario_registry_path: Path,
     stopped_reason: str,
@@ -332,6 +417,26 @@ def _flush_outputs(
 ) -> dict[str, Any]:
     accepted = accepted[:requested_count]
     scenario_registry_rows = _scenario_registry_rows(accepted, prefix)
+    accepted_by_chain_class = _accepted_by_chain_class(accepted)
+    rejected_by_reason = dict(sorted(Counter(_rejection_reason(row) for row in rejected).items()))
+    rejected_by_chain_class = dict(sorted(Counter(_row_chain_class(row) for row in rejected).items()))
+    assistant_turn_distribution = dict(
+        sorted(Counter(str(_assistant_turn_count(row)) for row in accepted).items())
+    )
+    class_quota_satisfied = _class_quota_satisfied(
+        accepted,
+        min_per_chain_class=min_per_chain_class,
+    )
+    quality_report = {
+        "accepted_by_chain_class": accepted_by_chain_class,
+        "assistant_turn_distribution": assistant_turn_distribution,
+        "class_quota_satisfied": class_quota_satisfied,
+        "missing_chain_classes": [
+            name for name, satisfied in class_quota_satisfied.items() if not satisfied
+        ],
+        "rejected_by_chain_class": rejected_by_chain_class,
+        "rejected_by_reason": rejected_by_reason,
+    }
     write_jsonl(raw_path, raw_rows)
     write_jsonl(train_path, accepted)
     write_jsonl(rejected_path, rejected)
@@ -355,12 +460,19 @@ def _flush_outputs(
             "train_only": True,
             "v4pro_demonstrated_rows": True,
         },
+        "quality_report": quality_report,
         "stats": {
             "accepted_count": len(accepted),
+            "accepted_by_chain_class": accepted_by_chain_class,
+            "assistant_turn_distribution": assistant_turn_distribution,
             "attempts": attempts,
+            "class_quota_satisfied": class_quota_satisfied,
+            "min_per_chain_class": min_per_chain_class,
             "rejected_count": len(rejected),
+            "rejected_by_reason": rejected_by_reason,
             "requested_count": requested_count,
             "stopped_reason": stopped_reason,
+            "target_chain_classes": list(TEACHER_CHAIN_CLASS_NAMES),
         },
     }
     _write_manifest(manifest_path, manifest)
@@ -383,6 +495,7 @@ def build_dataset(
     secret_file: Path | None = None,
     sleep_seconds: float = 0.0,
     wall_seconds: float | None = None,
+    min_per_chain_class: int = 0,
 ) -> dict[str, Any]:
     api_key = read_secret_key(secret_file)
     if not api_key:
@@ -395,7 +508,8 @@ def build_dataset(
     scenario_registry_path = out_dir / f"{prefix}_scenario_registry.jsonl"
     manifest_path = out_dir / f"{prefix}_manifest.json"
 
-    limit = max_attempts or max(count * 3, count)
+    requested_count = max(count, max(0, min_per_chain_class) * len(TEACHER_CHAIN_CLASSES))
+    limit = max_attempts or max(requested_count * 3, requested_count)
     plans = scenario_plan(limit, seed=seed)
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
@@ -404,7 +518,11 @@ def build_dataset(
     start_time = time.monotonic()
     stopped_reason = "completed"
     for spec in plans[:limit]:
-        if len(accepted) >= count:
+        if _dataset_complete(
+            accepted,
+            min_per_chain_class=min_per_chain_class,
+            requested_count=requested_count,
+        ):
             break
         attempts += 1
         try:
@@ -448,16 +566,27 @@ def build_dataset(
                     {
                         **row,
                         "source_lab_id": spec.lab_id,
+                        "source_chain_class": spec.chain_class,
+                        "source_domain": spec.domain,
                     }
                     for row in ingested["rejected"]
                 )
         except Exception as exc:  # noqa: BLE001
+            detail = str(exc)[:240]
+            reason = (
+                "missing_blocked_goal_recovery_arc"
+                if detail == "missing_blocked_goal_recovery_arc"
+                else f"teacher_error:{type(exc).__name__}"
+            )
             rejected.append(
                 {
                     "candidate_ids": [spec.lab_id, spec.scenario_hash],
-                    "detail": str(exc)[:240],
+                    "detail": detail,
                     "index": attempts - 1,
-                    "reason": f"teacher_error:{type(exc).__name__}",
+                    "reason": reason,
+                    "source_chain_class": spec.chain_class,
+                    "source_domain": spec.domain,
+                    "source_lab_id": spec.lab_id,
                 }
             )
         _flush_outputs(
@@ -471,19 +600,35 @@ def build_dataset(
             raw_rows=raw_rows,
             rejected=rejected,
             rejected_path=rejected_path,
-            requested_count=count,
+            min_per_chain_class=min_per_chain_class,
+            requested_count=requested_count,
             scenario_registry_path=scenario_registry_path,
             stopped_reason="running",
             train_path=train_path,
         )
         if sleep_seconds:
             time.sleep(sleep_seconds)
-        if wall_seconds is not None and time.monotonic() - start_time >= wall_seconds and len(accepted) < count:
+        if (
+            wall_seconds is not None
+            and time.monotonic() - start_time >= wall_seconds
+            and not _dataset_complete(
+                accepted,
+                min_per_chain_class=min_per_chain_class,
+                requested_count=requested_count,
+            )
+        ):
             stopped_reason = "wall_seconds"
             break
 
-    accepted = accepted[:count]
-    if len(accepted) < count and stopped_reason == "completed":
+    accepted = accepted[:requested_count]
+    if (
+        not _dataset_complete(
+            accepted,
+            min_per_chain_class=min_per_chain_class,
+            requested_count=requested_count,
+        )
+        and stopped_reason == "completed"
+    ):
         stopped_reason = "attempt_limit"
     return _flush_outputs(
         accepted=accepted,
@@ -496,7 +641,8 @@ def build_dataset(
         raw_rows=raw_rows,
         rejected=rejected,
         rejected_path=rejected_path,
-        requested_count=count,
+        min_per_chain_class=min_per_chain_class,
+        requested_count=requested_count,
         scenario_registry_path=scenario_registry_path,
         stopped_reason=stopped_reason,
         train_path=train_path,
@@ -519,6 +665,7 @@ def main() -> None:
     parser.add_argument("--secret-file", type=Path)
     parser.add_argument("--sleep-seconds", type=float, default=0.0)
     parser.add_argument("--wall-seconds", type=float)
+    parser.add_argument("--min-per-chain-class", type=int, default=0)
     args = parser.parse_args()
     manifest = build_dataset(
         count=args.count,
@@ -535,6 +682,7 @@ def main() -> None:
         secret_file=args.secret_file,
         sleep_seconds=args.sleep_seconds,
         wall_seconds=args.wall_seconds,
+        min_per_chain_class=args.min_per_chain_class,
     )
     print(json.dumps(manifest, indent=2, sort_keys=True))
 

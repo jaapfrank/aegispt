@@ -20,6 +20,9 @@ from scripts.training.make_multiturn_agentic_chain_iter6 import (
 from scripts.training.make_multiturn_chaintype_diversity_iter7 import (
     DEFAULT_PREFIX as CHAINTYPE_PREFIX,
 )
+from scripts.training.multichain_heldout_eval_envs_iter10 import (
+    DEFAULT_PREFIX as HELDOUT_EVAL_ENV_PREFIX,
+)
 from scripts.training.multichain_rl_envs_iter9 import DEFAULT_PREFIX as RL_ENV_PREFIX
 
 
@@ -65,6 +68,7 @@ def test_held_out_registry_contains_exact_eval_test_and_benchmark_ids():
     assert stats["held_out_by_family"][CHAINTYPE_PREFIX] == 16
     assert stats["held_out_by_family"][MULTISERVICE_PREFIX] == 16
     assert stats["held_out_by_family"][RL_ENV_PREFIX] == 6
+    assert stats["held_out_by_family"][HELDOUT_EVAL_ENV_PREFIX] == 8
     assert stats["held_out_by_family"]["aegispt-lab-suite-v1"] >= 1
     assert is_held_out_scenario(registry, "deep_chain_eval")
     assert is_held_out_scenario(registry, "ssrf-loopback-metadata")
@@ -80,6 +84,13 @@ def test_held_out_registry_contains_exact_eval_test_and_benchmark_ids():
     )
     assert any(
         row["dataset_family"] == RL_ENV_PREFIX and row.get("scenario_hash")
+        for row in registry["held_out_scenarios"]
+    )
+    assert any(
+        row["dataset_family"] == HELDOUT_EVAL_ENV_PREFIX
+        and row.get("lab_truth") == "known_vulnerable"
+        and set(row.get("no_finding_labels", []))
+        == {"blocked", "correct_restraint", "inconclusive", "missed_finding", "true_negative"}
         for row in registry["held_out_scenarios"]
     )
 

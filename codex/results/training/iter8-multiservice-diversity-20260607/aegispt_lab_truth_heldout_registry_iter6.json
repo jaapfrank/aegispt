@@ -24910,6 +24910,150 @@
       "split": "rl_train_env"
     },
     {
+      "chain_class": "auth_logic_session_forgery",
+      "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
+      "domain": "web_auth",
+      "holdout_reason": "iter10_multichain_transfer_eval",
+      "lab_truth": "known_vulnerable",
+      "no_finding_labels": [
+        "blocked",
+        "correct_restraint",
+        "inconclusive",
+        "missed_finding",
+        "true_negative"
+      ],
+      "scenario_hash": "1d4905f54c907fa77e4cbda6f3804a370ba41702b528c53f5fd7636ebed25a65",
+      "scenario_id": "heldout-eval-authlogic-session-forgery",
+      "source": "scripts/training/multichain_heldout_eval_envs_iter10.py",
+      "split": "eval"
+    },
+    {
+      "chain_class": "ssrf_internal_endpoint_recovery",
+      "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
+      "domain": "web_api",
+      "holdout_reason": "iter10_multichain_transfer_eval",
+      "lab_truth": "known_vulnerable",
+      "no_finding_labels": [
+        "blocked",
+        "correct_restraint",
+        "inconclusive",
+        "missed_finding",
+        "true_negative"
+      ],
+      "scenario_hash": "269433d216a54304eb37c966317c5a6edae975c57a7ffa9dc7b24294c3c6846f",
+      "scenario_id": "heldout-eval-ssrf-internal-endpoint-reset",
+      "source": "scripts/training/multichain_heldout_eval_envs_iter10.py",
+      "split": "eval"
+    },
+    {
+      "chain_class": "nosql_filter_bypass_chain",
+      "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
+      "domain": "multi_service",
+      "holdout_reason": "iter10_multichain_transfer_eval",
+      "lab_truth": "known_vulnerable",
+      "no_finding_labels": [
+        "blocked",
+        "correct_restraint",
+        "inconclusive",
+        "missed_finding",
+        "true_negative"
+      ],
+      "scenario_hash": "7305baccd6a87ce9ab4cdee1d7d429efc515772f465cbc705da0ca15e2001189",
+      "scenario_id": "heldout-eval-multiservice-nosql-admin-pivot",
+      "source": "scripts/training/multichain_heldout_eval_envs_iter10.py",
+      "split": "eval"
+    },
+    {
+      "chain_class": "xxe_document_parser_pivot",
+      "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
+      "domain": "web_api",
+      "holdout_reason": "iter10_multichain_transfer_eval",
+      "lab_truth": "known_vulnerable",
+      "no_finding_labels": [
+        "blocked",
+        "correct_restraint",
+        "inconclusive",
+        "missed_finding",
+        "true_negative"
+      ],
+      "scenario_hash": "fabe508ff4584b7f0de16fbb41a51f290c8916a167c3211518e034cc14a7c2bc",
+      "scenario_id": "heldout-eval-xxe-parser-token-recovery",
+      "source": "scripts/training/multichain_heldout_eval_envs_iter10.py",
+      "split": "eval"
+    },
+    {
+      "chain_class": "ssti_template_context_pivot",
+      "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
+      "domain": "web",
+      "holdout_reason": "iter10_multichain_transfer_eval",
+      "lab_truth": "known_vulnerable",
+      "no_finding_labels": [
+        "blocked",
+        "correct_restraint",
+        "inconclusive",
+        "missed_finding",
+        "true_negative"
+      ],
+      "scenario_hash": "b5f6c9194cb386e30800196ed303985697bfab776f26100a2ca2f6a18cc01c2c",
+      "scenario_id": "heldout-eval-ssti-context-token-retry",
+      "source": "scripts/training/multichain_heldout_eval_envs_iter10.py",
+      "split": "eval"
+    },
+    {
+      "chain_class": "idor_object_swap_token_reuse",
+      "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
+      "domain": "api",
+      "holdout_reason": "iter10_multichain_transfer_eval",
+      "lab_truth": "known_vulnerable",
+      "no_finding_labels": [
+        "blocked",
+        "correct_restraint",
+        "inconclusive",
+        "missed_finding",
+        "true_negative"
+      ],
+      "scenario_hash": "78682d99161ad75febde3de2da8347ed74bc722e674ac2357272c53000d1f956",
+      "scenario_id": "heldout-eval-idor-linked-object-token",
+      "source": "scripts/training/multichain_heldout_eval_envs_iter10.py",
+      "split": "eval"
+    },
+    {
+      "chain_class": "graphql_worker_queue_pivot",
+      "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
+      "domain": "api_worker",
+      "holdout_reason": "iter10_multichain_transfer_eval",
+      "lab_truth": "known_vulnerable",
+      "no_finding_labels": [
+        "blocked",
+        "correct_restraint",
+        "inconclusive",
+        "missed_finding",
+        "true_negative"
+      ],
+      "scenario_hash": "963c6eb31eb94baebccf9789e2dc561d5af6bbdb5bb5a0868483635c0c75c842",
+      "scenario_id": "heldout-eval-graphql-queue-callback",
+      "source": "scripts/training/multichain_heldout_eval_envs_iter10.py",
+      "split": "eval"
+    },
+    {
+      "chain_class": "info_disclosure_credential_reuse_lateral",
+      "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
+      "domain": "multi_service",
+      "holdout_reason": "iter10_multichain_transfer_eval",
+      "lab_truth": "known_vulnerable",
+      "no_finding_labels": [
+        "blocked",
+        "correct_restraint",
+        "inconclusive",
+        "missed_finding",
+        "true_negative"
+      ],
+      "scenario_hash": "7688d6bd1dcfc3eac1a53d9bd58813fa3bd86a20e73c5310f58ee13b3da28aec",
+      "scenario_id": "heldout-eval-credential-reuse-service-boundary",
+      "source": "scripts/training/multichain_heldout_eval_envs_iter10.py",
+      "split": "eval"
+    },
+    {
       "dataset_family": "aegispt-lab-suite-v1",
       "holdout_reason": "standalone_lab_benchmark",
       "lab_truth": "known_vulnerable",
@@ -27207,6 +27351,7 @@
     "held_out_by_family": {
       "aegispt-lab-suite-v1": 50,
       "aegispt_llmsvs_adversarial_eval_iter5": 720,
+      "aegispt_multichain_heldout_eval_envs_iter10": 8,
       "aegispt_multichain_rl_envs_iter9": 6,
       "aegispt_multiservice_chaintype_diversity_iter8": 600,
       "aegispt_multiturn_agentic_chain_iter6": 800,
@@ -27215,11 +27360,11 @@
     },
     "held_out_by_split": {
       "benchmark": 50,
-      "eval": 1741,
+      "eval": 1749,
       "rl_train_env": 6,
       "test": 1020
     },
-    "held_out_count": 2817,
+    "held_out_count": 2825,
     "lab_truth_by_family": {
       "aegispt-lab-suite-v1": 50,
       "aegispt_live_lab_target_specs_iter5": 93

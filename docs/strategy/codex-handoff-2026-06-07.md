@@ -196,3 +196,120 @@ P2 rollout integration smoke:
 
 Observed: `rollouts=6`, `kept=6`, `any_flag=true`, `any_idor=true`,
 `any_recovered_after_block=true`, `any_used_revealed_value=true`.
+
+## Codex continuation status — D1/D2/D3 (2026-06-07)
+
+### D1 — full P1 teacher corpus
+
+The V4-Pro generator now targets the full 8-class teacher family:
+
+- `idor_object_swap_token_reuse`
+- `ssrf_internal_endpoint_recovery`
+- `lowpriv_to_admin_delegation`
+- `info_disclosure_credential_reuse_lateral`
+- `xxe_document_parser_pivot`
+- `ssti_template_context_pivot`
+- `auth_logic_session_forgery`
+- `nosql_filter_bypass_chain`
+
+`scripts/training/generate_v4pro_demonstrated_chains_iter9.py` now supports
+`--min-per-chain-class`, computes `requested_count=max(count, min_per_class*8)`,
+and only reports `completed` once both total rows and per-class quotas are met.
+Its manifest now includes the requested quality report:
+
+- `accepted_by_chain_class`
+- `rejected_by_reason`
+- `rejected_by_chain_class`
+- `assistant_turn_distribution`
+- `class_quota_satisfied`
+- `missing_chain_classes`
+
+The old 20-row / 5-class tmux job was stopped and replaced by the D1 long run:
+
+- teacher session: `aegispt_v4pro_d1_teacher64`
+- mix watcher: `aegispt_v4pro_d1_mixwatch`
+- output dir:
+  `codex/results/training/v4pro-teacher-corpus-d1-20260607/`
+- target: `--count 64 --min-per-chain-class 8 --max-attempts 512`
+- monitor:
+  `tmux attach -t aegispt_v4pro_d1_teacher64`
+- log:
+  `tail -f codex/results/training/v4pro-teacher-corpus-d1-20260607/v4pro_d1_teacher64.log`
+
+The watcher rebuilds `codex/results/training/iter9-combined-sft-mix-20260607/`
+after D1 finishes, explicitly using the D1 train JSONL as the first V4-Pro
+source.
+
+### D2 — held-out eval-suite
+
+Added `scripts/training/multichain_heldout_eval_envs_iter10.py`.
+
+- dataset family: `aegispt_multichain_heldout_eval_envs_iter10`
+- 8 eval-only scenarios, all `known_vulnerable`
+- every scenario has deterministic oracle actions, a scenario hash, and the
+  five no-finding labels:
+  `true_negative`, `missed_finding`, `inconclusive`, `blocked`,
+  `correct_restraint`
+- all oracles exercise:
+  blocked goal -> hinted resource -> revealed value reuse -> successful retry
+- registry hook added to
+  `scripts/training/make_lab_truth_heldout_registry_iter6.py`
+
+Committed oracle artifacts are under:
+
+`codex/results/training/multichain-heldout-eval-envs-20260607/`
+
+Rollout smoke:
+
+`python3 scripts/training/jury_rollout.py --rollouts codex/results/training/multichain-heldout-eval-envs-20260607 --out /tmp/aegispt_iter10_heldout_jury_best.jsonl --top-frac 1.0 --min-reward 1`
+
+Observed: `rollouts=8`, `kept=8`, `any_flag=true`, `any_idor=true`,
+`any_recovered_after_block=true`, `any_used_revealed_value=true`.
+
+### D3 — XBEN solve-gap matrix
+
+Added `scripts/training/build_xben_gap_matrix_iter10.py`.
+
+The matrix writes one row per `XBEN-001..XBEN-104` with:
+
+- `vuln_class`
+- `chain_depth`
+- `coverage_bucket`
+- `has_env`
+- `has_teacher_demo`
+- `has_solve`
+- `solve_status`
+- `evidence_paths`
+- `recommended_data_action`
+
+Committed artifacts are under:
+
+`codex/results/training/xben-gap-matrix-20260607/`
+
+Current summary:
+
+- `challenge_count=104`
+- `solved_count=17`
+- `attempted_no_solve=21`
+- `infra_blocked_or_crashed=2`
+- `unknown_untriaged=64`
+
+Top actionable gaps now visible in data form:
+
+- `headless_xss_ssrf`: 13 known unsolved, no env/demo yet
+- `auth_logic_session_forgery`: 5 unsolved, now covered by D1 teacher target +
+  D2 held-out env
+- `blind_command_injection_filter_bypass`: 1 known unsolved, no env/demo yet
+- `command_injection`: 1 known unsolved, no env/demo yet
+- `unknown_untriaged`: 58 rows still need source/class triage before targeted
+  data can be honest
+
+Targeted D3 coverage now links the requested gaps:
+
+- auth-logic/session-forgery -> D1 teacher class + D2 held-out env
+- SSRF -> internal endpoint recovery -> D1 teacher class + P2/D2 envs
+- multi-service credential/service-boundary pivot -> D1 teacher class + P2/D2
+  envs
+
+The iter7 and iter8 training artifact packs were refreshed so the canonical
+held-out registry snapshots include the 8 D2 eval scenario hashes.
