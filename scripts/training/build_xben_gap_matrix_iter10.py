@@ -38,6 +38,14 @@ DEFAULT_STRATEGY_ROOT = REPO_ROOT / "docs" / "strategy"
 DEFAULT_OUT_DIR = REPO_ROOT / "codex" / "results" / "training" / "xben-gap-matrix-20260607"
 DEFAULT_PREFIX = "aegispt_xben_gap_matrix_iter10"
 DEFAULT_CHALLENGE_COUNT = 104
+DEFAULT_SOURCE_TRIAGE_PATH = (
+    REPO_ROOT
+    / "codex"
+    / "results"
+    / "training"
+    / "xben-source-triage-20260607"
+    / "aegispt_xben_source_triage_iter10.jsonl"
+)
 
 CANONICAL_SOLVED_XBENS = {
     "XBEN-002",
@@ -146,9 +154,12 @@ COVERAGE_BUCKET_BY_CLASS = {
     "multi_service_infra_startup": "info_disclosure_credential_reuse_lateral",
     "nosql_graphql_multiservice": "nosql_filter_bypass_chain",
     "nosql_filter_bypass_chain": "nosql_filter_bypass_chain",
+    "path_traversal_file_read": "path_traversal_file_read",
+    "static_file_or_server_misconfig": "static_file_or_server_misconfig",
     "ssrf": "ssrf_internal_endpoint_recovery",
     "ssrf_internal_endpoint_recovery": "ssrf_internal_endpoint_recovery",
     "ssti": "ssti_template_context_pivot",
+    "unsafe_deserialization": "unsafe_deserialization",
     "xxe": "xxe_document_parser_pivot",
 }
 
@@ -217,9 +228,40 @@ def _load_run_summaries(validation_root: Path) -> dict[str, dict[str, Any]]:
     return by_challenge
 
 
-def infer_class(xben_id: str, docs: dict[str, str]) -> KnownClass:
+def load_source_triage(path: Path = DEFAULT_SOURCE_TRIAGE_PATH) -> dict[str, dict[str, Any]]:
+    if not path.exists():
+        return {}
+    rows: dict[str, dict[str, Any]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        xben_id = str(row.get("xben_id", ""))
+        if xben_id:
+            rows[xben_id] = row
+    return rows
+
+
+def infer_class(
+    xben_id: str,
+    docs: dict[str, str],
+    source_triage: dict[str, dict[str, Any]] | None = None,
+) -> KnownClass:
     if xben_id in KNOWN_CLASS_OVERRIDES:
         return KNOWN_CLASS_OVERRIDES[xben_id]
+    source_row = (source_triage or {}).get(xben_id)
+    if source_row and source_row.get("triage_status") == "source_classified":
+        return KnownClass(
+            str(source_row["vuln_class"]),
+            int(source_row.get("chain_depth", 0)),
+            f"E1 source triage rule:{source_row.get('winning_rule_id')}",
+        )
+    if source_row and source_row.get("triage_status") == "needs_manual_source_review":
+        return KnownClass(
+            "unknown_untriaged",
+            0,
+            "E1 source triage needs_manual_source_review",
+        )
     joined = "\n".join(_challenge_docs(docs, xben_id).values()).lower()
     for keyword, vuln_class, chain_depth in KEYWORD_CLASSES:
         if keyword in joined:
@@ -302,6 +344,8 @@ def recommended_action(status: str, vuln_class: str, bucket: str, have_env: bool
         return "add_targeted_env_and_teacher_demo"
     if vuln_class == "unknown_untriaged":
         return "triage_source_and_assign_vuln_class"
+    if not have_env or not have_demo:
+        return "build_or_map_env_and_teacher_demo_for_source_class"
     return "monitor_after_top_gap_rollouts"
 
 
@@ -311,18 +355,25 @@ def build_matrix(
     validation_root: Path,
     triage_root: Path,
     strategy_root: Path,
+    source_triage_path: Path = DEFAULT_SOURCE_TRIAGE_PATH,
 ) -> list[dict[str, Any]]:
     docs = _read_text_files(validation_root, triage_root, strategy_root, REPO_ROOT / "NEXT_TASK.md")
     runs = _load_run_summaries(validation_root)
+    source_triage = load_source_triage(source_triage_path)
     env_classes, teacher_classes = coverage_sets()
     rows: list[dict[str, Any]] = []
     for number in range(1, challenge_count + 1):
         xben_id = challenge_id(number)
         docs_for_challenge = _challenge_docs(docs, xben_id)
-        known = infer_class(xben_id, docs)
+        source_row = source_triage.get(xben_id)
+        known = infer_class(xben_id, docs, source_triage)
         bucket = coverage_bucket(known.vuln_class)
         run = runs.get(xben_id)
-        status = solve_status(xben_id, run, docs_for_challenge)
+        docs_for_status = {} if source_row else docs_for_challenge
+        evidence_paths = sorted(docs_for_challenge)[:8]
+        if source_row:
+            evidence_paths = [_display_path(source_triage_path)]
+        status = solve_status(xben_id, run, docs_for_status)
         have_env = has_env_for_bucket(bucket, env_classes)
         have_demo = has_demo_for_bucket(bucket, teacher_classes)
         rows.append(
@@ -330,7 +381,7 @@ def build_matrix(
                 "chain_depth": known.chain_depth,
                 "class_evidence_source": known.source,
                 "coverage_bucket": bucket,
-                "evidence_paths": sorted(docs_for_challenge)[:8],
+                "evidence_paths": evidence_paths,
                 "has_env": have_env,
                 "has_solve": status == "solved",
                 "has_teacher_demo": have_demo,
@@ -341,7 +392,7 @@ def build_matrix(
                     have_env,
                     have_demo,
                 ),
-                "solve_evidence_path": solve_evidence_path(xben_id, run, docs_for_challenge),
+                "solve_evidence_path": solve_evidence_path(xben_id, run, docs_for_status),
                 "solve_status": status,
                 "vuln_class": known.vuln_class,
                 "xben_id": xben_id,
@@ -497,6 +548,7 @@ def main() -> None:
     parser.add_argument("--validation-root", type=Path, default=DEFAULT_VALIDATION_ROOT)
     parser.add_argument("--triage-root", type=Path, default=DEFAULT_TRIAGE_ROOT)
     parser.add_argument("--strategy-root", type=Path, default=DEFAULT_STRATEGY_ROOT)
+    parser.add_argument("--source-triage", type=Path, default=DEFAULT_SOURCE_TRIAGE_PATH)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--prefix", default=DEFAULT_PREFIX)
     args = parser.parse_args()
@@ -505,6 +557,7 @@ def main() -> None:
         validation_root=args.validation_root,
         triage_root=args.triage_root,
         strategy_root=args.strategy_root,
+        source_triage_path=args.source_triage,
     )
     summary = write_outputs(rows, args.out_dir, prefix=args.prefix)
     print(json.dumps(summary, indent=2, sort_keys=True))

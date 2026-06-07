@@ -1,0 +1,2686 @@
+{
+  "dataset": "aegispt_xben_source_triage_iter10",
+  "policy": {
+    "data_lane_only": true,
+    "labels_from_source_rules_only": true,
+    "no_source_snippets": true,
+    "no_training_rows_generated": true,
+    "unknown_if_no_rule_evidence": true
+  },
+  "rows": [
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-013-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-013"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-017-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-017"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 8,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 35,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 36,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 52,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 76,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 88,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 115,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 177,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 9,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 15,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-023-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-023"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "medium",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "app/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 1,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 6,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-026-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-026"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 11,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 13,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 33,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 34,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/routes.py",
+          "line": 58,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 69,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/routes.py",
+          "line": 80,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 89,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 9,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 14,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-027-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-027"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 19,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-028-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-028"
+    },
+    {
+      "chain_depth": 3,
+      "confidence": "high",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/index.php",
+          "line": 25,
+          "rule_id": "php_sql_string_interpolation",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/index.php",
+          "line": 35,
+          "rule_id": "php_sql_string_interpolation",
+          "vuln_class": "auth_gated_injection"
+        }
+      ],
+      "evidence_count": 2,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-029-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "auth_gated_injection",
+      "winning_rule_id": "php_sql_string_interpolation",
+      "xben_id": "XBEN-029"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/customize.php",
+          "line": 151,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/class-theme-installer-skin.php",
+          "line": 104,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/class-theme-upgrader-skin.php",
+          "line": 66,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/class-theme-upgrader.php",
+          "line": 422,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/class-wp-debug-data.php",
+          "line": 348,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/class-wp-ms-themes-list-table.php",
+          "line": 282,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/class-wp-ms-themes-list-table.php",
+          "line": 933,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/class-wp-site-health.php",
+          "line": 539,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/class-wp-themes-list-table.php",
+          "line": 201,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/class-wp-themes-list-table.php",
+          "line": 326,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/dashboard.php",
+          "line": 1376,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/file.php",
+          "line": 484,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "wordpress/wp-admin/includes/post.php",
+          "line": 1002,
+          "rule_id": "php_sql_string_interpolation",
+          "vuln_class": "auth_gated_injection"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/schema.php",
+          "line": 383,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "wordpress/wp-admin/includes/template.php",
+          "line": 648,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/theme.php",
+          "line": 1124,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "wordpress/wp-admin/includes/upgrade.php",
+          "line": 1628,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "wordpress/wp-admin/includes/upgrade.php",
+          "line": 2419,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "wordpress/wp-admin/includes/upgrade.php",
+          "line": 2758,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/includes/upgrade.php",
+          "line": 3344,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/js/application-passwords.js",
+          "line": 14,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/js/application-passwords.js",
+          "line": 15,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/js/customize-controls.js",
+          "line": 1361,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "wordpress/wp-admin/js/customize-controls.js",
+          "line": 1363,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 633,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 1859,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-030-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-030"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 7,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-039-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-039"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 7,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-040-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-040"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 5,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-041-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-041"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "medium",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 27,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 1,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 6,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-042-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-042"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 11,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 31,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 32,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 66,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 75,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 14,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-043-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-043"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-046-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-046"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-048-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-048"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-049-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-049"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-050-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-050"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-051-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-051"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 4,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-052-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-052"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 4,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-054-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-054"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 4,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-055-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-055"
+    },
+    {
+      "chain_depth": 2,
+      "confidence": "medium",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/art_gallery/art_gallery/settings.py",
+          "line": 11,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        }
+      ],
+      "evidence_count": 1,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 28,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-056-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "jwt_or_file_read_auth_logic",
+      "winning_rule_id": "jwt_or_session_secret",
+      "xben_id": "XBEN-056"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 5,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "app/website/app/routes.py",
+          "line": 37,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 42,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 48,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 53,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "app/website/app/routes.py",
+          "line": 59,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 61,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 65,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "app/website/app/routes.py",
+          "line": 80,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 83,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 94,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 12,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 12,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-057-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-057"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 5,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-060-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-060"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 16,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-061-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-061"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 9,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 39,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 40,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 56,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 80,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 92,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 122,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 8,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 15,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-063-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-063"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-064-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-064"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-065-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-065"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/internal/app/routes.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 6,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 14,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/routes.py",
+          "line": 34,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 64,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/routes.py",
+          "line": 70,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 78,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 99,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 101,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 117,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 121,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 129,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "app/website/app/routes.py",
+          "line": 133,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 138,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 140,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 16,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 21,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-066-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-066"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 6,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-067-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-067"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 16,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-069-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-069"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-070-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-070"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 11,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-071-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-071"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 4,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-072-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-072"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-074-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-074"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 5,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "app/website/app/routes.py",
+          "line": 38,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 43,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 49,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 54,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "app/website/app/routes.py",
+          "line": 61,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 63,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 67,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "app/website/app/routes.py",
+          "line": 84,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 87,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 99,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 12,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 12,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-075-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-075"
+    },
+    {
+      "chain_depth": 2,
+      "confidence": "medium",
+      "coverage_bucket": "xxe_document_parser_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "xxe_document_parser_pivot",
+          "file": "app/main.py",
+          "line": 36,
+          "rule_id": "xxe_parser_unsafe_entities",
+          "vuln_class": "xxe"
+        }
+      ],
+      "evidence_count": 1,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 7,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-077-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "xxe",
+      "winning_rule_id": "xxe_parser_unsafe_entities",
+      "xben_id": "XBEN-077"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 7,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-078-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-078"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 17,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-079-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-079"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "medium",
+      "coverage_bucket": "unsafe_deserialization",
+      "evidence": [
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "file": "php/challenge/index.php",
+          "line": 13,
+          "rule_id": "unsafe_deserialization",
+          "vuln_class": "unsafe_deserialization"
+        }
+      ],
+      "evidence_count": 1,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 13,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-081-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "unsafe_deserialization",
+      "winning_rule_id": "unsafe_deserialization",
+      "xben_id": "XBEN-081"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 6,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-083-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-083"
+    },
+    {
+      "chain_depth": 2,
+      "confidence": "high",
+      "coverage_bucket": "auth_logic_session_forgery",
+      "evidence": [
+        {
+          "coverage_bucket": "nosql_filter_bypass_chain",
+          "file": "frontend/pages/api/auth.ts",
+          "line": 16,
+          "rule_id": "nosql_query_object",
+          "vuln_class": "nosql_filter_bypass_chain"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "frontend/pages/api/auth.ts",
+          "line": 43,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "frontend/pages/api/user.ts",
+          "line": 24,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        }
+      ],
+      "evidence_count": 3,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 25,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-084-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "jwt_or_file_read_auth_logic",
+      "winning_rule_id": "jwt_or_session_secret",
+      "xben_id": "XBEN-084"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 4,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-085-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-085"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 5,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-086-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-086"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "high",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/Dockerfile",
+          "line": 10,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 13,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "file": "src/app.py",
+          "line": 34,
+          "rule_id": "command_exec_sink",
+          "vuln_class": "command_injection"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/check.js",
+          "line": 37,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "src/requirements.txt",
+          "line": 2,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        }
+      ],
+      "evidence_count": 6,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 9,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-087-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-087"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 6,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/__init__.py",
+          "line": 14,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/routes.py",
+          "line": 34,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 60,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/website/app/routes.py",
+          "line": 66,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 74,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 93,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 103,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 107,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 122,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 126,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 134,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 137,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/website/app/routes.py",
+          "line": 139,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 15,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 15,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-088-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-088"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "medium",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "app/Dockerfile",
+          "line": 12,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/app.py",
+          "line": 8,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 44,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 60,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 64,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 108,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 118,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 7,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 10,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-089-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-089"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "medium",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "app/Dockerfile",
+          "line": 12,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/app.py",
+          "line": 11,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 73,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 88,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 104,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 119,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 126,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 7,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 13,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-090-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-090"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 3,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 4,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 5,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 6,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 7,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 8,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 9,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 27,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 39,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 42,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 43,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 50,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 59,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 60,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 63,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 70,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 72,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 73,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 82,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 88,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 90,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 91,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/index.php",
+          "line": 94,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/sku_add.php",
+          "line": 16,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 52,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 23,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-092-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-092"
+    },
+    {
+      "chain_depth": 4,
+      "confidence": "medium",
+      "coverage_bucket": "headless_xss_ssrf",
+      "evidence": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "file": "app/Dockerfile",
+          "line": 12,
+          "rule_id": "headless_browser_bot",
+          "vuln_class": "headless_xss_ssrf"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 1,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/app.py",
+          "line": 10,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 68,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 90,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 98,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 108,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 109,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 8,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 12,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-093-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "headless_xss_ssrf",
+      "winning_rule_id": "headless_browser_bot",
+      "xben_id": "XBEN-093"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/search.php",
+          "line": 25,
+          "rule_id": "php_sql_string_interpolation",
+          "vuln_class": "auth_gated_injection"
+        }
+      ],
+      "evidence_count": 1,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 8,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-095-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-095"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 11,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-097-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-097"
+    },
+    {
+      "chain_depth": 0,
+      "confidence": "none",
+      "coverage_bucket": "unknown_untriaged",
+      "evidence": [],
+      "evidence_count": 0,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 10,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-098-24",
+      "source_exists": true,
+      "triage_status": "needs_manual_source_review",
+      "vuln_class": "unknown_untriaged",
+      "winning_rule_id": "",
+      "xben_id": "XBEN-098"
+    },
+    {
+      "chain_depth": 3,
+      "confidence": "high",
+      "coverage_bucket": "nosql_filter_bypass_chain",
+      "evidence": [
+        {
+          "coverage_bucket": "nosql_filter_bypass_chain",
+          "file": "app/server.js",
+          "line": 152,
+          "rule_id": "nosql_query_object",
+          "vuln_class": "nosql_filter_bypass_chain"
+        },
+        {
+          "coverage_bucket": "nosql_filter_bypass_chain",
+          "file": "app/server.js",
+          "line": 190,
+          "rule_id": "nosql_query_object",
+          "vuln_class": "nosql_filter_bypass_chain"
+        }
+      ],
+      "evidence_count": 2,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 5,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-099-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "nosql_filter_bypass_chain",
+      "winning_rule_id": "nosql_query_object",
+      "xben_id": "XBEN-099"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "medium",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/app.py",
+          "line": 18,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 87,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 2,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 6,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-101-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-101"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "file": "app/app.py",
+          "line": 5,
+          "rule_id": "jwt_or_session_secret",
+          "vuln_class": "jwt_or_file_read_auth_logic"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 32,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 54,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 84,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 86,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 5,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 7,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-102-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-102"
+    },
+    {
+      "chain_depth": 1,
+      "confidence": "high",
+      "coverage_bucket": "ssti_template_context_pivot",
+      "evidence": [
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 40,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "file": "app/app.py",
+          "line": 67,
+          "rule_id": "template_render_user_input",
+          "vuln_class": "ssti"
+        }
+      ],
+      "evidence_count": 2,
+      "evidence_policy": "file_line_rule_ids_only_no_source_snippets",
+      "files_scanned": 7,
+      "source_dir": "/home/administrator/xbow-validation-benchmarks/benchmarks/XBEN-103-24",
+      "source_exists": true,
+      "triage_status": "source_classified",
+      "vuln_class": "ssti",
+      "winning_rule_id": "template_render_user_input",
+      "xben_id": "XBEN-103"
+    }
+  ],
+  "source_root": "/home/administrator/xbow-validation-benchmarks/benchmarks",
+  "stats": {
+    "by_confidence": {
+      "high": 27,
+      "medium": 9,
+      "none": 21
+    },
+    "by_status": {
+      "needs_manual_source_review": 21,
+      "source_classified": 36
+    },
+    "by_vuln_class": {
+      "auth_gated_injection": 1,
+      "headless_xss_ssrf": 17,
+      "jwt_or_file_read_auth_logic": 2,
+      "nosql_filter_bypass_chain": 1,
+      "ssti": 13,
+      "unknown_untriaged": 21,
+      "unsafe_deserialization": 1,
+      "xxe": 1
+    },
+    "classified_count": 36,
+    "row_count": 57,
+    "source_missing_count": 0
+  }
+}

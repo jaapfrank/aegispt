@@ -488,6 +488,41 @@ Top-up output dir:
 Generated top-up artifacts are in progress and are intentionally not committed
 until the run finishes and the final mix can be verified.
 
+## Codex continuation status — D1 finalized + committed artifact set (2026-06-07)
+
+The long-running D1 jobs have now finished. No D1 tmux sessions remain active.
+
+Final D1 numbers:
+
+- main D1 accepted rows: 64
+- top-up accepted rows: 19
+- top-up deficits remaining: none
+- combined per-class coverage after top-up:
+  - `auth_logic_session_forgery`: 8
+  - `idor_object_swap_token_reuse`: 8
+  - `info_disclosure_credential_reuse_lateral`: 8
+  - `lowpriv_to_admin_delegation`: 8
+  - `nosql_filter_bypass_chain`: 8
+  - `ssrf_internal_endpoint_recovery`: 8
+  - `ssti_template_context_pivot`: 8
+  - `xxe_document_parser_pivot`: 8
+
+Final mix:
+
+- output dir:
+  `codex/results/training/iter9-combined-sft-mix-20260607/`
+- `selected_total=16882`
+- `curated_iter5=15999`
+- `iter6_auth=800`
+- `v4pro_demonstrated_iter9=83`
+
+Commit policy:
+
+- accepted train rows, scenario registries, manifests, and final gz mix are
+  intended for commit
+- raw/rejected V4-Pro dumps remain untracked because rejected rows include
+  held-out-leak rejection metadata and are not needed by Claude's training path
+
 ## Codex continuation status — E-lane received, E3 done, E1/E2 pending (2026-06-07)
 
 Claude's cold-start finding is now the controlling data hypothesis:
@@ -530,7 +565,7 @@ How Claude should use it:
 
 ### E1 — source-triage of 57 unknown XBENs
 
-Pending.
+Done as conservative source-rule triage.
 
 Input backlog:
 
@@ -539,22 +574,60 @@ Input backlog:
 Hard rule: labels must come from source/readout evidence only. Neighbor context
 is prioritization metadata and must not become a vuln label.
 
-Output expected after E1:
+Added:
 
-- updated source-backed XBEN classification rows
-- regenerated `xben-gap-matrix-20260607`
-- regenerated `xben-triage-backlog-20260607`
-- new missing classes promoted to E2 candidates
+- `scripts/training/triage_xben_sources_iter10.py`
+- `scripts/tests/test_xben_source_triage_iter10.py`
+
+Output:
+
+`codex/results/training/xben-source-triage-20260607/`
+
+E1 result:
+
+- `row_count=57`
+- `source_missing_count=0`
+- `source_classified=36`
+- `needs_manual_source_review=21`
+- evidence policy: file/line/rule IDs only; no source snippets
+- classified classes:
+  - `headless_xss_ssrf`: 17
+  - `ssti`: 13
+  - `jwt_or_file_read_auth_logic`: 2
+  - `auth_gated_injection`: 1
+  - `nosql_filter_bypass_chain`: 1
+  - `unsafe_deserialization`: 1
+  - `xxe`: 1
+
+D3/D6 updated after E1:
+
+- `scripts/training/build_xben_gap_matrix_iter10.py` consumes E1 JSONL when
+  present
+- vuln-class `unknown_untriaged` is now 21, down from 57
+- backlog summary is now:
+  - `covered_needs_rollout_eval=60`
+  - `known_gap_needs_data=6`
+  - `source_triage_required=21`
+  - `source_triage_with_existing_evidence=21`
+
+Manual source-review rows that remain out of training:
+
+`XBEN-028`, `XBEN-039`, `XBEN-040`, `XBEN-041`, `XBEN-052`, `XBEN-054`,
+`XBEN-055`, `XBEN-060`, `XBEN-061`, `XBEN-067`, `XBEN-069`, `XBEN-071`,
+`XBEN-072`, `XBEN-078`, `XBEN-079`, `XBEN-083`, `XBEN-085`, `XBEN-086`,
+`XBEN-095`, `XBEN-097`, `XBEN-098`.
 
 ### E2 — recovery-arc envs + teacher demos for unsolved/missing classes
 
-Pending behind E1.
+Pending after E1.
 
 Inputs:
 
-- 21 attempted-no-solve rows from D3
-- 5 current `known_gap_needs_data` rows from D6
-- any new classes discovered by E1
+- 6 current `known_gap_needs_data` items from refreshed D6
+- the E1-discovered `unsafe_deserialization` gap
+- existing other-stack/provider/manual buckets that still lack env/demo
+- the 21 manual source-review rows are not valid E2 training inputs until
+  direct source evidence exists
 
 Required shape for every new class:
 

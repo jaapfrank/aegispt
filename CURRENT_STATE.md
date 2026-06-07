@@ -1,5 +1,95 @@
 # Current State
 
+## Latest Continuation - D1 corpus finalized + E1 source triage (2026-06-07)
+
+Codex continued the data-lane handoff without changing the active score-lane
+task. T-CHAIN1 remains active and not live-proven; `NEXT_TASK.md` and
+`TASK_QUEUE.md` were not changed.
+
+D1 V4-Pro teacher corpus is now finalized:
+
+- main D1 artifact dir:
+  `codex/results/training/v4pro-teacher-corpus-d1-20260607/`
+- top-up artifact dir:
+  `codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/`
+- final combined mix dir:
+  `codex/results/training/iter9-combined-sft-mix-20260607/`
+- main D1 accepted: 64 rows
+- top-up accepted: 19 rows
+- combined accepted per class after top-up: 8/8 rows for all 8 D1 classes
+- final mix manifest:
+  - `selected_total=16882`
+  - `curated_iter5=15999`
+  - `iter6_auth=800`
+  - `v4pro_demonstrated_iter9=83`
+- only accepted train/manifests/registries/final gz mix are intended for commit;
+  raw/rejected V4-Pro dumps are intentionally left untracked because rejected
+  rows include held-out-leak rejection reasons.
+
+E1 source-backed XBEN triage:
+
+- added `scripts/training/triage_xben_sources_iter10.py`
+- added `scripts/tests/test_xben_source_triage_iter10.py`
+- generated source-triage artifacts under
+  `codex/results/training/xben-source-triage-20260607/`
+- source root checked:
+  `/home/administrator/xbow-validation-benchmarks/benchmarks`
+- all 57 D6 `source_triage_required` rows had source directories present
+- source-rule result:
+  - `source_classified=36`
+  - `needs_manual_source_review=21`
+  - no source snippets are emitted; evidence is file/line/rule IDs only
+- classified classes:
+  - `headless_xss_ssrf=17`
+  - `ssti=13`
+  - `jwt_or_file_read_auth_logic=2`
+  - `auth_gated_injection=1`
+  - `nosql_filter_bypass_chain=1`
+  - `unsafe_deserialization=1`
+  - `xxe=1`
+- remaining manual source-review IDs:
+  `XBEN-028`, `XBEN-039`, `XBEN-040`, `XBEN-041`, `XBEN-052`,
+  `XBEN-054`, `XBEN-055`, `XBEN-060`, `XBEN-061`, `XBEN-067`,
+  `XBEN-069`, `XBEN-071`, `XBEN-072`, `XBEN-078`, `XBEN-079`,
+  `XBEN-083`, `XBEN-085`, `XBEN-086`, `XBEN-095`, `XBEN-097`,
+  `XBEN-098`
+
+D3/D6 refreshed with E1:
+
+- `scripts/training/build_xben_gap_matrix_iter10.py` now consumes the E1
+  source-triage JSONL when present
+- the gap matrix now has `unknown_untriaged=21` by vuln class, down from 57
+- regenerated committed matrix artifacts under
+  `codex/results/training/xben-gap-matrix-20260607/`
+- regenerated committed backlog artifacts under
+  `codex/results/training/xben-triage-backlog-20260607/`
+- new backlog summary:
+  - `item_count=87`
+  - `covered_needs_rollout_eval=60`
+  - `known_gap_needs_data=6`
+  - `source_triage_required=21`
+  - `source_triage_with_existing_evidence=21`
+
+E2 remains the next data-lane step:
+
+- build or map recovery-arc env/demo coverage for the 6
+  `known_gap_needs_data` buckets, especially newly surfaced
+  `unsafe_deserialization` plus existing other-stack/provider classes
+- keep the 21 E1 manual rows out of training until direct source evidence is
+  available
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`
+- `python3 scripts/training/triage_xben_sources_iter10.py --out-dir codex/results/training/xben-source-triage-20260607`
+- `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`
+- `python3 scripts/training/build_xben_triage_backlog_iter10.py --out-dir codex/results/training/xben-triage-backlog-20260607`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m compileall -q scripts/training/triage_xben_sources_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py`
+- `python3 -m ruff check scripts/training/triage_xben_sources_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh && git diff --check`
+
 ## Latest Continuation - E3 transfer matrix + E1/E2 queued (2026-06-07)
 
 Codex received the E1/E2/E3 data-lane handoff. D1 remains active in the

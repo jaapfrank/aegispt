@@ -1,5 +1,69 @@
 # Done Log
 
+- 2026-06-07: D1 V4-Pro corpus finalized and E1 source-backed XBEN triage. [TRAINING DATA]
+  - D1 long-running V4-Pro generation sessions completed.
+  - Main D1 corpus:
+    `codex/results/training/v4pro-teacher-corpus-d1-20260607/`
+    accepted 64 rows.
+  - D1 top-up corpus:
+    `codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/`
+    accepted 19 rows and closed all per-class deficits.
+  - Combined D1 class coverage after top-up is 8/8 rows for:
+    `auth_logic_session_forgery`, `idor_object_swap_token_reuse`,
+    `info_disclosure_credential_reuse_lateral`,
+    `lowpriv_to_admin_delegation`, `nosql_filter_bypass_chain`,
+    `ssrf_internal_endpoint_recovery`, `ssti_template_context_pivot`,
+    and `xxe_document_parser_pivot`.
+  - Final SFT mix rebuilt under
+    `codex/results/training/iter9-combined-sft-mix-20260607/` with
+    `selected_total=16882`, `curated_iter5=15999`, `iter6_auth=800`, and
+    `v4pro_demonstrated_iter9=83`.
+  - Only accepted train/manifests/registries/final gz mix are intended for
+    commit. Raw/rejected V4-Pro dumps remain untracked because rejected rows can
+    contain held-out-leak rejection material.
+  - Added `scripts/training/triage_xben_sources_iter10.py` for E1.
+    The triage scans the 57 D6 source-triage rows and emits file/line/rule IDs
+    only, with no source snippets and no training rows.
+  - Added `scripts/tests/test_xben_source_triage_iter10.py` and wired it into
+    `scripts/run_data_lane_tests.sh`.
+  - E1 result:
+    - `row_count=57`
+    - `source_missing_count=0`
+    - `source_classified=36`
+    - `needs_manual_source_review=21`
+    - classified classes: `headless_xss_ssrf=17`, `ssti=13`,
+      `jwt_or_file_read_auth_logic=2`, `auth_gated_injection=1`,
+      `nosql_filter_bypass_chain=1`, `unsafe_deserialization=1`, `xxe=1`
+  - Updated `scripts/training/build_xben_gap_matrix_iter10.py` so D3 consumes
+    the E1 source-triage JSONL when present. Existing committed/manual class
+    overrides still win; E1 fills only source-classified unknowns.
+  - Regenerated D3 and D6 artifacts:
+    - `codex/results/training/xben-source-triage-20260607/`
+    - `codex/results/training/xben-gap-matrix-20260607/`
+    - `codex/results/training/xben-triage-backlog-20260607/`
+  - Updated matrix/backlog summary:
+    - vuln-class `unknown_untriaged` reduced from 57 to 21
+    - `covered_needs_rollout_eval=60`
+    - `known_gap_needs_data=6`
+    - `source_triage_required=21`
+    - `source_triage_with_existing_evidence=21`
+  - E2 follow-up is now sharper: build/map recovery-arc env/demo coverage for
+    the 6 `known_gap_needs_data` buckets and keep the 21 manual E1 rows out of
+    training until direct source evidence exists.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`;
+    `python3 scripts/training/triage_xben_sources_iter10.py --out-dir codex/results/training/xben-source-triage-20260607`;
+    `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`;
+    `python3 scripts/training/build_xben_triage_backlog_iter10.py --out-dir codex/results/training/xben-triage-backlog-20260607`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/triage_xben_sources_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py`;
+    `python3 -m ruff check scripts/training/triage_xben_sources_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/tests/test_xben_source_triage_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh && git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: E3 per-class transfer scoring harness. [TRAINING DATA]
   - Added `scripts/training/build_transfer_matrix_iter10.py`.
   - The harness consumes rollout `res_*.json` files and env manifests, then

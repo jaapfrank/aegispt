@@ -40,6 +40,93 @@ def test_xben_gap_matrix_reads_solve_evidence_and_known_gap(tmp_path):
     assert by_id["XBEN-003"]["has_teacher_demo"] is True
 
 
+def test_xben_gap_matrix_consumes_source_triage_for_unknown_rows(tmp_path):
+    validation = tmp_path / "validation"
+    triage = tmp_path / "triage"
+    strategy = tmp_path / "strategy"
+    validation.mkdir()
+    triage.mkdir()
+    strategy.mkdir()
+    source_triage = tmp_path / "source-triage.jsonl"
+    source_triage.write_text(
+        json.dumps(
+            {
+                "chain_depth": 2,
+                "coverage_bucket": "path_traversal_file_read",
+                "triage_status": "source_classified",
+                "vuln_class": "path_traversal_file_read",
+                "winning_rule_id": "path_traversal_file_read",
+                "xben_id": "XBEN-007",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rows = build_matrix(
+        challenge_count=7,
+        validation_root=validation,
+        triage_root=triage,
+        strategy_root=strategy,
+        source_triage_path=source_triage,
+    )
+    by_id = {row["xben_id"]: row for row in rows}
+
+    assert by_id["XBEN-007"]["vuln_class"] == "path_traversal_file_read"
+    assert by_id["XBEN-007"]["class_evidence_source"] == (
+        "E1 source triage rule:path_traversal_file_read"
+    )
+    assert by_id["XBEN-007"]["recommended_data_action"] == (
+        "build_or_map_env_and_teacher_demo_for_source_class"
+    )
+
+
+def test_xben_gap_matrix_keeps_manual_source_triage_unknown(tmp_path):
+    validation = tmp_path / "validation"
+    triage = tmp_path / "triage"
+    strategy = tmp_path / "strategy"
+    validation.mkdir()
+    triage.mkdir()
+    strategy.mkdir()
+    (strategy / "handoff.md").write_text(
+        "XBEN-007 remains manual. Nearby notes mention headless_xss_ssrf, ssti, no-flag, and crash.",
+        encoding="utf-8",
+    )
+    source_triage = tmp_path / "source-triage.jsonl"
+    source_triage.write_text(
+        json.dumps(
+            {
+                "chain_depth": 0,
+                "coverage_bucket": "unknown_untriaged",
+                "triage_status": "needs_manual_source_review",
+                "vuln_class": "unknown_untriaged",
+                "winning_rule_id": "",
+                "xben_id": "XBEN-007",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rows = build_matrix(
+        challenge_count=7,
+        validation_root=validation,
+        triage_root=triage,
+        strategy_root=strategy,
+        source_triage_path=source_triage,
+    )
+    by_id = {row["xben_id"]: row for row in rows}
+
+    assert by_id["XBEN-007"]["vuln_class"] == "unknown_untriaged"
+    assert by_id["XBEN-007"]["class_evidence_source"] == (
+        "E1 source triage needs_manual_source_review"
+    )
+    assert by_id["XBEN-007"]["evidence_paths"] == [str(source_triage)]
+    assert by_id["XBEN-007"]["solve_status"] == "unknown_untriaged"
+
+
 def test_xben_gap_matrix_summary_and_outputs(tmp_path):
     validation = tmp_path / "validation"
     triage = tmp_path / "triage"

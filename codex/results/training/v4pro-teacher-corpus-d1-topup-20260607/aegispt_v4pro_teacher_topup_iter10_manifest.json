@@ -1,0 +1,83 @@
+{
+  "base_manifest": "codex/results/training/v4pro-teacher-corpus-d1-20260607/aegispt_v4pro_demonstrated_chains_iter9_manifest.json",
+  "dataset": "aegispt_v4pro_teacher_topup_iter10",
+  "endpoint": "https://api.deepseek.com/v1/chat/completions",
+  "files": {
+    "raw_teacher": "codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/aegispt_v4pro_teacher_topup_iter10_raw_teacher.jsonl",
+    "rejected": "codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/aegispt_v4pro_teacher_topup_iter10_rejected.jsonl",
+    "scenario_registry": "codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/aegispt_v4pro_teacher_topup_iter10_scenario_registry.jsonl",
+    "train": "codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/aegispt_v4pro_teacher_topup_iter10_train.jsonl"
+  },
+  "model": "deepseek-v4-pro",
+  "policy": {
+    "blocked_goal_recovery_required": true,
+    "data_lane_only": true,
+    "held_out_guard": true,
+    "runtime_execution": false,
+    "secret_committed": false,
+    "topup_only": true,
+    "train_only": true
+  },
+  "stats": {
+    "accepted_by_chain_class": {
+      "auth_logic_session_forgery": 5,
+      "info_disclosure_credential_reuse_lateral": 1,
+      "lowpriv_to_admin_delegation": 1,
+      "nosql_filter_bypass_chain": 7,
+      "ssrf_internal_endpoint_recovery": 3,
+      "xxe_document_parser_pivot": 2
+    },
+    "accepted_count": 19,
+    "attempts": 31,
+    "base_accepted_by_chain_class": {
+      "auth_logic_session_forgery": 3,
+      "idor_object_swap_token_reuse": 8,
+      "info_disclosure_credential_reuse_lateral": 7,
+      "lowpriv_to_admin_delegation": 7,
+      "nosql_filter_bypass_chain": 1,
+      "ssrf_internal_endpoint_recovery": 5,
+      "ssti_template_context_pivot": 8,
+      "xxe_document_parser_pivot": 6
+    },
+    "combined_accepted_by_chain_class": {
+      "auth_logic_session_forgery": 8,
+      "idor_object_swap_token_reuse": 8,
+      "info_disclosure_credential_reuse_lateral": 8,
+      "lowpriv_to_admin_delegation": 8,
+      "nosql_filter_bypass_chain": 8,
+      "ssrf_internal_endpoint_recovery": 8,
+      "ssti_template_context_pivot": 8,
+      "xxe_document_parser_pivot": 8
+    },
+    "deficits_initial": {
+      "auth_logic_session_forgery": 5,
+      "info_disclosure_credential_reuse_lateral": 1,
+      "lowpriv_to_admin_delegation": 1,
+      "nosql_filter_bypass_chain": 7,
+      "ssrf_internal_endpoint_recovery": 3,
+      "xxe_document_parser_pivot": 2
+    },
+    "deficits_remaining": {},
+    "rejected_by_reason": {
+      "assistant_schema_mismatch": 1,
+      "held_out_marker_leak": 1,
+      "missing_next_action_args": 3,
+      "teacher_error:ValueError": 7
+    },
+    "rejected_count": 12,
+    "stopped_reason": "completed",
+    "target_min_per_chain_class": 8,
+    "topup_chain_classes": [
+      "ssrf_internal_endpoint_recovery",
+      "lowpriv_to_admin_delegation",
+      "info_disclosure_credential_reuse_lateral",
+      "xxe_document_parser_pivot",
+      "auth_logic_session_forgery",
+      "nosql_filter_bypass_chain"
+    ],
+    "turn_distribution": {
+      "5": 13,
+      "6": 6
+    }
+  }
+}

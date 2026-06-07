@@ -1,0 +1,60 @@
+{
+  "dataset": "aegispt_iter9_combined_sft_mix",
+  "files": {
+    "source_map": {
+      "bytes": 939968,
+      "path": "codex/results/training/iter9-combined-sft-mix-20260607/aegispt_iter9_combined_sft_mix_source_map.jsonl.gz",
+      "row_count": 16882,
+      "sha256": "27c2ebfd900963cb51b478c9adda38cc80c350d1ae1835f38cab60a50aeaefe8"
+    },
+    "train": {
+      "bytes": 4754240,
+      "path": "codex/results/training/iter9-combined-sft-mix-20260607/aegispt_iter9_combined_sft_mix_train.jsonl.gz",
+      "row_count": 16882,
+      "sha256": "a42b5d409e63d5d418d768620fc8e5856ba1038eb2989fc08f5a3af210925b47"
+    }
+  },
+  "format": "gzip-compressed chat SFT jsonl plus gzip source map",
+  "policy": {
+    "blocked_goal_recovery_required_for_v4pro": true,
+    "data_lane_only": true,
+    "held_out_guard": true,
+    "iter6_chain_classes": [
+      "api_object_authorization_chain",
+      "web_auth_followthrough"
+    ],
+    "runtime_execution": false,
+    "v4pro_happy_path_rows_rejected": true
+  },
+  "sources": {
+    "curated_iter5": "/home/administrator/.aegispt-tools/training/aegispt_curated_sft_mix_iter5.jsonl",
+    "held_out_registries": [
+      "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_lab_truth_heldout_registry_iter6.json"
+    ],
+    "iter6": "/home/administrator/.aegispt-tools/training/aegispt_multiturn_agentic_chain_iter6_train.jsonl",
+    "v4pro": [
+      "codex/results/training/v4pro-teacher-corpus-d1-20260607/aegispt_v4pro_demonstrated_chains_iter9_train.jsonl",
+      "codex/results/training/v4pro-teacher-corpus-d1-topup-20260607/aegispt_v4pro_teacher_topup_iter10_train.jsonl",
+      "codex/results/training/v4pro-demonstrated-chains-20260607-accepted/aegispt_v4pro_demonstrated_chains_iter9_train.jsonl"
+    ]
+  },
+  "stats": {
+    "held_out_hashes": 2883,
+    "per_family": {
+      "curated_iter5": 15999,
+      "iter6_auth": 800,
+      "v4pro_demonstrated_iter9": 83
+    },
+    "selected_total": 16882,
+    "skipped": {
+      "curated_iter5": {
+        "held_out_string": 1
+      },
+      "iter6_auth": {},
+      "v4pro_dedupe": {},
+      "v4pro_guard": {
+        "missing_blocked_goal_recovery_arc": 1
+      }
+    }
+  }
+}

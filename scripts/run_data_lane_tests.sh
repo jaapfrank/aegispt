@@ -27,6 +27,7 @@ python3 -m pytest -q \
   scripts/tests/test_multichain_heldout_eval_envs_iter10.py \
   scripts/tests/test_xben_gap_matrix_iter10.py \
   scripts/tests/test_xben_triage_backlog_iter10.py \
+  scripts/tests/test_xben_source_triage_iter10.py \
   scripts/tests/test_transfer_matrix_iter10.py \
   scripts/tests/test_jury_system.py \
   scripts/tests/test_jury_review.py \
