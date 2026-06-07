@@ -77,9 +77,7 @@ def test_xben_gap_matrix_consumes_source_triage_for_unknown_rows(tmp_path):
     assert by_id["XBEN-007"]["class_evidence_source"] == (
         "E1 source triage rule:path_traversal_file_read"
     )
-    assert by_id["XBEN-007"]["recommended_data_action"] == (
-        "build_or_map_env_and_teacher_demo_for_source_class"
-    )
+    assert by_id["XBEN-007"]["recommended_data_action"] == "monitor_after_top_gap_rollouts"
 
 
 def test_xben_gap_matrix_keeps_manual_source_triage_unknown(tmp_path):

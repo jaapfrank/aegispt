@@ -1,0 +1,13 @@
+{
+  "blocked_goal": true,
+  "evidence_collected": true,
+  "flag": true,
+  "pivot": true,
+  "recovered_after_block": true,
+  "reward": 29,
+  "scenario_hash": "ff3020729b3b1dc3fb1a551b0d00979bf6ce85f93e1b724bd9ab95add72fac2f",
+  "scenario_id": "rl-train-upload-webroot-metadata-recovery",
+  "steps": 4,
+  "unique": 3,
+  "used_revealed_value": true
+}

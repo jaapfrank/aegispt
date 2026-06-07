@@ -104,6 +104,41 @@ data work is recovery-arc RL envs + teacher demos for those four newly exposed
 coverage buckets, while the existing V4-Pro other-stack top-up continues in
 tmux session `aegispt_v4pro_e2_otherstack_topup`.
 
+## Codex continuation status — E2 web source-gap envs complete (2026-06-07)
+
+The E1-exposed `known_gap_needs_data` buckets are now covered by deterministic
+training envs and teacher demos.
+
+- added `scripts/training/web_source_gap_recovery_envs_iter10.py`
+- added `scripts/tests/test_web_source_gap_recovery_envs_iter10.py`
+- generated artifacts:
+  `codex/results/training/web-source-gap-recovery-envs-20260607/`
+- dataset family: `aegispt_web_source_gap_recovery_envs_iter10`
+- demo family: `aegispt_web_source_gap_recovery_teacher_demos_iter10`
+- 4 RL envs / 32 demos:
+  - `sqli_filter_bypass`: 8 demos
+  - `file_upload_webroot`: 8 demos
+  - `path_traversal_file_read`: 8 demos
+  - `static_file_or_server_misconfig`: 8 demos
+- every oracle follows:
+  blocked goal -> hinted source-backed evidence -> bounded proof -> retry
+- `jury_rollout.py` smoke kept all 4 rollouts with:
+  `any_flag=true`, `any_recovered_after_block=true`,
+  `any_used_revealed_value=true`
+- held-out registry refreshed; `rl_train_env=23` and
+  `aegispt_web_source_gap_recovery_envs_iter10=4`
+
+Backlog after E2:
+
+- `item_count=87`
+- `covered_needs_rollout_eval=87`
+- `known_gap_needs_data=0`
+- `source_triage_required=0`
+
+Remaining live item in Codex data-lane: the V4-Pro other-stack top-up job is
+still running in tmux session `aegispt_v4pro_e2_otherstack_topup`; latest
+checked status was 8 accepted rows / 32 attempts.
+
 ## Codex implementation status — 2026-06-07
 
 ### P1 status

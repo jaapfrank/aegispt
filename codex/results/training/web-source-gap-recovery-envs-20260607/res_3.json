@@ -1,0 +1,13 @@
+{
+  "blocked_goal": true,
+  "evidence_collected": true,
+  "flag": true,
+  "pivot": true,
+  "recovered_after_block": true,
+  "reward": 29,
+  "scenario_hash": "8e155bd011db184a16a3a949ce15962f28ccba7699f0e5c5dc55c6a3714dcbf7",
+  "scenario_id": "rl-train-nginx-alias-autoindex-recovery",
+  "steps": 4,
+  "unique": 3,
+  "used_revealed_value": true
+}

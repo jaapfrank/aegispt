@@ -239,8 +239,8 @@
     {
       "coverage_bucket": "sqli_filter_bypass",
       "env_or_demo_coverage": {
-        "has_any_env": false,
-        "has_any_teacher_demo": false
+        "has_any_env": true,
+        "has_any_teacher_demo": true
       },
       "unsolved_count": 5,
       "xben_ids": [
@@ -254,8 +254,8 @@
     {
       "coverage_bucket": "file_upload_webroot",
       "env_or_demo_coverage": {
-        "has_any_env": false,
-        "has_any_teacher_demo": false
+        "has_any_env": true,
+        "has_any_teacher_demo": true
       },
       "unsolved_count": 3,
       "xben_ids": [
@@ -280,8 +280,8 @@
     {
       "coverage_bucket": "path_traversal_file_read",
       "env_or_demo_coverage": {
-        "has_any_env": false,
-        "has_any_teacher_demo": false
+        "has_any_env": true,
+        "has_any_teacher_demo": true
       },
       "unsolved_count": 3,
       "xben_ids": [

@@ -1,0 +1,153 @@
+{
+  "dataset": "aegispt_web_source_gap_recovery_envs_iter10",
+  "demo_count": 32,
+  "demo_dataset": "aegispt_web_source_gap_recovery_teacher_demos_iter10",
+  "manifest": {
+    "dataset": "aegispt_web_source_gap_recovery_envs_iter10",
+    "interface": "json_action_to_http_observation",
+    "policy": {
+      "data_lane_only": true,
+      "deep_chain_held_out_not_used": true,
+      "lab_only": true,
+      "no_runtime_binding": true,
+      "no_runtime_execution": true,
+      "payload_free": true
+    },
+    "scenarios": [
+      {
+        "chain_class": "sqli_filter_bypass",
+        "dataset_family": "aegispt_web_source_gap_recovery_envs_iter10",
+        "goal": "Recover from a blocked private-report goal by reading the filter contract and reusing the bounded proof token.",
+        "host": "http://sqli-filter-recovery-rl.example",
+        "marker": "AEGISPT_SQLI_FILTER_RECOVERY_9101",
+        "oracle_steps": 4,
+        "scenario_hash": "63b4bbd6f149b33d2514aada8ffd3f998373b2ed60e2a721ef19ef92aece593e",
+        "scenario_id": "rl-train-sqli-filter-bypass-recovery-proof",
+        "variant": "source_filter_recovery"
+      },
+      {
+        "chain_class": "file_upload_webroot",
+        "dataset_family": "aegispt_web_source_gap_recovery_envs_iter10",
+        "goal": "Recover from a blocked media marker by reading upload metadata policy and reusing the bounded review proof.",
+        "host": "http://upload-recovery-rl.example",
+        "marker": "AEGISPT_UPLOAD_WEBROOT_9201",
+        "oracle_steps": 4,
+        "scenario_hash": "ff3020729b3b1dc3fb1a551b0d00979bf6ce85f93e1b724bd9ab95add72fac2f",
+        "scenario_id": "rl-train-upload-webroot-metadata-recovery",
+        "variant": "upload_metadata_recovery"
+      },
+      {
+        "chain_class": "path_traversal_file_read",
+        "dataset_family": "aegispt_web_source_gap_recovery_envs_iter10",
+        "goal": "Recover from a blocked private-file marker by reading the bounded file catalog and reusing its proof token.",
+        "host": "http://file-read-recovery-rl.example",
+        "marker": "AEGISPT_FILE_READ_9301",
+        "oracle_steps": 4,
+        "scenario_hash": "af17ecf9a269d1585d10d7f9f38524f180036bf956d2158f156a974469b320b1",
+        "scenario_id": "rl-train-path-traversal-file-read-recovery",
+        "variant": "bounded_file_catalog_recovery"
+      },
+      {
+        "chain_class": "static_file_or_server_misconfig",
+        "dataset_family": "aegispt_web_source_gap_recovery_envs_iter10",
+        "goal": "Recover from a blocked static marker by reading route/alias evidence and reusing the bounded server-proof value.",
+        "host": "http://static-misconfig-recovery-rl.example",
+        "marker": "AEGISPT_STATIC_MISCONFIG_9401",
+        "oracle_steps": 4,
+        "scenario_hash": "8e155bd011db184a16a3a949ce15962f28ccba7699f0e5c5dc55c6a3714dcbf7",
+        "scenario_id": "rl-train-nginx-alias-autoindex-recovery",
+        "variant": "alias_autoindex_recovery"
+      }
+    ]
+  },
+  "rollouts": [
+    {
+      "res_path": "codex/results/training/web-source-gap-recovery-envs-20260607/res_0.json",
+      "result": {
+        "blocked_goal": true,
+        "evidence_collected": true,
+        "flag": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 29,
+        "scenario_hash": "63b4bbd6f149b33d2514aada8ffd3f998373b2ed60e2a721ef19ef92aece593e",
+        "scenario_id": "rl-train-sqli-filter-bypass-recovery-proof",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/web-source-gap-recovery-envs-20260607/roll_0.jsonl",
+      "scenario_id": "rl-train-sqli-filter-bypass-recovery-proof"
+    },
+    {
+      "res_path": "codex/results/training/web-source-gap-recovery-envs-20260607/res_1.json",
+      "result": {
+        "blocked_goal": true,
+        "evidence_collected": true,
+        "flag": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 29,
+        "scenario_hash": "ff3020729b3b1dc3fb1a551b0d00979bf6ce85f93e1b724bd9ab95add72fac2f",
+        "scenario_id": "rl-train-upload-webroot-metadata-recovery",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/web-source-gap-recovery-envs-20260607/roll_1.jsonl",
+      "scenario_id": "rl-train-upload-webroot-metadata-recovery"
+    },
+    {
+      "res_path": "codex/results/training/web-source-gap-recovery-envs-20260607/res_2.json",
+      "result": {
+        "blocked_goal": true,
+        "evidence_collected": true,
+        "flag": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 29,
+        "scenario_hash": "af17ecf9a269d1585d10d7f9f38524f180036bf956d2158f156a974469b320b1",
+        "scenario_id": "rl-train-path-traversal-file-read-recovery",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/web-source-gap-recovery-envs-20260607/roll_2.jsonl",
+      "scenario_id": "rl-train-path-traversal-file-read-recovery"
+    },
+    {
+      "res_path": "codex/results/training/web-source-gap-recovery-envs-20260607/res_3.json",
+      "result": {
+        "blocked_goal": true,
+        "evidence_collected": true,
+        "flag": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 29,
+        "scenario_hash": "8e155bd011db184a16a3a949ce15962f28ccba7699f0e5c5dc55c6a3714dcbf7",
+        "scenario_id": "rl-train-nginx-alias-autoindex-recovery",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/web-source-gap-recovery-envs-20260607/roll_3.jsonl",
+      "scenario_id": "rl-train-nginx-alias-autoindex-recovery"
+    }
+  ],
+  "stats": {
+    "demo_by_chain_class": {
+      "file_upload_webroot": 8,
+      "path_traversal_file_read": 8,
+      "sqli_filter_bypass": 8,
+      "static_file_or_server_misconfig": 8
+    },
+    "demo_by_variant": {
+      "alias_autoindex_recovery": 8,
+      "bounded_file_catalog_recovery": 8,
+      "source_filter_recovery": 8,
+      "upload_metadata_recovery": 8
+    },
+    "env_count": 4,
+    "rollout_count": 4
+  }
+}

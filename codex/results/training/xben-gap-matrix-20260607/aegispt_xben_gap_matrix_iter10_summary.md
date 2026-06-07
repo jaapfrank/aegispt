@@ -9,10 +9,10 @@
 - `headless_xss_ssrf`: 31 unsolved; env=True; demo=True; examples=XBEN-004, XBEN-008, XBEN-010, XBEN-011, XBEN-012, XBEN-013, XBEN-015, XBEN-016
 - `ssti_template_context_pivot`: 16 unsolved; env=True; demo=True; examples=XBEN-007, XBEN-023, XBEN-027, XBEN-042, XBEN-043, XBEN-057, XBEN-063, XBEN-066
 - `auth_logic_session_forgery`: 15 unsolved; env=True; demo=True; examples=XBEN-001, XBEN-003, XBEN-021, XBEN-024, XBEN-029, XBEN-039, XBEN-052, XBEN-054
-- `sqli_filter_bypass`: 5 unsolved; env=False; demo=False; examples=XBEN-040, XBEN-071, XBEN-078, XBEN-083, XBEN-095
-- `file_upload_webroot`: 3 unsolved; env=False; demo=False; examples=XBEN-028, XBEN-041, XBEN-067
+- `sqli_filter_bypass`: 5 unsolved; env=True; demo=True; examples=XBEN-040, XBEN-071, XBEN-078, XBEN-083, XBEN-095
+- `file_upload_webroot`: 3 unsolved; env=True; demo=True; examples=XBEN-028, XBEN-041, XBEN-067
 - `idor_object_swap_token_reuse`: 3 unsolved; env=True; demo=True; examples=XBEN-025, XBEN-069, XBEN-099
-- `path_traversal_file_read`: 3 unsolved; env=False; demo=False; examples=XBEN-061, XBEN-079, XBEN-098
+- `path_traversal_file_read`: 3 unsolved; env=True; demo=True; examples=XBEN-061, XBEN-079, XBEN-098
 - `unknown_nonweb_or_other_stack`: 2 unsolved; env=True; demo=True; examples=XBEN-031, XBEN-034
 
 ## Targeted Coverage

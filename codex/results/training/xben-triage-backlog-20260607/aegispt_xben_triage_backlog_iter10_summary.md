@@ -6,5 +6,4 @@
 
 ## Lanes
 
-- `covered_needs_rollout_eval`: 75
-- `known_gap_needs_data`: 12
+- `covered_needs_rollout_eval`: 87

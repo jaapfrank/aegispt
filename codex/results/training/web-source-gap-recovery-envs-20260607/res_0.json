@@ -1,0 +1,13 @@
+{
+  "blocked_goal": true,
+  "evidence_collected": true,
+  "flag": true,
+  "pivot": true,
+  "recovered_after_block": true,
+  "reward": 29,
+  "scenario_hash": "63b4bbd6f149b33d2514aada8ffd3f998373b2ed60e2a721ef19ef92aece593e",
+  "scenario_id": "rl-train-sqli-filter-bypass-recovery-proof",
+  "steps": 4,
+  "unique": 3,
+  "used_revealed_value": true
+}

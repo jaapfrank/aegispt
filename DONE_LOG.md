@@ -1,5 +1,52 @@
 # Done Log
 
+- 2026-06-07: E2 web source-gap recovery env/demo coverage. [TRAINING DATA]
+  - Added `scripts/training/web_source_gap_recovery_envs_iter10.py`.
+  - Added `scripts/tests/test_web_source_gap_recovery_envs_iter10.py` and
+    wired it into `scripts/run_data_lane_tests.sh`.
+  - Dataset family: `aegispt_web_source_gap_recovery_envs_iter10`.
+  - Demo family: `aegispt_web_source_gap_recovery_teacher_demos_iter10`.
+  - Added 4 lab-only, payload-free recovery-arc RL envs for the E1-exposed
+    buckets:
+    `sqli_filter_bypass`, `file_upload_webroot`,
+    `path_traversal_file_read`, and `static_file_or_server_misconfig`.
+  - Added 32 deterministic teacher-demo rows, 8 per class.
+  - Every oracle exercises:
+    blocked goal -> hinted source-backed evidence -> bounded recovery proof ->
+    retry/complete goal.
+  - Generated artifacts under
+    `codex/results/training/web-source-gap-recovery-envs-20260607/`.
+  - Wired the 4 scenario hashes into
+    `scripts/training/make_lab_truth_heldout_registry_iter6.py`.
+  - Refreshed iter7 and iter8 registry snapshots; registry summaries now show
+    `aegispt_web_source_gap_recovery_envs_iter10=4` and
+    `rl_train_env=23`.
+  - Updated `scripts/training/build_xben_gap_matrix_iter10.py` so the new
+    env/demo classes count toward matrix coverage.
+  - Regenerated D3/D6 artifacts. D6 now reports:
+    - `covered_needs_rollout_eval=87`
+    - `known_gap_needs_data=0`
+    - `source_triage_required=0`
+  - E2 V4-Pro other-stack top-up remains active in tmux
+    `aegispt_v4pro_e2_otherstack_topup`; latest checked status was 8 accepted
+    rows / 32 attempts.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_web_source_gap_recovery_envs_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 scripts/training/web_source_gap_recovery_envs_iter10.py --scripted-oracle --artifact-out-dir codex/results/training/web-source-gap-recovery-envs-20260607 --demo-count 32`;
+    `python3 scripts/training/jury_rollout.py --rollouts codex/results/training/web-source-gap-recovery-envs-20260607 --out /tmp/aegispt_iter10_web_source_gap_jury_best.jsonl --top-frac 1.0 --min-reward 1`;
+    `python3 scripts/training/build_iter8_training_artifact_pack.py`;
+    `python3 scripts/training/build_iter7_training_artifact_pack.py`;
+    `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`;
+    `python3 scripts/training/build_xben_triage_backlog_iter10.py --out-dir codex/results/training/xben-triage-backlog-20260607`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/web_source_gap_recovery_envs_iter10.py scripts/tests/test_web_source_gap_recovery_envs_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_xben_gap_matrix_iter10.py`;
+    `python3 -m ruff check scripts/training/web_source_gap_recovery_envs_iter10.py scripts/tests/test_web_source_gap_recovery_envs_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_xben_gap_matrix_iter10.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh && git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: E1 source triage completed and D3/D6 refreshed. [TRAINING DATA]
   - Extended `scripts/training/triage_xben_sources_iter10.py` with stricter,
     source-backed rules for PHP upload/include chains, file include/read,

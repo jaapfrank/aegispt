@@ -25197,6 +25197,46 @@
       "variant": "evidence_first_abstention"
     },
     {
+      "chain_class": "sqli_filter_bypass",
+      "dataset_family": "aegispt_web_source_gap_recovery_envs_iter10",
+      "holdout_reason": "iter10_web_source_gap_recovery_rl_training_env_reserved",
+      "scenario_hash": "63b4bbd6f149b33d2514aada8ffd3f998373b2ed60e2a721ef19ef92aece593e",
+      "scenario_id": "rl-train-sqli-filter-bypass-recovery-proof",
+      "source": "scripts/training/web_source_gap_recovery_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "source_filter_recovery"
+    },
+    {
+      "chain_class": "file_upload_webroot",
+      "dataset_family": "aegispt_web_source_gap_recovery_envs_iter10",
+      "holdout_reason": "iter10_web_source_gap_recovery_rl_training_env_reserved",
+      "scenario_hash": "ff3020729b3b1dc3fb1a551b0d00979bf6ce85f93e1b724bd9ab95add72fac2f",
+      "scenario_id": "rl-train-upload-webroot-metadata-recovery",
+      "source": "scripts/training/web_source_gap_recovery_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "upload_metadata_recovery"
+    },
+    {
+      "chain_class": "path_traversal_file_read",
+      "dataset_family": "aegispt_web_source_gap_recovery_envs_iter10",
+      "holdout_reason": "iter10_web_source_gap_recovery_rl_training_env_reserved",
+      "scenario_hash": "af17ecf9a269d1585d10d7f9f38524f180036bf956d2158f156a974469b320b1",
+      "scenario_id": "rl-train-path-traversal-file-read-recovery",
+      "source": "scripts/training/web_source_gap_recovery_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "bounded_file_catalog_recovery"
+    },
+    {
+      "chain_class": "static_file_or_server_misconfig",
+      "dataset_family": "aegispt_web_source_gap_recovery_envs_iter10",
+      "holdout_reason": "iter10_web_source_gap_recovery_rl_training_env_reserved",
+      "scenario_hash": "8e155bd011db184a16a3a949ce15962f28ccba7699f0e5c5dc55c6a3714dcbf7",
+      "scenario_id": "rl-train-nginx-alias-autoindex-recovery",
+      "source": "scripts/training/web_source_gap_recovery_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "alias_autoindex_recovery"
+    },
+    {
       "dataset_family": "aegispt-lab-suite-v1",
       "holdout_reason": "standalone_lab_benchmark",
       "lab_truth": "known_vulnerable",
@@ -27502,15 +27542,16 @@
       "aegispt_multiturn_agentic_chain_iter6": 800,
       "aegispt_multiturn_chaintype_diversity_iter7": 640,
       "aegispt_other_stack_recovery_envs_iter10": 5,
+      "aegispt_web_source_gap_recovery_envs_iter10": 4,
       "deep_chain_eval": 1
     },
     "held_out_by_split": {
       "benchmark": 50,
       "eval": 1749,
-      "rl_train_env": 19,
+      "rl_train_env": 23,
       "test": 1020
     },
-    "held_out_count": 2838,
+    "held_out_count": 2842,
     "lab_truth_by_family": {
       "aegispt-lab-suite-v1": 50,
       "aegispt_live_lab_target_specs_iter5": 93

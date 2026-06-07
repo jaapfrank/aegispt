@@ -1,0 +1,13 @@
+{
+  "blocked_goal": true,
+  "evidence_collected": true,
+  "flag": true,
+  "pivot": true,
+  "recovered_after_block": true,
+  "reward": 29,
+  "scenario_hash": "af17ecf9a269d1585d10d7f9f38524f180036bf956d2158f156a974469b320b1",
+  "scenario_id": "rl-train-path-traversal-file-read-recovery",
+  "steps": 4,
+  "unique": 3,
+  "used_revealed_value": true
+}
