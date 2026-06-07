@@ -1,0 +1,15 @@
+{
+  "blocked_goal": true,
+  "execution_requested": true,
+  "flag": true,
+  "pivot": true,
+  "proof_recorded": true,
+  "proof_retrieved": true,
+  "recovered_after_block": true,
+  "reward": 31,
+  "scenario_hash": "83b75ab69a40475ac4e819d3e8b7c135b5aac1d22a385585473bc050b63b2894",
+  "scenario_id": "rl-train-blind-filtered-status-callback",
+  "steps": 5,
+  "unique": 4,
+  "used_revealed_value": true
+}

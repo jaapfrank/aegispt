@@ -1,0 +1,15 @@
+{
+  "blocked_goal": true,
+  "execution_requested": true,
+  "flag": true,
+  "pivot": true,
+  "proof_recorded": true,
+  "proof_retrieved": true,
+  "recovered_after_block": true,
+  "reward": 31,
+  "scenario_hash": "6490eb9f97ec75b3e953596e26d1671edd3d9d411375a485298f68ea3c88c3e2",
+  "scenario_id": "rl-train-command-output-bounded-proof",
+  "steps": 5,
+  "unique": 4,
+  "used_revealed_value": true
+}

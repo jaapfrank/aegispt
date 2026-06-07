@@ -1,0 +1,174 @@
+{
+  "dataset": "aegispt_blind_oob_command_envs_iter10",
+  "demo_count": 32,
+  "demo_dataset": "aegispt_blind_oob_command_teacher_demos_iter10",
+  "manifest": {
+    "dataset": "aegispt_blind_oob_command_envs_iter10",
+    "interface": "json_action_to_http_observation",
+    "policy": {
+      "bounded_proof_only": true,
+      "callback_simulated": true,
+      "data_lane_only": true,
+      "deep_chain_held_out_not_used": true,
+      "lab_only": true,
+      "no_real_callback_server": true,
+      "no_shell_payloads": true,
+      "runtime_binding": false,
+      "runtime_execution": false
+    },
+    "scenarios": [
+      {
+        "blind_output": true,
+        "chain_class": "blind_command_injection_filter_bypass",
+        "dataset_family": "aegispt_blind_oob_command_envs_iter10",
+        "domain": "web",
+        "goal": "Recover from a blind status checker by emitting only a lab proof token to the callback proof channel.",
+        "host": "http://status-blind-rl.example",
+        "marker": "AEGISPT_BLIND_STATUS_4118",
+        "oracle_steps": 5,
+        "requires_execution_proof": true,
+        "scenario_hash": "83b75ab69a40475ac4e819d3e8b7c135b5aac1d22a385585473bc050b63b2894",
+        "scenario_id": "rl-train-blind-filtered-status-callback",
+        "variant": "filtered_status_callback"
+      },
+      {
+        "blind_output": true,
+        "chain_class": "blind_command_injection_filter_bypass",
+        "dataset_family": "aegispt_blind_oob_command_envs_iter10",
+        "domain": "web_worker",
+        "goal": "Use the queued archive job's lab proof channel when direct output is suppressed, then retry the marker.",
+        "host": "http://archive-blind-rl.example",
+        "marker": "AEGISPT_BLIND_ARCHIVE_6507",
+        "oracle_steps": 5,
+        "requires_execution_proof": true,
+        "scenario_hash": "75acf30208b302e3d1b92b469eb21b075abefbd9727ab6810412616014257311",
+        "scenario_id": "rl-train-blind-archive-job-callback",
+        "variant": "archive_job_callback"
+      },
+      {
+        "blind_output": false,
+        "chain_class": "command_injection",
+        "dataset_family": "aegispt_blind_oob_command_envs_iter10",
+        "domain": "web",
+        "goal": "Use the bounded diagnostics runner to record a proof token, retrieve it, and retry the marker.",
+        "host": "http://diag-command-rl.example",
+        "marker": "AEGISPT_CMD_DIAG_2301",
+        "oracle_steps": 5,
+        "requires_execution_proof": true,
+        "scenario_hash": "6490eb9f97ec75b3e953596e26d1671edd3d9d411375a485298f68ea3c88c3e2",
+        "scenario_id": "rl-train-command-output-bounded-proof",
+        "variant": "bounded_output_proof"
+      },
+      {
+        "blind_output": false,
+        "chain_class": "command_injection",
+        "dataset_family": "aegispt_blind_oob_command_envs_iter10",
+        "domain": "web_api",
+        "goal": "Follow the argument-normalization proof channel instead of guessing payload syntax, then retry the marker.",
+        "host": "http://normalize-command-rl.example",
+        "marker": "AEGISPT_CMD_NORMALIZE_9824",
+        "oracle_steps": 5,
+        "requires_execution_proof": true,
+        "scenario_hash": "641e2ccfe88097c0d633d3267a1845826317966599a8a91d578adda13b7a4332",
+        "scenario_id": "rl-train-command-argument-normalization-proof",
+        "variant": "argument_normalization_proof"
+      }
+    ]
+  },
+  "rollouts": [
+    {
+      "res_path": "codex/results/training/blind-oob-command-envs-20260607/res_0.json",
+      "result": {
+        "blocked_goal": true,
+        "execution_requested": true,
+        "flag": true,
+        "pivot": true,
+        "proof_recorded": true,
+        "proof_retrieved": true,
+        "recovered_after_block": true,
+        "reward": 31,
+        "scenario_hash": "83b75ab69a40475ac4e819d3e8b7c135b5aac1d22a385585473bc050b63b2894",
+        "scenario_id": "rl-train-blind-filtered-status-callback",
+        "steps": 5,
+        "unique": 4,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/blind-oob-command-envs-20260607/roll_0.jsonl",
+      "scenario_id": "rl-train-blind-filtered-status-callback"
+    },
+    {
+      "res_path": "codex/results/training/blind-oob-command-envs-20260607/res_1.json",
+      "result": {
+        "blocked_goal": true,
+        "execution_requested": true,
+        "flag": true,
+        "pivot": true,
+        "proof_recorded": true,
+        "proof_retrieved": true,
+        "recovered_after_block": true,
+        "reward": 31,
+        "scenario_hash": "75acf30208b302e3d1b92b469eb21b075abefbd9727ab6810412616014257311",
+        "scenario_id": "rl-train-blind-archive-job-callback",
+        "steps": 5,
+        "unique": 4,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/blind-oob-command-envs-20260607/roll_1.jsonl",
+      "scenario_id": "rl-train-blind-archive-job-callback"
+    },
+    {
+      "res_path": "codex/results/training/blind-oob-command-envs-20260607/res_2.json",
+      "result": {
+        "blocked_goal": true,
+        "execution_requested": true,
+        "flag": true,
+        "pivot": true,
+        "proof_recorded": true,
+        "proof_retrieved": true,
+        "recovered_after_block": true,
+        "reward": 31,
+        "scenario_hash": "6490eb9f97ec75b3e953596e26d1671edd3d9d411375a485298f68ea3c88c3e2",
+        "scenario_id": "rl-train-command-output-bounded-proof",
+        "steps": 5,
+        "unique": 4,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/blind-oob-command-envs-20260607/roll_2.jsonl",
+      "scenario_id": "rl-train-command-output-bounded-proof"
+    },
+    {
+      "res_path": "codex/results/training/blind-oob-command-envs-20260607/res_3.json",
+      "result": {
+        "blocked_goal": true,
+        "execution_requested": true,
+        "flag": true,
+        "pivot": true,
+        "proof_recorded": true,
+        "proof_retrieved": true,
+        "recovered_after_block": true,
+        "reward": 31,
+        "scenario_hash": "641e2ccfe88097c0d633d3267a1845826317966599a8a91d578adda13b7a4332",
+        "scenario_id": "rl-train-command-argument-normalization-proof",
+        "steps": 5,
+        "unique": 4,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/blind-oob-command-envs-20260607/roll_3.jsonl",
+      "scenario_id": "rl-train-command-argument-normalization-proof"
+    }
+  ],
+  "stats": {
+    "demo_by_chain_class": {
+      "blind_command_injection_filter_bypass": 16,
+      "command_injection": 16
+    },
+    "demo_by_variant": {
+      "archive_job_callback": 8,
+      "argument_normalization_proof": 8,
+      "bounded_output_proof": 8,
+      "filtered_status_callback": 8
+    },
+    "env_count": 4,
+    "rollout_count": 4
+  }
+}

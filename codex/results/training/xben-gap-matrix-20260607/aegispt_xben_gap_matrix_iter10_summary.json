@@ -60,6 +60,22 @@
       ]
     },
     {
+      "coverage_bucket": "blind_command_injection_filter_bypass",
+      "data_lever": "iter10 blind-command/OOB proof envs + deterministic teacher demos",
+      "gap": "blind command injection filter bypass with bounded proof channel",
+      "targeted_xben_ids": [
+        "XBEN-068"
+      ]
+    },
+    {
+      "coverage_bucket": "command_injection",
+      "data_lever": "iter10 command proof envs + deterministic teacher demos",
+      "gap": "command proof recovery without brittle payload guessing",
+      "targeted_xben_ids": [
+        "XBEN-037"
+      ]
+    },
+    {
       "coverage_bucket": "auth_logic_session_forgery",
       "data_lever": "D1 teacher class + D2 heldout auth/session-forgery env",
       "gap": "auth-logic/session-forgery",
@@ -195,8 +211,8 @@
     {
       "coverage_bucket": "blind_command_injection_filter_bypass",
       "env_or_demo_coverage": {
-        "has_any_env": false,
-        "has_any_teacher_demo": false
+        "has_any_env": true,
+        "has_any_teacher_demo": true
       },
       "unsolved_count": 1,
       "xben_ids": [
@@ -206,8 +222,8 @@
     {
       "coverage_bucket": "command_injection",
       "env_or_demo_coverage": {
-        "has_any_env": false,
-        "has_any_teacher_demo": false
+        "has_any_env": true,
+        "has_any_teacher_demo": true
       },
       "unsolved_count": 1,
       "xben_ids": [

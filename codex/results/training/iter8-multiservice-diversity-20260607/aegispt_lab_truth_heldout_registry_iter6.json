@@ -24954,6 +24954,50 @@
       "variant": "pdf_render_callback"
     },
     {
+      "chain_class": "blind_command_injection_filter_bypass",
+      "dataset_family": "aegispt_blind_oob_command_envs_iter10",
+      "domain": "web",
+      "holdout_reason": "iter10_blind_oob_command_rl_training_env_reserved",
+      "scenario_hash": "83b75ab69a40475ac4e819d3e8b7c135b5aac1d22a385585473bc050b63b2894",
+      "scenario_id": "rl-train-blind-filtered-status-callback",
+      "source": "scripts/training/blind_oob_command_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "filtered_status_callback"
+    },
+    {
+      "chain_class": "blind_command_injection_filter_bypass",
+      "dataset_family": "aegispt_blind_oob_command_envs_iter10",
+      "domain": "web_worker",
+      "holdout_reason": "iter10_blind_oob_command_rl_training_env_reserved",
+      "scenario_hash": "75acf30208b302e3d1b92b469eb21b075abefbd9727ab6810412616014257311",
+      "scenario_id": "rl-train-blind-archive-job-callback",
+      "source": "scripts/training/blind_oob_command_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "archive_job_callback"
+    },
+    {
+      "chain_class": "command_injection",
+      "dataset_family": "aegispt_blind_oob_command_envs_iter10",
+      "domain": "web",
+      "holdout_reason": "iter10_blind_oob_command_rl_training_env_reserved",
+      "scenario_hash": "6490eb9f97ec75b3e953596e26d1671edd3d9d411375a485298f68ea3c88c3e2",
+      "scenario_id": "rl-train-command-output-bounded-proof",
+      "source": "scripts/training/blind_oob_command_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "bounded_output_proof"
+    },
+    {
+      "chain_class": "command_injection",
+      "dataset_family": "aegispt_blind_oob_command_envs_iter10",
+      "domain": "web_api",
+      "holdout_reason": "iter10_blind_oob_command_rl_training_env_reserved",
+      "scenario_hash": "641e2ccfe88097c0d633d3267a1845826317966599a8a91d578adda13b7a4332",
+      "scenario_id": "rl-train-command-argument-normalization-proof",
+      "source": "scripts/training/blind_oob_command_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "argument_normalization_proof"
+    },
+    {
       "chain_class": "auth_logic_session_forgery",
       "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
       "domain": "web_auth",
@@ -27394,6 +27438,7 @@
   "stats": {
     "held_out_by_family": {
       "aegispt-lab-suite-v1": 50,
+      "aegispt_blind_oob_command_envs_iter10": 4,
       "aegispt_headless_oob_chain_envs_iter10": 4,
       "aegispt_llmsvs_adversarial_eval_iter5": 720,
       "aegispt_multichain_heldout_eval_envs_iter10": 8,
@@ -27406,10 +27451,10 @@
     "held_out_by_split": {
       "benchmark": 50,
       "eval": 1749,
-      "rl_train_env": 10,
+      "rl_train_env": 14,
       "test": 1020
     },
-    "held_out_count": 2829,
+    "held_out_count": 2833,
     "lab_truth_by_family": {
       "aegispt-lab-suite-v1": 50,
       "aegispt_live_lab_target_specs_iter5": 93

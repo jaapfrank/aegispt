@@ -1,0 +1,15 @@
+{
+  "blocked_goal": true,
+  "execution_requested": true,
+  "flag": true,
+  "pivot": true,
+  "proof_recorded": true,
+  "proof_retrieved": true,
+  "recovered_after_block": true,
+  "reward": 31,
+  "scenario_hash": "641e2ccfe88097c0d633d3267a1845826317966599a8a91d578adda13b7a4332",
+  "scenario_id": "rl-train-command-argument-normalization-proof",
+  "steps": 5,
+  "unique": 4,
+  "used_revealed_value": true
+}

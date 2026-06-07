@@ -20,6 +20,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.training.blind_oob_command_envs_iter10 import (
+    DEMO_CHAIN_CLASSES as BLIND_COMMAND_DEMO_CHAIN_CLASSES,
+)
+from scripts.training.blind_oob_command_envs_iter10 import manifest as blind_oob_command_manifest
 from scripts.training.generate_v4pro_demonstrated_chains_iter9 import TEACHER_CHAIN_CLASS_NAMES
 from scripts.training.headless_oob_chain_envs_iter10 import (
     DEMO_CHAIN_CLASSES as HEADLESS_DEMO_CHAIN_CLASSES,
@@ -137,6 +141,8 @@ COVERAGE_BUCKET_BY_CLASS = {
     "idor_archive_receipt": "idor_object_swap_token_reuse",
     "info_disclosure_credential_reuse_lateral": "info_disclosure_credential_reuse_lateral",
     "jwt_or_file_read_auth_logic": "auth_logic_session_forgery",
+    "blind_command_injection_filter_bypass": "blind_command_injection_filter_bypass",
+    "command_injection": "command_injection",
     "multi_service_infra_startup": "info_disclosure_credential_reuse_lateral",
     "nosql_graphql_multiservice": "nosql_filter_bypass_chain",
     "nosql_filter_bypass_chain": "nosql_filter_bypass_chain",
@@ -229,8 +235,10 @@ def coverage_sets() -> tuple[set[str], set[str]]:
     env_classes = {item["chain_class"] for item in rl_env_manifest()["scenarios"]}
     env_classes.update(item["chain_class"] for item in heldout_eval_manifest()["scenarios"])
     env_classes.update(item["chain_class"] for item in headless_oob_manifest()["scenarios"])
+    env_classes.update(item["chain_class"] for item in blind_oob_command_manifest()["scenarios"])
     teacher_classes = set(TEACHER_CHAIN_CLASS_NAMES)
     teacher_classes.update(HEADLESS_DEMO_CHAIN_CLASSES)
+    teacher_classes.update(BLIND_COMMAND_DEMO_CHAIN_CLASSES)
     return env_classes, teacher_classes
 
 
@@ -286,6 +294,8 @@ def recommended_action(status: str, vuln_class: str, bucket: str, have_env: bool
         return "covered_by_iter10_headless_oob_env_and_demo; prioritize_callback_runner_or_rollout_eval"
     if bucket == "headless_xss_ssrf":
         return "build_oob_callback_headless_env_and_teacher_demo"
+    if bucket in {"blind_command_injection_filter_bypass", "command_injection"} and have_env and have_demo:
+        return "covered_by_iter10_blind_oob_command_env_and_demo; prioritize_blind_proof_rollout_eval"
     if bucket in TARGETED_GAP_BUCKETS and have_env and have_demo:
         return "covered_by_d1_teacher_target_and_d2_or_p2_env; prioritize_rollout_eval"
     if bucket in TARGETED_GAP_BUCKETS:
@@ -372,6 +382,27 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 row["xben_id"]
                 for row in rows
                 if row["coverage_bucket"] == "headless_xss_ssrf" and not row["has_solve"]
+            ],
+        },
+        {
+            "coverage_bucket": "blind_command_injection_filter_bypass",
+            "data_lever": "iter10 blind-command/OOB proof envs + deterministic teacher demos",
+            "gap": "blind command injection filter bypass with bounded proof channel",
+            "targeted_xben_ids": [
+                row["xben_id"]
+                for row in rows
+                if row["coverage_bucket"] == "blind_command_injection_filter_bypass"
+                and not row["has_solve"]
+            ],
+        },
+        {
+            "coverage_bucket": "command_injection",
+            "data_lever": "iter10 command proof envs + deterministic teacher demos",
+            "gap": "command proof recovery without brittle payload guessing",
+            "targeted_xben_ids": [
+                row["xben_id"]
+                for row in rows
+                if row["coverage_bucket"] == "command_injection" and not row["has_solve"]
             ],
         },
         {

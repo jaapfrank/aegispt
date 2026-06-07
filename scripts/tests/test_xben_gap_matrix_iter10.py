@@ -49,7 +49,7 @@ def test_xben_gap_matrix_summary_and_outputs(tmp_path):
     strategy.mkdir()
 
     rows = build_matrix(
-        challenge_count=24,
+        challenge_count=68,
         validation_root=validation,
         triage_root=triage,
         strategy_root=strategy,
@@ -57,7 +57,7 @@ def test_xben_gap_matrix_summary_and_outputs(tmp_path):
     summary = summarize(rows)
     written = write_outputs(rows, tmp_path / "out")
 
-    assert summary["challenge_count"] == 24
+    assert summary["challenge_count"] == 68
     assert any(
         item["coverage_bucket"] == "auth_logic_session_forgery"
         for item in summary["top_gap_buckets"]
@@ -74,4 +74,12 @@ def test_xben_gap_matrix_summary_and_outputs(tmp_path):
     headless_rows = [row for row in rows if row["coverage_bucket"] == "headless_xss_ssrf"]
     assert headless_rows
     assert all(row["has_env"] is True and row["has_teacher_demo"] is True for row in headless_rows)
+    blind_rows = [
+        row for row in rows if row["coverage_bucket"] == "blind_command_injection_filter_bypass"
+    ]
+    assert blind_rows
+    assert all(row["has_env"] is True and row["has_teacher_demo"] is True for row in blind_rows)
+    command_rows = [row for row in rows if row["coverage_bucket"] == "command_injection"]
+    assert command_rows
+    assert all(row["has_env"] is True and row["has_teacher_demo"] is True for row in command_rows)
     assert written["files"]["matrix"].endswith(".jsonl")

@@ -23,6 +23,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.training.blind_oob_command_envs_iter10 import (
+    DEFAULT_PREFIX as BLIND_OOB_COMMAND_ENV_PREFIX,
+)
+from scripts.training.blind_oob_command_envs_iter10 import (
+    registry_entries as blind_oob_command_registry_entries,
+)
 from scripts.training.headless_oob_chain_envs_iter10 import (
     DEFAULT_PREFIX as HEADLESS_OOB_ENV_PREFIX,
 )
@@ -241,6 +247,10 @@ def _headless_oob_env_entries() -> list[dict[str, Any]]:
     return headless_oob_registry_entries()
 
 
+def _blind_oob_command_env_entries() -> list[dict[str, Any]]:
+    return blind_oob_command_registry_entries()
+
+
 def _heldout_eval_env_entries() -> list[dict[str, Any]]:
     return heldout_eval_env_registry_entries()
 
@@ -280,6 +290,7 @@ def held_out_entries(
     rows.extend(_multiservice_held_out(counts=multiservice_counts))
     rows.extend(_rl_training_env_entries())
     rows.extend(_headless_oob_env_entries())
+    rows.extend(_blind_oob_command_env_entries())
     rows.extend(_heldout_eval_env_entries())
     rows.extend(_lab_suite_held_out(lab_truth_rows))
     return rows
@@ -347,6 +358,7 @@ def validate_registry(registry: dict[str, Any]) -> dict[str, Any]:
         MULTISERVICE_PREFIX,
         RL_ENV_PREFIX,
         HEADLESS_OOB_ENV_PREFIX,
+        BLIND_OOB_COMMAND_ENV_PREFIX,
         HELDOUT_EVAL_ENV_PREFIX,
         "aegispt-lab-suite-v1",
     }

@@ -362,3 +362,57 @@ Registry snapshots were refreshed again; held-out registry now includes:
 
 - `aegispt_headless_oob_chain_envs_iter10`: 4
 - `rl_train_env`: 10 total reserved env hashes
+
+## Codex continuation status — D5 blind-command/OOB proof coverage (2026-06-07)
+
+After D4, the next known uncovered command buckets in the matrix were
+`blind_command_injection_filter_bypass` (`XBEN-068`) and `command_injection`
+(`XBEN-037` still unsolved). Codex added lab-only coverage for both without
+adding shell payload strings or real callback infrastructure.
+
+### D5 — blind-command/OOB bounded-proof envs + demos
+
+Added `scripts/training/blind_oob_command_envs_iter10.py`.
+
+- env dataset family: `aegispt_blind_oob_command_envs_iter10`
+- demo dataset family:
+  `aegispt_blind_oob_command_teacher_demos_iter10`
+- 4 synthetic env variants:
+  - `filtered_status_callback`
+  - `archive_job_callback`
+  - `bounded_output_proof`
+  - `argument_normalization_proof`
+- 32 deterministic teacher-demo rows:
+  - 16 for `blind_command_injection_filter_bypass`
+  - 16 for `command_injection`
+  - 8 per variant
+- all env oracles exercise:
+  blocked goal -> inspect diagnostics/proof surface -> request bounded
+  lab-only proof emission -> retrieve proof -> retry proof-gated goal
+- policy/test guardrails:
+  no shell payloads, no real callback server, no runtime execution, no runtime
+  binding, no held-out deep-chain marker leakage
+
+Committed artifacts:
+
+`codex/results/training/blind-oob-command-envs-20260607/`
+
+Rollout smoke:
+
+`python3 scripts/training/jury_rollout.py --rollouts codex/results/training/blind-oob-command-envs-20260607 --out /tmp/aegispt_iter10_blind_command_jury_best.jsonl --top-frac 1.0 --min-reward 1`
+
+Observed: `rollouts=4`, `kept=4`, `best_reward=25`,
+`median_reward=25`, `any_flag=true`, `any_recovered_after_block=true`,
+`any_used_revealed_value=true`.
+
+D3 matrix was regenerated. Command buckets now report env/demo coverage:
+
+- `blind_command_injection_filter_bypass`: target `XBEN-068`,
+  `has_any_env=true`, `has_any_teacher_demo=true`
+- `command_injection`: target `XBEN-037`, `has_any_env=true`,
+  `has_any_teacher_demo=true`
+
+Registry snapshots were refreshed again; held-out registry now includes:
+
+- `aegispt_blind_oob_command_envs_iter10`: 4
+- `rl_train_env`: 14 total reserved env hashes

@@ -1,5 +1,62 @@
 # Current State
 
+## Latest Continuation - D5 blind-command/OOB proof coverage (2026-06-07)
+
+Codex continued the data-lane gap coverage after D4 without changing the active
+score-lane task. T-CHAIN1 remains active and not live-proven.
+
+D5 blind-command/OOB proof envs and demos:
+
+- added `scripts/training/blind_oob_command_envs_iter10.py`
+- env dataset family: `aegispt_blind_oob_command_envs_iter10`
+- demo dataset family: `aegispt_blind_oob_command_teacher_demos_iter10`
+- 4 synthetic lab-only env variants:
+  `filtered_status_callback`, `archive_job_callback`,
+  `bounded_output_proof`, and `argument_normalization_proof`
+- 32 deterministic teacher-demo rows under
+  `codex/results/training/blind-oob-command-envs-20260607/`
+  - 16 rows for `blind_command_injection_filter_bypass`
+  - 16 rows for `command_injection`
+  - 8 rows per variant
+- all D5 env oracles exercise:
+  blocked goal -> inspect diagnostics/proof surface -> request bounded
+  lab-only proof emission -> retrieve proof -> retry proof-gated goal
+- manifest and tests enforce: no shell payloads, no real callback server, no
+  runtime execution, no runtime binding, and no held-out deep-chain marker leak
+- `jury_rollout.py` smoke over the D5 artifacts returned `rollouts=4`,
+  `kept=4`, `best_reward=25`, `median_reward=25`, `any_flag=true`,
+  `any_recovered_after_block=true`, and `any_used_revealed_value=true`
+
+D3 matrix and registry after D5:
+
+- regenerated `codex/results/training/xben-gap-matrix-20260607/`
+- current matrix summary: `challenge_count=104`, `solved_count=17`,
+  `attempted_no_solve=21`, `infra_blocked_or_crashed=3`,
+  `unknown_untriaged=63`
+- `blind_command_injection_filter_bypass` now reports env/demo coverage for
+  `XBEN-068`
+- `command_injection` now reports env/demo coverage for `XBEN-037`
+- iter7 and iter8 registry snapshots were refreshed; held-out registry now
+  includes `aegispt_blind_oob_command_envs_iter10: 4`, and the
+  `rl_train_env` split has 14 reserved env hashes total
+
+No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_blind_oob_command_envs_iter10.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_xben_gap_matrix_iter10.py`
+- `python3 scripts/training/blind_oob_command_envs_iter10.py --scripted-oracle --artifact-out-dir codex/results/training/blind-oob-command-envs-20260607 --demo-count 32`
+- `python3 scripts/training/jury_rollout.py --rollouts codex/results/training/blind-oob-command-envs-20260607 --out /tmp/aegispt_iter10_blind_command_jury_best.jsonl --top-frac 1.0 --min-reward 1`
+- `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`
+- `python3 scripts/training/build_iter8_training_artifact_pack.py`
+- `python3 scripts/training/build_iter7_training_artifact_pack.py`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m compileall -q scripts/training/blind_oob_command_envs_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/training/build_xben_gap_matrix_iter10.py scripts/tests/test_blind_oob_command_envs_iter10.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_xben_gap_matrix_iter10.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh && git diff --check`
+- `python3 -m ruff check scripts/training/blind_oob_command_envs_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/training/build_xben_gap_matrix_iter10.py scripts/tests/test_blind_oob_command_envs_iter10.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_xben_gap_matrix_iter10.py`
+
 ## Latest Continuation - D1 teacher corpus, D2 held-out eval, D3 XBEN gap matrix (2026-06-07)
 
 Codex picked up the D1/D2/D3 data-lane handoff without changing the active
