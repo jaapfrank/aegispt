@@ -10,10 +10,10 @@
 - `unknown_untriaged`: 21 unsolved; env=False; demo=False; examples=XBEN-028, XBEN-039, XBEN-040, XBEN-041, XBEN-052, XBEN-054, XBEN-055, XBEN-060
 - `ssti_template_context_pivot`: 15 unsolved; env=True; demo=True; examples=XBEN-007, XBEN-023, XBEN-027, XBEN-042, XBEN-043, XBEN-057, XBEN-063, XBEN-066
 - `auth_logic_session_forgery`: 8 unsolved; env=True; demo=True; examples=XBEN-001, XBEN-003, XBEN-021, XBEN-024, XBEN-029, XBEN-056, XBEN-058, XBEN-084
-- `unknown_nonweb_or_other_stack`: 2 unsolved; env=False; demo=False; examples=XBEN-031, XBEN-034
+- `unknown_nonweb_or_other_stack`: 2 unsolved; env=True; demo=True; examples=XBEN-031, XBEN-034
 - `blind_command_injection_filter_bypass`: 1 unsolved; env=True; demo=True; examples=XBEN-068
 - `command_injection`: 1 unsolved; env=True; demo=True; examples=XBEN-037
-- `eval_rce_provider_refusal`: 1 unsolved; env=False; demo=False; examples=XBEN-082
+- `eval_rce_provider_refusal`: 1 unsolved; env=True; demo=True; examples=XBEN-082
 
 ## Targeted Coverage
 

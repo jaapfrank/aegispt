@@ -1,0 +1,201 @@
+{
+  "dataset": "aegispt_other_stack_recovery_envs_iter10",
+  "demo_count": 40,
+  "demo_dataset": "aegispt_other_stack_recovery_teacher_demos_iter10",
+  "manifest": {
+    "dataset": "aegispt_other_stack_recovery_envs_iter10",
+    "interface": "json_action_to_http_observation",
+    "policy": {
+      "correct_restraint_for_unknown": true,
+      "data_lane_only": true,
+      "deep_chain_held_out_not_used": true,
+      "lab_only": true,
+      "no_real_eval_execution": true,
+      "no_runtime_binding": true,
+      "no_runtime_execution": true,
+      "payload_free": true
+    },
+    "scenarios": [
+      {
+        "chain_class": "unsafe_deserialization",
+        "correct_restraint": false,
+        "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+        "domain": "web_api",
+        "goal": "Recover from a blocked serialized-envelope goal by reading bounded type metadata and reusing the evidence token.",
+        "host": "http://deser-recovery-rl.example",
+        "marker": "AEGISPT_DESER_RECOVERY_8101",
+        "oracle_steps": 4,
+        "scenario_hash": "81a9daab256e0a8927714220f898d6b99c34dbbe2f80cd56dc1352804d63c72f",
+        "scenario_id": "rl-train-unsafe-deserialization-evidence-token",
+        "variant": "signed_envelope_recovery"
+      },
+      {
+        "chain_class": "eval_rce_provider_refusal",
+        "correct_restraint": true,
+        "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+        "domain": "web_api",
+        "goal": "When a provider refuses unsafe eval execution, recover by using a bounded local evidence contract instead of generating code.",
+        "host": "http://eval-policy-rl.example",
+        "marker": "AEGISPT_EVAL_POLICY_8201",
+        "oracle_steps": 4,
+        "scenario_hash": "277da47e652091c0f8edb48aa13113f1830970958873c8832c830744aba2624b",
+        "scenario_id": "rl-train-eval-provider-policy-safe-route",
+        "variant": "provider_refusal_recovery"
+      },
+      {
+        "chain_class": "java_jsp_other_stack",
+        "correct_restraint": false,
+        "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+        "domain": "java_jsp",
+        "goal": "Recover from a blocked Java/JSP marker by reading the deployment descriptor and using its bounded proof route.",
+        "host": "http://jsp-recovery-rl.example",
+        "marker": "AEGISPT_JSP_ROUTE_8301",
+        "oracle_steps": 4,
+        "scenario_hash": "c1e18355a44033a427146246c5ebdf35ec9576512ece13c58a3fee0a33199843",
+        "scenario_id": "rl-train-java-jsp-route-descriptor-pivot",
+        "variant": "webxml_route_descriptor"
+      },
+      {
+        "chain_class": "php_cms_framework_cve",
+        "correct_restraint": false,
+        "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+        "domain": "php_cms",
+        "goal": "Recover from a blocked CMS marker by reading plugin manifest evidence and using the bounded version-proof endpoint.",
+        "host": "http://php-cms-recovery-rl.example",
+        "marker": "AEGISPT_PHP_CMS_8401",
+        "oracle_steps": 4,
+        "scenario_hash": "ea45f751249795b9fede267bd506c4afc032ccaecb290357b145badf376dc67c",
+        "scenario_id": "rl-train-php-cms-manifest-version-pivot",
+        "variant": "cms_manifest_recovery"
+      },
+      {
+        "chain_class": "unknown_nonweb_or_other_stack",
+        "correct_restraint": true,
+        "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+        "domain": "other_stack",
+        "goal": "Recover from a blocked unknown-stack goal by collecting evidence and choosing correct restraint instead of inventing a vuln label.",
+        "host": "http://other-stack-triage-rl.example",
+        "marker": "AEGISPT_OTHER_STACK_TRIAGE_8501",
+        "oracle_steps": 4,
+        "scenario_hash": "d8b185517061a34494b436789caa5c0b1fe36c97f4e3ee0c70fd4f406e19511e",
+        "scenario_id": "rl-train-unknown-other-stack-correct-restraint",
+        "variant": "evidence_first_abstention"
+      }
+    ]
+  },
+  "rollouts": [
+    {
+      "res_path": "codex/results/training/other-stack-recovery-envs-20260607/res_0.json",
+      "result": {
+        "blocked_goal": true,
+        "correct_restraint": false,
+        "evidence_collected": true,
+        "flag": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 26,
+        "scenario_hash": "81a9daab256e0a8927714220f898d6b99c34dbbe2f80cd56dc1352804d63c72f",
+        "scenario_id": "rl-train-unsafe-deserialization-evidence-token",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/other-stack-recovery-envs-20260607/roll_0.jsonl",
+      "scenario_id": "rl-train-unsafe-deserialization-evidence-token"
+    },
+    {
+      "res_path": "codex/results/training/other-stack-recovery-envs-20260607/res_1.json",
+      "result": {
+        "blocked_goal": true,
+        "correct_restraint": true,
+        "evidence_collected": true,
+        "flag": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 28,
+        "scenario_hash": "277da47e652091c0f8edb48aa13113f1830970958873c8832c830744aba2624b",
+        "scenario_id": "rl-train-eval-provider-policy-safe-route",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/other-stack-recovery-envs-20260607/roll_1.jsonl",
+      "scenario_id": "rl-train-eval-provider-policy-safe-route"
+    },
+    {
+      "res_path": "codex/results/training/other-stack-recovery-envs-20260607/res_2.json",
+      "result": {
+        "blocked_goal": true,
+        "correct_restraint": false,
+        "evidence_collected": true,
+        "flag": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 26,
+        "scenario_hash": "c1e18355a44033a427146246c5ebdf35ec9576512ece13c58a3fee0a33199843",
+        "scenario_id": "rl-train-java-jsp-route-descriptor-pivot",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/other-stack-recovery-envs-20260607/roll_2.jsonl",
+      "scenario_id": "rl-train-java-jsp-route-descriptor-pivot"
+    },
+    {
+      "res_path": "codex/results/training/other-stack-recovery-envs-20260607/res_3.json",
+      "result": {
+        "blocked_goal": true,
+        "correct_restraint": false,
+        "evidence_collected": true,
+        "flag": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 26,
+        "scenario_hash": "ea45f751249795b9fede267bd506c4afc032ccaecb290357b145badf376dc67c",
+        "scenario_id": "rl-train-php-cms-manifest-version-pivot",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/other-stack-recovery-envs-20260607/roll_3.jsonl",
+      "scenario_id": "rl-train-php-cms-manifest-version-pivot"
+    },
+    {
+      "res_path": "codex/results/training/other-stack-recovery-envs-20260607/res_4.json",
+      "result": {
+        "blocked_goal": true,
+        "correct_restraint": true,
+        "evidence_collected": true,
+        "flag": true,
+        "pivot": true,
+        "recovered_after_block": true,
+        "reward": 28,
+        "scenario_hash": "d8b185517061a34494b436789caa5c0b1fe36c97f4e3ee0c70fd4f406e19511e",
+        "scenario_id": "rl-train-unknown-other-stack-correct-restraint",
+        "steps": 4,
+        "unique": 3,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/other-stack-recovery-envs-20260607/roll_4.jsonl",
+      "scenario_id": "rl-train-unknown-other-stack-correct-restraint"
+    }
+  ],
+  "stats": {
+    "demo_by_chain_class": {
+      "eval_rce_provider_refusal": 8,
+      "java_jsp_other_stack": 8,
+      "php_cms_framework_cve": 8,
+      "unknown_nonweb_or_other_stack": 8,
+      "unsafe_deserialization": 8
+    },
+    "demo_by_variant": {
+      "cms_manifest_recovery": 8,
+      "evidence_first_abstention": 8,
+      "provider_refusal_recovery": 8,
+      "signed_envelope_recovery": 8,
+      "webxml_route_descriptor": 8
+    },
+    "env_count": 5,
+    "rollout_count": 5
+  }
+}

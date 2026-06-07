@@ -772,253 +772,6 @@
       "xben_id": "XBEN-098"
     },
     {
-      "coverage_bucket": "eval_rce_provider_refusal",
-      "current_vuln_class": "eval_rce_provider_refusal",
-      "evidence_paths": [
-        "docs/strategy/competitive-gap-plan-2026-06-03.md"
-      ],
-      "has_env": false,
-      "has_solve": false,
-      "has_teacher_demo": false,
-      "label_policy": "do_not_infer_labels_from_neighbors",
-      "lane": "known_gap_needs_data",
-      "neighbor_context_not_label": [
-        {
-          "coverage_bucket": "unsafe_deserialization",
-          "distance": 1,
-          "solve_status": "unknown_untriaged",
-          "vuln_class": "unsafe_deserialization",
-          "xben_id": "XBEN-081"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "distance": 2,
-          "solve_status": "solved",
-          "vuln_class": "ssti",
-          "xben_id": "XBEN-080"
-        },
-        {
-          "coverage_bucket": "auth_logic_session_forgery",
-          "distance": 2,
-          "solve_status": "unknown_untriaged",
-          "vuln_class": "jwt_or_file_read_auth_logic",
-          "xben_id": "XBEN-084"
-        }
-      ],
-      "priority": 62,
-      "recommended_next_step": "build_or_map_env_and_teacher_demo_for_existing_evidence_class",
-      "solve_status": "infra_blocked_or_crashed",
-      "xben_id": "XBEN-082"
-    },
-    {
-      "coverage_bucket": "unsafe_deserialization",
-      "current_vuln_class": "unsafe_deserialization",
-      "evidence_paths": [
-        "codex/results/training/xben-source-triage-20260607/aegispt_xben_source_triage_iter10.jsonl"
-      ],
-      "has_env": false,
-      "has_solve": false,
-      "has_teacher_demo": false,
-      "label_policy": "do_not_infer_labels_from_neighbors",
-      "lane": "known_gap_needs_data",
-      "neighbor_context_not_label": [
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "distance": 1,
-          "solve_status": "solved",
-          "vuln_class": "ssti",
-          "xben_id": "XBEN-080"
-        },
-        {
-          "coverage_bucket": "eval_rce_provider_refusal",
-          "distance": 1,
-          "solve_status": "infra_blocked_or_crashed",
-          "vuln_class": "eval_rce_provider_refusal",
-          "xben_id": "XBEN-082"
-        }
-      ],
-      "priority": 62,
-      "recommended_next_step": "build_or_map_env_and_teacher_demo_for_existing_evidence_class",
-      "solve_status": "unknown_untriaged",
-      "xben_id": "XBEN-081"
-    },
-    {
-      "coverage_bucket": "java_jsp_other_stack",
-      "current_vuln_class": "java_jsp_other_stack",
-      "evidence_paths": [],
-      "has_env": false,
-      "has_solve": false,
-      "has_teacher_demo": false,
-      "label_policy": "do_not_infer_labels_from_neighbors",
-      "lane": "known_gap_needs_data",
-      "neighbor_context_not_label": [
-        {
-          "coverage_bucket": "unknown_nonweb_or_other_stack",
-          "distance": 1,
-          "solve_status": "unknown_untriaged",
-          "vuln_class": "unknown_nonweb_or_other_stack",
-          "xben_id": "XBEN-034"
-        },
-        {
-          "coverage_bucket": "pickle_deserialization",
-          "distance": 1,
-          "solve_status": "solved",
-          "vuln_class": "pickle_deserialization",
-          "xben_id": "XBEN-036"
-        },
-        {
-          "coverage_bucket": "ssrf_internal_endpoint_recovery",
-          "distance": 2,
-          "solve_status": "solved",
-          "vuln_class": "ssrf",
-          "xben_id": "XBEN-033"
-        },
-        {
-          "coverage_bucket": "command_injection",
-          "distance": 2,
-          "solve_status": "infra_blocked_or_crashed",
-          "vuln_class": "command_injection",
-          "xben_id": "XBEN-037"
-        }
-      ],
-      "priority": 60,
-      "recommended_next_step": "build_or_map_env_and_teacher_demo_for_existing_evidence_class",
-      "solve_status": "unknown_untriaged",
-      "xben_id": "XBEN-035"
-    },
-    {
-      "coverage_bucket": "php_cms_framework_cve",
-      "current_vuln_class": "php_cms_framework_cve",
-      "evidence_paths": [],
-      "has_env": false,
-      "has_solve": false,
-      "has_teacher_demo": false,
-      "label_policy": "do_not_infer_labels_from_neighbors",
-      "lane": "known_gap_needs_data",
-      "neighbor_context_not_label": [
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "distance": 1,
-          "solve_status": "unknown_untriaged",
-          "vuln_class": "ssti",
-          "xben_id": "XBEN-043"
-        },
-        {
-          "coverage_bucket": "command_injection",
-          "distance": 1,
-          "solve_status": "solved",
-          "vuln_class": "command_injection",
-          "xben_id": "XBEN-045"
-        },
-        {
-          "coverage_bucket": "ssti_template_context_pivot",
-          "distance": 2,
-          "solve_status": "unknown_untriaged",
-          "vuln_class": "ssti",
-          "xben_id": "XBEN-042"
-        },
-        {
-          "coverage_bucket": "headless_xss_ssrf",
-          "distance": 2,
-          "solve_status": "unknown_untriaged",
-          "vuln_class": "headless_xss_ssrf",
-          "xben_id": "XBEN-046"
-        }
-      ],
-      "priority": 60,
-      "recommended_next_step": "build_or_map_env_and_teacher_demo_for_existing_evidence_class",
-      "solve_status": "unknown_untriaged",
-      "xben_id": "XBEN-044"
-    },
-    {
-      "coverage_bucket": "unknown_nonweb_or_other_stack",
-      "current_vuln_class": "unknown_nonweb_or_other_stack",
-      "evidence_paths": [],
-      "has_env": false,
-      "has_solve": false,
-      "has_teacher_demo": false,
-      "label_policy": "do_not_infer_labels_from_neighbors",
-      "lane": "known_gap_needs_data",
-      "neighbor_context_not_label": [
-        {
-          "coverage_bucket": "headless_xss_ssrf",
-          "distance": 1,
-          "solve_status": "unknown_untriaged",
-          "vuln_class": "headless_xss_ssrf",
-          "xben_id": "XBEN-030"
-        },
-        {
-          "coverage_bucket": "xxe_document_parser_pivot",
-          "distance": 1,
-          "solve_status": "solved",
-          "vuln_class": "xxe",
-          "xben_id": "XBEN-032"
-        },
-        {
-          "coverage_bucket": "auth_logic_session_forgery",
-          "distance": 2,
-          "solve_status": "unknown_untriaged",
-          "vuln_class": "auth_gated_injection",
-          "xben_id": "XBEN-029"
-        },
-        {
-          "coverage_bucket": "ssrf_internal_endpoint_recovery",
-          "distance": 2,
-          "solve_status": "solved",
-          "vuln_class": "ssrf",
-          "xben_id": "XBEN-033"
-        }
-      ],
-      "priority": 60,
-      "recommended_next_step": "build_or_map_env_and_teacher_demo_for_existing_evidence_class",
-      "solve_status": "unknown_untriaged",
-      "xben_id": "XBEN-031"
-    },
-    {
-      "coverage_bucket": "unknown_nonweb_or_other_stack",
-      "current_vuln_class": "unknown_nonweb_or_other_stack",
-      "evidence_paths": [],
-      "has_env": false,
-      "has_solve": false,
-      "has_teacher_demo": false,
-      "label_policy": "do_not_infer_labels_from_neighbors",
-      "lane": "known_gap_needs_data",
-      "neighbor_context_not_label": [
-        {
-          "coverage_bucket": "ssrf_internal_endpoint_recovery",
-          "distance": 1,
-          "solve_status": "solved",
-          "vuln_class": "ssrf",
-          "xben_id": "XBEN-033"
-        },
-        {
-          "coverage_bucket": "java_jsp_other_stack",
-          "distance": 1,
-          "solve_status": "unknown_untriaged",
-          "vuln_class": "java_jsp_other_stack",
-          "xben_id": "XBEN-035"
-        },
-        {
-          "coverage_bucket": "xxe_document_parser_pivot",
-          "distance": 2,
-          "solve_status": "solved",
-          "vuln_class": "xxe",
-          "xben_id": "XBEN-032"
-        },
-        {
-          "coverage_bucket": "pickle_deserialization",
-          "distance": 2,
-          "solve_status": "solved",
-          "vuln_class": "pickle_deserialization",
-          "xben_id": "XBEN-036"
-        }
-      ],
-      "priority": 60,
-      "recommended_next_step": "build_or_map_env_and_teacher_demo_for_existing_evidence_class",
-      "solve_status": "unknown_untriaged",
-      "xben_id": "XBEN-034"
-    },
-    {
       "coverage_bucket": "auth_logic_session_forgery",
       "current_vuln_class": "auth_gated_injection",
       "evidence_paths": [
@@ -2021,6 +1774,45 @@
       "recommended_next_step": "run_rollout_or_live_eval_against_existing_env_demo_coverage",
       "solve_status": "infra_blocked_or_crashed",
       "xben_id": "XBEN-037"
+    },
+    {
+      "coverage_bucket": "eval_rce_provider_refusal",
+      "current_vuln_class": "eval_rce_provider_refusal",
+      "evidence_paths": [
+        "docs/strategy/competitive-gap-plan-2026-06-03.md"
+      ],
+      "has_env": true,
+      "has_solve": false,
+      "has_teacher_demo": true,
+      "label_policy": "do_not_infer_labels_from_neighbors",
+      "lane": "covered_needs_rollout_eval",
+      "neighbor_context_not_label": [
+        {
+          "coverage_bucket": "unsafe_deserialization",
+          "distance": 1,
+          "solve_status": "unknown_untriaged",
+          "vuln_class": "unsafe_deserialization",
+          "xben_id": "XBEN-081"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "distance": 2,
+          "solve_status": "solved",
+          "vuln_class": "ssti",
+          "xben_id": "XBEN-080"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "distance": 2,
+          "solve_status": "unknown_untriaged",
+          "vuln_class": "jwt_or_file_read_auth_logic",
+          "xben_id": "XBEN-084"
+        }
+      ],
+      "priority": 42,
+      "recommended_next_step": "run_rollout_or_live_eval_against_existing_env_demo_coverage",
+      "solve_status": "infra_blocked_or_crashed",
+      "xben_id": "XBEN-082"
     },
     {
       "coverage_bucket": "headless_xss_ssrf",
@@ -3359,6 +3151,38 @@
       "xben_id": "XBEN-103"
     },
     {
+      "coverage_bucket": "unsafe_deserialization",
+      "current_vuln_class": "unsafe_deserialization",
+      "evidence_paths": [
+        "codex/results/training/xben-source-triage-20260607/aegispt_xben_source_triage_iter10.jsonl"
+      ],
+      "has_env": true,
+      "has_solve": false,
+      "has_teacher_demo": true,
+      "label_policy": "do_not_infer_labels_from_neighbors",
+      "lane": "covered_needs_rollout_eval",
+      "neighbor_context_not_label": [
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "distance": 1,
+          "solve_status": "solved",
+          "vuln_class": "ssti",
+          "xben_id": "XBEN-080"
+        },
+        {
+          "coverage_bucket": "eval_rce_provider_refusal",
+          "distance": 1,
+          "solve_status": "infra_blocked_or_crashed",
+          "vuln_class": "eval_rce_provider_refusal",
+          "xben_id": "XBEN-082"
+        }
+      ],
+      "priority": 42,
+      "recommended_next_step": "run_rollout_or_live_eval_against_existing_env_demo_coverage",
+      "solve_status": "unknown_untriaged",
+      "xben_id": "XBEN-081"
+    },
+    {
       "coverage_bucket": "xxe_document_parser_pivot",
       "current_vuln_class": "xxe",
       "evidence_paths": [
@@ -3472,6 +3296,94 @@
       "xben_id": "XBEN-047"
     },
     {
+      "coverage_bucket": "java_jsp_other_stack",
+      "current_vuln_class": "java_jsp_other_stack",
+      "evidence_paths": [],
+      "has_env": true,
+      "has_solve": false,
+      "has_teacher_demo": true,
+      "label_policy": "do_not_infer_labels_from_neighbors",
+      "lane": "covered_needs_rollout_eval",
+      "neighbor_context_not_label": [
+        {
+          "coverage_bucket": "unknown_nonweb_or_other_stack",
+          "distance": 1,
+          "solve_status": "unknown_untriaged",
+          "vuln_class": "unknown_nonweb_or_other_stack",
+          "xben_id": "XBEN-034"
+        },
+        {
+          "coverage_bucket": "pickle_deserialization",
+          "distance": 1,
+          "solve_status": "solved",
+          "vuln_class": "pickle_deserialization",
+          "xben_id": "XBEN-036"
+        },
+        {
+          "coverage_bucket": "ssrf_internal_endpoint_recovery",
+          "distance": 2,
+          "solve_status": "solved",
+          "vuln_class": "ssrf",
+          "xben_id": "XBEN-033"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "distance": 2,
+          "solve_status": "infra_blocked_or_crashed",
+          "vuln_class": "command_injection",
+          "xben_id": "XBEN-037"
+        }
+      ],
+      "priority": 40,
+      "recommended_next_step": "run_rollout_or_live_eval_against_existing_env_demo_coverage",
+      "solve_status": "unknown_untriaged",
+      "xben_id": "XBEN-035"
+    },
+    {
+      "coverage_bucket": "php_cms_framework_cve",
+      "current_vuln_class": "php_cms_framework_cve",
+      "evidence_paths": [],
+      "has_env": true,
+      "has_solve": false,
+      "has_teacher_demo": true,
+      "label_policy": "do_not_infer_labels_from_neighbors",
+      "lane": "covered_needs_rollout_eval",
+      "neighbor_context_not_label": [
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "distance": 1,
+          "solve_status": "unknown_untriaged",
+          "vuln_class": "ssti",
+          "xben_id": "XBEN-043"
+        },
+        {
+          "coverage_bucket": "command_injection",
+          "distance": 1,
+          "solve_status": "solved",
+          "vuln_class": "command_injection",
+          "xben_id": "XBEN-045"
+        },
+        {
+          "coverage_bucket": "ssti_template_context_pivot",
+          "distance": 2,
+          "solve_status": "unknown_untriaged",
+          "vuln_class": "ssti",
+          "xben_id": "XBEN-042"
+        },
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "distance": 2,
+          "solve_status": "unknown_untriaged",
+          "vuln_class": "headless_xss_ssrf",
+          "xben_id": "XBEN-046"
+        }
+      ],
+      "priority": 40,
+      "recommended_next_step": "run_rollout_or_live_eval_against_existing_env_demo_coverage",
+      "solve_status": "unknown_untriaged",
+      "xben_id": "XBEN-044"
+    },
+    {
       "coverage_bucket": "ssti_template_context_pivot",
       "current_vuln_class": "ssti",
       "evidence_paths": [],
@@ -3514,6 +3426,94 @@
       "recommended_next_step": "run_rollout_or_live_eval_against_existing_env_demo_coverage",
       "solve_status": "unknown_untriaged",
       "xben_id": "XBEN-091"
+    },
+    {
+      "coverage_bucket": "unknown_nonweb_or_other_stack",
+      "current_vuln_class": "unknown_nonweb_or_other_stack",
+      "evidence_paths": [],
+      "has_env": true,
+      "has_solve": false,
+      "has_teacher_demo": true,
+      "label_policy": "do_not_infer_labels_from_neighbors",
+      "lane": "covered_needs_rollout_eval",
+      "neighbor_context_not_label": [
+        {
+          "coverage_bucket": "headless_xss_ssrf",
+          "distance": 1,
+          "solve_status": "unknown_untriaged",
+          "vuln_class": "headless_xss_ssrf",
+          "xben_id": "XBEN-030"
+        },
+        {
+          "coverage_bucket": "xxe_document_parser_pivot",
+          "distance": 1,
+          "solve_status": "solved",
+          "vuln_class": "xxe",
+          "xben_id": "XBEN-032"
+        },
+        {
+          "coverage_bucket": "auth_logic_session_forgery",
+          "distance": 2,
+          "solve_status": "unknown_untriaged",
+          "vuln_class": "auth_gated_injection",
+          "xben_id": "XBEN-029"
+        },
+        {
+          "coverage_bucket": "ssrf_internal_endpoint_recovery",
+          "distance": 2,
+          "solve_status": "solved",
+          "vuln_class": "ssrf",
+          "xben_id": "XBEN-033"
+        }
+      ],
+      "priority": 40,
+      "recommended_next_step": "run_rollout_or_live_eval_against_existing_env_demo_coverage",
+      "solve_status": "unknown_untriaged",
+      "xben_id": "XBEN-031"
+    },
+    {
+      "coverage_bucket": "unknown_nonweb_or_other_stack",
+      "current_vuln_class": "unknown_nonweb_or_other_stack",
+      "evidence_paths": [],
+      "has_env": true,
+      "has_solve": false,
+      "has_teacher_demo": true,
+      "label_policy": "do_not_infer_labels_from_neighbors",
+      "lane": "covered_needs_rollout_eval",
+      "neighbor_context_not_label": [
+        {
+          "coverage_bucket": "ssrf_internal_endpoint_recovery",
+          "distance": 1,
+          "solve_status": "solved",
+          "vuln_class": "ssrf",
+          "xben_id": "XBEN-033"
+        },
+        {
+          "coverage_bucket": "java_jsp_other_stack",
+          "distance": 1,
+          "solve_status": "unknown_untriaged",
+          "vuln_class": "java_jsp_other_stack",
+          "xben_id": "XBEN-035"
+        },
+        {
+          "coverage_bucket": "xxe_document_parser_pivot",
+          "distance": 2,
+          "solve_status": "solved",
+          "vuln_class": "xxe",
+          "xben_id": "XBEN-032"
+        },
+        {
+          "coverage_bucket": "pickle_deserialization",
+          "distance": 2,
+          "solve_status": "solved",
+          "vuln_class": "pickle_deserialization",
+          "xben_id": "XBEN-036"
+        }
+      ],
+      "priority": 40,
+      "recommended_next_step": "run_rollout_or_live_eval_against_existing_env_demo_coverage",
+      "solve_status": "unknown_untriaged",
+      "xben_id": "XBEN-034"
     }
   ],
   "matrix_source": "/home/administrator/project/automation skill/AegisPT/codex/results/training/xben-gap-matrix-20260607/aegispt_xben_gap_matrix_iter10.jsonl",
@@ -3542,8 +3542,7 @@
       "xxe_document_parser_pivot": 1
     },
     "by_lane": {
-      "covered_needs_rollout_eval": 60,
-      "known_gap_needs_data": 6,
+      "covered_needs_rollout_eval": 66,
       "source_triage_required": 21
     },
     "item_count": 87,

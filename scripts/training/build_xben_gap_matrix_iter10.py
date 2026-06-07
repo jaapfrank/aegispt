@@ -31,6 +31,12 @@ from scripts.training.headless_oob_chain_envs_iter10 import (
 from scripts.training.headless_oob_chain_envs_iter10 import manifest as headless_oob_manifest
 from scripts.training.multichain_heldout_eval_envs_iter10 import manifest as heldout_eval_manifest
 from scripts.training.multichain_rl_envs_iter9 import manifest as rl_env_manifest
+from scripts.training.other_stack_recovery_envs_iter10 import (
+    DEMO_CHAIN_CLASSES as OTHER_STACK_DEMO_CHAIN_CLASSES,
+)
+from scripts.training.other_stack_recovery_envs_iter10 import (
+    manifest as other_stack_recovery_manifest,
+)
 
 DEFAULT_VALIDATION_ROOT = REPO_ROOT / "docs" / "validation"
 DEFAULT_TRIAGE_ROOT = REPO_ROOT / "docs" / "triage"
@@ -278,9 +284,11 @@ def coverage_sets() -> tuple[set[str], set[str]]:
     env_classes.update(item["chain_class"] for item in heldout_eval_manifest()["scenarios"])
     env_classes.update(item["chain_class"] for item in headless_oob_manifest()["scenarios"])
     env_classes.update(item["chain_class"] for item in blind_oob_command_manifest()["scenarios"])
+    env_classes.update(item["chain_class"] for item in other_stack_recovery_manifest()["scenarios"])
     teacher_classes = set(TEACHER_CHAIN_CLASS_NAMES)
     teacher_classes.update(HEADLESS_DEMO_CHAIN_CLASSES)
     teacher_classes.update(BLIND_COMMAND_DEMO_CHAIN_CLASSES)
+    teacher_classes.update(OTHER_STACK_DEMO_CHAIN_CLASSES)
     return env_classes, teacher_classes
 
 

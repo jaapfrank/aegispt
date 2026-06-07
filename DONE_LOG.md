@@ -1,5 +1,56 @@
 # Done Log
 
+- 2026-06-07: E2 other-stack recovery env/demo coverage. [TRAINING DATA]
+  - Added `scripts/training/other_stack_recovery_envs_iter10.py`.
+  - Added `scripts/tests/test_other_stack_recovery_envs_iter10.py` and wired it
+    into `scripts/run_data_lane_tests.sh`.
+  - Generated artifacts under
+    `codex/results/training/other-stack-recovery-envs-20260607/`.
+  - Dataset family: `aegispt_other_stack_recovery_envs_iter10`.
+  - Demo family: `aegispt_other_stack_recovery_teacher_demos_iter10`.
+  - Added 5 lab-only recovery-arc envs for the E2 known-gap buckets:
+    `unsafe_deserialization`, `eval_rce_provider_refusal`,
+    `java_jsp_other_stack`, `php_cms_framework_cve`, and
+    `unknown_nonweb_or_other_stack`.
+  - Added 40 deterministic teacher-demo rows, 8 per class.
+  - Every oracle exercises:
+    blocked goal -> hinted evidence resource -> bounded recovery proof ->
+    retry/complete goal.
+  - Unknown other-stack is `correct_restraint=true`: the demo teaches
+    evidence-first abstention instead of inventing a vuln label.
+  - Policy guardrails: lab-only, payload-free, no real eval execution, no
+    runtime binding, no runtime execution, and no held-out deep-chain marker
+    leakage.
+  - Wired E2 envs into the held-out registry via
+    `scripts/training/make_lab_truth_heldout_registry_iter6.py`.
+  - Refreshed iter7 and iter8 registry snapshots; registry summaries now show
+    `aegispt_other_stack_recovery_envs_iter10=5` and `rl_train_env=19`.
+  - Updated `scripts/training/build_xben_gap_matrix_iter10.py` so E2 env/demo
+    classes count toward matrix coverage.
+  - Regenerated D3/D6 artifacts. D6 now reports:
+    - `covered_needs_rollout_eval=66`
+    - `source_triage_required=21`
+    - no `known_gap_needs_data` lane
+  - Caveat: this is deterministic env/demo coverage, not V4-Pro-demonstrated
+    E2 rows. A V4-Pro E2 top-up remains a follow-up if model-demonstrated rows
+    are required for these five other-stack classes.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_other_stack_recovery_envs_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py scripts/tests/test_lab_truth_heldout_registry.py`;
+    `python3 scripts/training/other_stack_recovery_envs_iter10.py --scripted-oracle --artifact-out-dir codex/results/training/other-stack-recovery-envs-20260607 --demo-count 40`;
+    `python3 scripts/training/jury_rollout.py --rollouts codex/results/training/other-stack-recovery-envs-20260607 --out /tmp/aegispt_iter10_other_stack_jury_best.jsonl --top-frac 1.0 --min-reward 1`;
+    `python3 scripts/training/build_iter8_training_artifact_pack.py`;
+    `python3 scripts/training/build_iter7_training_artifact_pack.py`;
+    `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`;
+    `python3 scripts/training/build_xben_triage_backlog_iter10.py --out-dir codex/results/training/xben-triage-backlog-20260607`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m ruff check scripts/training/other_stack_recovery_envs_iter10.py scripts/tests/test_other_stack_recovery_envs_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py`;
+    `python3 -m compileall -q scripts/training/other_stack_recovery_envs_iter10.py scripts/tests/test_other_stack_recovery_envs_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh && git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: D1 V4-Pro corpus finalized and E1 source-backed XBEN triage. [TRAINING DATA]
   - D1 long-running V4-Pro generation sessions completed.
   - Main D1 corpus:

@@ -88,6 +88,9 @@ from scripts.training.multichain_rl_envs_iter9 import (
 from scripts.training.multichain_rl_envs_iter9 import (
     registry_entries as rl_env_registry_entries,
 )
+from scripts.training.other_stack_recovery_envs_iter10 import (
+    registry_entries as other_stack_recovery_registry_entries,
+)
 
 DEFAULT_OUT_DIR = Path.home() / ".aegispt-tools" / "training"
 DEFAULT_PREFIX = "aegispt_lab_truth_heldout_registry_iter6"
@@ -255,6 +258,10 @@ def _heldout_eval_env_entries() -> list[dict[str, Any]]:
     return heldout_eval_env_registry_entries()
 
 
+def _other_stack_recovery_env_entries() -> list[dict[str, Any]]:
+    return other_stack_recovery_registry_entries()
+
+
 def _lab_suite_held_out(lab_truth_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for item in lab_truth_rows:
@@ -292,6 +299,7 @@ def held_out_entries(
     rows.extend(_headless_oob_env_entries())
     rows.extend(_blind_oob_command_env_entries())
     rows.extend(_heldout_eval_env_entries())
+    rows.extend(_other_stack_recovery_env_entries())
     rows.extend(_lab_suite_held_out(lab_truth_rows))
     return rows
 

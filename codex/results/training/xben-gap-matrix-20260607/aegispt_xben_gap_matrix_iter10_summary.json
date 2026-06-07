@@ -243,8 +243,8 @@
     {
       "coverage_bucket": "unknown_nonweb_or_other_stack",
       "env_or_demo_coverage": {
-        "has_any_env": false,
-        "has_any_teacher_demo": false
+        "has_any_env": true,
+        "has_any_teacher_demo": true
       },
       "unsolved_count": 2,
       "xben_ids": [
@@ -277,8 +277,8 @@
     {
       "coverage_bucket": "eval_rce_provider_refusal",
       "env_or_demo_coverage": {
-        "has_any_env": false,
-        "has_any_teacher_demo": false
+        "has_any_env": true,
+        "has_any_teacher_demo": true
       },
       "unsolved_count": 1,
       "xben_ids": [
@@ -310,8 +310,8 @@
     {
       "coverage_bucket": "java_jsp_other_stack",
       "env_or_demo_coverage": {
-        "has_any_env": false,
-        "has_any_teacher_demo": false
+        "has_any_env": true,
+        "has_any_teacher_demo": true
       },
       "unsolved_count": 1,
       "xben_ids": [

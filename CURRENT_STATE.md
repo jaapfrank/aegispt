@@ -1,5 +1,68 @@
 # Current State
 
+## Latest Continuation - E2 other-stack recovery envs (2026-06-07)
+
+Codex continued the data-lane after `c3af7e9` without changing the active
+score-lane task. T-CHAIN1 remains active and not live-proven; `NEXT_TASK.md`
+and `TASK_QUEUE.md` were not changed.
+
+E2 env/demo coverage slice:
+
+- added `scripts/training/other_stack_recovery_envs_iter10.py`
+- added `scripts/tests/test_other_stack_recovery_envs_iter10.py`
+- generated artifacts under
+  `codex/results/training/other-stack-recovery-envs-20260607/`
+- dataset family: `aegispt_other_stack_recovery_envs_iter10`
+- demo family: `aegispt_other_stack_recovery_teacher_demos_iter10`
+- 5 lab-only recovery-arc envs:
+  - `unsafe_deserialization`
+  - `eval_rce_provider_refusal`
+  - `java_jsp_other_stack`
+  - `php_cms_framework_cve`
+  - `unknown_nonweb_or_other_stack`
+- 40 deterministic teacher-demo rows, 8 per class
+- every oracle exercises:
+  blocked goal -> hinted evidence resource -> bounded recovery proof ->
+  retry/complete goal
+- unknown other-stack is modeled as `correct_restraint=true`; it teaches
+  evidence-first abstention instead of inventing a vuln label
+- policy guards: lab-only, payload-free, no real eval execution, no runtime
+  binding, no runtime execution, no held-out deep-chain markers
+
+E2 integration:
+
+- `scripts/training/make_lab_truth_heldout_registry_iter6.py` now reserves the
+  5 E2 env scenario hashes in the held-out registry
+- iter7 and iter8 registry snapshots were refreshed; `rl_train_env` now has 19
+  reserved env hashes total
+- `scripts/training/build_xben_gap_matrix_iter10.py` now counts E2 env/demo
+  classes in coverage
+- D6 backlog now has no `known_gap_needs_data` lane:
+  - `covered_needs_rollout_eval=66`
+  - `source_triage_required=21`
+
+Caveat:
+
+- This E2 slice provides deterministic teacher demos, not V4-Pro-demonstrated
+  rows for these five classes. A V4-Pro E2 top-up remains available as a
+  follow-up if Claude wants model-demonstrated rows specifically for these
+  other-stack buckets.
+
+Validation completed so far:
+
+- `python3 -m pytest -q scripts/tests/test_other_stack_recovery_envs_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py scripts/tests/test_lab_truth_heldout_registry.py`
+- `python3 scripts/training/other_stack_recovery_envs_iter10.py --scripted-oracle --artifact-out-dir codex/results/training/other-stack-recovery-envs-20260607 --demo-count 40`
+- `python3 scripts/training/jury_rollout.py --rollouts codex/results/training/other-stack-recovery-envs-20260607 --out /tmp/aegispt_iter10_other_stack_jury_best.jsonl --top-frac 1.0 --min-reward 1`
+- `python3 scripts/training/build_iter8_training_artifact_pack.py`
+- `python3 scripts/training/build_iter7_training_artifact_pack.py`
+- `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`
+- `python3 scripts/training/build_xben_triage_backlog_iter10.py --out-dir codex/results/training/xben-triage-backlog-20260607`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m ruff check scripts/training/other_stack_recovery_envs_iter10.py scripts/tests/test_other_stack_recovery_envs_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py`
+- `python3 -m compileall -q scripts/training/other_stack_recovery_envs_iter10.py scripts/tests/test_other_stack_recovery_envs_iter10.py scripts/training/build_xben_gap_matrix_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh && git diff --check`
+
 ## Latest Continuation - D1 corpus finalized + E1 source triage (2026-06-07)
 
 Codex continued the data-lane handoff without changing the active score-lane

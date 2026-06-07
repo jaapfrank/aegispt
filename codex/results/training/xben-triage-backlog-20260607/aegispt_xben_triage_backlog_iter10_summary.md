@@ -6,8 +6,7 @@
 
 ## Lanes
 
-- `covered_needs_rollout_eval`: 60
-- `known_gap_needs_data`: 6
+- `covered_needs_rollout_eval`: 66
 - `source_triage_required`: 21
 
 ## Top Unknown Rows

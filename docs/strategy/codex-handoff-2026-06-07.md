@@ -619,7 +619,7 @@ Manual source-review rows that remain out of training:
 
 ### E2 — recovery-arc envs + teacher demos for unsolved/missing classes
 
-Pending after E1.
+Deterministic env/demo slice done after E1.
 
 Inputs:
 
@@ -638,3 +638,46 @@ Required shape for every new class:
 - no held-out contamination
 - no runtime binding
   until the training/eval lane explicitly consumes the artifacts
+
+Added:
+
+- `scripts/training/other_stack_recovery_envs_iter10.py`
+- `scripts/tests/test_other_stack_recovery_envs_iter10.py`
+
+Artifacts:
+
+`codex/results/training/other-stack-recovery-envs-20260607/`
+
+Coverage:
+
+- `unsafe_deserialization`
+- `eval_rce_provider_refusal`
+- `java_jsp_other_stack`
+- `php_cms_framework_cve`
+- `unknown_nonweb_or_other_stack`
+
+Shape:
+
+- 5 lab-only RL envs
+- 40 deterministic teacher-demo rows, 8 per class
+- every oracle solves:
+  blocked goal -> hinted evidence resource -> bounded recovery proof ->
+  retry/complete goal
+- unknown other-stack uses `correct_restraint=true` to avoid inventing a vuln
+  label
+- no real eval execution, no payload execution, no runtime binding
+
+Integration:
+
+- held-out registry reserves the 5 E2 env hashes
+- iter7/iter8 registry snapshots refreshed; `rl_train_env=19`
+- D3/D6 refreshed; no `known_gap_needs_data` lane remains
+- current D6:
+  - `covered_needs_rollout_eval=66`
+  - `source_triage_required=21`
+
+Caveat:
+
+- This is deterministic env/demo coverage. It is not V4-Pro-demonstrated E2
+  data. If Claude wants model-demonstrated rows specifically for the five E2
+  classes, the follow-up is a small V4-Pro E2 top-up generator/job.

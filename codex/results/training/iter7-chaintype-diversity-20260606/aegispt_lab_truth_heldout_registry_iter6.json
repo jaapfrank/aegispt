@@ -25142,6 +25142,61 @@
       "split": "eval"
     },
     {
+      "chain_class": "unsafe_deserialization",
+      "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+      "domain": "web_api",
+      "holdout_reason": "iter10_other_stack_recovery_rl_training_env_reserved",
+      "scenario_hash": "81a9daab256e0a8927714220f898d6b99c34dbbe2f80cd56dc1352804d63c72f",
+      "scenario_id": "rl-train-unsafe-deserialization-evidence-token",
+      "source": "scripts/training/other_stack_recovery_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "signed_envelope_recovery"
+    },
+    {
+      "chain_class": "eval_rce_provider_refusal",
+      "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+      "domain": "web_api",
+      "holdout_reason": "iter10_other_stack_recovery_rl_training_env_reserved",
+      "scenario_hash": "277da47e652091c0f8edb48aa13113f1830970958873c8832c830744aba2624b",
+      "scenario_id": "rl-train-eval-provider-policy-safe-route",
+      "source": "scripts/training/other_stack_recovery_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "provider_refusal_recovery"
+    },
+    {
+      "chain_class": "java_jsp_other_stack",
+      "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+      "domain": "java_jsp",
+      "holdout_reason": "iter10_other_stack_recovery_rl_training_env_reserved",
+      "scenario_hash": "c1e18355a44033a427146246c5ebdf35ec9576512ece13c58a3fee0a33199843",
+      "scenario_id": "rl-train-java-jsp-route-descriptor-pivot",
+      "source": "scripts/training/other_stack_recovery_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "webxml_route_descriptor"
+    },
+    {
+      "chain_class": "php_cms_framework_cve",
+      "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+      "domain": "php_cms",
+      "holdout_reason": "iter10_other_stack_recovery_rl_training_env_reserved",
+      "scenario_hash": "ea45f751249795b9fede267bd506c4afc032ccaecb290357b145badf376dc67c",
+      "scenario_id": "rl-train-php-cms-manifest-version-pivot",
+      "source": "scripts/training/other_stack_recovery_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "cms_manifest_recovery"
+    },
+    {
+      "chain_class": "unknown_nonweb_or_other_stack",
+      "dataset_family": "aegispt_other_stack_recovery_envs_iter10",
+      "domain": "other_stack",
+      "holdout_reason": "iter10_other_stack_recovery_rl_training_env_reserved",
+      "scenario_hash": "d8b185517061a34494b436789caa5c0b1fe36c97f4e3ee0c70fd4f406e19511e",
+      "scenario_id": "rl-train-unknown-other-stack-correct-restraint",
+      "source": "scripts/training/other_stack_recovery_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "evidence_first_abstention"
+    },
+    {
       "dataset_family": "aegispt-lab-suite-v1",
       "holdout_reason": "standalone_lab_benchmark",
       "lab_truth": "known_vulnerable",
@@ -27446,15 +27501,16 @@
       "aegispt_multiservice_chaintype_diversity_iter8": 600,
       "aegispt_multiturn_agentic_chain_iter6": 800,
       "aegispt_multiturn_chaintype_diversity_iter7": 640,
+      "aegispt_other_stack_recovery_envs_iter10": 5,
       "deep_chain_eval": 1
     },
     "held_out_by_split": {
       "benchmark": 50,
       "eval": 1749,
-      "rl_train_env": 14,
+      "rl_train_env": 19,
       "test": 1020
     },
-    "held_out_count": 2833,
+    "held_out_count": 2838,
     "lab_truth_by_family": {
       "aegispt-lab-suite-v1": 50,
       "aegispt_live_lab_target_specs_iter5": 93
