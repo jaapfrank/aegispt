@@ -38,19 +38,28 @@ D2 held-out eval-suite:
 - iter7 and iter8 registry artifact snapshots were refreshed; held-out count
   now includes 8 D2 eval scenario hashes
 
-D3 XBEN solve-gap matrix:
+D3/D4 XBEN solve-gap matrix and headless coverage:
 
 - added `scripts/training/build_xben_gap_matrix_iter10.py`
 - committed one-row-per-challenge artifacts under
   `codex/results/training/xben-gap-matrix-20260607/`
-- current summary: `challenge_count=104`, `solved_count=17`,
-  `attempted_no_solve=21`, `infra_blocked_or_crashed=2`,
-  `unknown_untriaged=64`
+- current summary after D4: `challenge_count=104`, `solved_count=17`,
+  `attempted_no_solve=21`, `infra_blocked_or_crashed=3`,
+  `unknown_untriaged=63`
 - targeted coverage now explicitly maps auth-logic/session-forgery,
   SSRF->internal recovery, and multi-service credential/service-boundary
   pivot to the D1/D2/P2 data levers
-- top uncovered known gap: `headless_xss_ssrf` with 13 known unsolved rows and
-  no env/demo yet
+- added `scripts/training/headless_oob_chain_envs_iter10.py` for the largest
+  known uncovered bucket, `headless_xss_ssrf`
+- generated 4 lab-only synthetic headless/OOB callback envs and 32
+  deterministic teacher-demo rows under
+  `codex/results/training/headless-oob-chain-envs-20260607/`
+- all headless oracles exercise:
+  blocked goal -> discover injection surface + callback inbox -> store
+  lab-only callback marker -> trigger synthetic headless victim -> read
+  callback proof -> retry goal
+- regenerated the XBEN matrix so `headless_xss_ssrf` now shows
+  `has_any_env=true` and `has_any_teacher_demo=true` for 14 known unsolved rows
 
 No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
 `TASK_QUEUE.md` was changed. Other-lane worktree changes in
@@ -64,6 +73,9 @@ Validation completed:
 - `python3 scripts/training/multichain_heldout_eval_envs_iter10.py --scripted-oracle --oracle-out-dir codex/results/training/multichain-heldout-eval-envs-20260607`
 - `python3 scripts/training/build_xben_gap_matrix_iter10.py --out-dir codex/results/training/xben-gap-matrix-20260607`
 - `python3 scripts/training/jury_rollout.py --rollouts codex/results/training/multichain-heldout-eval-envs-20260607 --out /tmp/aegispt_iter10_heldout_jury_best.jsonl --top-frac 1.0 --min-reward 1`
+- `python3 scripts/training/headless_oob_chain_envs_iter10.py --scripted-oracle --artifact-out-dir codex/results/training/headless-oob-chain-envs-20260607 --demo-count 32`
+- `python3 scripts/training/jury_rollout.py --rollouts codex/results/training/headless-oob-chain-envs-20260607 --out /tmp/aegispt_iter10_headless_jury_best.jsonl --top-frac 1.0 --min-reward 1`
+- `python3 -m ruff check scripts/training/headless_oob_chain_envs_iter10.py scripts/training/make_lab_truth_heldout_registry_iter6.py scripts/training/build_xben_gap_matrix_iter10.py scripts/tests/test_headless_oob_chain_envs_iter10.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_xben_gap_matrix_iter10.py`
 - `python3 scripts/training/build_iter8_training_artifact_pack.py`
 - `python3 scripts/training/build_iter7_training_artifact_pack.py`
 - `bash scripts/run_data_lane_tests.sh`

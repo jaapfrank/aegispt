@@ -21,6 +21,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.training.generate_v4pro_demonstrated_chains_iter9 import TEACHER_CHAIN_CLASS_NAMES
+from scripts.training.headless_oob_chain_envs_iter10 import (
+    DEMO_CHAIN_CLASSES as HEADLESS_DEMO_CHAIN_CLASSES,
+)
+from scripts.training.headless_oob_chain_envs_iter10 import manifest as headless_oob_manifest
 from scripts.training.multichain_heldout_eval_envs_iter10 import manifest as heldout_eval_manifest
 from scripts.training.multichain_rl_envs_iter9 import manifest as rl_env_manifest
 
@@ -224,7 +228,9 @@ def coverage_bucket(vuln_class: str) -> str:
 def coverage_sets() -> tuple[set[str], set[str]]:
     env_classes = {item["chain_class"] for item in rl_env_manifest()["scenarios"]}
     env_classes.update(item["chain_class"] for item in heldout_eval_manifest()["scenarios"])
+    env_classes.update(item["chain_class"] for item in headless_oob_manifest()["scenarios"])
     teacher_classes = set(TEACHER_CHAIN_CLASS_NAMES)
+    teacher_classes.update(HEADLESS_DEMO_CHAIN_CLASSES)
     return env_classes, teacher_classes
 
 
@@ -276,6 +282,8 @@ def solve_evidence_path(
 def recommended_action(status: str, vuln_class: str, bucket: str, have_env: bool, have_demo: bool) -> str:
     if status == "solved":
         return "keep_as_solve_evidence_not_training_gap"
+    if bucket == "headless_xss_ssrf" and have_env and have_demo:
+        return "covered_by_iter10_headless_oob_env_and_demo; prioritize_callback_runner_or_rollout_eval"
     if bucket == "headless_xss_ssrf":
         return "build_oob_callback_headless_env_and_teacher_demo"
     if bucket in TARGETED_GAP_BUCKETS and have_env and have_demo:
@@ -356,6 +364,16 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         for bucket, ids in sorted(gaps_by_bucket.items(), key=lambda item: (-len(item[1]), item[0]))
     ]
     targeted_coverage = [
+        {
+            "coverage_bucket": "headless_xss_ssrf",
+            "data_lever": "iter10 headless/OOB callback envs + deterministic teacher demos",
+            "gap": "headless XSS/SSRF callback proof",
+            "targeted_xben_ids": [
+                row["xben_id"]
+                for row in rows
+                if row["coverage_bucket"] == "headless_xss_ssrf" and not row["has_solve"]
+            ],
+        },
         {
             "coverage_bucket": "auth_logic_session_forgery",
             "data_lever": "D1 teacher class + D2 heldout auth/session-forgery env",

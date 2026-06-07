@@ -313,3 +313,52 @@ Targeted D3 coverage now links the requested gaps:
 
 The iter7 and iter8 training artifact packs were refreshed so the canonical
 held-out registry snapshots include the 8 D2 eval scenario hashes.
+
+## Codex continuation status — D4 headless/OOB gap coverage (2026-06-07)
+
+After D3, the largest known uncovered bucket was `headless_xss_ssrf`
+(`env=false`, `demo=false`). Codex added the first lab-only data coverage for
+that gap.
+
+### D4 — headless/OOB callback proof envs + demos
+
+Added `scripts/training/headless_oob_chain_envs_iter10.py`.
+
+- env dataset family: `aegispt_headless_oob_chain_envs_iter10`
+- demo dataset family: `aegispt_headless_oob_teacher_demos_iter10`
+- 4 synthetic env variants:
+  - `stored_profile_callback`
+  - `report_preview_ssrf_callback`
+  - `support_ticket_callback`
+  - `pdf_render_callback`
+- 32 deterministic teacher-demo rows, 8 per variant
+- all env oracles exercise:
+  blocked goal -> discover injection surface + callback inbox -> store
+  lab-only callback marker -> trigger synthetic headless victim -> read callback
+  proof -> retry goal
+- no real browser, no real callback server, no runtime binding, no external
+  target
+
+Committed artifacts:
+
+`codex/results/training/headless-oob-chain-envs-20260607/`
+
+Rollout smoke:
+
+`python3 scripts/training/jury_rollout.py --rollouts codex/results/training/headless-oob-chain-envs-20260607 --out /tmp/aegispt_iter10_headless_jury_best.jsonl --top-frac 1.0 --min-reward 1`
+
+Observed: `rollouts=4`, `kept=4`, `any_flag=true`,
+`any_recovered_after_block=true`, `any_used_revealed_value=true`.
+
+D3 matrix was regenerated. Headless now reports env/demo coverage:
+
+- `headless_xss_ssrf`: 14 known unsolved rows
+- `has_any_env=true`
+- `has_any_teacher_demo=true`
+- recommended action:
+  `covered_by_iter10_headless_oob_env_and_demo; prioritize_callback_runner_or_rollout_eval`
+
+Registry snapshots were refreshed again; held-out registry now includes:
+
+- `aegispt_headless_oob_chain_envs_iter10`: 4
+- `rl_train_env`: 10 total reserved env hashes

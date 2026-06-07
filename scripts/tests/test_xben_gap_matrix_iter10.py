@@ -66,4 +66,12 @@ def test_xben_gap_matrix_summary_and_outputs(tmp_path):
         item["coverage_bucket"] == "ssrf_internal_endpoint_recovery"
         for item in summary["targeted_coverage"]
     )
+    assert any(
+        item["coverage_bucket"] == "headless_xss_ssrf"
+        and item["targeted_xben_ids"]
+        for item in summary["targeted_coverage"]
+    )
+    headless_rows = [row for row in rows if row["coverage_bucket"] == "headless_xss_ssrf"]
+    assert headless_rows
+    assert all(row["has_env"] is True and row["has_teacher_demo"] is True for row in headless_rows)
     assert written["files"]["matrix"].endswith(".jsonl")

@@ -2,15 +2,15 @@
   "dataset": "aegispt_iter8_multiservice_training_artifact_pack",
   "files": {
     "held_out_jsonl": {
-      "bytes": 25206,
+      "bytes": 25562,
       "path": "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_lab_truth_heldout_registry_iter6_held_out.jsonl.gz",
-      "row_count": 2825,
-      "sha256": "dd72a463c79f419055bbc8dadfcc7f8c7287ab77ed9784d7f7843396309a2f58"
+      "row_count": 2829,
+      "sha256": "dff60f69d777d32b7d964d6faf61e0243fdfbf57405c25fd42f38f0bc5d31a5a"
     },
     "held_out_registry": {
-      "bytes": 1330156,
+      "bytes": 1332313,
       "path": "codex/results/training/iter8-multiservice-diversity-20260607/aegispt_lab_truth_heldout_registry_iter6.json",
-      "sha256": "f1d1494c7aea1a09175a8894a76624910e994aa45b59bf1d786581162c9bd92f"
+      "sha256": "be5d363dc4c9c6268f52086555756f9c94b76b521545d567106f0c1146a09216"
     },
     "lab_truth_jsonl": {
       "bytes": 4692,
@@ -57,6 +57,7 @@
     "held_out_registry": {
       "held_out_by_family": {
         "aegispt-lab-suite-v1": 50,
+        "aegispt_headless_oob_chain_envs_iter10": 4,
         "aegispt_llmsvs_adversarial_eval_iter5": 720,
         "aegispt_multichain_heldout_eval_envs_iter10": 8,
         "aegispt_multichain_rl_envs_iter9": 6,
@@ -68,10 +69,10 @@
       "held_out_by_split": {
         "benchmark": 50,
         "eval": 1749,
-        "rl_train_env": 6,
+        "rl_train_env": 10,
         "test": 1020
       },
-      "held_out_count": 2825,
+      "held_out_count": 2829,
       "lab_truth_by_family": {
         "aegispt-lab-suite-v1": 50,
         "aegispt_live_lab_target_specs_iter5": 93

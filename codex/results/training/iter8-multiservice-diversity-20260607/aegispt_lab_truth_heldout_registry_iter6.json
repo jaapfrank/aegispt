@@ -24910,6 +24910,50 @@
       "split": "rl_train_env"
     },
     {
+      "chain_class": "headless_xss_ssrf",
+      "dataset_family": "aegispt_headless_oob_chain_envs_iter10",
+      "domain": "web_headless",
+      "holdout_reason": "iter10_headless_oob_rl_training_env_reserved",
+      "scenario_hash": "e860ad0bb40791d10a405be4814a8595ae0a5474bfacae8fb9077bedb4a8e549",
+      "scenario_id": "rl-train-headless-profile-callback-proof",
+      "source": "scripts/training/headless_oob_chain_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "stored_profile_callback"
+    },
+    {
+      "chain_class": "headless_xss_ssrf",
+      "dataset_family": "aegispt_headless_oob_chain_envs_iter10",
+      "domain": "web_headless",
+      "holdout_reason": "iter10_headless_oob_rl_training_env_reserved",
+      "scenario_hash": "63614e3362a804085d9dddabfe1fa9aad4aba2a3d17cfc77d2aeccf41a0e686f",
+      "scenario_id": "rl-train-headless-report-preview-ssrf-callback",
+      "source": "scripts/training/headless_oob_chain_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "report_preview_ssrf_callback"
+    },
+    {
+      "chain_class": "headless_xss_ssrf",
+      "dataset_family": "aegispt_headless_oob_chain_envs_iter10",
+      "domain": "web_headless",
+      "holdout_reason": "iter10_headless_oob_rl_training_env_reserved",
+      "scenario_hash": "a0b0b7d582b7d2995327cd9d47099aca09750580e85bed747ff4ec9515f882d1",
+      "scenario_id": "rl-train-headless-support-ticket-callback",
+      "source": "scripts/training/headless_oob_chain_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "support_ticket_callback"
+    },
+    {
+      "chain_class": "headless_xss_ssrf",
+      "dataset_family": "aegispt_headless_oob_chain_envs_iter10",
+      "domain": "web_headless",
+      "holdout_reason": "iter10_headless_oob_rl_training_env_reserved",
+      "scenario_hash": "22bd830f0db3ccc14b986677bf543ecad06a53d6a39e4089a251efaf2394de5a",
+      "scenario_id": "rl-train-headless-pdf-render-callback",
+      "source": "scripts/training/headless_oob_chain_envs_iter10.py",
+      "split": "rl_train_env",
+      "variant": "pdf_render_callback"
+    },
+    {
       "chain_class": "auth_logic_session_forgery",
       "dataset_family": "aegispt_multichain_heldout_eval_envs_iter10",
       "domain": "web_auth",
@@ -27350,6 +27394,7 @@
   "stats": {
     "held_out_by_family": {
       "aegispt-lab-suite-v1": 50,
+      "aegispt_headless_oob_chain_envs_iter10": 4,
       "aegispt_llmsvs_adversarial_eval_iter5": 720,
       "aegispt_multichain_heldout_eval_envs_iter10": 8,
       "aegispt_multichain_rl_envs_iter9": 6,
@@ -27361,10 +27406,10 @@
     "held_out_by_split": {
       "benchmark": 50,
       "eval": 1749,
-      "rl_train_env": 6,
+      "rl_train_env": 10,
       "test": 1020
     },
-    "held_out_count": 2825,
+    "held_out_count": 2829,
     "lab_truth_by_family": {
       "aegispt-lab-suite-v1": 50,
       "aegispt_live_lab_target_specs_iter5": 93

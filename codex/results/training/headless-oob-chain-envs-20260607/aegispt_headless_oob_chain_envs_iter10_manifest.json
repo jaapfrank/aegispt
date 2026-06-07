@@ -1,0 +1,169 @@
+{
+  "dataset": "aegispt_headless_oob_chain_envs_iter10",
+  "demo_count": 32,
+  "demo_dataset": "aegispt_headless_oob_teacher_demos_iter10",
+  "manifest": {
+    "dataset": "aegispt_headless_oob_chain_envs_iter10",
+    "interface": "json_action_to_http_observation",
+    "policy": {
+      "callback_simulated": true,
+      "data_lane_only": true,
+      "deep_chain_held_out_not_used": true,
+      "lab_only": true,
+      "no_real_browser": true,
+      "no_real_callback_server": true,
+      "runtime_binding": false,
+      "runtime_execution": false
+    },
+    "scenarios": [
+      {
+        "callback_inbox": "/callback-inbox/profile",
+        "chain_class": "headless_xss_ssrf",
+        "dataset_family": "aegispt_headless_oob_chain_envs_iter10",
+        "domain": "web_headless",
+        "goal": "Store a bounded callback marker in a profile field, trigger the synthetic reviewer, read callback proof, and retry the admin marker.",
+        "host": "http://profile-headless-rl.example",
+        "marker": "AEGISPT_HEADLESS_PROFILE_3184",
+        "oracle_steps": 6,
+        "requires_oob_callback_proof": true,
+        "scenario_hash": "e860ad0bb40791d10a405be4814a8595ae0a5474bfacae8fb9077bedb4a8e549",
+        "scenario_id": "rl-train-headless-profile-callback-proof",
+        "variant": "stored_profile_callback"
+      },
+      {
+        "callback_inbox": "/callback-inbox/reports",
+        "chain_class": "headless_xss_ssrf",
+        "dataset_family": "aegispt_headless_oob_chain_envs_iter10",
+        "domain": "web_headless",
+        "goal": "Use a report preview callback URL in a synthetic headless renderer, retrieve the callback proof, and retry the report marker.",
+        "host": "http://reports-headless-rl.example",
+        "marker": "AEGISPT_HEADLESS_REPORT_5210",
+        "oracle_steps": 6,
+        "requires_oob_callback_proof": true,
+        "scenario_hash": "63614e3362a804085d9dddabfe1fa9aad4aba2a3d17cfc77d2aeccf41a0e686f",
+        "scenario_id": "rl-train-headless-report-preview-ssrf-callback",
+        "variant": "report_preview_ssrf_callback"
+      },
+      {
+        "callback_inbox": "/callback-inbox/support",
+        "chain_class": "headless_xss_ssrf",
+        "dataset_family": "aegispt_headless_oob_chain_envs_iter10",
+        "domain": "web_headless",
+        "goal": "Store a callback marker in a support ticket, simulate staff review, read proof, and retry the staff-only marker.",
+        "host": "http://support-headless-rl.example",
+        "marker": "AEGISPT_HEADLESS_SUPPORT_7746",
+        "oracle_steps": 6,
+        "requires_oob_callback_proof": true,
+        "scenario_hash": "a0b0b7d582b7d2995327cd9d47099aca09750580e85bed747ff4ec9515f882d1",
+        "scenario_id": "rl-train-headless-support-ticket-callback",
+        "variant": "support_ticket_callback"
+      },
+      {
+        "callback_inbox": "/callback-inbox/pdf",
+        "chain_class": "headless_xss_ssrf",
+        "dataset_family": "aegispt_headless_oob_chain_envs_iter10",
+        "domain": "web_headless",
+        "goal": "Use a lab callback marker in a PDF render field, simulate rendering, retrieve proof, and retry the export marker.",
+        "host": "http://pdf-headless-rl.example",
+        "marker": "AEGISPT_HEADLESS_PDF_9062",
+        "oracle_steps": 6,
+        "requires_oob_callback_proof": true,
+        "scenario_hash": "22bd830f0db3ccc14b986677bf543ecad06a53d6a39e4089a251efaf2394de5a",
+        "scenario_id": "rl-train-headless-pdf-render-callback",
+        "variant": "pdf_render_callback"
+      }
+    ]
+  },
+  "rollouts": [
+    {
+      "res_path": "codex/results/training/headless-oob-chain-envs-20260607/res_0.json",
+      "result": {
+        "blocked_goal": true,
+        "callback_received": true,
+        "flag": true,
+        "injected": true,
+        "pivot": true,
+        "proof_retrieved": true,
+        "recovered_after_block": true,
+        "reward": 35,
+        "scenario_hash": "e860ad0bb40791d10a405be4814a8595ae0a5474bfacae8fb9077bedb4a8e549",
+        "scenario_id": "rl-train-headless-profile-callback-proof",
+        "steps": 6,
+        "unique": 5,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/headless-oob-chain-envs-20260607/roll_0.jsonl",
+      "scenario_id": "rl-train-headless-profile-callback-proof"
+    },
+    {
+      "res_path": "codex/results/training/headless-oob-chain-envs-20260607/res_1.json",
+      "result": {
+        "blocked_goal": true,
+        "callback_received": true,
+        "flag": true,
+        "injected": true,
+        "pivot": true,
+        "proof_retrieved": true,
+        "recovered_after_block": true,
+        "reward": 35,
+        "scenario_hash": "63614e3362a804085d9dddabfe1fa9aad4aba2a3d17cfc77d2aeccf41a0e686f",
+        "scenario_id": "rl-train-headless-report-preview-ssrf-callback",
+        "steps": 6,
+        "unique": 5,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/headless-oob-chain-envs-20260607/roll_1.jsonl",
+      "scenario_id": "rl-train-headless-report-preview-ssrf-callback"
+    },
+    {
+      "res_path": "codex/results/training/headless-oob-chain-envs-20260607/res_2.json",
+      "result": {
+        "blocked_goal": true,
+        "callback_received": true,
+        "flag": true,
+        "injected": true,
+        "pivot": true,
+        "proof_retrieved": true,
+        "recovered_after_block": true,
+        "reward": 35,
+        "scenario_hash": "a0b0b7d582b7d2995327cd9d47099aca09750580e85bed747ff4ec9515f882d1",
+        "scenario_id": "rl-train-headless-support-ticket-callback",
+        "steps": 6,
+        "unique": 5,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/headless-oob-chain-envs-20260607/roll_2.jsonl",
+      "scenario_id": "rl-train-headless-support-ticket-callback"
+    },
+    {
+      "res_path": "codex/results/training/headless-oob-chain-envs-20260607/res_3.json",
+      "result": {
+        "blocked_goal": true,
+        "callback_received": true,
+        "flag": true,
+        "injected": true,
+        "pivot": true,
+        "proof_retrieved": true,
+        "recovered_after_block": true,
+        "reward": 35,
+        "scenario_hash": "22bd830f0db3ccc14b986677bf543ecad06a53d6a39e4089a251efaf2394de5a",
+        "scenario_id": "rl-train-headless-pdf-render-callback",
+        "steps": 6,
+        "unique": 5,
+        "used_revealed_value": true
+      },
+      "roll_path": "codex/results/training/headless-oob-chain-envs-20260607/roll_3.jsonl",
+      "scenario_id": "rl-train-headless-pdf-render-callback"
+    }
+  ],
+  "stats": {
+    "demo_by_variant": {
+      "pdf_render_callback": 8,
+      "report_preview_ssrf_callback": 8,
+      "stored_profile_callback": 8,
+      "support_ticket_callback": 8
+    },
+    "env_count": 4,
+    "rollout_count": 4
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "blocked_goal": true,
+  "callback_received": true,
+  "flag": true,
+  "injected": true,
+  "pivot": true,
+  "proof_retrieved": true,
+  "recovered_after_block": true,
+  "reward": 35,
+  "scenario_hash": "e860ad0bb40791d10a405be4814a8595ae0a5474bfacae8fb9077bedb4a8e549",
+  "scenario_id": "rl-train-headless-profile-callback-proof",
+  "steps": 6,
+  "unique": 5,
+  "used_revealed_value": true
+}

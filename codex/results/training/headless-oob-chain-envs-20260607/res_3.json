@@ -1,0 +1,15 @@
+{
+  "blocked_goal": true,
+  "callback_received": true,
+  "flag": true,
+  "injected": true,
+  "pivot": true,
+  "proof_retrieved": true,
+  "recovered_after_block": true,
+  "reward": 35,
+  "scenario_hash": "22bd830f0db3ccc14b986677bf543ecad06a53d6a39e4089a251efaf2394de5a",
+  "scenario_id": "rl-train-headless-pdf-render-callback",
+  "steps": 6,
+  "unique": 5,
+  "used_revealed_value": true
+}
