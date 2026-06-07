@@ -5900,6 +5900,15 @@ def _queue_passive_loop_task(
         discovered = _extract_discovered_links(session, run, scope_allowlist=scope_allowlist)
         if discovered:
             enriched_params["candidate_paths"] = discovered
+    # T-CHAIN1: source-aware runners (pre-recon-source) need an explicit `source_dir`
+    # in their params or they exit 78 / skip (no_source_dir) and the picker never gets
+    # the source intel (forgeable secret, SSRF sinks) -> it stays black-box and the
+    # auth-logic/source-aware class is unsolvable. The AI picker builds candidate params
+    # without it, so inject it here from the run config (where source-aware mode stored it).
+    if candidate.tool == "pre-recon-source" and "source_dir" not in enriched_params:
+        _src_dir = str((_as_dict(getattr(run, "configuration_json", None)) or {}).get("source_dir") or "").strip()
+        if _src_dir:
+            enriched_params["source_dir"] = _src_dir
     task = Task(
         run=run,
         tool=candidate.tool,
