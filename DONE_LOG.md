@@ -20,9 +20,14 @@
   - Policy guardrails: data-lane only, fictional lab hosts, payload-free, no
     runtime execution, no runtime binding, and no committed secret.
   - The existing other-stack V4-Pro top-up remains active in tmux
-    `aegispt_v4pro_e2_otherstack_topup`; the validation checkpoint during this
-    slice was 12 accepted rows / 44 attempts. The web-source top-up should be
+    `aegispt_v4pro_e2_otherstack_topup`; the post-waiter checkpoint during
+    this slice was at least 13 accepted rows / 48 attempts. Check the
+    other-stack manifest for live counters. The web-source top-up should be
     launched only after that job exits or reaches quota, not in parallel.
+  - After commit `b18d016`, started waiter tmux
+    `aegispt_v4pro_e2_websource_wait_topup`. It only waits while
+    `aegispt_v4pro_e2_otherstack_topup` exists, then runs the web-source
+    top-up generator; no parallel cloud teacher job was launched.
   - Validation completed:
     `python3 -m pytest -q scripts/tests/test_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_other_stack_topup_iter10.py scripts/tests/test_web_source_gap_recovery_envs_iter10.py`;
     `python3 -m compileall -q scripts/training/generate_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_web_source_gap_topup_iter10.py`;
@@ -31,6 +36,8 @@
     `bash scripts/run_data_lane_tests.sh`;
     `python3 scripts/validate_backlog_tasks.py`;
     `git diff --check`.
+    Waiter status file:
+    `codex/results/training/v4pro-web-source-gap-topup-20260607/v4pro_e2_websource_topup.status`.
   - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
     or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
     live-proven.

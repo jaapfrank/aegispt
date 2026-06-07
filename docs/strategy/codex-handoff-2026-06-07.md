@@ -806,8 +806,8 @@ Commit guidance:
 
 ### E2c — V4-Pro demonstrated web-source-gap top-up
 
-Tooling is done; the cloud generation should wait until the active
-other-stack V4-Pro top-up exits or reaches quota.
+Tooling is done. The cloud generation is queued non-parallel: it waits until
+the active other-stack V4-Pro top-up exits or reaches quota.
 
 Added:
 
@@ -842,6 +842,14 @@ Suggested launch after `aegispt_v4pro_e2_otherstack_topup` finishes:
 
 `python3 scripts/training/generate_v4pro_web_source_gap_topup_iter10.py --out-dir codex/results/training/v4pro-web-source-gap-topup-20260607 --target-min-per-class 4 --max-attempts 96 --max-tokens 8192 --timeout 300 --wall-seconds 21600`
 
+Queued waiter:
+
+- tmux: `aegispt_v4pro_e2_websource_wait_topup`
+- status:
+  `codex/results/training/v4pro-web-source-gap-topup-20260607/v4pro_e2_websource_topup.status`
+- behavior: sleeps while `aegispt_v4pro_e2_otherstack_topup` exists, then runs
+  the command above
+
 Commit guidance:
 
 - raw teacher/rejected/log/status artifacts should stay uncommitted unless
@@ -853,7 +861,6 @@ Status checkpoint after this Codex slice:
 
 - E1: source triage closed (`source_triage_required=0`)
 - E2 deterministic env/demo coverage: closed (`known_gap_needs_data=0`)
-- E2 other-stack V4-Pro: active tmux job, checkpoint 12 accepted / 44
-  attempts
-- E2 web-source V4-Pro: tooling ready, generation queued/not parallelized
+- E2 other-stack V4-Pro: active tmux job; check its manifest for live counters
+- E2 web-source V4-Pro: tooling ready, non-parallel waiter queued
 - E3: per-class transfer harness done

@@ -40,12 +40,16 @@ The existing other-stack V4-Pro top-up remains the only active cloud teacher
 job:
 
 - tmux session: `aegispt_v4pro_e2_otherstack_topup`
-- validation checkpoint during this slice: 12 accepted rows / 44 attempts
-- deficits remaining: `unsafe_deserialization=1`,
-  `eval_rce_provider_refusal=2`, `java_jsp_other_stack=2`,
-  `php_cms_framework_cve=2`, `unknown_nonweb_or_other_stack=1`
+- post-waiter checkpoint during this slice: at least 13 accepted rows / 48
+  attempts; check
+  `codex/results/training/v4pro-other-stack-topup-20260607/aegispt_v4pro_other_stack_topup_iter10_manifest.json`
+  for live counters
 - the web-source V4-Pro top-up should not be launched in parallel; queue it
   only after the other-stack job exits or reaches its quota
+- non-parallel waiter queued after commit:
+  `aegispt_v4pro_e2_websource_wait_topup`; it is currently only waiting for
+  `aegispt_v4pro_e2_otherstack_topup` and will then run
+  `generate_v4pro_web_source_gap_topup_iter10.py`
 
 Validation completed:
 
@@ -56,6 +60,8 @@ Validation completed:
 - `bash scripts/run_data_lane_tests.sh`
 - `python3 scripts/validate_backlog_tasks.py`
 - `git diff --check`
+- tmux waiter created:
+  `aegispt_v4pro_e2_websource_wait_topup`
 
 ## Latest Continuation - E2 web source-gap recovery envs (2026-06-07)
 
