@@ -28,8 +28,25 @@ MODEL = "deepseek-v4-pro"
 SECRETS = os.path.expanduser("~/.aegispt-secrets")
 
 # Held-out tokens that must NEVER appear in generated data (contamination guard).
-HELD_OUT_FORBIDDEN = ["shop.lab", "/notes/", "/admin/config", "X-Admin-Token",
-                      "flag{deep-eval-5b7c2}", "ADM-7741-KQ"]
+HELD_OUT_FORBIDDEN = [
+    "shop.lab",
+    "/notes/",
+    "/admin/config",
+    "X-Admin-Token",
+    "flag{deep-eval-5b7c2}",
+    "ADM-7741-KQ",
+]
+
+RECOVERY_TERMS = (
+    "callback",
+    "credential",
+    "delegation",
+    "pivot",
+    "queue",
+    "recovery",
+    "session",
+    "token",
+)
 
 SYS = (
     "You generate ONE training example for a pentest agent: a multi-turn agentic chain "
@@ -38,7 +55,9 @@ SYS = (
     '{"role":"assistant","content":"<JSON action>"},{"role":"user","content":"<observation>"},...]} '
     'where each assistant turn is a JSON action {"next_action":{"args":{"method","url"}},"done":bool}, '
     "state is carried forward, and the LAST assistant turn has done=true after reaching the goal. "
-    "Do NOT use any of: " + ", ".join(HELD_OUT_FORBIDDEN) + "."
+    "The chain MUST include a premature goal attempt, a bounded 403/blocked observation with a hint, "
+    "backtracking to the hinted intermediate resource, reuse of the revealed token/session/credential, "
+    "and then a successful retry. Do NOT use any of: " + ", ".join(HELD_OUT_FORBIDDEN) + "."
 )
 
 
@@ -88,6 +107,8 @@ def _extract_messages_obj(s):
 def generate(chain_type, lab_hint, max_tokens=5000, temperature=0.4):
     """Return a validated {"messages":[...]} row, or None on failure."""
     user = (f"Chain type: {chain_type}. Lab: {lab_hint}. 4-6 assistant turns. "
+            "Include blocked-goal recovery: premature goal attempt -> 403/blocked hint -> "
+            "hinted resource -> revealed value reuse -> successful retry. "
             "Respond with ONLY the JSON object on the first line, no preamble or reasoning text.")
     body = json.dumps({"model": MODEL,
                        "messages": [{"role": "system", "content": SYS},
@@ -108,6 +129,34 @@ def generate(chain_type, lab_hint, max_tokens=5000, temperature=0.4):
     return row if _valid(row) else None
 
 
+def _assistant_done_true(msg):
+    content = str(msg.get("content", ""))
+    try:
+        payload = json.loads(content)
+    except Exception:
+        return '"done": true' in content.lower() or '"done":true' in content.lower()
+    return payload.get("done") is True
+
+
+def _has_blocked_goal_recovery(msgs):
+    contents = [str(m.get("content", "")) for m in msgs if isinstance(m, dict)]
+    blocked_index = next(
+        (
+            idx
+            for idx, content in enumerate(contents)
+            if any(token in content.lower() for token in ("403", "blocked", "forbidden", "denied"))
+        ),
+        None,
+    )
+    if blocked_index is None:
+        return False
+    later = "\n".join(contents[blocked_index + 1:]).lower()
+    if not any(term in later for term in RECOVERY_TERMS):
+        return False
+    final_assistant = next((m for m in reversed(msgs) if m.get("role") == "assistant"), {})
+    return _assistant_done_true(final_assistant)
+
+
 def _valid(row):
     if not isinstance(row, dict) or "messages" not in row:
         return False
@@ -117,7 +166,7 @@ def _valid(row):
     blob = json.dumps(row)
     if any(tok in blob for tok in HELD_OUT_FORBIDDEN):  # contamination guard
         return False
-    return "done" in str(msgs[-1].get("content", ""))
+    return _has_blocked_goal_recovery(msgs)
 
 
 # Default diversity set; Codex expands this for scale (P1).
@@ -137,7 +186,8 @@ def main():
     if not args.out:
         row = generate(*CHAIN_TYPES[0])
         if not row:
-            print("generation failed"); sys.exit(1)
+            print("generation failed")
+            sys.exit(1)
         ac = sum(1 for m in row["messages"] if m.get("role") == "assistant")
         print(f"VALID row: {len(row['messages'])} msgs, {ac} assistant turns")
         return

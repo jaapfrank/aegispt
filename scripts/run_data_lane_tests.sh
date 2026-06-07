@@ -18,6 +18,7 @@ python3 -m pytest -q \
   scripts/tests/test_iter8_training_artifact_pack.py \
   scripts/tests/test_v4pro_demonstrated_ingest_iter8.py \
   scripts/tests/test_v4pro_teacher_generator_iter9.py \
+  scripts/tests/test_teacher_demonstration_gen.py \
   scripts/tests/test_multichain_rl_envs_iter9.py \
   scripts/tests/test_jury_system.py \
   scripts/tests/test_jury_review.py \

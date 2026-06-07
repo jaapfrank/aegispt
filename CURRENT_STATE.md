@@ -1,5 +1,31 @@
 # Current State
 
+## Latest Continuation - Teacher skeleton recovery guard (2026-06-07)
+
+Codex tightened the older `scripts/training/teacher_demonstration_gen.py`
+V4-Pro skeleton so it cannot drift away from the iter9 blocked-goal recovery
+contract.
+
+- the skeleton prompt now requires:
+  premature goal attempt -> bounded 403/blocked observation -> hinted-resource
+  backtrack -> revealed token/session/credential reuse -> successful retry
+- `_valid()` now rejects rows that do not contain the blocked-goal recovery arc
+  or that contain held-out markers
+- added `scripts/tests/test_teacher_demonstration_gen.py`
+- added that test to `scripts/run_data_lane_tests.sh`
+- no capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+  `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_teacher_demonstration_gen.py`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m ruff check scripts/training/teacher_demonstration_gen.py scripts/tests/test_teacher_demonstration_gen.py`
+- `python3 -m compileall -q scripts/training/teacher_demonstration_gen.py scripts/tests/test_teacher_demonstration_gen.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `git diff --check`
+
 ## Latest Continuation - Blocked-goal recovery RL shaping (2026-06-07)
 
 Codex continued the data-lane P1/P2/P3 work from

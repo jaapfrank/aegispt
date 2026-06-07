@@ -1,5 +1,25 @@
 # Done Log
 
+- 2026-06-07: V4-Pro teacher skeleton recovery guard. [TRAINING DATA]
+  - Updated `scripts/training/teacher_demonstration_gen.py` so the older
+    skeleton prompt also requires the blocked-goal recovery arc:
+    premature goal attempt -> 403/blocked hint -> hinted-resource backtrack ->
+    revealed token/session/credential reuse -> successful retry.
+  - Tightened `_valid()` so skeleton-generated rows without that recovery arc,
+    or with held-out markers, are rejected before use.
+  - Added `scripts/tests/test_teacher_demonstration_gen.py` and included it in
+    `scripts/run_data_lane_tests.sh`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_teacher_demonstration_gen.py`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m ruff check scripts/training/teacher_demonstration_gen.py scripts/tests/test_teacher_demonstration_gen.py`;
+    `python3 -m compileall -q scripts/training/teacher_demonstration_gen.py scripts/tests/test_teacher_demonstration_gen.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `git diff --check`.
+
 - 2026-06-07: Blocked-goal recovery shaping for iter9 RL/teacher data. [TRAINING DATA]
   - Updated `scripts/training/multichain_rl_envs_iter9.py` so every RL env
     includes the diagnosed failure/recovery pattern:
