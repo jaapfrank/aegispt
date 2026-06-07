@@ -29,8 +29,15 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import multichain_rl_envs_iter9 as ENVS  # noqa: E402
+import importlib  # noqa: E402
 import jury_rollout as ROLLOUT  # noqa: E402
+
+# Env module is configurable so the SAME rollout driver runs against the iter9 TRAINING
+# envs (expert iteration) and the iter10 HELD-OUT EVAL envs (broad transfer gate — run
+# read-only, omit --sft so held-out trajectories never become training data).
+ENV_MODULE = os.environ.get("AEGISPT_RL_ENV_MODULE", "multichain_rl_envs_iter9")
+ENV_CLASS = os.environ.get("AEGISPT_RL_ENV_CLASS", "TrainingEnv")
+ENVS = importlib.import_module(ENV_MODULE)
 
 ENDPOINT = os.environ.get("AEGISPT_RL_ENDPOINT", "https://api.deepseek.com/v1/chat/completions")
 MODEL = os.environ.get("AEGISPT_RL_MODEL", "deepseek-v4-pro")
@@ -98,7 +105,7 @@ _LEAK = ("reward", "recovered_after_block", "used_revealed_value", "signals",
 
 
 def rollout(spec) -> tuple[list[dict], dict]:
-    env = ENVS.TrainingEnv(spec)
+    env = getattr(ENVS, ENV_CLASS)(spec)
     convo = [{"role": "system", "content": SYSTEM},
              {"role": "user", "content": f"Goal: {spec.goal}\nHost: {spec.host}\nStart from nothing; explore, then exploit."}]
     trace: list[dict] = []
