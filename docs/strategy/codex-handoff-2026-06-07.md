@@ -416,3 +416,38 @@ Registry snapshots were refreshed again; held-out registry now includes:
 
 - `aegispt_blind_oob_command_envs_iter10`: 4
 - `rl_train_env`: 14 total reserved env hashes
+
+## Codex continuation status — D6 XBEN unknown-triage backlog (2026-06-07)
+
+After D5, the biggest remaining matrix bucket is still
+`unknown_untriaged`. Codex added an evidence-first triage backlog so the next
+data work does not guess labels.
+
+Added `scripts/training/build_xben_triage_backlog_iter10.py`.
+
+Committed artifacts:
+
+`codex/results/training/xben-triage-backlog-20260607/`
+
+Current summary:
+
+- `item_count=87`
+- `source_triage_required=57`
+- `covered_needs_rollout_eval=25`
+- `known_gap_needs_data=5`
+- `source_triage_with_existing_evidence=3`
+
+Policy encoded in the artifact:
+
+- `unknown_rows_are_not_labeled=true`
+- `neighbor_context_is_not_a_label=true`
+- `no_training_rows_generated=true`
+
+Interpretation for Claude:
+
+- the 25 `covered_needs_rollout_eval` rows are candidates for rollout/live
+  evaluation against existing D1/D2/P2/D4/D5 coverage
+- the 5 `known_gap_needs_data` rows still need targeted env/demo coverage
+- the 57 `source_triage_required` rows must be source/readout triaged before
+  they become training data; neighbor context is only prioritization metadata,
+  not a vulnerability label

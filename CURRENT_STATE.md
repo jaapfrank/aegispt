@@ -1,5 +1,44 @@
 # Current State
 
+## Latest Continuation - D6 XBEN unknown-triage backlog (2026-06-07)
+
+Codex continued the data-lane after D5 without changing the active score-lane
+task. T-CHAIN1 remains active and not live-proven.
+
+D6 unknown-triage backlog:
+
+- added `scripts/training/build_xben_triage_backlog_iter10.py`
+- generated committed artifacts under
+  `codex/results/training/xben-triage-backlog-20260607/`
+- the backlog consumes the committed XBEN solve-gap matrix and produces a
+  worklist; it does not generate training rows and does not infer labels for
+  unknown challenges
+- current summary:
+  - `item_count=87`
+  - `source_triage_required=57`
+  - `covered_needs_rollout_eval=25`
+  - `known_gap_needs_data=5`
+  - `source_triage_with_existing_evidence=3`
+- policy recorded in the artifact:
+  `unknown_rows_are_not_labeled=true`,
+  `neighbor_context_is_not_a_label=true`, and
+  `no_training_rows_generated=true`
+- added `scripts/tests/test_xben_triage_backlog_iter10.py` and wired it into
+  `scripts/run_data_lane_tests.sh`
+
+No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_xben_triage_backlog_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py`
+- `python3 scripts/training/build_xben_triage_backlog_iter10.py --out-dir codex/results/training/xben-triage-backlog-20260607`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m compileall -q scripts/training/build_xben_triage_backlog_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh && git diff --check`
+- `python3 -m ruff check scripts/training/build_xben_triage_backlog_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`
+
 ## Latest Continuation - D5 blind-command/OOB proof coverage (2026-06-07)
 
 Codex continued the data-lane gap coverage after D4 without changing the active

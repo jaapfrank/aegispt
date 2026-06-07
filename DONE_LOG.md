@@ -1,5 +1,39 @@
 # Done Log
 
+- 2026-06-07: D6 XBEN unknown-triage backlog. [TRAINING DATA]
+  - Added `scripts/training/build_xben_triage_backlog_iter10.py`.
+  - The backlog consumes the committed D3/D5 XBEN solve-gap matrix and emits a
+    reproducible worklist instead of inventing vulnerability labels for unknown
+    challenges.
+  - Generated committed artifacts under
+    `codex/results/training/xben-triage-backlog-20260607/`:
+    - `aegispt_xben_triage_backlog_iter10.json`
+    - `aegispt_xben_triage_backlog_iter10.jsonl`
+    - `aegispt_xben_triage_backlog_iter10_summary.md`
+  - Current D6 summary:
+    - `item_count=87`
+    - `source_triage_required=57`
+    - `covered_needs_rollout_eval=25`
+    - `known_gap_needs_data=5`
+    - `source_triage_with_existing_evidence=3`
+  - The backlog policy explicitly records:
+    `unknown_rows_are_not_labeled=true`,
+    `neighbor_context_is_not_a_label=true`, and
+    `no_training_rows_generated=true`.
+  - Added `scripts/tests/test_xben_triage_backlog_iter10.py` and included it
+    in `scripts/run_data_lane_tests.sh`.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_xben_triage_backlog_iter10.py scripts/tests/test_xben_gap_matrix_iter10.py`;
+    `python3 scripts/training/build_xben_triage_backlog_iter10.py --out-dir codex/results/training/xben-triage-backlog-20260607`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/build_xben_triage_backlog_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh && git diff --check`;
+    `python3 -m ruff check scripts/training/build_xben_triage_backlog_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: D5 blind-command/OOB proof data coverage. [TRAINING DATA]
   - Added `scripts/training/blind_oob_command_envs_iter10.py` for the next
     known XBEN gaps after headless/OOB:
