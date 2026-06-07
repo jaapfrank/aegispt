@@ -3722,6 +3722,39 @@ def _claude_select_next_action(
     to feed in-this-advance rejection notes (e.g. "your previous exec_plan
     had empty steps; revise") without persisting them to run config first.
     """
+    # Provider-agnostic source-aware bootstrap (T-CHAIN1): the specialists picker
+    # dispatches pre-recon-source FIRST when source_dir is configured, but the
+    # chatgpt_oauth / local_qwen / anthropic legacy paths did NOT — so source-aware
+    # runs on those providers stayed black-box (the forgeable-secret + SSRF intel from
+    # the white-box scan never reached the picker, and the auth-logic class was
+    # unsolvable). Hoist the bootstrap here so EVERY provider scans source first.
+    _src_cfg = str((_as_dict(getattr(run, "configuration_json", None)) or {}).get("source_dir") or "").strip()
+    if _src_cfg:
+        _has_prs = any(
+            str(getattr(t, "tool", "") or "") == "pre-recon-source"
+            for t in (getattr(run, "tasks", None) or [])
+        ) or (session is not None and _run_has_task(session, getattr(run, "id", None), "pre-recon-source"))
+        if not _has_prs:
+            _prs_target = ""
+            for _t in (targets or []):
+                _prs_target = str(_t.get("value") or _t.get("url") or "")
+                if _prs_target:
+                    break
+            if _prs_target:
+                logger.info(
+                    "picker: source_dir present, dispatching pre-recon-source FIRST "
+                    "(provider-agnostic bootstrap) run=%s",
+                    str(getattr(run, "id", "?"))[:8],
+                )
+                return {
+                    "action": "pick",
+                    "tool": "pre-recon-source",
+                    "target": _prs_target,
+                    "tier": "passive",
+                    "confidence": 0.98,
+                    "reasoning": "Source-aware bootstrap: white-box scan precedes network recon.",
+                    "runner_params": {"source_dir": _src_cfg},
+                }
     # Phase 1 landscape-plan 2026-05-22: when PICKER_MODE=specialists, fan
     # out to 5 OWASP-category specialists in parallel and use the top
     # hypothesis as the picker decision. Pattern from Shannon Lite (96.15%
