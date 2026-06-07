@@ -1,5 +1,41 @@
 # Done Log
 
+- 2026-06-07: E3 per-class transfer scoring harness. [TRAINING DATA]
+  - Added `scripts/training/build_transfer_matrix_iter10.py`.
+  - The harness consumes rollout `res_*.json` files and env manifests, then
+    emits a class x run transfer matrix with solve rate, recovery rate,
+    revealed-value reuse rate, pivot rate, average reward, average steps, and
+    failed scenario IDs.
+  - Generated the first baseline matrix from the D2 held-out oracle artifacts
+    under `codex/results/training/transfer-matrix-20260607/`.
+  - Baseline summary:
+    - `run_label=d2_oracle`
+    - `scenario_count=8`
+    - `chain_class_count=8`
+    - `result_count=8`
+    - `unknown_chain_class_count=0`
+    - all 8 D2 classes have `solve_rate=1.0`,
+      `recovered_after_block_rate=1.0`, and
+      `used_revealed_value_rate=1.0` for the oracle baseline
+  - Added `scripts/tests/test_transfer_matrix_iter10.py` and wired it into
+    `scripts/run_data_lane_tests.sh`.
+  - E1/E2 follow-up recorded in the Codex handoff:
+    - E1 source-triage must classify the 57 `source_triage_required` XBEN rows
+      only from source/evidence, never neighbor inference.
+    - E2 must build recovery-arc envs/demos for newly discovered missing
+      classes after E1 plus the 5 current `known_gap_needs_data` rows.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_transfer_matrix_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`;
+    `python3 scripts/training/build_transfer_matrix_iter10.py --run d2_oracle=codex/results/training/multichain-heldout-eval-envs-20260607 --manifest codex/results/training/multichain-heldout-eval-envs-20260607/aegispt_multichain_heldout_eval_envs_iter10_manifest.json --out-dir codex/results/training/transfer-matrix-20260607`;
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m compileall -q scripts/training/build_transfer_matrix_iter10.py scripts/tests/test_transfer_matrix_iter10.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `bash -n scripts/run_data_lane_tests.sh && git diff --check`;
+    `python3 -m ruff check scripts/training/build_transfer_matrix_iter10.py scripts/tests/test_transfer_matrix_iter10.py`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: D1 V4-Pro teacher corpus supervised top-up runner. [TRAINING DATA]
   - Inspected the live D1 tmux job `aegispt_v4pro_d1_teacher64`.
     At inspection it was still running with `accepted_count=45`,

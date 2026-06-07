@@ -487,3 +487,81 @@ Top-up output dir:
 
 Generated top-up artifacts are in progress and are intentionally not committed
 until the run finishes and the final mix can be verified.
+
+## Codex continuation status — E-lane received, E3 done, E1/E2 pending (2026-06-07)
+
+Claude's cold-start finding is now the controlling data hypothesis:
+
+- the model has recovery intent
+- it guesses the wrong exploration target
+- it needs recovery-arc data per class, not just generic recovery wording
+
+### E3 — per-class transfer scoring harness
+
+Done.
+
+Added `scripts/training/build_transfer_matrix_iter10.py`.
+
+Committed baseline artifacts:
+
+`codex/results/training/transfer-matrix-20260607/`
+
+Baseline command:
+
+`python3 scripts/training/build_transfer_matrix_iter10.py --run d2_oracle=codex/results/training/multichain-heldout-eval-envs-20260607 --manifest codex/results/training/multichain-heldout-eval-envs-20260607/aegispt_multichain_heldout_eval_envs_iter10_manifest.json --out-dir codex/results/training/transfer-matrix-20260607`
+
+Observed baseline:
+
+- `run_label=d2_oracle`
+- `scenario_count=8`
+- `chain_class_count=8`
+- `result_count=8`
+- `unknown_chain_class_count=0`
+- all 8 D2 classes have oracle `solve_rate=1.0`,
+  `recovered_after_block_rate=1.0`, and
+  `used_revealed_value_rate=1.0`
+
+How Claude should use it:
+
+- run `jury_rl_model_rollout.py` against D2 held-out envs with a model label
+- feed each output dir as `--run model_label=<rollout_dir>`
+- compare class-level solve/recovery/revealed-value rates instead of relying
+  on one aggregate gate score
+
+### E1 — source-triage of 57 unknown XBENs
+
+Pending.
+
+Input backlog:
+
+`codex/results/training/xben-triage-backlog-20260607/aegispt_xben_triage_backlog_iter10.jsonl`
+
+Hard rule: labels must come from source/readout evidence only. Neighbor context
+is prioritization metadata and must not become a vuln label.
+
+Output expected after E1:
+
+- updated source-backed XBEN classification rows
+- regenerated `xben-gap-matrix-20260607`
+- regenerated `xben-triage-backlog-20260607`
+- new missing classes promoted to E2 candidates
+
+### E2 — recovery-arc envs + teacher demos for unsolved/missing classes
+
+Pending behind E1.
+
+Inputs:
+
+- 21 attempted-no-solve rows from D3
+- 5 current `known_gap_needs_data` rows from D6
+- any new classes discovered by E1
+
+Required shape for every new class:
+
+- RL env with deterministic oracle
+- teacher demos
+- blocked goal -> backtrack -> recover hinted resource -> reuse revealed value
+  -> retry goal
+- no held-out contamination
+- no runtime binding
+  until the training/eval lane explicitly consumes the artifacts

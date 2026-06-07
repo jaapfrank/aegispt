@@ -1,5 +1,53 @@
 # Current State
 
+## Latest Continuation - E3 transfer matrix + E1/E2 queued (2026-06-07)
+
+Codex received the E1/E2/E3 data-lane handoff. D1 remains active in the
+background with main/top-up/final-mixwatch sessions; T-CHAIN1 remains active
+and not live-proven.
+
+E3 per-class transfer scoring harness:
+
+- added `scripts/training/build_transfer_matrix_iter10.py`
+- added `scripts/tests/test_transfer_matrix_iter10.py`
+- generated baseline artifacts under
+  `codex/results/training/transfer-matrix-20260607/`
+- baseline input:
+  `codex/results/training/multichain-heldout-eval-envs-20260607/res_*.json`
+  plus the D2 held-out manifest
+- baseline summary:
+  - `run_label=d2_oracle`
+  - `scenario_count=8`
+  - `chain_class_count=8`
+  - `result_count=8`
+  - `unknown_chain_class_count=0`
+  - oracle solve/recovery/revealed-value rates are 1.0 for all 8 D2 classes
+
+E1/E2 remembered as pending data-lane work:
+
+- E1: execute source-backed triage for the 57 `source_triage_required` XBEN
+  rows from `codex/results/training/xben-triage-backlog-20260607/`. Labels
+  must come only from challenge source or committed evidence, not neighbor
+  inference.
+- E2: after E1 updates the matrix, build recovery-arc RL envs and teacher demos
+  for missing unsolved classes, including the current 5
+  `known_gap_needs_data` rows. Every new env/demo must preserve the
+  blocked-goal -> backtrack -> recover -> retry arc and the existing held-out
+  contamination guard.
+
+No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+`TASK_QUEUE.md` was changed.
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_transfer_matrix_iter10.py scripts/tests/test_xben_triage_backlog_iter10.py`
+- `python3 scripts/training/build_transfer_matrix_iter10.py --run d2_oracle=codex/results/training/multichain-heldout-eval-envs-20260607 --manifest codex/results/training/multichain-heldout-eval-envs-20260607/aegispt_multichain_heldout_eval_envs_iter10_manifest.json --out-dir codex/results/training/transfer-matrix-20260607`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m compileall -q scripts/training/build_transfer_matrix_iter10.py scripts/tests/test_transfer_matrix_iter10.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh && git diff --check`
+- `python3 -m ruff check scripts/training/build_transfer_matrix_iter10.py scripts/tests/test_transfer_matrix_iter10.py`
+
 ## Latest Continuation - D1 V4-Pro teacher top-up active (2026-06-07)
 
 Codex continued the D1 V4-Pro teacher-corpus work without changing the active
