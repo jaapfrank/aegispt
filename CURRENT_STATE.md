@@ -1,5 +1,53 @@
 # Current State
 
+## Latest Continuation - E2 V4-Pro other-stack top-up active (2026-06-07)
+
+Codex continued the data-lane after `37e1cab` without changing the active
+score-lane task. T-CHAIN1 remains active and not live-proven; `NEXT_TASK.md`
+and `TASK_QUEUE.md` were not changed.
+
+E2 V4-Pro top-up tooling:
+
+- added `scripts/training/generate_v4pro_other_stack_topup_iter10.py`
+- added `scripts/tests/test_v4pro_other_stack_topup_iter10.py`
+- wired the test into `scripts/run_data_lane_tests.sh`
+- dataset family: `aegispt_v4pro_other_stack_topup_iter10`
+- target classes:
+  - `unsafe_deserialization`
+  - `eval_rce_provider_refusal`
+  - `java_jsp_other_stack`
+  - `php_cms_framework_cve`
+  - `unknown_nonweb_or_other_stack`
+- the generator reuses the existing DeepSeek/V4-Pro call path plus
+  `ingest_v4pro_demonstrated_chains_iter8.py`
+- accepted rows must pass a stricter E2 recovery-arc guard that requires a real
+  `TOOL OBSERVATION` with a blocked/403 observation before recovery and final
+  `done=true`
+- accepted rows must also keep `next_action.args` structured and request
+  bodies bounded to lab evidence keys; payload-like serialized/code bodies are
+  rejected before ingest
+- non-dict `safety` fields are allowed only because the existing ingest guard
+  normalizes assistant safety to `runtime_execution=false`
+- policy guards: data-lane only, fictional lab hosts, payload-free, no real
+  eval execution, no runtime execution, no runtime binding, no secret commit
+
+Supervised generation started:
+
+- tmux session: `aegispt_v4pro_e2_otherstack_topup`
+- output dir:
+  `codex/results/training/v4pro-other-stack-topup-20260607/`
+- target: 4 accepted rows per E2 class, 20 accepted rows total
+- raw teacher/rejected/log/status files are generation artifacts and are not
+  intended for commit unless explicitly reviewed; accepted train/manifest and
+  scenario-registry artifacts can be selected after the job finishes
+
+Validation completed for tooling:
+
+- `python3 -m pytest -q scripts/tests/test_v4pro_other_stack_topup_iter10.py scripts/tests/test_v4pro_teacher_topup_iter10.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_v4pro_demonstrated_ingest_iter8.py scripts/tests/test_other_stack_recovery_envs_iter10.py`
+- `python3 -m compileall -q scripts/training/generate_v4pro_other_stack_topup_iter10.py scripts/tests/test_v4pro_other_stack_topup_iter10.py`
+- `python3 -m ruff check scripts/training/generate_v4pro_other_stack_topup_iter10.py scripts/tests/test_v4pro_other_stack_topup_iter10.py`
+- `bash -n scripts/run_data_lane_tests.sh && git diff --check`
+
 ## Latest Continuation - E2 other-stack recovery envs (2026-06-07)
 
 Codex continued the data-lane after `c3af7e9` without changing the active

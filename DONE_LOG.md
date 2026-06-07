@@ -1,5 +1,43 @@
 # Done Log
 
+- 2026-06-07: E2 V4-Pro other-stack top-up tooling and supervised job. [TRAINING DATA TOOLING]
+  - Added `scripts/training/generate_v4pro_other_stack_topup_iter10.py`.
+  - Added `scripts/tests/test_v4pro_other_stack_topup_iter10.py` and wired it
+    into `scripts/run_data_lane_tests.sh`.
+  - Dataset family: `aegispt_v4pro_other_stack_topup_iter10`.
+  - Target classes: `unsafe_deserialization`, `eval_rce_provider_refusal`,
+    `java_jsp_other_stack`, `php_cms_framework_cve`, and
+    `unknown_nonweb_or_other_stack`.
+  - The generator reuses the existing DeepSeek/V4-Pro call path and
+    `ingest_v4pro_demonstrated_chains_iter8.py`.
+  - Added a stricter E2 recovery-arc guard: accepted rows require a real
+    `TOOL OBSERVATION` with blocked/403 evidence before recovery and final
+    `done=true`; prompt text alone no longer satisfies the guard.
+  - Added schema/body guards: `next_action.args` must be structured, and
+    request bodies must be empty or bounded lab-evidence JSON; payload-like
+    serialized/code bodies are rejected before ingest.
+  - Non-dict `safety` fields remain allowed because the existing ingest guard
+    normalizes assistant safety to `runtime_execution=false`.
+  - Policy guardrails: data-lane only, fictional lab hosts, payload-free, no
+    real eval execution, no runtime execution, no runtime binding, and no
+    committed secret.
+  - Started supervised generation in tmux:
+    `aegispt_v4pro_e2_otherstack_topup`.
+  - Output dir:
+    `codex/results/training/v4pro-other-stack-topup-20260607/`.
+  - Target: 4 accepted rows per class, 20 accepted rows total.
+  - Raw teacher/rejected/log/status files are generation artifacts and remain
+    unselected until reviewed. Accepted train/manifest/scenario-registry can be
+    committed after completion.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_v4pro_other_stack_topup_iter10.py scripts/tests/test_v4pro_teacher_topup_iter10.py scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_v4pro_demonstrated_ingest_iter8.py scripts/tests/test_other_stack_recovery_envs_iter10.py`;
+    `python3 -m compileall -q scripts/training/generate_v4pro_other_stack_topup_iter10.py scripts/tests/test_v4pro_other_stack_topup_iter10.py`;
+    `python3 -m ruff check scripts/training/generate_v4pro_other_stack_topup_iter10.py scripts/tests/test_v4pro_other_stack_topup_iter10.py`;
+    `bash -n scripts/run_data_lane_tests.sh && git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-07: E2 other-stack recovery env/demo coverage. [TRAINING DATA]
   - Added `scripts/training/other_stack_recovery_envs_iter10.py`.
   - Added `scripts/tests/test_other_stack_recovery_envs_iter10.py` and wired it

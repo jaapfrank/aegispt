@@ -678,6 +678,53 @@ Integration:
 
 Caveat:
 
-- This is deterministic env/demo coverage. It is not V4-Pro-demonstrated E2
-  data. If Claude wants model-demonstrated rows specifically for the five E2
-  classes, the follow-up is a small V4-Pro E2 top-up generator/job.
+- This deterministic env/demo slice is not itself V4-Pro-demonstrated E2 data.
+  Codex added the V4-Pro top-up generator/job below to cover that gap.
+
+### E2b — V4-Pro demonstrated other-stack top-up
+
+Added:
+
+- `scripts/training/generate_v4pro_other_stack_topup_iter10.py`
+- `scripts/tests/test_v4pro_other_stack_topup_iter10.py`
+
+Dataset family:
+
+- `aegispt_v4pro_other_stack_topup_iter10`
+
+Target classes:
+
+- `unsafe_deserialization`
+- `eval_rce_provider_refusal`
+- `java_jsp_other_stack`
+- `php_cms_framework_cve`
+- `unknown_nonweb_or_other_stack`
+
+Generator contract:
+
+- reuses the existing DeepSeek/V4-Pro endpoint path
+- reuses `ingest_v4pro_demonstrated_chains_iter8.py`
+- keeps `runtime_execution=false`, `lab_only=true`, and `payload_free=true`
+- writes train rows, rejected rows, raw teacher rows, manifest, and
+  scenario-registry JSONL
+- accepted rows require a real `TOOL OBSERVATION` blocked/403 event before
+  recovery and final `done=true`
+- accepted rows require structured `next_action.args`; request bodies must be
+  empty or bounded lab-evidence JSON, and serialized/code/payload-like bodies
+  are rejected before ingest
+- non-dict `safety` fields are allowed only because the existing ingest guard
+  normalizes assistant safety to `runtime_execution=false`
+
+Active supervised job:
+
+- tmux: `aegispt_v4pro_e2_otherstack_topup`
+- output:
+  `codex/results/training/v4pro-other-stack-topup-20260607/`
+- target: 4 accepted rows per E2 class, 20 accepted rows total
+
+Commit guidance:
+
+- raw teacher/rejected/log/status artifacts should stay uncommitted unless
+  explicitly reviewed
+- after completion, commit only accepted train rows, manifest, scenario
+  registry, and any derived mix/quality report that passes the guard
