@@ -27,7 +27,10 @@
   - After commit `b18d016`, started waiter tmux
     `aegispt_v4pro_e2_websource_wait_topup`. It only waits while
     `aegispt_v4pro_e2_otherstack_topup` exists, then runs the web-source
-    top-up generator; no parallel cloud teacher job was launched.
+    top-up generator and rebuilds
+    `codex/results/training/iter9-combined-sft-mix-20260607/` with D1,
+    other-stack, and web-source accepted V4-Pro train files. No parallel cloud
+    teacher job was launched.
   - Validation completed:
     `python3 -m pytest -q scripts/tests/test_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_other_stack_topup_iter10.py scripts/tests/test_web_source_gap_recovery_envs_iter10.py`;
     `python3 -m compileall -q scripts/training/generate_v4pro_web_source_gap_topup_iter10.py scripts/tests/test_v4pro_web_source_gap_topup_iter10.py`;
@@ -38,6 +41,8 @@
     `git diff --check`.
     Waiter status file:
     `codex/results/training/v4pro-web-source-gap-topup-20260607/v4pro_e2_websource_topup.status`.
+    Post-run mix rebuild log:
+    `codex/results/training/v4pro-web-source-gap-topup-20260607/v4pro_e2_websource_mix_rebuild.log`.
   - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
     or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
     live-proven.

@@ -49,7 +49,9 @@ job:
 - non-parallel waiter queued after commit:
   `aegispt_v4pro_e2_websource_wait_topup`; it is currently only waiting for
   `aegispt_v4pro_e2_otherstack_topup` and will then run
-  `generate_v4pro_web_source_gap_topup_iter10.py`
+  `generate_v4pro_web_source_gap_topup_iter10.py`, followed by
+  `build_iter9_combined_sft_mix.py` with D1, other-stack, and web-source
+  accepted V4-Pro train files
 
 Validation completed:
 
@@ -62,6 +64,8 @@ Validation completed:
 - `git diff --check`
 - tmux waiter created:
   `aegispt_v4pro_e2_websource_wait_topup`
+- post-run mix rebuild log:
+  `codex/results/training/v4pro-web-source-gap-topup-20260607/v4pro_e2_websource_mix_rebuild.log`
 
 ## Latest Continuation - E2 web source-gap recovery envs (2026-06-07)
 

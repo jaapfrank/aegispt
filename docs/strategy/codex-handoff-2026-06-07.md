@@ -849,6 +849,12 @@ Queued waiter:
   `codex/results/training/v4pro-web-source-gap-topup-20260607/v4pro_e2_websource_topup.status`
 - behavior: sleeps while `aegispt_v4pro_e2_otherstack_topup` exists, then runs
   the command above
+- after generation it rebuilds
+  `codex/results/training/iter9-combined-sft-mix-20260607/` with:
+  D1 main, D1 top-up, accepted smoke row, other-stack top-up, and web-source
+  top-up train JSONL inputs
+- mix rebuild log:
+  `codex/results/training/v4pro-web-source-gap-topup-20260607/v4pro_e2_websource_mix_rebuild.log`
 
 Commit guidance:
 
