@@ -1,5 +1,26 @@
 # Done Log
 
+- 2026-06-08: Codex status sync after Claude evidence taxonomy slice. [STRATEGY/DATA]
+  - Re-read the required Rework 4 lane files after Claude's committed 1.2
+    "No Exploit, No Report" slice-1 update and synchronized the shared status
+    docs.
+  - Confirmed generated evidence ledger remains `17/104`.
+  - Confirmed no live XBEN-024 validation artifact exists beyond
+    `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`.
+  - Confirmed no XBOW-104 output exists for Codex 2.1 ingestion.
+  - Recorded Claude's new Q3 helper as shared contract input only:
+    `classify_finding` / `is_reportable` with `exploit_proven`,
+    `confirmed`, and `passive_observation`, not yet wired into live behavior
+    or benchmark output.
+  - Updated `docs/strategy/tasks-codex.md` to make explicit that taxonomy code
+    alone does not move the canonical ledger.
+  - Validation completed:
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven.
+
 - 2026-06-08: Codex status sync after Claude black-box dispatch proof. [STRATEGY/DATA]
   - Re-read the required Rework 4 lane files after Claude's committed 0.2 / 1.1
     consumer updates and synchronized the shared status docs.

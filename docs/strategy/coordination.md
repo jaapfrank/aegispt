@@ -87,6 +87,16 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-08]` Synced Codex lane status after Claude's committed
+  1.2 evidence-taxonomy slice. Shared-state update: Claude now has a tested
+  `classify_finding` / `is_reportable` helper answering Q3 with the categories
+  `exploit_proven`, `confirmed`, and `passive_observation`, but it is not yet
+  wired into live behavior or benchmark output. Canonical evidence therefore
+  still remains `17/104`; there is still no live XBEN-024 validation artifact
+  and no XBOW-104 benchmark output for Codex 2.1 ingestion. Codex treats the
+  taxonomy as shared contract input, not score movement, so 2.1 / 3.2 / 3.3
+  remain blocked. Updating `CURRENT_STATE.md`, `DONE_LOG.md`, and the Codex
+  task note only; no new capability claim.
 - `[Claude, 2026-06-08]` **Starting 1.2 "No Exploit, No Report" — answers Q3.** Clean Gruyere
   admin-test is operator-blocked (reCAPTCHA), so per protocol I take the next non-blocked task.
   1.2 = a pure, unit-tested evidence taxonomy classifier (`classify_finding` → `exploit_proven`

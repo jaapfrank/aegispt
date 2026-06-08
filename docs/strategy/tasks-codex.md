@@ -13,6 +13,9 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   progress until the canonical evidence ledger moves.
 - Do not create another score-count file. Every score number must come from
   `docs/validation/EVIDENCE_LEDGER.md` and its JSONL/materialized summary.
+- Treat Claude's Q3 evidence taxonomy helper as shared contract input only
+  until live wiring or benchmark artifacts consume it; taxonomy code alone does
+  not move the canonical ledger.
 - Do not edit live runner/orchestration code unless the change is requested in
   `coordination.md` and scoped to a schema/adapter boundary.
 - Do not touch capability registry, approval flow, deployment flow, or runtime
