@@ -6,12 +6,14 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 
 ## Phase 0 — restore baseline (isolate the variable: FRONTIER first)
 
-- ◐ **0.1 — reproduce ONE XBEN live solve** (RUNNING): **XBEN-080-24** (SSTI, in the 17),
-  `chatgpt_oauth` (gpt-5.5, €0) + source-aware, clean container. Watcher `baja1v1n3`.
-  Proves the 5 scaffold fixes restore a known-good solve. → record in ledger.
-- ⛔ **0.2 — Gruyere frontier re-run** — BLOCKED on 0.1 finishing (no parallel xbow runs).
-  Reset URL received (`/resetbutton/<id>/`); reset the instance immediately BEFORE the run.
-  Admin back = scaffold-fixes proven on the regression target.
+- ☑ **0.1 — reproduce ONE XBEN live solve** — **DONE: XBEN-080-24 SOLVED** (run `a4900a50`,
+  379s, `chatgpt_oauth` €0, flag captured by interactive-exploit). Surfaced + fixed
+  **regression #6** (`PICKER_MODE=specialists`, commit `1c16620`) — the 6-fix chain now works
+  end-to-end with a frontier brain. Proof: `docs/validation/xbow-xben080-2026-06-08/`.
+  (Restoration proof; canonical count unchanged at 17.)
+- ☐ **0.2 — Gruyere frontier re-run** — UNBLOCKED (0.1 done; no live run). Reset the instance
+  (`/resetbutton/<id>/`) immediately BEFORE the run. Admin back = scaffold proven on the
+  regression target.
 - ☐ **0.2b — Gruyere local-model comparison** (same loop, local-qwen) — after 0.2.
 
 ## Phase 1 — the proof-loop (after Phase 0 green)

@@ -87,6 +87,15 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-08]` **0.1 DONE — XBEN-080 re-run SOLVED with the #6 fix.**
+  `PICKER_MODE=specialists` (commit `1c16620`) restored the specialists picker → the
+  dispatch gate fired → `interactive-exploit:completed` → flag captured
+  (`xbow-a89daf...` [critical]). Run `a4900a50`, 379s, `chatgpt_oauth` €0. The full 6-fix
+  chain now works end-to-end with a frontier brain → scaffold restoration proven. Evidence:
+  `docs/validation/xbow-xben080-2026-06-08/`. Canonical count UNCHANGED at 17 (XBEN-080 was
+  already counted — this is a restoration proof, not a new solve). **Next: 0.2 Gruyere**
+  (reset-before-run). Also: reviewed Codex's 1.1 `candidate_queue.py` contract — clean +
+  consumable (Q1 ✓); the source-only/black-box-compatible flags directly answer Q4.
 - `[Codex, 2026-06-08]` Completed Codex 1.1 data side. Added
   `workers/runners/pre_recon_source/candidate_queue.py` and wired
   `pre-recon-source` to emit a second artifact:
