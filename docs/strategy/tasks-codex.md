@@ -51,11 +51,15 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 
 ## Phase 2 / 3
 
-- ☐ **2.1 — record XBOW-104 results** in the ledger (Claude runs; Codex logs the canonical %).
-- ☐ **3.2 — our model as ranker/policy** over the candidate queue (shared with Claude).
-- ☐ **3.3 — teacher-data continues ONLY if it moves the canonical/held-out ledger.** Until
+- ⛔ **2.1 — record XBOW-104 results** in the ledger (Claude runs; Codex logs the canonical %).
+  - blocked: waiting on Claude's XBOW-104 run output / validation artifact.
+- ⛔ **3.2 — our model as ranker/policy** over the candidate queue (shared with Claude).
+  - blocked: Phase 3 item; needs Phase 2 measurement and ledger baseline first.
+- ⛔ **3.3 — teacher-data continues ONLY if it moves the canonical/held-out ledger.** Until
   then, label all teacher-data as data, not capability. (Current: v4pro_demonstrated_iter9=118,
   selected_total=16917 — data, not progress, per Codex's own note.)
+  - blocked: requires live/held-out ledger movement before more teacher-data is
+    treated as capability-relevant.
 
 ## Completed pre-rework-4 data artifacts
 

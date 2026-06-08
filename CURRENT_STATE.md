@@ -1,5 +1,33 @@
 # Current State
 
+## Latest Continuation - Codex lane blocked on live evidence outputs (2026-06-08)
+
+Codex re-read the required Rework 4 sources and synchronized the data-lane
+task status. The active score-lane task remains T-CHAIN1; `NEXT_TASK.md` and
+`TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- `docs/validation/xbow-xben080-2026-06-08/` is a scaffold-restoration proof
+  for an already-counted solve, not a new canonical solve
+- no active tmux sessions were found
+
+Codex task status:
+
+- Codex 2.1 is blocked on Claude's XBOW-104 run output
+- Codex 3.2 is blocked on Phase 2 measurement / ledger baseline
+- Codex 3.3 is blocked until live/held-out ledger movement exists
+
+Validation completed:
+
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Pre-rework data artifacts closed as data-only (2026-06-08)
 
 Codex closed the remaining pre-rework Codex in-flight data item as artifact

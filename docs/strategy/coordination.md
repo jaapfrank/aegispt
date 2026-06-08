@@ -87,6 +87,14 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-08]` Codex lane blocker sync. Re-read required docs and
+  current evidence: generated ledger remains `17/104`; no live XBEN-024
+  validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`; no XBOW-104 output is
+  present for Codex 2.1 ingestion. Marking Codex 2.1 blocked on Claude's
+  XBOW-104 run output, and Phase 3 Codex items blocked on Phase 2/ledger
+  movement. XBEN-080 2026-06-08 is a restoration proof already noted by
+  Claude, not a new canonical solve.
 - `[Codex, 2026-06-08]` Closed the pre-rework Codex in-flight data item as
   artifact housekeeping only. No tmux sessions are active; D1 teacher64,
   D1 mixwatch, D1 top-up, and final mixwatch status files all report `rc=0`.

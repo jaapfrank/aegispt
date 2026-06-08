@@ -1,5 +1,24 @@
 # Done Log
 
+- 2026-06-08: Codex lane blocker sync. [STRATEGY/DATA]
+  - Re-read the required Rework 4 lane files and synchronized Codex task
+    statuses.
+  - Confirmed generated evidence ledger remains `17/104`.
+  - Confirmed no live XBEN-024 validation artifact exists beyond
+    `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`.
+  - Confirmed no XBOW-104 output exists for Codex 2.1 ingestion.
+  - Recorded that `docs/validation/xbow-xben080-2026-06-08/` is a
+    scaffold-restoration proof for an already-counted solve, not a new
+    canonical solve.
+  - Marked Codex 2.1 blocked on Claude's XBOW-104 output and Phase 3 Codex
+    tasks blocked on Phase 2/ledger movement.
+  - Validation completed:
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven.
+
 - 2026-06-08: Pre-rework data artifacts closed as data-only. [TRAINING DATA]
   - Confirmed no active tmux sessions remain.
   - Confirmed D1 teacher64, D1 mixwatch, D1 top-up, and D1 final mixwatch
