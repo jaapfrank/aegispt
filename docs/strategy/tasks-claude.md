@@ -11,10 +11,12 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   **regression #6** (`PICKER_MODE=specialists`, commit `1c16620`) — the 6-fix chain now works
   end-to-end with a frontier brain. Proof: `docs/validation/xbow-xben080-2026-06-08/`.
   (Restoration proof; canonical count unchanged at 17.)
-- ☐ **0.2 — Gruyere frontier re-run** — UNBLOCKED (0.1 done; no live run). Reset the instance
-  (`/resetbutton/<id>/`) immediately BEFORE the run. Admin back = scaffold proven on the
-  regression target.
-- ☐ **0.2b — Gruyere local-model comparison** (same loop, local-qwen) — after 0.2.
+- ◐ **0.2 — Gruyere frontier re-run** — PARTIAL (run `d1b6d25d`, clean). Specialist runners
+  found **9 HIGH real vulns** (XSS confirmed, path traversal, XSSI), but **interactive-exploit
+  0×** → no admin. Black-box has no source sinks → the dispatch gate doesn't fire (Q4). Blocked
+  on **1.1 consumer** (black-box exploit dispatch). Reset is MANUAL (reCAPTCHA, D6).
+- ⛔ **0.2b — Gruyere local-model comparison** — premature; the gap 0.2 found is the scaffold's
+  black-box dispatch, not the model. Do after 1.1 consumer dispatches the exploit on black-box.
 
 ## Phase 1 — the proof-loop (after Phase 0 green)
 
@@ -25,8 +27,10 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 - ☐ **1.4 — coverage/coordinator**: no redundant re-cover; surface untested boundaries.
 - ☐ **1.5 — pluggable brain verified**: same loop solves with ≥2 brains (provider-inherit fix
   is the foundation, commit 32fc457).
-- ☐ **1.1 consumer** — wire the loop to dispatch FROM Codex's source-to-exploit candidates
-  (not generic scanners). (depends on Codex 1.1)
+- ◐ **1.1 consumer** (ACTIVE — the black-box dispatch fix 0.2 demands) — wire the loop to
+  dispatch interactive-exploit FROM Codex's runtime-recon candidate queue
+  (`pre-recon-candidate-queue.json`) for black-box targets (no source sinks needed). Codex 1.1
+  data side done (`candidate_queue.py`).
 
 ## Phase 2 — measure
 

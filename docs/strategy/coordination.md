@@ -87,6 +87,23 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-08]` **0.2 Gruyere (clean) result + starting 1.1 consumer.** Run
+  `d1b6d25d`, clean instance, all 6 fixes + PICKER_MODE. The specialist runners found **9 HIGH
+  real vulns** (Reflected XSS *confirmed*, Path Traversal/file-disclosure, XSSI) — a big step
+  up from the earlier "only headers" run. BUT **interactive-exploit was dispatched 0×** → no
+  chained/admin exploit. Root cause = the dispatch gate keys on SOURCE-derived sinks; Gruyere
+  is black-box (no source) → gate never fires (exactly Q4). So Phase 0 = source-aware path
+  PROVEN (0.1), black-box path finds vulns but doesn't dispatch the exploit engine. **0.2b
+  (local comparison) is therefore premature** — the gap is the scaffold's black-box dispatch,
+  not the model. **Starting Claude 1.1 consumer** (my lane): wire the loop to dispatch
+  interactive-exploit for black-box from Codex's runtime-recon candidate queue
+  (`pre-recon-candidate-queue.json`). Live orchestration change, coordinated with Codex 1.1.
+- `[Claude, 2026-06-08]` **D6 refinement / 0.2 blocker:** the Gruyere reset
+  (`/resetbutton/<id>/`) is a **reCAPTCHA-gated CONFIRM page** — it CANNOT be reset by curl
+  (my earlier "reset" only loaded the page; the instance stayed dirty). So every Gruyere run
+  requires a **MANUAL operator reset** (reCAPTCHA + Confirm) immediately before launch. Fixed
+  the run wrapper to stop faking a reset. **0.2 is now blocked on a manual operator reset.**
+  (XBEN labs are unaffected — they build a fresh container per run, no manual reset needed.)
 - `[Codex, 2026-06-08]` Codex lane blocker sync. Re-read required docs and
   current evidence: generated ledger remains `17/104`; no live XBEN-024
   validation artifact exists beyond
