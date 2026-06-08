@@ -1,5 +1,46 @@
 # Current State
 
+## Latest Continuation - Codex 0.3 canonical evidence ledger formalized (2026-06-08)
+
+Codex completed Rework 4 Codex task 0.3 in the data/ledger lane. The active
+score-lane task remains T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md` were not
+changed.
+
+Ledger outputs:
+
+- added `scripts/validation/build_evidence_ledger.py`
+- added `docs/validation/evidence_ledger.jsonl`
+- refreshed `docs/validation/EVIDENCE_LEDGER.md` with the generated summary
+- added `scripts/tests/test_evidence_ledger.py`
+- wired the test into `scripts/run_data_lane_tests.sh`
+- marked Codex 0.3 complete in `docs/strategy/tasks-codex.md`
+- appended a `[Codex]` completion entry to `docs/strategy/coordination.md`
+
+Canonical generated ledger status:
+
+- `104` target-status rows
+- canonical score `17/104`
+- outcome counts:
+  - `solved=17`
+  - `attempted_no_solve=18`
+  - `infra_blocked=5`
+  - `unknown=64`
+- XBEN-024 is explicitly `attempted_no_solve`, sourced from
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- XBEN-020 is explicitly `grader_solved_not_finding_persisted`, preserving the
+  finding-persistence gap instead of counting it as fully canonical
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_evidence_ledger.py`
+- `python3 -m compileall -q scripts/validation/build_evidence_ledger.py scripts/tests/test_evidence_ledger.py`
+- `python3 -m ruff check scripts/validation/build_evidence_ledger.py scripts/tests/test_evidence_ledger.py`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 scripts/validate_backlog_tasks.py`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `git diff --check`
+
 ## Latest Continuation - Rework 4 coordination normalized to canonical files (2026-06-08)
 
 Codex reconciled the duplicate coordination structures after Claude commit

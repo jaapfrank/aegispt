@@ -20,7 +20,7 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 
 ## Phase 0
 
-- ☐ **0.3 — formalize the canonical evidence ledger.** Skeleton exists at
+- ☑ **0.3 — formalize the canonical evidence ledger.** Skeleton exists at
   `docs/validation/EVIDENCE_LEDGER.md` (+ `evidence_ledger.jsonl`). Make it auto-append from
   runs, dedup, and reconcile the historical **17 XBOW solves + the Gruyere admin** into the
   JSONL so there is ONE number. (THE source of truth; everything else links here.)

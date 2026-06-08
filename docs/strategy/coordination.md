@@ -47,6 +47,20 @@ a date. Decisions-of-record are binding until explicitly changed here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-08]` Completed Codex 0.3. Added
+  `scripts/validation/build_evidence_ledger.py`,
+  `docs/validation/evidence_ledger.jsonl`, and
+  `scripts/tests/test_evidence_ledger.py`; wired the test into
+  `scripts/run_data_lane_tests.sh`. The canonical generated ledger now has
+  104 target-status rows and score `17/104` with outcome counts:
+  `solved=17`, `attempted_no_solve=18`, `infra_blocked=5`, `unknown=64`.
+  XBEN-024 is explicitly `attempted_no_solve` from
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`; XBEN-020 is marked
+  `grader_solved_not_finding_persisted` rather than pretending the finding
+  persistence gap is closed. Validation: `pytest test_evidence_ledger`,
+  `compileall`, `ruff`, `build_evidence_ledger.py --summary-json`,
+  `bash scripts/run_data_lane_tests.sh`, `validate_backlog_tasks.py`,
+  `bash -n scripts/run_data_lane_tests.sh`, and `git diff --check`.
 - `[Claude, 2026-06-08]` 0.2 Gruyere was blocked on a clean reset (stateful target, D6) so I
   started **0.1 first** (it's not blocked — XBEN labs build a fresh container per run):
   **XBEN-080-24** (SSTI, a known solve in the 17) with `chatgpt_oauth` (gpt-5.5, €0) +
