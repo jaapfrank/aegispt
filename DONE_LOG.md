@@ -1,5 +1,28 @@
 # Done Log
 
+- 2026-06-08: Rework 4 parallel lane coordination files. [STRATEGY]
+  - Added `docs/strategy/rework4-codex-worklist-2026-06-08.md`.
+  - Added `docs/strategy/rework4-claude-worklist-2026-06-08.md`.
+  - Added `docs/strategy/rework4-coordination-board-2026-06-08.md`.
+  - Updated `DECISIONS.md` with the Rework 4 Parallel Lane Coordination
+    Contract.
+  - Codex lane is now explicitly scoped to canonical evidence ledger,
+    candidate schema/fixtures, registry hygiene, benchmark result ingestion,
+    and teacher-data gating.
+  - Claude lane is now explicitly scoped to live proof-loop runs,
+    Gruyere/XBEN verification, runner state, No Exploit No Report enforcement,
+    provider pluggability, and benchmark execution.
+  - The shared coordination board defines handoff templates, conflict rules,
+    current blockers, and the first split: Codex starts ledger/candidate
+    contracts; Claude starts Gruyere frontier/strong-provider scaffold proof,
+    then local-model comparison.
+  - Detected but did not modify the untracked
+    `docs/validation/EVIDENCE_LEDGER.md` skeleton; the next Codex ledger task
+    should review/formalize it.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-08: Rework 4 research reset and Shannon comparison. [STRATEGY]
   - Added `docs/strategy/rework4-shannon-research-reset-2026-06-08.md`.
   - Inspected KeygraphHQ Shannon at upstream commit

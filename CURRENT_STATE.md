@@ -1,5 +1,42 @@
 # Current State
 
+## Latest Continuation - Rework 4 parallel lane coordination files (2026-06-08)
+
+Codex created the requested split worklists and shared coordination file so
+Codex and Claude can work in parallel without creating another source-of-truth
+split. The active score-lane task remains T-CHAIN1; `NEXT_TASK.md` and
+`TASK_QUEUE.md` were not changed.
+
+New coordination artifacts:
+
+- `docs/strategy/rework4-codex-worklist-2026-06-08.md`
+- `docs/strategy/rework4-claude-worklist-2026-06-08.md`
+- `docs/strategy/rework4-coordination-board-2026-06-08.md`
+
+Decision record updated:
+
+- `DECISIONS.md` now contains the Rework 4 Parallel Lane Coordination Contract
+- Codex owns: canonical evidence ledger, candidate schema/fixtures, registry
+  hygiene, benchmark result ingestion, and teacher-data gating
+- Claude owns: live proof-loop runs, Gruyere/XBEN verification, runner state,
+  No Exploit No Report enforcement, provider pluggability, and benchmark
+  execution
+- cross-lane decisions and handoffs go into the coordination board
+
+First split agreed by the files:
+
+- Codex starts with canonical evidence-ledger formalization and candidate
+  contracts
+- Claude starts with Gruyere scaffold proof using a frontier/strong provider,
+  then local-model comparison
+- local-model training remains secondary until the canonical ledger shows
+  live/held-out movement
+
+Worktree note:
+
+- an untracked `docs/validation/EVIDENCE_LEDGER.md` skeleton was detected and
+  left unmodified; Codex should review/formalize it in the next ledger task
+
 ## Latest Continuation - Rework 4 research reset and Shannon comparison (2026-06-08)
 
 Codex completed an evidence-backed strategy reset after the user flagged that

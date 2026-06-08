@@ -39,6 +39,29 @@ Future work must integrate with those foundations rather than redefining them.
 - the session execution contract for this Codex-owned lane is
   `docs/strategy/codex-universal-execution-contract.md`
 
+## Rework 4 Parallel Lane Coordination Contract (2026-06-08)
+
+- Rework 4 uses separate owner worklists so Codex and Claude can build in
+  parallel without mixing responsibilities:
+  - Codex worklist:
+    `docs/strategy/rework4-codex-worklist-2026-06-08.md`
+  - Claude worklist:
+    `docs/strategy/rework4-claude-worklist-2026-06-08.md`
+- Cross-lane decisions, blockers, handoffs, and execution-order changes must be
+  recorded in:
+  `docs/strategy/rework4-coordination-board-2026-06-08.md`
+- Codex owns data-lane reproducibility for the reset: canonical evidence
+  ledger, candidate schema/fixtures, registry hygiene, benchmark result
+  ingestion, and teacher-data gating.
+- Claude owns score/runner execution for the reset: live proof-loop runs,
+  Gruyere/XBEN verification, runner state, No Exploit No Report enforcement,
+  provider pluggability, and benchmark execution.
+- The operator owns scope, frontier-model budget, and go/no-go decisions.
+- The canonical evidence ledger and generated validation artifacts outrank
+  narrative docs when solve counts disagree.
+- Local-model training remains a secondary experiment until the canonical
+  ledger shows live/held-out improvement.
+
 ## React V2 Store Slice Boundary (2026-06-03)
 
 - `ui-v2/src/store/index.ts` is the public Zustand store composition root.
