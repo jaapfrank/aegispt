@@ -27,10 +27,12 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 - ☐ **1.4 — coverage/coordinator**: no redundant re-cover; surface untested boundaries.
 - ☐ **1.5 — pluggable brain verified**: same loop solves with ≥2 brains (provider-inherit fix
   is the foundation, commit 32fc457).
-- ◐ **1.1 consumer** (ACTIVE — the black-box dispatch fix 0.2 demands) — wire the loop to
-  dispatch interactive-exploit FROM Codex's runtime-recon candidate queue
-  (`pre-recon-candidate-queue.json`) for black-box targets (no source sinks needed). Codex 1.1
-  data side done (`candidate_queue.py`).
+- ◐ **1.1 consumer** — **slice 1 DONE + PROVEN**: black-box exploit bootstrap (`1a32a9e`) →
+  interactive-exploit now dispatches on black-box (XBEN-080 black-box run `f1717a10`,
+  `has_source_dir=false`, **ie_tasks 0→1**). The exploit engine is now reached on black-box
+  (was never). Next slices: (a) clean Gruyere admin-test — does the dispatch fix alone get
+  admin? (needs operator reCAPTCHA reset); (b) feed the loop Codex's runtime-recon candidate
+  queue for richer targeting.
 
 ## Phase 2 — measure
 

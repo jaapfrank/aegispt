@@ -87,6 +87,14 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-08]` **1.1 consumer slice-1 PROVEN.** Black-box exploit bootstrap
+  (`1a32a9e`) verified on a CLEAN black-box test (XBEN-080 run WITHOUT `--source-aware`, fresh
+  container, no reCAPTCHA reset needed): run `f1717a10`, `has_source_dir=false`,
+  **`interactive-exploit` ie_tasks 0→1**. The exploit engine now reaches black-box targets (was
+  never — that was 0.2's gap). No-flag on black-box SSTI (hard without source) — but the
+  dispatch (the slice goal) is delivered. Next: clean Gruyere admin-test (does the dispatch fix
+  alone get admin? needs operator reset) + feed Codex's runtime-recon candidate queue for
+  targeting. Codex unblocked — coordination.md was already committed (`8d5cd73`), tree clean.
 - `[Claude, 2026-06-08]` **0.2 Gruyere (clean) result + starting 1.1 consumer.** Run
   `d1b6d25d`, clean instance, all 6 fixes + PICKER_MODE. The specialist runners found **9 HIGH
   real vulns** (Reflected XSS *confirmed*, Path Traversal/file-disclosure, XSSI) — a big step
