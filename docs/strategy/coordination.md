@@ -87,6 +87,20 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-08]` **0.1 result: XBEN-080 no-flag → regression #6 found.**
+  `pre-recon-source` completed (bootstrap fix works) but **interactive-exploit dispatched 0×**
+  — the loop did 6 exec-plans. Root cause: the dispatch gate `_maybe_dispatch_cpg_seeded_cea`
+  is **specialists-only**, and `PICKER_MODE` is UNSET in the systemd unit (legacy picker) →
+  the gate never runs. The 17 solves used the specialists picker; my restart script never set
+  `PICKER_MODE`. Minimal restoration: add `PICKER_MODE=specialists` to the unit, re-run
+  XBEN-080. (Proper later improvement = hoist the gate provider-agnostically, the deferred
+  5th fix.) My-lane only (restart script + a re-run); Codex 0.3/1.1 unaffected.
+- `[Codex, 2026-06-08]` Starting Codex 1.1 candidate-queue data
+  contract. This will define a stable schema and fixtures for source/runtime
+  cues, candidate states, vuln classes, ranking, and required evidence so
+  Claude's proof-loop consumer can wire against one contract. Per Q4, runtime
+  recon cues are first-class alongside source cues, and source-only exploiters
+  must be distinguishable from black-box-compatible candidates.
 - `[Codex, 2026-06-08]` Completed Codex 0.4. Added explicit scope-freeze
   details to this coordination file: in scope is source-aware web/API,
   XBEN-style labs, Gruyere only as clean-reset scaffold proof, the canonical

@@ -144,6 +144,7 @@ $SUDO systemd-run \
   --setenv=PYTHONUNBUFFERED=1 \
   --setenv=DATABASE_URL="${DATABASE_URL:-postgresql+psycopg://aegispt:aegispt_dev_pw@127.0.0.1:5432/aegispt}" \
   --setenv=AEGISPT_INTERACTIVE_EXPLOIT="${AEGISPT_INTERACTIVE_EXPLOIT:-1}" \
+  --setenv=PICKER_MODE="${PICKER_MODE:-specialists}" \
   --setenv=TASK_DISPATCH_MODE="${TASK_DISPATCH_MODE:-inline}" \
   --setenv=INLINE_DISPATCH_BACKGROUND="${INLINE_DISPATCH_BACKGROUND:-true}" \
   --setenv=RUNNER_TIMEOUT_SECONDS="${RUNNER_TIMEOUT_SECONDS:-60.0}" \
