@@ -6,11 +6,13 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 
 ## Phase 0 — restore baseline (isolate the variable: FRONTIER first)
 
-- ◐ **0.2 — Gruyere frontier re-run** (chatgpt_oauth, fixes live). run `45ae8940`. Admin
-  back = scaffold-fixes proven. → record in evidence ledger.
-- ☐ **0.2b — Gruyere local-model comparison** (same loop, local-qwen). Measures model gap
-  ONLY after the scaffold is proven with frontier.
-- ☐ **0.1 — reproduce ONE XBEN live solve** end-to-end with evidence.
+- ◐ **0.1 — reproduce ONE XBEN live solve** (RUNNING): **XBEN-080-24** (SSTI, in the 17),
+  `chatgpt_oauth` (gpt-5.5, €0) + source-aware, clean container. Watcher `baja1v1n3`.
+  Proves the 5 scaffold fixes restore a known-good solve. → record in ledger.
+- ⛔ **0.2 — Gruyere frontier re-run** — BLOCKED on 0.1 finishing (no parallel xbow runs).
+  Reset URL received (`/resetbutton/<id>/`); reset the instance immediately BEFORE the run.
+  Admin back = scaffold-fixes proven on the regression target.
+- ☐ **0.2b — Gruyere local-model comparison** (same loop, local-qwen) — after 0.2.
 
 ## Phase 1 — the proof-loop (after Phase 0 green)
 

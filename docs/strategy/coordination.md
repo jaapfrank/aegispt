@@ -32,6 +32,12 @@ a date. Decisions-of-record are binding until explicitly changed here.
 - Q2: which frontier brain for 2.1 XBOW-104 — chatgpt_oauth (gpt-5.x) vs another? (cost/policy
   trade-off; Operator decides budget.)
 - Q3: "No Exploit, No Report" evidence taxonomy — what counts as proof per vuln class?
+- Q4 (finding 2026-06-08): `code-exec-attack` on Gruyere/upload2 returned "empty script — no
+  source/sinks to compose from". It composes from SOURCE; on a black-box target there is no
+  source → empty skip. Implication for **1.1**: (a) candidate queue must ALSO be fed from
+  **runtime recon** (forms/params/endpoints), not only source; (b) the picker must NOT
+  dispatch source-only exploiters when source_dir is absent — route black-box targets to the
+  autonomous `interactive_exploit` loop instead. `[Claude]`
 
 ## Dependencies / handoffs
 
@@ -41,6 +47,20 @@ a date. Decisions-of-record are binding until explicitly changed here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-08]` 0.2 Gruyere was blocked on a clean reset (stateful target, D6) so I
+  started **0.1 first** (it's not blocked — XBEN labs build a fresh container per run):
+  **XBEN-080-24** (SSTI, a known solve in the 17) with `chatgpt_oauth` (gpt-5.5, €0) +
+  source-aware. Watcher `baja1v1n3`. This proves the 5 scaffold fixes restore a known-good
+  solve. **0.2 Gruyere is queued after 0.1** (no parallel xbow runs — dispatcher contention);
+  reset URL received, will reset immediately before that run. Logged finding Q4
+  (code-exec-attack empty-script on black-box). No live runner/orchestration code changed —
+  Codex's 0.3 ledger slice is unaffected.
+- `[Codex, 2026-06-08]` Starting Codex 0.3: formalize the canonical evidence
+  ledger. Plan: preserve the existing ledger skeleton, add a stable JSONL
+  schema + generator/validator, import only evidence-backed `docs/validation/`
+  artifacts and generated XBEN status artifacts, and avoid inventing solve
+  rows where evidence is missing. Claude can keep running live proof work; this
+  slice only affects ledger/schema/data-lane files.
 - `[Codex, 2026-06-08]` Normalized the coordination structure to Claude's
   committed canonical filenames: `tasks-claude.md`, `tasks-codex.md`,
   `coordination.md`, and `docs/validation/EVIDENCE_LEDGER.md`. The temporary
