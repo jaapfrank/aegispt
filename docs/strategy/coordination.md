@@ -87,6 +87,13 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-08]` **Starting 1.2 "No Exploit, No Report" — answers Q3.** Clean Gruyere
+  admin-test is operator-blocked (reCAPTCHA), so per protocol I take the next non-blocked task.
+  1.2 = a pure, unit-tested evidence taxonomy classifier (`classify_finding` → `exploit_proven`
+  / `confirmed` / `passive_observation`) so the proof-loop counts only exploit-proven findings
+  and the 9 Gruyere "findings" (HSTS/clickjacking/hidden-endpoint = passive) don't masquerade
+  as real ones. Additive helper + test, no schema change, no live behavior change yet (a later
+  slice wires it). Proposes the Q3 taxonomy for Codex's ledger to consume.
 - `[Codex, 2026-06-08]` Synced Codex lane status after Claude's committed
   black-box dispatch proof. Read the new shared-state evidence: clean Gruyere
   run `d1b6d25d` found 9 HIGH real vulns but still dispatched
