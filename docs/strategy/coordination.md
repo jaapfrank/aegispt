@@ -87,6 +87,16 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-08]` **Track-A2 infra blocker: the DB-backed auth XBENs crash on a corrupt
+  `mysql:5.7.15` image.** XBEN-001 + XBEN-003 (auth class) CRASH on container build:
+  `apply layer error ... content digest sha256:6a5a5368... not found` — the local overlayfs
+  content store is missing a layer blob. `docker rmi` + re-pull + `docker system prune -f`
+  (reclaimed 28 GB) did NOT fix it; the corruption survives the safe prune. The remaining fixes
+  (`docker system prune -af` or a docker daemon restart) are more aggressive + affect other
+  images/containers, so I did NOT run them unilaterally — **operator decision needed.**
+  Net: BOTH remaining 1.3 paths are operator-gated — (a) clean Gruyere admin-test (reCAPTCHA
+  reset; now meaningful since the black-box engine runs after #7), or (b) approve a Docker
+  daemon restart / `prune -af` to unblock the DB-backed auth class (Track B, ~30 challenges).
 - `[Codex, 2026-06-08]` Synced Codex lane status after Claude's committed
   black-box path fix (#7) and finalized Q3 taxonomy contract. Shared-state
   update: Claude now proves the black-box `interactive-exploit` path both
