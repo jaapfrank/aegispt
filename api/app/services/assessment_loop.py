@@ -5986,10 +5986,20 @@ def _queue_passive_loop_task(
     # every non-anthropic run (observed on Gruyere: the picker drove 37 tasks on
     # chatgpt_oauth, but interactive-exploit still tried Claude and exit-2'd). Inherit the
     # run's provider so the exploit tool talks to the same backend the picker does.
-    if candidate.tool in {"interactive-exploit", "code-exec-attack"} and "model" not in enriched_params:
-        _prov = str((_as_dict(getattr(run, "configuration_json", None)) or {}).get("llm_provider") or "").strip()
-        if _prov:
-            enriched_params["model"] = _prov
+    if candidate.tool in {"interactive-exploit", "code-exec-attack"}:
+        if "model" not in enriched_params:
+            _prov = str((_as_dict(getattr(run, "configuration_json", None)) or {}).get("llm_provider") or "").strip()
+            if _prov:
+                enriched_params["model"] = _prov
+        # The chatgpt_oauth adapter is engagement-scoped (its OAuth token is per-engagement) —
+        # without engagement_id the adapter init fails ("requires engagement_id") and the
+        # exploit engine exit-2s. The source-aware gate passes it, but the picker pick path
+        # (incl. the black-box bootstrap) did not, so black-box interactive-exploit dispatched
+        # but never ran (run f1717a10). Inject it from the run.
+        if "engagement_id" not in enriched_params:
+            _eng = getattr(run, "engagement_id", None)
+            if _eng:
+                enriched_params["engagement_id"] = str(_eng)
     task = Task(
         run=run,
         tool=candidate.tool,
