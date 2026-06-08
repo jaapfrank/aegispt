@@ -55,3 +55,22 @@ def classify_finding(*, title: str = "", source_tool: str = "", evidence_ref: st
 def is_reportable(*, title: str = "", source_tool: str = "", evidence_ref: str = "") -> bool:
     """No Exploit, No Report: only an exploit-proven finding is reportable as a real finding."""
     return classify_finding(title=title, source_tool=source_tool, evidence_ref=evidence_ref) == PROVEN
+
+
+def partition_findings(findings) -> dict[str, list]:
+    """Partition raw finding dicts by evidence class so a ledger/report counts ONLY the
+    proven list (No Exploit, No Report). Each finding is a mapping with at least ``title``
+    (optionally ``source_tool``/``tool`` and ``evidence_ref``). Returns
+    ``{exploit_proven: [...], passive_observation: [...], unproven: [...]}`` — non-dict items
+    are skipped. Pure; does not mutate inputs or the finding schema."""
+    out: dict[str, list] = {PROVEN: [], PASSIVE: [], UNPROVEN: []}
+    for f in findings or []:
+        if not isinstance(f, dict):
+            continue
+        cls = classify_finding(
+            title=str(f.get("title") or ""),
+            source_tool=str(f.get("source_tool") or f.get("tool") or ""),
+            evidence_ref=str(f.get("evidence_ref") or ""),
+        )
+        out[cls].append(f)
+    return out

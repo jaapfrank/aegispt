@@ -5,6 +5,7 @@ from api.app.services.finding_evidence_gate import (
     UNPROVEN,
     classify_finding,
     is_reportable,
+    partition_findings,
 )
 
 
@@ -44,3 +45,22 @@ def test_ambiguous_defaults_to_unproven_not_reportable():
 def test_only_proven_is_reportable():
     assert is_reportable(title="Reflected XSS Confirmed") is True
     assert is_reportable(title="Hidden Endpoint Discovered") is False
+
+
+def test_partition_findings_counts_only_proven():
+    # the real Gruyere run d1b6d25d finding set
+    findings = [
+        {"title": "Reflected XSS Confirmed — Cookie HttpOnly Protected (uid)"},
+        {"title": "Path Traversal — Sensitive File Disclosure"},
+        {"title": "Information Disclosure Header Exposes Platform Detail"},
+        {"title": "HSTS Missing on HTTPS Target"},
+        {"title": "Sensitive Page Missing Clickjacking Frame Protection"},
+        {"title": "Hidden Endpoint Discovered"},
+        "not-a-dict",  # skipped
+    ]
+    part = partition_findings(findings)
+    assert len(part[PROVEN]) == 2          # XSS confirmed + path traversal
+    assert len(part[PASSIVE]) == 4         # platform header, HSTS, clickjacking, hidden endpoint
+    assert len(part[UNPROVEN]) == 0
+    # No Exploit, No Report: only 2 of 6 count as real findings
+    assert sum(len(v) for v in part.values()) == 6
