@@ -29,12 +29,12 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 - ☐ **1.4 — coverage/coordinator**: no redundant re-cover; surface untested boundaries.
 - ☐ **1.5 — pluggable brain verified**: same loop solves with ≥2 brains (provider-inherit fix
   is the foundation, commit 32fc457).
-- ◐ **1.1 consumer** — **slice 1 DONE + PROVEN**: black-box exploit bootstrap (`1a32a9e`) →
-  interactive-exploit now dispatches on black-box (XBEN-080 black-box run `f1717a10`,
-  `has_source_dir=false`, **ie_tasks 0→1**). The exploit engine is now reached on black-box
-  (was never). Next slices: (a) clean Gruyere admin-test — does the dispatch fix alone get
-  admin? (needs operator reCAPTCHA reset); (b) feed the loop Codex's runtime-recon candidate
-  queue for richer targeting.
+- ☑ **1.1 consumer — black-box exploit path FUNCTIONAL (dispatch + run both PROVEN):**
+  (a) black-box bootstrap (`1a32a9e`) → interactive-exploit dispatches on black-box
+  (`f1717a10`, ie_tasks 0→1); (b) **#7 fix** (`1b0f849`) → engagement_id now passed so the
+  chatgpt_oauth adapter runs → interactive-exploit **exit 0** on black-box run `4a83edca` (was
+  exit 2). The exploit engine now actually runs on black-box. Next: clean Gruyere admin-test
+  (operator reset) now that the engine runs; + runtime-recon candidate-queue feed for targeting.
 
 ## Phase 2 — measure
 

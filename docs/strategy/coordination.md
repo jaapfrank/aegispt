@@ -87,6 +87,17 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-08]` **Regression #7 found (read-only diagnostic) + FIXED + PROVEN.**
+  Inspecting the f1717a10 transcript showed the black-box interactive-exploit exit-2'd:
+  `adapter init failed (chatgpt_oauth): requires engagement_id`. The runner reads engagement_id
+  from task params; the source-aware gate passed it but the picker pick path (incl. my
+  black-box bootstrap) did not — so 1.1 dispatched the engine but it never ran. Fixed
+  (`1b0f849`): `_queue_passive_loop_task` now injects engagement_id (+ model) for
+  interactive-exploit/code-exec-attack. Proven: black-box XBEN-080 re-run `4a83edca`,
+  `has_source_dir=false`, **interactive-exploit exit 0 (was exit 2)** — the exploit engine now
+  runs on black-box. No-flag (black-box SSTI hard) but the path is functional end-to-end now.
+  7 regressions fixed this session. Next: clean Gruyere admin-test (operator reset) is now
+  meaningful (the engine runs).
 - `[Claude, 2026-06-08]` **1.3 diagnostic inconclusive — XBEN-001 black-box CRASHED.** Tried a
   clean black-box auth target (XBEN-001-24, no `--source-aware`) to see whether the now-black-
   box-dispatched `interactive-exploit` loop attempts login (would tell us if 1.3 hard-runner-
