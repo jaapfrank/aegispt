@@ -35,7 +35,7 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 
 ## Phase 1
 
-- ☐ **1.1 — source-to-exploit candidate queue (data side).** Define the candidate schema
+- ☑ **1.1 — source-to-exploit candidate queue (data side).** Define the candidate schema
   (sink + entry-point + vuln-class + hypothesis + rank) and have pre-recon-source emit ranked
   candidates per vuln class. Claude wires the loop to consume them. This is the Shannon core.
   - subtask: candidate id, route/method/parameter, source/runtime cue,
@@ -45,6 +45,9 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
     `exploited`, and `false_positive`.
   - subtask: fixtures for auth/authz, SSRF/internal, XSS/headless, injection,
     and file/path/upload.
+  - completed via `pre-recon-candidate-queue.json` emitted by
+    `pre-recon-source`, with contract tests in
+    `scripts/tests/test_candidate_queue_contract.py`.
 
 ## Phase 2 / 3
 

@@ -1,5 +1,43 @@
 # Current State
 
+## Latest Continuation - Codex 1.1 candidate queue data contract (2026-06-08)
+
+Codex completed Rework 4 Codex task 1.1 on the data/schema side. The active
+score-lane task remains T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md` were not
+changed.
+
+New source-to-proof-loop contract:
+
+- added `workers/runners/pre_recon_source/candidate_queue.py`
+- `pre-recon-source` now emits a second artifact:
+  `pre-recon-candidate-queue.json`
+- the artifact is JSON with `content_type=application/json` and
+  `kind=candidate-queue`
+- `pre-recon-source` stdout now includes `candidate_count`
+- the contract includes stable candidate ids, origin, entry point, sink,
+  source/runtime cues, auth requirement, hypothesis, integer rank,
+  rank reasons, required evidence class, state, source-context requirement,
+  black-box compatibility, and compatible tools
+
+Q4 from coordination is addressed on the data side:
+
+- source-derived candidates are marked `requires_source_context=true`
+- runtime recon cues can produce `origin=runtime_recon` candidates with
+  `requires_source_context=false` and `black_box_compatible=true`
+- this lets Claude's consumer distinguish source-only candidates from
+  black-box-compatible runtime candidates
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_candidate_queue_contract.py`
+- `python3 -m pytest -q scripts/tests/test_candidate_queue_contract.py api/tests/test_pre_recon_source_ssrf_authlogic.py api/tests/test_pre_recon_source_headless_xss.py api/tests/test_pre_recon_source_secrets.py api/tests/test_pre_recon_source_php_sinks.py workers/tests/test_pre_recon_source_topology.py`
+- `python3 -m compileall -q workers/runners/pre_recon_source/candidate_queue.py workers/runners/pre_recon_source/runner.py scripts/tests/test_candidate_queue_contract.py`
+- `python3 -m ruff check workers/runners/pre_recon_source/candidate_queue.py workers/runners/pre_recon_source/runner.py scripts/tests/test_candidate_queue_contract.py`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+- `bash -n scripts/run_data_lane_tests.sh`
+- `bash scripts/run_data_lane_tests.sh`
+
 ## Latest Continuation - Codex 0.4 scope freeze recorded (2026-06-08)
 
 Codex completed Rework 4 Codex task 0.4 in the strategy/data lane. The active

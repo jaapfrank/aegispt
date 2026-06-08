@@ -34,6 +34,7 @@ python3 -m pytest -q \
   scripts/tests/test_xben_source_triage_iter10.py \
   scripts/tests/test_transfer_matrix_iter10.py \
   scripts/tests/test_evidence_ledger.py \
+  scripts/tests/test_candidate_queue_contract.py \
   scripts/tests/test_jury_system.py \
   scripts/tests/test_jury_review.py \
   scripts/tests/test_trace_record.py \

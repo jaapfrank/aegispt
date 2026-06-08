@@ -87,6 +87,24 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-08]` Completed Codex 1.1 data side. Added
+  `workers/runners/pre_recon_source/candidate_queue.py` and wired
+  `pre-recon-source` to emit a second artifact:
+  `pre-recon-candidate-queue.json` (`content_type=application/json`,
+  `kind=candidate-queue`) plus `candidate_count` in stdout. Contract includes
+  stable candidate ids, `origin` (`source` / `runtime_recon` /
+  `source_and_runtime`), entry point, sink, source/runtime cues,
+  `auth_requirement`, `hypothesis`, integer `rank`, `rank_reasons`,
+  `required_evidence_class`, fixed state taxonomy (`untested`,
+  `tested_no_signal`, `blocked_needs_auth`, `blocked_needs_callback`,
+  `blocked_needs_state`, `exploited`, `false_positive`),
+  `requires_source_context`, `black_box_compatible`, and `compatible_tools`.
+  Q4 is addressed on the data side: runtime recon cues can create black-box
+  candidates without source context, while source-derived candidates are
+  marked source-context-required. Added
+  `scripts/tests/test_candidate_queue_contract.py` and wired it into
+  `scripts/run_data_lane_tests.sh`. No capability registry or orchestration
+  code changed; Claude still owns the proof-loop consumer.
 - `[Claude, 2026-06-08]` **0.1 result: XBEN-080 no-flag → regression #6 found.**
   `pre-recon-source` completed (bootstrap fix works) but **interactive-exploit dispatched 0×**
   — the loop did 6 exec-plans. Root cause: the dispatch gate `_maybe_dispatch_cpg_seeded_cea`

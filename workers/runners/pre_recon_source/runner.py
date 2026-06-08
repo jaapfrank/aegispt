@@ -29,6 +29,10 @@ from pathlib import Path
 from typing import Any
 
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
+from workers.runners.pre_recon_source.candidate_queue import (
+    CANDIDATE_QUEUE_ARTIFACT_NAME,
+    build_candidate_queue,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -741,6 +745,23 @@ def execute_pre_recon_source(
         reflected_for_internal=reflected_inputs,
         internal_endpoints=internal_endpoints,
     )
+    candidate_queue = build_candidate_queue(
+        source_facts={
+            "routes": routes,
+            "sinks": sinks,
+            "auth": auth,
+            "creds": creds,
+            "listen_ports": listen_ports,
+            "gate_tokens": gate_tokens,
+            "headless_dialog": headless_dialog,
+            "input_filters": input_filters,
+            "reflected_inputs": reflected_inputs,
+            "headless_arg_log": headless_arg_log,
+            "required_result_values": required_result_values,
+            "internal_gates": internal_gates,
+            "internal_endpoints": internal_endpoints,
+        }
+    )
 
     payload = {
         "tool": "pre-recon-source",
@@ -752,6 +773,7 @@ def execute_pre_recon_source(
         "cred_count": len(creds),
         "critical_sinks": sum(1 for s in sinks if s.get("severity_hint") == "critical"),
         "headless_dialog_count": len(headless_dialog),
+        "candidate_count": candidate_queue["candidate_count"],
     }
 
     artifact = EvidenceArtifact(
@@ -760,13 +782,19 @@ def execute_pre_recon_source(
         data=markdown.encode("utf-8"),
         kind="pre-recon-source",
     )
+    candidate_artifact = EvidenceArtifact(
+        name=CANDIDATE_QUEUE_ARTIFACT_NAME,
+        content_type="application/json",
+        data=json.dumps(candidate_queue, indent=2, sort_keys=True).encode("utf-8"),
+        kind="candidate-queue",
+    )
 
     return RunnerExecution(
         tool="pre-recon-source",
         exit_code=0,
         stdout=json.dumps(payload),
         stderr="",
-        artifacts=[artifact],
+        artifacts=[artifact, candidate_artifact],
         metadata={
             "tool_version": "pre-recon-source:v1-phase4-2026-05-22",
             "runner_digest": "workers.pre_recon_source.runner:v1",

@@ -1,5 +1,34 @@
 # Done Log
 
+- 2026-06-08: Codex 1.1 candidate queue data contract. [DATA/SCHEMA]
+  - Added `workers/runners/pre_recon_source/candidate_queue.py`.
+  - Wired `pre-recon-source` to emit
+    `pre-recon-candidate-queue.json` as a second JSON artifact.
+  - Added `candidate_count` to `pre-recon-source` stdout.
+  - Contract fields include candidate id, origin, entry point, sink,
+    source/runtime cues, auth requirement, hypothesis, rank, rank reasons,
+    required evidence class, state, source-context requirement,
+    black-box compatibility, and compatible tools.
+  - Fixed state taxonomy: `untested`, `tested_no_signal`,
+    `blocked_needs_auth`, `blocked_needs_callback`,
+    `blocked_needs_state`, `exploited`, and `false_positive`.
+  - Added runtime-recon candidate support so black-box observations are
+    first-class and distinguishable from source-context-required candidates.
+  - Added `scripts/tests/test_candidate_queue_contract.py` and wired it into
+    `scripts/run_data_lane_tests.sh`.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_candidate_queue_contract.py`;
+    `python3 -m pytest -q scripts/tests/test_candidate_queue_contract.py api/tests/test_pre_recon_source_ssrf_authlogic.py api/tests/test_pre_recon_source_headless_xss.py api/tests/test_pre_recon_source_secrets.py api/tests/test_pre_recon_source_php_sinks.py workers/tests/test_pre_recon_source_topology.py`;
+    `python3 -m compileall -q workers/runners/pre_recon_source/candidate_queue.py workers/runners/pre_recon_source/runner.py scripts/tests/test_candidate_queue_contract.py`;
+    `python3 -m ruff check workers/runners/pre_recon_source/candidate_queue.py workers/runners/pre_recon_source/runner.py scripts/tests/test_candidate_queue_contract.py`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`;
+    `bash -n scripts/run_data_lane_tests.sh`;
+    `bash scripts/run_data_lane_tests.sh`.
+  - No capability registry, approval flow, deployment flow, orchestration
+    consumer, `NEXT_TASK.md`, or `TASK_QUEUE.md` was changed; T-CHAIN1 remains
+    active and not live-proven.
+
 - 2026-06-08: Codex 0.4 scope freeze recorded. [STRATEGY]
   - Added explicit Rework 4 scope-freeze details to
     `docs/strategy/coordination.md`.
