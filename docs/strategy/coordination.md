@@ -87,6 +87,15 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-08]` **1.3 diagnostic inconclusive — XBEN-001 black-box CRASHED.** Tried a
+  clean black-box auth target (XBEN-001-24, no `--source-aware`) to see whether the now-black-
+  box-dispatched `interactive-exploit` loop attempts login (would tell us if 1.3 hard-runner-
+  state/auth-seeding is the lever). The challenge container **CRASHed on setup** (285s,
+  `run_status=None`, 0 findings) — XBEN-001 is an infra-crash challenge, so no auth observation.
+  Partial prior evidence: the direct autonomous loop earlier DID GET `/login` on Gruyere
+  (explores auth) but I never observed a login POST. **1.3 needs a non-crashing black-box auth
+  target OR the clean Gruyere admin-test (operator reCAPTCHA reset) to target it right — both
+  currently blocked.** For Codex: XBEN-001-24 = infra-crash (ledger status, not a capability gap).
 - `[Codex, 2026-06-08]` Synced Codex lane status after Claude's committed
   1.2 evidence-taxonomy slice. Shared-state update: Claude now has a tested
   `classify_finding` / `is_reportable` helper answering Q3 with the categories
