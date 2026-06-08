@@ -3755,6 +3755,45 @@ def _claude_select_next_action(
                     "reasoning": "Source-aware bootstrap: white-box scan precedes network recon.",
                     "runner_params": {"source_dir": _src_cfg},
                 }
+    # Black-box exploit bootstrap (rework-4 task 1.1 / Q4): with NO source_dir the
+    # source-derived dispatch gate never fires, so interactive-exploit (the exploit engine)
+    # was never dispatched on black-box targets — the loop found surface vulns via the
+    # specialist runners but never drove a chained/admin exploit (Gruyere run d1b6d25d: 9 HIGH
+    # findings, interactive-exploit 0x). Once recon has mapped the surface, route black-box
+    # targets to the autonomous interactive-exploit loop (it derives actions from interaction,
+    # no source sinks needed). Fires once per run; XBEN source-aware runs set source_dir so
+    # they never enter here.
+    if not _src_cfg:
+        _bb_tasks = list(getattr(run, "tasks", None) or [])
+        _recon_done = any(
+            str(getattr(t, "status", "") or "") == "completed"
+            and str(getattr(t, "tool", "") or "") in {"target-intel", "smart-web-probe", "content-discovery"}
+            for t in _bb_tasks
+        )
+        _has_ie = any(
+            str(getattr(t, "tool", "") or "") == "interactive-exploit" for t in _bb_tasks
+        ) or (session is not None and _run_has_task(session, getattr(run, "id", None), "interactive-exploit"))
+        if _recon_done and not _has_ie:
+            _bb_target = ""
+            for _t in (targets or []):
+                _bb_target = str(_t.get("value") or _t.get("url") or "")
+                if _bb_target:
+                    break
+            if _bb_target:
+                logger.info(
+                    "picker: black-box target (no source) — dispatching interactive-exploit "
+                    "(autonomous loop) after recon run=%s",
+                    str(getattr(run, "id", "?"))[:8],
+                )
+                return {
+                    "action": "pick",
+                    "tool": "interactive-exploit",
+                    "target": _bb_target,
+                    "tier": "active",
+                    "confidence": 0.9,
+                    "reasoning": "Black-box bootstrap: no source — route to the autonomous "
+                    "interactive-exploit loop now that recon mapped the surface.",
+                }
     # Phase 1 landscape-plan 2026-05-22: when PICKER_MODE=specialists, fan
     # out to 5 OWASP-category specialists in parallel and use the top
     # hypothesis as the picker decision. Pattern from Shannon Lite (96.15%
