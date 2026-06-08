@@ -20,11 +20,10 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 
 ## Phase 1 — the proof-loop (after Phase 0 green)
 
-- ◐ **1.2 — "No Exploit, No Report" gate** — **slice-1 DONE + PROVEN**: pure evidence-taxonomy
-  classifier `api/app/services/finding_evidence_gate.py` (`classify_finding` →
-  exploit_proven/passive_observation/unproven; `is_reportable`) + 5 passing tests on the real
-  XBEN-080 + Gruyere findings. Answers Q3. Additive, no schema change. Next slice: wire
-  `is_reportable` into finding recording/reporting so passive observations don't count.
+- ☑ **1.2 — "No Exploit, No Report" gate** — **DONE (Claude side)**: `finding_evidence_gate.py`
+  (`classify_finding` / `is_reportable` / `partition_findings`) + 6 passing tests on the real
+  XBEN-080 + Gruyere findings (Gruyere: only 2/6 are exploit-proven). The Q3 taxonomy contract.
+  Commits `108aabb` + `7e61d61`. Additive, no schema change. Codex's ledger consumes it (its lane).
 - ☐ **1.3 — hard runner-state**: sessions/cookies/auth/revealed-tokens/blockers/untested/OOB
   carried across the loop.
 - ☐ **1.4 — coverage/coordinator**: no redundant re-cover; surface untested boundaries.
