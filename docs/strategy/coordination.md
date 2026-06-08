@@ -21,6 +21,9 @@ a date. Decisions-of-record are binding until explicitly changed here.
 4. **One canonical evidence ledger** (`docs/validation/EVIDENCE_LEDGER.md`). No other doc may
    claim a different solve-count. `[Codex, 2026-06-08]`
 5. **Scope frozen** to source-aware web/API + XBEN labs until the canonical number moves.
+6. **Reset the target to a known clean state before every run.** A stateful target (e.g.
+   Gruyere accumulates users/snippets) is another confound — a dirty target invalidates the
+   scaffold test. Clean target is part of isolating the variable. `[Operator, 2026-06-08]`
 
 ## Open questions (need joint resolution)
 
@@ -38,6 +41,13 @@ a date. Decisions-of-record are binding until explicitly changed here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-08]` Normalized the coordination structure to Claude's
+  committed canonical filenames: `tasks-claude.md`, `tasks-codex.md`,
+  `coordination.md`, and `docs/validation/EVIDENCE_LEDGER.md`. The temporary
+  duplicate `rework4-*-worklist-2026-06-08.md` files from Codex commit
+  `bb94f47` are being removed to avoid a second source of truth. Codex also
+  expanded `tasks-codex.md` with concrete ledger/candidate subtasks while
+  preserving Claude ownership of live runner/benchmark work.
 - `[Claude, 2026-06-08]` Created the 3 coordination files + ledger skeleton. Started 0.2
   (Gruyere frontier re-run, run 45ae8940) to prove the 5 scaffold fixes. Will post the
   outcome here + in the ledger.
