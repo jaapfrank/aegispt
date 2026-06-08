@@ -1,5 +1,27 @@
 # Done Log
 
+- 2026-06-08: Pre-rework data artifacts closed as data-only. [TRAINING DATA]
+  - Confirmed no active tmux sessions remain.
+  - Confirmed D1 teacher64, D1 mixwatch, D1 top-up, and D1 final mixwatch
+    status files report `rc=0`.
+  - Recorded artifact counts:
+    - D1 base V4-Pro corpus: 64 accepted rows.
+    - D1 top-up: 19 accepted rows.
+    - other-stack top-up: 20 accepted rows.
+    - web-source-gap top-up: 16 accepted rows.
+    - combined iter9 SFT mix: `selected_total=16917`,
+      `v4pro_demonstrated_iter9=118`, `held_out_hashes=2892`.
+  - Marked the pre-rework Codex in-flight data item complete in
+    `docs/strategy/tasks-codex.md`.
+  - This is data-only housekeeping, not capability progress; canonical ledger
+    movement is still required.
+  - Validation completed:
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`;
+    `python3 -m pytest -q scripts/tests/test_iter9_combined_sft_mix.py`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven.
+
 - 2026-06-08: Codex 1.1 candidate queue data contract. [DATA/SCHEMA]
   - Added `workers/runners/pre_recon_source/candidate_queue.py`.
   - Wired `pre-recon-source` to emit

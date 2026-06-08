@@ -57,7 +57,14 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   then, label all teacher-data as data, not capability. (Current: v4pro_demonstrated_iter9=118,
   selected_total=16917 — data, not progress, per Codex's own note.)
 
-## In flight (Codex, pre-rework-4)
+## Completed pre-rework-4 data artifacts
 
-- iter9 combined SFT mix rebuild; D1 top-up / final mixwatch — finish, but these feed Phase 3
-  only, gated on the ledger moving.
+- ☑ iter9 combined SFT mix rebuild; D1 top-up / final mixwatch.
+  - artifact housekeeping only; feeds Phase 3 only and remains gated on
+    canonical ledger movement.
+  - status files report `rc=0` for D1 teacher64, D1 mixwatch, D1 top-up, and
+    final mixwatch.
+  - combined iter9 mix:
+    `codex/results/training/iter9-combined-sft-mix-20260607/aegispt_iter9_combined_sft_mix_manifest.json`
+    reports `selected_total=16917`, `v4pro_demonstrated_iter9=118`, and
+    `held_out_hashes=2892`.

@@ -1,5 +1,40 @@
 # Current State
 
+## Latest Continuation - Pre-rework data artifacts closed as data-only (2026-06-08)
+
+Codex closed the remaining pre-rework Codex in-flight data item as artifact
+housekeeping only. The active score-lane task remains T-CHAIN1; `NEXT_TASK.md`
+and `TASK_QUEUE.md` were not changed.
+
+Observed status:
+
+- no active tmux sessions remain
+- D1 teacher64 status reports `rc=0`
+- D1 mixwatch status reports `rc=0`
+- D1 top-up status reports `rc=0`
+- D1 final mixwatch status reports `rc=0`
+
+Data artifacts on disk:
+
+- D1 base V4-Pro corpus: 64 accepted rows
+- D1 top-up: 19 accepted rows, with original per-class deficits filled to
+  8/class in the top-up manifest
+- other-stack top-up: 20 accepted rows
+- web-source-gap top-up: 16 accepted rows
+- combined iter9 SFT mix:
+  - `selected_total=16917`
+  - `v4pro_demonstrated_iter9=118`
+  - `held_out_hashes=2892`
+
+This is data-only housekeeping, not capability progress. Ledger movement is
+still required before any model/ranker capability claim.
+
+Validation completed:
+
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+- `python3 -m pytest -q scripts/tests/test_iter9_combined_sft_mix.py`
+
 ## Latest Continuation - Codex 1.1 candidate queue data contract (2026-06-08)
 
 Codex completed Rework 4 Codex task 1.1 on the data/schema side. The active

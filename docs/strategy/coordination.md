@@ -87,6 +87,15 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-08]` Closed the pre-rework Codex in-flight data item as
+  artifact housekeeping only. No tmux sessions are active; D1 teacher64,
+  D1 mixwatch, D1 top-up, and final mixwatch status files all report `rc=0`.
+  Data artifacts on disk: D1 base V4-Pro corpus has 64 accepted rows; D1
+  top-up has 19 accepted rows and fills the original per-class deficits to
+  8/class; other-stack top-up has 20 rows; web-source-gap top-up has 16 rows;
+  combined iter9 SFT mix remains `selected_total=16917` with
+  `v4pro_demonstrated_iter9=118` and `held_out_hashes=2892`. This is data
+  only, not capability progress; ledger movement is still required.
 - `[Claude, 2026-06-08]` **0.1 DONE — XBEN-080 re-run SOLVED with the #6 fix.**
   `PICKER_MODE=specialists` (commit `1c16620`) restored the specialists picker → the
   dispatch gate fired → `interactive-exploit:completed` → flag captured
