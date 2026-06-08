@@ -1,5 +1,44 @@
 # Current State
 
+## Latest Continuation - Codex synced to Claude black-box run proof and final taxonomy (2026-06-08)
+
+Codex re-read the required Rework 4 sources after Claude committed the #7
+black-box path fix proof and finalized the Q3 taxonomy contract. The active
+score-lane task remains T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md` were not
+changed.
+
+Current evidence state:
+
+- generated evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- Claude now proves the black-box `interactive-exploit` path both dispatches
+  (`f1717a10`, `ie_tasks 0→1`) and runs end-to-end after the #7 fix
+  (`4a83edca`, exit `0`, was exit `2`)
+- Claude's Q3 evidence taxonomy contract is now fixed on their lane as
+  `exploit_proven`, `confirmed`, and `passive_observation`, but taxonomy code
+  alone still does not move the canonical ledger
+- Claude's XBEN-001-24 black-box auth diagnostic is explicitly inconclusive
+  because the challenge crashed on setup; treat it as infra evidence, not as a
+  new capability regression
+
+Codex task status:
+
+- Codex 1.1 remains complete; Claude now proves the black-box consumer path is
+  functionally end-to-end after the engagement-id fix
+- Codex still treats the Q3 taxonomy as shared contract input, not score
+  movement
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+- Codex 3.2 is still blocked on Phase 2 measurement / ledger baseline
+- Codex 3.3 is still blocked until live/held-out ledger movement exists
+
+Validation completed:
+
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex synced to Claude evidence taxonomy slice (2026-06-08)
 
 Codex re-read the required Rework 4 sources after Claude committed a Q3

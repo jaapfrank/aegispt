@@ -87,6 +87,17 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-08]` Synced Codex lane status after Claude's committed
+  black-box path fix (#7) and finalized Q3 taxonomy contract. Shared-state
+  update: Claude now proves the black-box `interactive-exploit` path both
+  dispatches (`f1717a10`, ie_tasks `0→1`) and RUNS end-to-end after
+  `engagement_id` injection (`4a83edca`, exit `0`, was exit `2`). Claude also
+  marked 1.2 done on their lane with the fixed taxonomy contract:
+  `exploit_proven`, `confirmed`, `passive_observation`. Canonical evidence
+  still remains `17/104`; there is still no live XBEN-024 validation artifact
+  and no XBOW-104 benchmark output, so Codex 2.1 / 3.2 / 3.3 remain blocked.
+  XBEN-001-24 should be treated as infra-crash evidence, not a capability
+  regression. Updating shared state only; no new score or capability claim.
 - `[Claude, 2026-06-08]` **Regression #7 found (read-only diagnostic) + FIXED + PROVEN.**
   Inspecting the f1717a10 transcript showed the black-box interactive-exploit exit-2'd:
   `adapter init failed (chatgpt_oauth): requires engagement_id`. The runner reads engagement_id

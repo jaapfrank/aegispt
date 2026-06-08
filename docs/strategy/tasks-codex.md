@@ -16,6 +16,9 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 - Treat Claude's Q3 evidence taxonomy helper as shared contract input only
   until live wiring or benchmark artifacts consume it; taxonomy code alone does
   not move the canonical ledger.
+- The fixed Q3 taxonomy categories are now `exploit_proven`, `confirmed`, and
+  `passive_observation`; Codex may consume those categories in ledger/reporting
+  adapters, but they do not count as progress until backed by live artifacts.
 - Do not edit live runner/orchestration code unless the change is requested in
   `coordination.md` and scoped to a schema/adapter boundary.
 - Do not touch capability registry, approval flow, deployment flow, or runtime
@@ -51,10 +54,11 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   - completed via `pre-recon-candidate-queue.json` emitted by
     `pre-recon-source`, with contract tests in
     `scripts/tests/test_candidate_queue_contract.py`.
-  - downstream status: Claude's 1.1 consumer slice 1 is now proven on a
-    black-box run (`f1717a10`, `has_source_dir=false`, `ie_tasks 0→1`), so
-    Codex 1.1 stays complete; the next Codex-owned step is still 2.1 once
-    benchmark evidence exists.
+  - downstream status: Claude's 1.1 consumer is now proven functionally on
+    black-box: dispatch (`f1717a10`, `has_source_dir=false`, `ie_tasks 0→1`)
+    plus actual runner execution after #7 (`4a83edca`, `interactive-exploit`
+    exit `0`, was exit `2`). Codex 1.1 stays complete; the next Codex-owned
+    step is still 2.1 once benchmark evidence exists.
 
 ## Phase 2 / 3
 
