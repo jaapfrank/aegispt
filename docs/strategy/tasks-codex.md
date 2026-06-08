@@ -28,8 +28,10 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   - subtask: add validation/generation command so narrative docs cannot drift.
   - subtask: map existing `docs/validation/` and XBEN gap-matrix artifacts into
     the ledger without inventing missing evidence.
-- ☐ **0.4 — write down the scope freeze** (source-aware web/API + XBEN labs only) with the
+- ☑ **0.4 — write down the scope freeze** (source-aware web/API + XBEN labs only) with the
   operator.
+  - completed in `docs/strategy/coordination.md` under "Scope freeze details
+    (Codex 0.4)".
 
 ## Phase 1
 

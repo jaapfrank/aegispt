@@ -25,6 +25,46 @@ a date. Decisions-of-record are binding until explicitly changed here.
    Gruyere accumulates users/snippets) is another confound — a dirty target invalidates the
    scaffold test. Clean target is part of isolating the variable. `[Operator, 2026-06-08]`
 
+## Scope freeze details (Codex 0.4)
+
+This expands decision 5 without changing the architecture. It is binding for
+Codex data-lane work until an operator decision changes it here.
+
+**In scope during Rework 4 reset:**
+
+- source-aware web/API targets and XBEN-style local/lab targets
+- Gruyere only as a regression/scaffold proof target, with clean reset before
+  each live run
+- one canonical evidence ledger:
+  `docs/validation/EVIDENCE_LEDGER.md` +
+  `docs/validation/evidence_ledger.jsonl`
+- candidate data contracts that connect source cues and runtime recon cues to
+  exploit attempts
+- data fixtures, teacher data, and ranker/policy data only when labeled as data
+  and gated behind the canonical ledger
+- coordination entries and handoffs in this file
+
+**Out of scope during Rework 4 reset:**
+
+- LAN, WAN, IoT, AD, cloud, broad API expansion, and customer-memory features
+  unless the operator explicitly reopens scope here
+- architecture pivots away from the Shannon-style proof-loop
+- new score files, parallel ledgers, or narrative solve counts
+- treating local-model training, SFT metrics, or teacher rows as capability
+  progress without live/held-out ledger evidence
+- UI/reporting polish unless needed to display the canonical ledger or
+  proof-loop state
+- live runner changes from Codex except schema/adapter boundaries explicitly
+  requested in this coordination file
+
+**Exit criteria for widening scope:**
+
+- the canonical ledger records live/held-out improvement from evidence-backed
+  runs
+- Phase 0/1 proof-loop behavior is stable enough that frontier-first runs can
+  distinguish scaffold bugs from model/policy gaps
+- the operator records a go/no-go decision here before any wider domain work
+
 ## Open questions (need joint resolution)
 
 - Q1: candidate-queue schema — exact fields + how rank is computed? (Codex proposes in 1.1;
@@ -47,6 +87,14 @@ a date. Decisions-of-record are binding until explicitly changed here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-08]` Completed Codex 0.4. Added explicit scope-freeze
+  details to this coordination file: in scope is source-aware web/API,
+  XBEN-style labs, Gruyere only as clean-reset scaffold proof, the canonical
+  evidence ledger, and source/runtime candidate data contracts; out of scope
+  are LAN/WAN/IoT/AD/cloud expansion, architecture pivots, parallel score
+  files, UI polish outside ledger/proof-loop needs, and local-model-training
+  capability claims without ledger movement. This does not change Claude's live
+  runner lane and creates no new score/task file.
 - `[Codex, 2026-06-08]` Completed Codex 0.3. Added
   `scripts/validation/build_evidence_ledger.py`,
   `docs/validation/evidence_ledger.jsonl`, and

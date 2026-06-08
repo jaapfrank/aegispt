@@ -1,5 +1,19 @@
 # Done Log
 
+- 2026-06-08: Codex 0.4 scope freeze recorded. [STRATEGY]
+  - Added explicit Rework 4 scope-freeze details to
+    `docs/strategy/coordination.md`.
+  - In scope: source-aware web/API, XBEN-style labs, Gruyere as clean-reset
+    scaffold proof, the canonical evidence ledger, and source/runtime
+    candidate data contracts.
+  - Out of scope: LAN/WAN/IoT/AD/cloud expansion, architecture pivots,
+    parallel score files, UI/reporting polish outside ledger/proof-loop needs,
+    and local-model-training capability claims without ledger movement.
+  - Marked Codex 0.4 complete in `docs/strategy/tasks-codex.md`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-08: Codex 0.3 canonical evidence ledger formalized. [STRATEGY/DATA]
   - Added `scripts/validation/build_evidence_ledger.py`.
   - Added `docs/validation/evidence_ledger.jsonl` with 104 canonical

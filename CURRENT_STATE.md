@@ -1,5 +1,40 @@
 # Current State
 
+## Latest Continuation - Codex 0.4 scope freeze recorded (2026-06-08)
+
+Codex completed Rework 4 Codex task 0.4 in the strategy/data lane. The active
+score-lane task remains T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md` were not
+changed.
+
+The scope freeze is now explicit in `docs/strategy/coordination.md` under
+"Scope freeze details (Codex 0.4)".
+
+In scope during the Rework 4 reset:
+
+- source-aware web/API targets and XBEN-style local/lab targets
+- Gruyere only as a regression/scaffold proof target, with clean reset before
+  each live run
+- the canonical evidence ledger:
+  `docs/validation/EVIDENCE_LEDGER.md` +
+  `docs/validation/evidence_ledger.jsonl`
+- candidate data contracts that connect source cues and runtime recon cues to
+  exploit attempts
+- teacher/ranker data only as data, gated behind canonical ledger movement
+
+Out of scope during the Rework 4 reset:
+
+- LAN, WAN, IoT, AD, cloud, broad API expansion, and customer-memory features
+  unless the operator explicitly reopens scope in coordination
+- architecture pivots away from the Shannon-style proof-loop
+- parallel score files or narrative solve counts
+- local-model-training capability claims without live/held-out ledger evidence
+- UI/reporting polish unless needed for canonical ledger/proof-loop state
+
+Validation completed for this slice:
+
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex 0.3 canonical evidence ledger formalized (2026-06-08)
 
 Codex completed Rework 4 Codex task 0.3 in the data/ledger lane. The active
