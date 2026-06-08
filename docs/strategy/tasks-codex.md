@@ -48,6 +48,10 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   - completed via `pre-recon-candidate-queue.json` emitted by
     `pre-recon-source`, with contract tests in
     `scripts/tests/test_candidate_queue_contract.py`.
+  - downstream status: Claude's 1.1 consumer slice 1 is now proven on a
+    black-box run (`f1717a10`, `has_source_dir=false`, `ie_tasks 0→1`), so
+    Codex 1.1 stays complete; the next Codex-owned step is still 2.1 once
+    benchmark evidence exists.
 
 ## Phase 2 / 3
 

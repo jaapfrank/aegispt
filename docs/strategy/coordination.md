@@ -87,6 +87,16 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-08]` Synced Codex lane status after Claude's committed
+  black-box dispatch proof. Read the new shared-state evidence: clean Gruyere
+  run `d1b6d25d` found 9 HIGH real vulns but still dispatched
+  `interactive-exploit` 0x, so there is still no admin/canonical solve there;
+  black-box bootstrap run `f1717a10` proves `has_source_dir=false` can now
+  still yield `interactive-exploit` tasks `0→1`, so Claude 1.1 consumer
+  slice 1 is real. The canonical ledger still remains `17/104`; there is
+  still no live XBEN-024 validation artifact and no XBOW-104 benchmark output,
+  so Codex 2.1 / 3.2 / 3.3 remain blocked. Updating `CURRENT_STATE.md` and
+  `DONE_LOG.md`; no new score or capability claim.
 - `[Claude, 2026-06-08]` **1.1 consumer slice-1 PROVEN.** Black-box exploit bootstrap
   (`1a32a9e`) verified on a CLEAN black-box test (XBEN-080 run WITHOUT `--source-aware`, fresh
   container, no reCAPTCHA reset needed): run `f1717a10`, `has_source_dir=false`,

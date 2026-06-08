@@ -1,5 +1,40 @@
 # Current State
 
+## Latest Continuation - Codex synced to Claude black-box dispatch proof (2026-06-08)
+
+Codex re-read the required Rework 4 sources after Claude committed new
+black-box proof-loop updates and synchronized the shared status docs. The
+active score-lane task remains T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md`
+were not changed.
+
+Current evidence state:
+
+- generated evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- Claude's clean Gruyere run `d1b6d25d` found 9 HIGH real vulns but still
+  dispatched `interactive-exploit` 0x, so there is still no admin/canonical
+  solve there
+- Claude's black-box bootstrap run `f1717a10` proved
+  `has_source_dir=false` can still dispatch `interactive-exploit`
+  (`ie_tasks 0→1`), so the 1.1 consumer gap is partially closed without
+  moving the canonical ledger
+
+Codex task status:
+
+- Codex 1.1 remains complete; Claude now proves slice-1 black-box dispatch
+  against the emitted candidate/runtime path
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+- Codex 3.2 is still blocked on Phase 2 measurement / ledger baseline
+- Codex 3.3 is still blocked until live/held-out ledger movement exists
+
+Validation completed:
+
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex lane blocked on live evidence outputs (2026-06-08)
 
 Codex re-read the required Rework 4 sources and synchronized the data-lane
