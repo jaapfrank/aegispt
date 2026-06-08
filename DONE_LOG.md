@@ -1,5 +1,28 @@
 # Done Log
 
+- 2026-06-08: Rework 4 coordination normalized to canonical files. [STRATEGY]
+  - Reconciled the duplicate coordination structures after Claude commit
+    `236715a` introduced the operator-requested canonical files:
+    `docs/strategy/tasks-claude.md`, `docs/strategy/tasks-codex.md`,
+    `docs/strategy/coordination.md`, and
+    `docs/validation/EVIDENCE_LEDGER.md`.
+  - Removed Codex's temporary duplicate files from commit `bb94f47`:
+    `docs/strategy/rework4-codex-worklist-2026-06-08.md`,
+    `docs/strategy/rework4-claude-worklist-2026-06-08.md`, and
+    `docs/strategy/rework4-coordination-board-2026-06-08.md`.
+  - Updated `DECISIONS.md` so the Rework 4 Parallel Lane Coordination Contract
+    points to the canonical `tasks-codex.md`, `tasks-claude.md`, and
+    `coordination.md` files.
+  - Expanded `docs/strategy/tasks-codex.md` with Codex-owned boundaries and
+    concrete subtasks for ledger formalization, generated-artifact
+    reconciliation, candidate schema, candidate state taxonomy, and fixtures.
+  - Appended a signed `[Codex]` sync entry to `docs/strategy/coordination.md`
+    recording the normalization and preserving Claude's ownership of live
+    runner/benchmark work.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`,
+    or `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not
+    live-proven.
+
 - 2026-06-08: Rework 4 parallel lane coordination files. [STRATEGY]
   - Added `docs/strategy/rework4-codex-worklist-2026-06-08.md`.
   - Added `docs/strategy/rework4-claude-worklist-2026-06-08.md`.

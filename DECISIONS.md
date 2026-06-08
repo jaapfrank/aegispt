@@ -44,12 +44,12 @@ Future work must integrate with those foundations rather than redefining them.
 - Rework 4 uses separate owner worklists so Codex and Claude can build in
   parallel without mixing responsibilities:
   - Codex worklist:
-    `docs/strategy/rework4-codex-worklist-2026-06-08.md`
+    `docs/strategy/tasks-codex.md`
   - Claude worklist:
-    `docs/strategy/rework4-claude-worklist-2026-06-08.md`
+    `docs/strategy/tasks-claude.md`
 - Cross-lane decisions, blockers, handoffs, and execution-order changes must be
   recorded in:
-  `docs/strategy/rework4-coordination-board-2026-06-08.md`
+  `docs/strategy/coordination.md`
 - Codex owns data-lane reproducibility for the reset: canonical evidence
   ledger, candidate schema/fixtures, registry hygiene, benchmark result
   ingestion, and teacher-data gating.

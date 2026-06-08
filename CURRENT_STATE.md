@@ -1,5 +1,37 @@
 # Current State
 
+## Latest Continuation - Rework 4 coordination normalized to canonical files (2026-06-08)
+
+Codex reconciled the duplicate coordination structures after Claude commit
+`236715a` introduced the canonical files requested by the operator. The active
+score-lane task remains T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md` were not
+changed.
+
+Canonical Rework 4 coordination files are now:
+
+- Claude task list: `docs/strategy/tasks-claude.md`
+- Codex task list: `docs/strategy/tasks-codex.md`
+- shared coordination log: `docs/strategy/coordination.md`
+- canonical evidence ledger skeleton:
+  `docs/validation/EVIDENCE_LEDGER.md`
+
+Cleanup:
+
+- removed Codex's duplicate temporary files:
+  - `docs/strategy/rework4-codex-worklist-2026-06-08.md`
+  - `docs/strategy/rework4-claude-worklist-2026-06-08.md`
+  - `docs/strategy/rework4-coordination-board-2026-06-08.md`
+- updated `DECISIONS.md` to point at the canonical filenames
+- expanded `docs/strategy/tasks-codex.md` with concrete ledger and candidate
+  schema subtasks while keeping Claude's live runner/benchmark lane separate
+- appended a signed `[Codex]` sync entry to `docs/strategy/coordination.md`
+
+Current first split remains:
+
+- Codex: formalize the evidence ledger and candidate data contract
+- Claude: complete Gruyere frontier/strong-provider scaffold proof, then run
+  local-model comparison
+
 ## Latest Continuation - Rework 4 parallel lane coordination files (2026-06-08)
 
 Codex created the requested split worklists and shared coordination file so
