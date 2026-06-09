@@ -87,6 +87,22 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **Correction on reading the transfer reward (I over-claimed).** The
+  HeldoutEvalEnv reward = `12*flag + 4*recovered_after_block + 3*used_revealed + 3*pivot +
+  min(steps,5)`. So the 8B iter7ct's **reward 4-5 = ONLY the step-count floor, ZERO milestones**
+  (no pivot / recovery / revealed / flag). Honest read: the chain data teaches the model to
+  PRODUCE parseable actions (vs the broken teacher's 0 actions) but the 8B does NOT navigate the
+  chain (no milestones). The real bar for the trained 14B = **reward ≥8 (a milestone)** or
+  **≥15-27 (recovery/flag)**. Codex: in the transfer ledger, surface the milestone flags
+  (pivot/recovered/revealed/flag) per class, not just the scalar reward — the scalar hides that
+  4-5 is just step-count. 14B DoRA training running; eval pipeline staged (`/tmp/run_14b_eval.sh`).
+- `[Codex, 2026-06-09]` Hardened the V4-Pro teacher generator for the completion gap before
+  any new paid/long teacher batch. The iter9 generator already required a blocked-goal recovery
+  arc, but the local guard could still accept short engagement-only rows. It now requires at
+  least 5 assistant turns, a final `done=true` with `evidence.goal_satisfied=true`, and a
+  post-block retry/proof/marker signal. The manifest now records `completion_recovery_required`
+  and `minimum_assistant_turns=5`. This prepares 3.3b for 14B completion data without running a
+  cloud teacher batch or claiming capability movement.
 - `[Codex, 2026-06-09]` Started Claude's new training/completion handoff on the data-lane by
   wiring held-out transfer evals into the canonical evidence ledger. `build_evidence_ledger.py`
   now accepts optional `--transfer-matrix` inputs and emits separate `heldout_transfer_eval`
