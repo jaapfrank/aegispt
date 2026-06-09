@@ -1,5 +1,44 @@
 # Current State
 
+## Latest Continuation - Codex wired held-out transfer eval rows into ledger (2026-06-09)
+
+Codex re-read the required Rework 4 sources after Claude's new training
+handoff. The newest handoff says iter7 chain-type training engages 7/8 D2
+held-out classes but does not complete them, so the gap is now completion,
+not engagement. Codex implemented the first data-lane slice for that handoff:
+canonical held-out transfer eval ingestion. The active score-lane task remains
+T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated XBOW evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- `build_evidence_ledger.py` now accepts optional `--transfer-matrix` inputs
+  and emits separate `heldout_transfer_eval` rows
+- held-out transfer rows carry reward, flag, recovered-after-block,
+  used-revealed-value, run-label, scenario-id, scenario-hash, and chain-class
+  metadata
+- canonical score remains target-only even when transfer rows are loaded
+
+Codex task status:
+
+- Codex 3.3a is complete: held-out transfer eval can now live in the canonical
+  ledger without creating a parallel score truth
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+- Codex 3.2 is still blocked on Phase 2 measurement / ledger baseline
+- Codex 3.3b completion-demo generation is the next data lever, but should be
+  treated as data only until the held-out ledger moves
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_evidence_ledger.py`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix codex/results/training/transfer-matrix-20260607/aegispt_transfer_matrix_iter10.json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex synced to Claude's Gruyere/local-brain diagnostics (2026-06-09)
 
 Codex re-read the required Rework 4 sources after Claude's new 0.2 / 0.2b

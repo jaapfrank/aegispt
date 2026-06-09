@@ -4,6 +4,10 @@
 The ledger is intentionally generated from committed evidence artifacts instead
 of narrative score claims. It produces one current status row per XBEN target and
 enriches solved rows with the strongest validation artifact available.
+
+Optional held-out transfer matrices can be included as separate
+``heldout_transfer_eval`` rows. They are canonical eval evidence, but they do
+not change the XBOW target score.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from statistics import mean
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -373,11 +378,115 @@ def row_from_gap(
     }
 
 
-def build_ledger(gap_matrix_path: Path, validation_root: Path) -> list[dict[str, Any]]:
+def row_from_transfer_result(matrix_path: Path, result: dict[str, Any]) -> dict[str, Any]:
+    scenario_id = str(result.get("scenario_id") or "")
+    run_label = str(result.get("run_label") or "")
+    result_path = str(result.get("result_path") or "")
+    reward = int(result.get("reward") or 0)
+    flag = bool(result.get("flag"))
+    recovered = bool(result.get("recovered_after_block"))
+    evidence_level = (
+        "heldout_transfer_flag"
+        if flag
+        else "heldout_transfer_partial"
+        if reward > 0
+        else "heldout_transfer_no_signal"
+    )
+    proof_status = (
+        "heldout_flag_recovered"
+        if flag and recovered
+        else "heldout_flag"
+        if flag
+        else "heldout_partial_progress"
+        if reward > 0
+        else "heldout_no_signal"
+    )
+    outcome = "solved" if flag else "attempted_no_solve"
+    reportability_class = derive_reportability_class(
+        outcome=outcome,
+        evidence_level=evidence_level,
+        proof_status=proof_status,
+    )
+    review_flags: list[str] = []
+    if not scenario_id:
+        review_flags.append("heldout_transfer_missing_scenario_id")
+    if not run_label:
+        review_flags.append("heldout_transfer_missing_run_label")
+
+    evidence_ref = result_path or repo_rel(matrix_path)
+    row_material = f"heldout_transfer_eval|{run_label}|{scenario_id}|{evidence_ref}|{reward}|{flag}"
+    return {
+        "schema_version": "aegispt.evidence-ledger.v1",
+        "row_id": stable_hash(row_material)[:24],
+        "row_type": "heldout_transfer_eval",
+        "ts": f"{artifact_date(matrix_path)}T00:00:00Z",
+        "benchmark": "AegisPT-D2-heldout",
+        "target": scenario_id,
+        "xben_id": "",
+        "outcome": outcome,
+        "source_status": proof_status,
+        "vuln_class": str(result.get("chain_class") or ""),
+        "coverage_bucket": str(result.get("domain") or ""),
+        "chain_depth": int(result.get("steps") or 0),
+        "run_id": "",
+        "brain": run_label,
+        "evidence_ref": evidence_ref,
+        "evidence_level": evidence_level,
+        "proof_status": proof_status,
+        "reportability_class": reportability_class,
+        "reportable_under_no_exploit_no_report": reportability_class == PROVEN,
+        "flag_sha256": "",
+        "flag_found_in": ["heldout_env"] if flag else [],
+        "finding_persistence_invariant": "",
+        "status_source": "heldout_transfer_matrix",
+        "source_artifacts": [repo_rel(matrix_path), *([result_path] if result_path else [])],
+        "matrix_solve_evidence_path": "",
+        "review_flags": review_flags,
+        "needs_review": bool(review_flags),
+        "notes": (
+            f"reward={reward}; steps={int(result.get('steps') or 0)}; "
+            f"recovered_after_block={recovered}; "
+            f"used_revealed_value={bool(result.get('used_revealed_value'))}"
+        ),
+        "scenario_hash": str(result.get("scenario_hash") or ""),
+        "scenario_id": scenario_id,
+        "run_label": run_label,
+        "transfer_reward": reward,
+        "transfer_flag": flag,
+        "transfer_recovered_after_block": recovered,
+        "transfer_used_revealed_value": bool(result.get("used_revealed_value")),
+        "transfer_steps": int(result.get("steps") or 0),
+        "lab_truth": str(result.get("lab_truth") or ""),
+        "dataset_family": str(result.get("dataset_family") or ""),
+    }
+
+
+def load_transfer_rows(matrix_path: Path) -> list[dict[str, Any]]:
+    try:
+        matrix = load_json(matrix_path)
+    except (json.JSONDecodeError, OSError):
+        return []
+    raw_rows = matrix.get("rows") if isinstance(matrix, dict) else None
+    if not isinstance(raw_rows, list):
+        return []
+    return [
+        row_from_transfer_result(matrix_path, item)
+        for item in raw_rows
+        if isinstance(item, dict)
+    ]
+
+
+def build_ledger(
+    gap_matrix_path: Path,
+    validation_root: Path,
+    transfer_matrix_paths: list[Path] | None = None,
+) -> list[dict[str, Any]]:
     gap_rows = load_gap_rows(gap_matrix_path)
     artifacts = scan_validation_artifacts(validation_root)
     rows = [row_from_gap(row, artifacts, gap_matrix_path) for row in gap_rows]
-    rows.sort(key=lambda row: row["xben_id"])
+    for transfer_matrix_path in transfer_matrix_paths or []:
+        rows.extend(load_transfer_rows(transfer_matrix_path))
+    rows.sort(key=lambda row: (row["row_type"], row["target"]))
     return rows
 
 
@@ -397,22 +506,46 @@ def derive_reportability_class(*, outcome: str, evidence_level: str, proof_statu
 
 
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    outcomes = Counter(row["outcome"] for row in rows)
-    reportability_counts = Counter(row["reportability_class"] for row in rows)
+    target_rows = [row for row in rows if row["row_type"] == "target_status"]
+    transfer_rows = [row for row in rows if row["row_type"] == "heldout_transfer_eval"]
+    outcomes = Counter(row["outcome"] for row in target_rows)
+    reportability_counts = Counter(row["reportability_class"] for row in target_rows)
     review_flags = Counter(flag for row in rows for flag in row["review_flags"])
+    transfer_by_run: dict[str, dict[str, Any]] = {}
+    for run_label in sorted({row["run_label"] for row in transfer_rows}):
+        run_rows = [row for row in transfer_rows if row["run_label"] == run_label]
+        attempts = len(run_rows)
+        flags = sum(1 for row in run_rows if row["transfer_flag"])
+        recovered = sum(1 for row in run_rows if row["transfer_recovered_after_block"])
+        rewards = [int(row["transfer_reward"]) for row in run_rows]
+        transfer_by_run[run_label] = {
+            "attempts": attempts,
+            "avg_reward": round(mean(rewards), 3) if rewards else 0.0,
+            "max_reward": max(rewards) if rewards else 0,
+            "recovered_after_block": recovered,
+            "recovered_after_block_rate": round(recovered / attempts, 3) if attempts else 0.0,
+            "solved": flags,
+            "solve_rate": round(flags / attempts, 3) if attempts else 0.0,
+        }
     return {
         "schema_version": "aegispt.evidence-ledger-summary.v1",
-        "target_count": len(rows),
+        "row_count": len(rows),
+        "target_count": len(target_rows),
         "outcomes": dict(sorted(outcomes.items())),
         "reportability_counts": {
             PROVEN: reportability_counts.get(PROVEN, 0),
             PASSIVE: reportability_counts.get(PASSIVE, 0),
             UNPROVEN: reportability_counts.get(UNPROVEN, 0),
         },
+        "heldout_transfer": {
+            "by_run": transfer_by_run,
+            "row_count": len(transfer_rows),
+            "run_count": len(transfer_by_run),
+        },
         "solved_count": outcomes.get("solved", 0),
         "needs_review_count": sum(1 for row in rows if row["needs_review"]),
         "review_flags": dict(sorted(review_flags.items())),
-        "canonical_score": f"{outcomes.get('solved', 0)}/{len(rows)}",
+        "canonical_score": f"{outcomes.get('solved', 0)}/{len(target_rows)}",
     }
 
 
@@ -435,6 +568,21 @@ def render_summary_block(summary: dict[str, Any], jsonl_path: Path, matrix_path:
     )
     if not review_lines:
         review_lines = "- none"
+    heldout_lines: list[str] = []
+    if summary["heldout_transfer"]["row_count"]:
+        heldout_lines = [
+            "",
+            "Held-out transfer eval:",
+            "",
+            f"- rows: `{summary['heldout_transfer']['row_count']}`",
+            f"- runs: `{summary['heldout_transfer']['run_count']}`",
+        ]
+        for run_label, item in summary["heldout_transfer"]["by_run"].items():
+            heldout_lines.append(
+                f"- `{run_label}`: solve_rate={item['solve_rate']}; "
+                f"recovered_rate={item['recovered_after_block_rate']}; "
+                f"avg_reward={item['avg_reward']}; attempts={item['attempts']}"
+            )
     return "\n".join(
         [
             SUMMARY_START,
@@ -460,6 +608,7 @@ def render_summary_block(summary: dict[str, Any], jsonl_path: Path, matrix_path:
             "Review flags:",
             "",
             review_lines,
+            *heldout_lines,
             "",
             SUMMARY_END,
         ]
@@ -497,6 +646,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--validation-root", type=Path, default=DEFAULT_VALIDATION_ROOT)
     parser.add_argument("--ledger-jsonl", type=Path, default=DEFAULT_LEDGER_JSONL)
     parser.add_argument("--ledger-md", type=Path, default=DEFAULT_LEDGER_MD)
+    parser.add_argument(
+        "--transfer-matrix",
+        action="append",
+        type=Path,
+        help=(
+            "Optional held-out transfer matrix JSON. Rows are added as "
+            "heldout_transfer_eval evidence and do not change the XBOW score."
+        ),
+    )
     parser.add_argument("--write", action="store_true", help="write JSONL and Markdown summary")
     parser.add_argument("--summary-json", action="store_true", help="print summary JSON")
     return parser.parse_args()
@@ -504,7 +662,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    rows = build_ledger(args.gap_matrix, args.validation_root)
+    rows = build_ledger(args.gap_matrix, args.validation_root, args.transfer_matrix or [])
     validate_rows(rows)
     summary = summarize(rows)
     if args.write:

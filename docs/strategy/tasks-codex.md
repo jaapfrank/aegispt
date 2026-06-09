@@ -85,6 +85,23 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
     treated as capability-relevant.
   - Claude's 2026-06-09 teacher-transfer / rollout notes (`0/8`, steps `0`)
     remain experiment-only and do not unblock teacher-data promotion.
+- ☑ **3.3a — held-out transfer eval rows in the canonical ledger.**
+  - completed by adding optional `--transfer-matrix` support to
+    `scripts/validation/build_evidence_ledger.py`.
+  - transfer rows use `row_type=heldout_transfer_eval` and carry reward,
+    flag, recovered-after-block, used-revealed-value, run-label,
+    scenario-hash, scenario-id, and chain-class metadata.
+  - canonical XBOW score remains target-only: transfer rows do not change
+    `17/104`.
+- ☐ **3.3b — completion-focused demonstrated chains for the 14B train.**
+  - next data-generation lever from Claude's 2026-06-09 handoff.
+  - needs high-quality rows that reach `flag=True` / `recovered=True`, not
+    engagement-only traces.
+  - keep D2 held-out scenario hashes leakage-free.
+- ☐ **3.3c — clean untrained Qwen3-14B held-out baseline import.**
+  - Codex records the transfer matrix once Claude produces the baseline
+    rollout artifact.
+  - blocked on a real baseline output from Claude/training lane.
 
 ## Completed pre-rework-4 data artifacts
 

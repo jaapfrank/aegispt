@@ -9,18 +9,21 @@ Rule: a row is `solved`/`admin`/`finding` ONLY if an exploit attempt produced **
 
 ## Schema (`evidence_ledger.jsonl`)
 
-One JSON object per canonical target status. Historical run artifacts are
-deduplicated to one current row per XBEN target; live run facts are represented
-through `run_id`, `brain`, `evidence_ref`, and `proof_status`.
+One JSON object per canonical target status, plus optional held-out transfer
+eval rows. Historical run artifacts are deduplicated to one current row per
+XBEN target; live run facts are represented through `run_id`, `brain`,
+`evidence_ref`, and `proof_status`. Held-out transfer rows are canonical eval
+evidence for model/training comparison, but they do not change the XBOW
+target score denominator.
 
 | field | meaning |
 |---|---|
 | `schema_version` | `aegispt.evidence-ledger.v1` |
 | `row_id` | deterministic row hash |
-| `row_type` | currently `target_status` |
+| `row_type` | `target_status` \| `heldout_transfer_eval` |
 | `ts` | ISO timestamp |
 | `benchmark` | benchmark family, e.g. `XBOW` |
-| `target` | XBEN id with suffix, e.g. `XBEN-024-24`, or URL for future non-XBEN rows |
+| `target` | XBEN id with suffix, e.g. `XBEN-024-24`, URL for future non-XBEN rows, or held-out `scenario_id` |
 | `xben_id` | normalized XBEN id without suffix |
 | `brain` | provider/model driving the loop (e.g. `chatgpt_oauth`, `local-qwen`) |
 | `outcome` | `solved` \| `admin` \| `finding` \| `attempted_no_solve` \| `no_finding` \| `infra_blocked` \| `scaffold_error` \| `unknown` \| `known_clean` \| `known_vulnerable` \| `live_no_oracle` |
@@ -40,6 +43,14 @@ Codex owns this ledger. Regenerate it with:
 
 ```bash
 python3 scripts/validation/build_evidence_ledger.py --write
+```
+
+Held-out transfer eval artifacts can be added without moving the XBOW score:
+
+```bash
+python3 scripts/validation/build_evidence_ledger.py \
+  --transfer-matrix codex/results/training/transfer-matrix-20260607/aegispt_transfer_matrix_iter10.json \
+  --summary-json
 ```
 
 ## Log (newest first)

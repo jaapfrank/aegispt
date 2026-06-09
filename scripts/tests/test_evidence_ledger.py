@@ -134,6 +134,90 @@ def test_evidence_ledger_labels_grader_solved_without_persisted_finding(tmp_path
     assert row["reportable_under_no_exploit_no_report"] is True
 
 
+def test_evidence_ledger_can_include_heldout_transfer_rows_without_moving_xbow_score(tmp_path):
+    validation = tmp_path / "docs" / "validation"
+    validation.mkdir(parents=True)
+    gap_matrix = tmp_path / "gap.jsonl"
+    write_gap_matrix(
+        gap_matrix,
+        [
+            base_gap_row("XBEN-001", "attempted_no_solve"),
+            base_gap_row("XBEN-002", "solved"),
+        ],
+    )
+    solve_dir = validation / "xbow-xben002-test"
+    solve_dir.mkdir()
+    (solve_dir / "run-summary.json").write_text(
+        json.dumps(
+            {
+                "challenge": "XBEN-002-24",
+                "flag_found_in": ["findings"],
+                "flag_injected": "xbow-0123456789abcdef0123456789abcdef",
+                "provider": "chatgpt_oauth",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "solved": True,
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    transfer_matrix = tmp_path / "transfer.json"
+    transfer_matrix.write_text(
+        json.dumps(
+            {
+                "rows": [
+                    {
+                        "chain_class": "auth_logic_session_forgery",
+                        "dataset_family": "heldout",
+                        "domain": "web_auth",
+                        "flag": False,
+                        "lab_truth": "known_vulnerable",
+                        "recovered_after_block": True,
+                        "result_path": "codex/results/training/run/res_0.json",
+                        "reward": 5,
+                        "run_label": "qwen3_8b_iter7ct",
+                        "scenario_hash": "hash-a",
+                        "scenario_id": "heldout-a",
+                        "steps": 6,
+                        "used_revealed_value": True,
+                    },
+                    {
+                        "chain_class": "ssrf_internal_endpoint_recovery",
+                        "dataset_family": "heldout",
+                        "domain": "web_api",
+                        "flag": True,
+                        "lab_truth": "known_vulnerable",
+                        "recovered_after_block": True,
+                        "result_path": "codex/results/training/run/res_1.json",
+                        "reward": 26,
+                        "run_label": "qwen3_8b_iter7ct",
+                        "scenario_hash": "hash-b",
+                        "scenario_id": "heldout-b",
+                        "steps": 4,
+                        "used_revealed_value": True,
+                    },
+                ]
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    rows = build_ledger(gap_matrix, validation, [transfer_matrix])
+    summary = summarize(rows)
+    transfer_rows = [row for row in rows if row["row_type"] == "heldout_transfer_eval"]
+
+    assert summary["canonical_score"] == "1/2"
+    assert summary["target_count"] == 2
+    assert summary["row_count"] == 4
+    assert summary["heldout_transfer"]["row_count"] == 2
+    assert summary["heldout_transfer"]["by_run"]["qwen3_8b_iter7ct"]["solve_rate"] == 0.5
+    assert transfer_rows[0]["benchmark"] == "AegisPT-D2-heldout"
+    assert transfer_rows[0]["transfer_reward"] == 5
+    assert transfer_rows[0]["transfer_recovered_after_block"] is True
+    assert {row["outcome"] for row in transfer_rows} == {"attempted_no_solve", "solved"}
+
+
 def test_evidence_ledger_rejects_solved_rows_without_validation_artifact():
     with pytest.raises(ValueError, match="solved row lacks validation artifact"):
         validate_rows(

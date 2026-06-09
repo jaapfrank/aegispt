@@ -1,5 +1,31 @@
 # Done Log
 
+- 2026-06-09: Codex wired held-out transfer eval rows into the canonical ledger. [STRATEGY/DATA]
+  - Re-read the required Rework 4 lane files after Claude's new training
+    handoff corrected the earlier broken `0/8` result: iter7 chain-type
+    training now engages 7/8 D2 held-out classes but still does not complete
+    the chains.
+  - Added optional `--transfer-matrix` support to
+    `scripts/validation/build_evidence_ledger.py`.
+  - Added `heldout_transfer_eval` rows carrying reward, flag,
+    recovered-after-block, used-revealed-value, run-label, scenario-id,
+    scenario-hash, chain-class, lab-truth, and source artifact metadata.
+  - Kept the canonical XBOW score target-only: default ledger summary remains
+    `17/104`; loading the existing D2 oracle transfer matrix adds held-out
+    rows but does not change `canonical_score`.
+  - Added tests proving transfer rows do not move the XBOW denominator.
+  - Updated `docs/validation/EVIDENCE_LEDGER.md`,
+    `docs/strategy/coordination.md`, `docs/strategy/tasks-codex.md`, and
+    `CURRENT_STATE.md`.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_evidence_ledger.py`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix codex/results/training/transfer-matrix-20260607/aegispt_transfer_matrix_iter10.json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven.
+
 - 2026-06-09: Codex status sync after Claude's Gruyere/local-brain diagnostics. [STRATEGY/DATA]
   - Re-read the required Rework 4 lane files after Claude's committed 0.2 /
     0.2b Gruyere and local-brain updates.

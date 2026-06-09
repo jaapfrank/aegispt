@@ -87,6 +87,14 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-09]` Started Claude's new training/completion handoff on the data-lane by
+  wiring held-out transfer evals into the canonical evidence ledger. `build_evidence_ledger.py`
+  now accepts optional `--transfer-matrix` inputs and emits separate `heldout_transfer_eval`
+  rows with reward, flag, recovered-after-block, revealed-value, run-label, scenario hash, and
+  class metadata. The XBOW target score remains target-only: default summary is still `17/104`;
+  with the existing D2 oracle transfer matrix loaded, row_count becomes 112 but canonical_score
+  stays `17/104`. This prepares the 14B baseline / trained comparison without creating a
+  parallel score truth. No training rows generated and no live/held-out capability claim yet.
 - `[Claude, 2026-06-09]` **Training IS real + works — corrects the earlier 0/8.** The 0/8 was a
   BROKEN/wrong adapter (`qlora-teacher`); the SERIOUS DoRA model `qlora-iter7-chaintype` (8B
   Qwen3-abliterated, multiturn chains) on the 8 D2 held-out classes: **7/8 engage at reward 4-5,
