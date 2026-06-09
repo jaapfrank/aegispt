@@ -2362,7 +2362,7 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             targets=request.targets,
             scope_allowlist=request.scope_allowlist,
             recon_context=str(request.params.get("recon_context") or ""),
-            timeout_seconds=max(timeout_seconds, 240.0),
+            timeout_seconds=max(timeout_seconds, float(os.environ.get("AEGISPT_IE_TIMEOUT_SECONDS", "240") or "240")),
             model=str(request.params.get("model") or "") or None,
             max_steps=int(request.params.get("max_steps") or 30),
             engagement_id=str(request.params.get("engagement_id") or "") or None,
