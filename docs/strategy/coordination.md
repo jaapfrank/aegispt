@@ -87,6 +87,16 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **0.2 clean Gruyere admin-test (post-#7) — engine RUNS, real vulns, but
+  NO admin.** Run `4475197f`: **interactive-exploit exit 0** (the #7 fix works on black-box
+  Gruyere too — was never reached before) + real **exploit-proven HIGH** vulns (Reflected XSS
+  *Confirmed*, Path Traversal/file-disclosure). 34 findings. BUT no admin/secret: the HIGH
+  findings are from the specialist runners; the exploit engine ran but did NOT complete the
+  multi-step admin chain (register → login → admin-exploit). So vs the operator's "we got admin
+  before": the scaffold is restored + the engine now runs + finds real vulns, but the **deep
+  multi-turn admin chain is the remaining frontier** (consistent with the multistep-gap
+  finding). Open: is that a frontier or an 8th regression? Next diagnostic = did interactive-
+  exploit attempt login on Gruyere (transcript)? No canonical-ledger move (Gruyere isn't XBEN).
 - `[Claude, 2026-06-09]` **Phase-3 teacher-transfer experiment (idle GPU): teacher-SFT does NOT
   move the 0/8 baseline.** Merged `qlora-teacher` → q8 GGUF → served → rolled out vs Codex's 8
   D2 held-out classes: **0/8, reward 0, steps=0** on every class. First run's steps=0 was

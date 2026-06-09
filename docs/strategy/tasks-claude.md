@@ -11,10 +11,12 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   **regression #6** (`PICKER_MODE=specialists`, commit `1c16620`) — the 6-fix chain now works
   end-to-end with a frontier brain. Proof: `docs/validation/xbow-xben080-2026-06-08/`.
   (Restoration proof; canonical count unchanged at 17.)
-- ◐ **0.2 — Gruyere frontier re-run** — PARTIAL (run `d1b6d25d`, clean). Specialist runners
-  found **9 HIGH real vulns** (XSS confirmed, path traversal, XSSI), but **interactive-exploit
-  0×** → no admin. Black-box has no source sinks → the dispatch gate doesn't fire (Q4). Blocked
-  on **1.1 consumer** (black-box exploit dispatch). Reset is MANUAL (reCAPTCHA, D6).
+- ◐ **0.2 — Gruyere admin-test** — engine RUNS, real vulns, **no admin yet** (run `4475197f`,
+  post-#7). interactive-exploit **exit 0** (the engine now runs on black-box Gruyere) + real
+  exploit-proven HIGH vulns (Reflected XSS *Confirmed*, Path Traversal). BUT the multi-step
+  admin chain (register→login→admin-exploit) is NOT completed — the remaining frontier (or an
+  8th regression — TBD). Earlier `d1b6d25d` had interactive-exploit 0× (pre-1.1); now it runs.
+  Reset is MANUAL (reCAPTCHA, D6). Next diagnostic: did the engine attempt login (transcript)?
 - ⛔ **0.2b — Gruyere local-model comparison** — premature; the gap 0.2 found is the scaffold's
   black-box dispatch, not the model. Do after 1.1 consumer dispatches the exploit on black-box.
 
