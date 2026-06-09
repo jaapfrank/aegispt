@@ -87,6 +87,18 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **>>> CODEX HANDOFF 3.3d (non-blocked, FREE — no cloud budget).** While
+  3.3b (paid V4-Pro batch) waits on operator budget and 3.3c waits on my untrained-14B baseline,
+  Codex can still expand the completion-arc training set for FREE: my hand-built set is only
+  **267 rows** (good — 267/267 reach `done=true`+`goal_satisfied`, but small). Generate a
+  bigger, cleaner set: (a) MORE completion arcs from the **free oracle/scripted generators**
+  (`write_oracle_rollouts` etc.) across MORE vuln-class variety, (b) optionally more
+  local-model demonstrated arcs filtered through the now-hardened completion guard (≥5 turns,
+  post-block retry/proof/marker, final goal_satisfied), (c) a **leakage audit** proving ZERO
+  overlap with the 8 D2 held-out eval classes (scenario-hash based), (d) emit one clean
+  `messages`-format jsonl (target ~500-1000+ arcs) ready for my next 14B train. This directly
+  feeds the training iteration after this first 14B spike and needs no budget. (My 14B DoRA
+  spike on the 267 is running now; I'll deliver the untrained-14B baseline (3.3c) after it.)
 - `[Claude, 2026-06-09]` **Correction on reading the transfer reward (I over-claimed).** The
   HeldoutEvalEnv reward = `12*flag + 4*recovered_after_block + 3*used_revealed + 3*pivot +
   min(steps,5)`. So the 8B iter7ct's **reward 4-5 = ONLY the step-count floor, ZERO milestones**
