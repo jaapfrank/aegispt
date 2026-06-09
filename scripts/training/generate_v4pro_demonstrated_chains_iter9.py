@@ -298,6 +298,19 @@ def _has_blocked_goal_recovery_arc(row: dict[str, Any]) -> bool:
     if not isinstance(messages, list):
         return False
     contents = [str(item.get("content", "")) for item in messages if isinstance(item, dict)]
+    assistant_payloads: list[dict[str, Any]] = []
+    for item in messages:
+        if not isinstance(item, dict) or item.get("role") != "assistant":
+            continue
+        try:
+            payload = json.loads(str(item.get("content", "")))
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(payload, dict):
+            return False
+        assistant_payloads.append(payload)
+    if len(assistant_payloads) < 5:
+        return False
     blocked_index = next(
         (
             idx
@@ -315,15 +328,29 @@ def _has_blocked_goal_recovery_arc(row: dict[str, Any]) -> bool:
             "callback",
             "credential",
             "delegation",
+            "marker",
             "pivot",
+            "proof",
             "queue",
             "recovery",
+            "retry",
             "session",
             "token",
         )
     )
-    successful_retry = any('"done": true' in content.lower() or '"done":true' in content.lower() for content in contents[blocked_index + 1 :])
-    return recovered and successful_retry
+    final_payload = assistant_payloads[-1]
+    final_evidence = final_payload.get("evidence")
+    final_serialized = json.dumps(final_payload, sort_keys=True).lower()
+    final_complete = (
+        final_payload.get("done") is True
+        and isinstance(final_evidence, dict)
+        and final_evidence.get("goal_satisfied") is True
+    )
+    successful_retry = (
+        ("retry" in later or "successful" in later or "goal" in later)
+        and any(token in final_serialized for token in ("marker", "proof", "flag", "goal_satisfied"))
+    )
+    return recovered and final_complete and successful_retry
 
 
 def _scenario_registry_rows(rows: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
@@ -453,8 +480,10 @@ def _flush_outputs(
         "model": model,
         "policy": {
             "blocked_goal_recovery_required": True,
+            "completion_recovery_required": True,
             "data_lane_only": True,
             "held_out_guard": True,
+            "minimum_assistant_turns": 5,
             "runtime_execution": False,
             "secret_committed": False,
             "train_only": True,

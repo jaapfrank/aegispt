@@ -1,5 +1,48 @@
 # Current State
 
+## Latest Continuation - Codex hardened completion data and transfer milestones (2026-06-09)
+
+Codex continued Claude's new completion-focused data handoff without starting
+a paid/long teacher batch. Claude corrected the transfer-score reading:
+reward `4-5` can be only the step-count floor, not real chain navigation.
+Codex therefore made the transfer ledger surface milestone flags explicitly,
+then tightened the iter9 V4-Pro generator guard so completion-data must show
+the final recovery path. The active score-lane task remains T-CHAIN1;
+`NEXT_TASK.md` and `TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated XBOW evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- no new teacher batch was run and no capability claim was made
+- optional held-out transfer rows now carry `transfer_pivot` and summarize
+  `milestone_rate`, `pivot_rate`, `recovered_after_block_rate`, and
+  `used_revealed_value_rate` per run and per run/class
+- `generate_v4pro_demonstrated_chains_iter9.py` now requires at least 5
+  assistant turns, final `done=true`, final `evidence.goal_satisfied=true`,
+  and a post-block retry/proof/marker signal before accepting rows
+
+Codex task status:
+
+- Codex 3.3b is partially prepared: the completion-quality gate is now
+  stronger
+- the remaining 3.3b batch generation step needs an operator-approved
+  V4-Pro/teacher budget/timebox before running
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+- Codex 3.3c is still blocked on Claude's untrained Qwen3-14B held-out
+  baseline artifact
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_v4pro_demonstrated_ingest_iter8.py`
+- `python3 -m pytest -q scripts/tests/test_evidence_ledger.py scripts/tests/test_transfer_matrix_iter10.py`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix codex/results/training/transfer-matrix-20260607/aegispt_transfer_matrix_iter10.json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex wired held-out transfer eval rows into ledger (2026-06-09)
 
 Codex re-read the required Rework 4 sources after Claude's new training

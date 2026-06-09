@@ -384,6 +384,7 @@ def row_from_transfer_result(matrix_path: Path, result: dict[str, Any]) -> dict[
     result_path = str(result.get("result_path") or "")
     reward = int(result.get("reward") or 0)
     flag = bool(result.get("flag"))
+    pivot = bool(result.get("pivot") or result.get("idor"))
     recovered = bool(result.get("recovered_after_block"))
     evidence_level = (
         "heldout_transfer_flag"
@@ -445,6 +446,7 @@ def row_from_transfer_result(matrix_path: Path, result: dict[str, Any]) -> dict[
         "needs_review": bool(review_flags),
         "notes": (
             f"reward={reward}; steps={int(result.get('steps') or 0)}; "
+            f"pivot={pivot}; "
             f"recovered_after_block={recovered}; "
             f"used_revealed_value={bool(result.get('used_revealed_value'))}"
         ),
@@ -453,6 +455,7 @@ def row_from_transfer_result(matrix_path: Path, result: dict[str, Any]) -> dict[
         "run_label": run_label,
         "transfer_reward": reward,
         "transfer_flag": flag,
+        "transfer_pivot": pivot,
         "transfer_recovered_after_block": recovered,
         "transfer_used_revealed_value": bool(result.get("used_revealed_value")),
         "transfer_steps": int(result.get("steps") or 0),
@@ -505,6 +508,40 @@ def derive_reportability_class(*, outcome: str, evidence_level: str, proof_statu
     return UNPROVEN
 
 
+def summarize_transfer_group(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    attempts = len(rows)
+    flags = sum(1 for row in rows if row["transfer_flag"])
+    pivot = sum(1 for row in rows if row["transfer_pivot"])
+    recovered = sum(1 for row in rows if row["transfer_recovered_after_block"])
+    revealed = sum(1 for row in rows if row["transfer_used_revealed_value"])
+    milestone = sum(
+        1
+        for row in rows
+        if row["transfer_flag"]
+        or row["transfer_pivot"]
+        or row["transfer_recovered_after_block"]
+        or row["transfer_used_revealed_value"]
+    )
+    rewards = [int(row["transfer_reward"]) for row in rows]
+    return {
+        "attempts": attempts,
+        "avg_reward": round(mean(rewards), 3) if rewards else 0.0,
+        "flag": flags,
+        "flag_rate": round(flags / attempts, 3) if attempts else 0.0,
+        "max_reward": max(rewards) if rewards else 0,
+        "milestone": milestone,
+        "milestone_rate": round(milestone / attempts, 3) if attempts else 0.0,
+        "pivot": pivot,
+        "pivot_rate": round(pivot / attempts, 3) if attempts else 0.0,
+        "recovered_after_block": recovered,
+        "recovered_after_block_rate": round(recovered / attempts, 3) if attempts else 0.0,
+        "solved": flags,
+        "solve_rate": round(flags / attempts, 3) if attempts else 0.0,
+        "used_revealed_value": revealed,
+        "used_revealed_value_rate": round(revealed / attempts, 3) if attempts else 0.0,
+    }
+
+
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     target_rows = [row for row in rows if row["row_type"] == "target_status"]
     transfer_rows = [row for row in rows if row["row_type"] == "heldout_transfer_eval"]
@@ -514,18 +551,20 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     transfer_by_run: dict[str, dict[str, Any]] = {}
     for run_label in sorted({row["run_label"] for row in transfer_rows}):
         run_rows = [row for row in transfer_rows if row["run_label"] == run_label]
-        attempts = len(run_rows)
-        flags = sum(1 for row in run_rows if row["transfer_flag"])
-        recovered = sum(1 for row in run_rows if row["transfer_recovered_after_block"])
-        rewards = [int(row["transfer_reward"]) for row in run_rows]
-        transfer_by_run[run_label] = {
-            "attempts": attempts,
-            "avg_reward": round(mean(rewards), 3) if rewards else 0.0,
-            "max_reward": max(rewards) if rewards else 0,
-            "recovered_after_block": recovered,
-            "recovered_after_block_rate": round(recovered / attempts, 3) if attempts else 0.0,
-            "solved": flags,
-            "solve_rate": round(flags / attempts, 3) if attempts else 0.0,
+        transfer_by_run[run_label] = summarize_transfer_group(run_rows)
+    transfer_by_run_class: dict[str, dict[str, Any]] = {}
+    for run_label, chain_class in sorted(
+        {(row["run_label"], row["vuln_class"]) for row in transfer_rows}
+    ):
+        group_rows = [
+            row
+            for row in transfer_rows
+            if row["run_label"] == run_label and row["vuln_class"] == chain_class
+        ]
+        transfer_by_run_class[f"{run_label}::{chain_class}"] = {
+            "chain_class": chain_class,
+            "run_label": run_label,
+            **summarize_transfer_group(group_rows),
         }
     return {
         "schema_version": "aegispt.evidence-ledger-summary.v1",
@@ -539,6 +578,7 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         },
         "heldout_transfer": {
             "by_run": transfer_by_run,
+            "by_run_class": transfer_by_run_class,
             "row_count": len(transfer_rows),
             "run_count": len(transfer_by_run),
         },
@@ -580,9 +620,29 @@ def render_summary_block(summary: dict[str, Any], jsonl_path: Path, matrix_path:
         for run_label, item in summary["heldout_transfer"]["by_run"].items():
             heldout_lines.append(
                 f"- `{run_label}`: solve_rate={item['solve_rate']}; "
+                f"milestone_rate={item['milestone_rate']}; "
+                f"pivot_rate={item['pivot_rate']}; "
                 f"recovered_rate={item['recovered_after_block_rate']}; "
+                f"revealed_rate={item['used_revealed_value_rate']}; "
                 f"avg_reward={item['avg_reward']}; attempts={item['attempts']}"
             )
+        if summary["heldout_transfer"]["by_run_class"]:
+            heldout_lines.extend(
+                [
+                    "",
+                    "Held-out transfer eval by class:",
+                    "",
+                ]
+            )
+            for key, item in summary["heldout_transfer"]["by_run_class"].items():
+                heldout_lines.append(
+                    f"- `{key}`: flag_rate={item['flag_rate']}; "
+                    f"milestone_rate={item['milestone_rate']}; "
+                    f"pivot_rate={item['pivot_rate']}; "
+                    f"recovered_rate={item['recovered_after_block_rate']}; "
+                    f"revealed_rate={item['used_revealed_value_rate']}; "
+                    f"avg_reward={item['avg_reward']}; attempts={item['attempts']}"
+                )
     return "\n".join(
         [
             SUMMARY_START,

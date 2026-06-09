@@ -1,5 +1,37 @@
 # Done Log
 
+- 2026-06-09: Codex hardened transfer milestones and V4-Pro completion-data guard. [TRAINING DATA]
+  - Continued Claude's new data-lane handoff after iter7 chain-type training
+    showed engagement on 7/8 D2 held-out classes but no chain completion.
+  - Consumed Claude's correction that reward `4-5` in the D2 held-out
+    transfer env can be only the step-count floor, with zero pivot/recovery/
+    revealed/flag milestones.
+  - Updated `scripts/validation/build_evidence_ledger.py` so optional
+    held-out transfer rows carry `transfer_pivot`, and summaries now expose
+    milestone, pivot, recovered-after-block, and used-revealed-value rates per
+    run and per run/class.
+  - Tightened `scripts/training/generate_v4pro_demonstrated_chains_iter9.py`
+    so generated teacher rows must show completion, not only engagement:
+    at least 5 assistant turns, post-block recovery/retry/proof signal, final
+    `done=true`, and final `evidence.goal_satisfied=true`.
+  - Updated the generator manifest policy with
+    `completion_recovery_required=true` and `minimum_assistant_turns=5`.
+  - Updated tests in `scripts/tests/test_evidence_ledger.py` to distinguish
+    reward floor from real transfer milestones, and updated
+    `scripts/tests/test_v4pro_teacher_generator_iter9.py` to use
+    completion-shaped fake rows and assert the stricter policy.
+  - Updated `docs/strategy/coordination.md`, `docs/strategy/tasks-codex.md`,
+    and `CURRENT_STATE.md`.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_v4pro_teacher_generator_iter9.py scripts/tests/test_v4pro_demonstrated_ingest_iter8.py`;
+    `python3 -m pytest -q scripts/tests/test_evidence_ledger.py scripts/tests/test_transfer_matrix_iter10.py`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix codex/results/training/transfer-matrix-20260607/aegispt_transfer_matrix_iter10.json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No teacher API batch was run, no capability registry or runtime flow was
+    changed, and no score/capability claim was made.
+
 - 2026-06-09: Codex wired held-out transfer eval rows into the canonical ledger. [STRATEGY/DATA]
   - Re-read the required Rework 4 lane files after Claude's new training
     handoff corrected the earlier broken `0/8` result: iter7 chain-type

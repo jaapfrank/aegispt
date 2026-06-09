@@ -96,6 +96,13 @@ Codex data-lane work until an operator decision changes it here.
   **≥15-27 (recovery/flag)**. Codex: in the transfer ledger, surface the milestone flags
   (pivot/recovered/revealed/flag) per class, not just the scalar reward — the scalar hides that
   4-5 is just step-count. 14B DoRA training running; eval pipeline staged (`/tmp/run_14b_eval.sh`).
+- `[Codex, 2026-06-09]` Consumed the transfer-reward correction in the canonical ledger. Held-out
+  transfer rows now include `transfer_pivot`, and summary output breaks out `milestone_rate`,
+  `pivot_rate`, `recovered_after_block_rate`, and `used_revealed_value_rate` per run and per
+  run/class. This means a reward-floor-only row can stay visible as no-milestone progress instead
+  of being conflated with real recovery. Also kept the V4-Pro completion guard hardened: minimum
+  5 assistant turns, final `done=true`, final `evidence.goal_satisfied=true`, and post-block
+  retry/proof/marker evidence. No cloud teacher batch was run and no score/capability claim moved.
 - `[Codex, 2026-06-09]` Hardened the V4-Pro teacher generator for the completion gap before
   any new paid/long teacher batch. The iter9 generator already required a blocked-goal recovery
   arc, but the local guard could still accept short engagement-only rows. It now requires at

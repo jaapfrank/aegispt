@@ -51,8 +51,44 @@ def teacher_row_for_prompt(messages):
         "state": {"blocked_goal": True, "lab": lab_id},
     }
     assistant_3 = {
+        "done": False,
+        "evidence": {"goal_satisfied": False, "refs": ["obs-403", "obs-pivot"]},
+        "next_action": {
+            "args": {
+                "body": "{\"token\":\"bounded-recovery-token\"}",
+                "method": "POST",
+                "url": user["host"] + "/admin/marker/retry",
+            },
+            "purpose": "retry the blocked goal with the revealed bounded token",
+            "tool": "lab_http_request",
+        },
+        "reasoning": "The hinted resource revealed a bounded token; retry the goal with that observed value.",
+        "safety": {
+            "dataset_family": family,
+            "lab_only": True,
+            "runtime_execution": False,
+        },
+        "state": {"lab": lab_id, "retrying_goal": True, "used_revealed_token": True},
+    }
+    assistant_4 = {
+        "done": False,
+        "evidence": {"goal_satisfied": False, "marker_preview": marker, "refs": ["obs-final"]},
+        "next_action": {
+            "args": {"method": "GET", "url": user["host"] + "/admin/marker/proof"},
+            "purpose": "read the final proof marker after successful retry",
+            "tool": "lab_http_request",
+        },
+        "reasoning": "The retry succeeded and exposed a marker preview; read the final proof evidence.",
+        "safety": {
+            "dataset_family": family,
+            "lab_only": True,
+            "runtime_execution": False,
+        },
+        "state": {"lab": lab_id, "successful_retry": True},
+    }
+    assistant_5 = {
         "done": True,
-        "evidence": {"goal_satisfied": True, "refs": ["obs-403", "obs-pivot", "obs-final"]},
+        "evidence": {"goal_satisfied": True, "marker": marker, "refs": ["obs-403", "obs-pivot", "obs-final"]},
         "next_action": {
             "args": {},
             "purpose": "goal complete",
@@ -75,6 +111,10 @@ def teacher_row_for_prompt(messages):
             {"role": "assistant", "content": json.dumps(assistant_2, sort_keys=True)},
             {"role": "user", "content": "TOOL OBSERVATION: pivot token observed for bounded retry"},
             {"role": "assistant", "content": json.dumps(assistant_3, sort_keys=True)},
+            {"role": "user", "content": f"TOOL OBSERVATION: retry successful; marker preview {marker}"},
+            {"role": "assistant", "content": json.dumps(assistant_4, sort_keys=True)},
+            {"role": "user", "content": f"TOOL OBSERVATION: final proof marker {marker}"},
+            {"role": "assistant", "content": json.dumps(assistant_5, sort_keys=True)},
         ],
         "metadata": user["required_metadata"],
     }
@@ -175,6 +215,8 @@ def test_v4pro_teacher_generator_uses_ingest_guard(monkeypatch, tmp_path):
     assert manifest["stats"]["accepted_count"] == 3
     assert manifest["stats"]["stopped_reason"] == "completed"
     assert manifest["policy"]["blocked_goal_recovery_required"] is True
+    assert manifest["policy"]["completion_recovery_required"] is True
+    assert manifest["policy"]["minimum_assistant_turns"] == 5
     assert manifest["policy"]["secret_committed"] is False
     train_rows = [
         json.loads(line)
@@ -210,7 +252,7 @@ def test_v4pro_teacher_generator_enforces_per_class_quota(monkeypatch, tmp_path)
     assert manifest["stats"]["accepted_count"] == len(expected_classes)
     assert manifest["stats"]["min_per_chain_class"] == 1
     assert manifest["stats"]["stopped_reason"] == "completed"
-    assert manifest["quality_report"]["assistant_turn_distribution"] == {"3": len(expected_classes)}
+    assert manifest["quality_report"]["assistant_turn_distribution"] == {"5": len(expected_classes)}
     assert set(manifest["quality_report"]["accepted_by_chain_class"]) == set(expected_classes)
     assert all(
         manifest["quality_report"]["accepted_by_chain_class"][chain_class] == 1

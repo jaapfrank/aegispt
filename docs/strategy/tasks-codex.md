@@ -89,15 +89,25 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   - completed by adding optional `--transfer-matrix` support to
     `scripts/validation/build_evidence_ledger.py`.
   - transfer rows use `row_type=heldout_transfer_eval` and carry reward,
-    flag, recovered-after-block, used-revealed-value, run-label,
+    flag, pivot, recovered-after-block, used-revealed-value, run-label,
     scenario-hash, scenario-id, and chain-class metadata.
+  - after Claude's reward-formula correction, transfer summaries now expose
+    `milestone_rate`, `pivot_rate`, `recovered_after_block_rate`, and
+    `used_revealed_value_rate` per run and per run/class so reward floor
+    (`4-5`) is not mistaken for chain progress.
   - canonical XBOW score remains target-only: transfer rows do not change
     `17/104`.
-- ☐ **3.3b — completion-focused demonstrated chains for the 14B train.**
+- ◐ **3.3b — completion-focused demonstrated chains for the 14B train.**
   - next data-generation lever from Claude's 2026-06-09 handoff.
   - needs high-quality rows that reach `flag=True` / `recovered=True`, not
     engagement-only traces.
   - keep D2 held-out scenario hashes leakage-free.
+  - completed sub-slice: iter9 V4-Pro teacher generator now rejects
+    engagement-only rows by requiring at least 5 assistant turns, a
+    post-block retry/proof/marker signal, and final
+    `evidence.goal_satisfied=true`.
+  - remaining: run a long V4-Pro/teacher batch with operator-approved
+    budget/timebox and ingest only rows that pass the strengthened guard.
 - ☐ **3.3c — clean untrained Qwen3-14B held-out baseline import.**
   - Codex records the transfer matrix once Claude produces the baseline
     rollout artifact.
