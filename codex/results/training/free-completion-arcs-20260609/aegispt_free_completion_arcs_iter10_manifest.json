@@ -1,0 +1,63 @@
+{
+  "dataset": "aegispt_free_completion_arcs_iter10",
+  "files": {
+    "manifest": "codex/results/training/free-completion-arcs-20260609/aegispt_free_completion_arcs_iter10_manifest.json",
+    "scenario_registry": "codex/results/training/free-completion-arcs-20260609/aegispt_free_completion_arcs_iter10_scenario_registry.jsonl",
+    "summary": "codex/results/training/free-completion-arcs-20260609/aegispt_free_completion_arcs_iter10_summary.md",
+    "train": "codex/results/training/free-completion-arcs-20260609/aegispt_free_completion_arcs_iter10_train.jsonl"
+  },
+  "leakage_audit": {
+    "forbidden_string_hits": 0,
+    "heldout_collision_count": 0,
+    "heldout_hash_count": 8,
+    "skipped": {}
+  },
+  "policy": {
+    "data_lane_only": true,
+    "free_oracle_or_scripted_sources_only": true,
+    "held_out_eval_not_used_for_training": true,
+    "lab_only": true,
+    "no_cloud_teacher_batch": true,
+    "no_runtime_execution": true
+  },
+  "sources": {
+    "demo_paths": [
+      "codex/results/training/headless-oob-chain-envs-20260607/aegispt_headless_oob_teacher_demos_iter10_train.jsonl",
+      "codex/results/training/blind-oob-command-envs-20260607/aegispt_blind_oob_command_teacher_demos_iter10_train.jsonl",
+      "codex/results/training/other-stack-recovery-envs-20260607/aegispt_other_stack_recovery_teacher_demos_iter10_train.jsonl",
+      "codex/results/training/web-source-gap-recovery-envs-20260607/aegispt_web_source_gap_recovery_teacher_demos_iter10_train.jsonl"
+    ],
+    "heldout_manifest": "codex/results/training/multichain-heldout-eval-envs-20260607/aegispt_multichain_heldout_eval_envs_iter10_manifest.json",
+    "rollout_dirs": [
+      "codex/results/training/multichain-rl-envs-20260607",
+      "codex/results/training/headless-oob-chain-envs-20260607",
+      "codex/results/training/blind-oob-command-envs-20260607",
+      "codex/results/training/other-stack-recovery-envs-20260607",
+      "codex/results/training/web-source-gap-recovery-envs-20260607"
+    ]
+  },
+  "stats": {
+    "accepted_count": 636,
+    "by_chain_class": {
+      "blind_command_injection_filter_bypass": 72,
+      "command_injection": 72,
+      "eval_rce_provider_refusal": 36,
+      "file_upload_webroot": 36,
+      "headless_xss_ssrf": 144,
+      "java_jsp_other_stack": 36,
+      "path_traversal_file_read": 36,
+      "php_cms_framework_cve": 36,
+      "sqli_filter_bypass": 36,
+      "static_file_or_server_misconfig": 36,
+      "unknown": 24,
+      "unknown_nonweb_or_other_stack": 36,
+      "unsafe_deserialization": 36
+    },
+    "by_source_kind": {
+      "scripted_oracle_rollout": 92,
+      "scripted_teacher_demo": 544
+    },
+    "source_row_count": 159,
+    "variant_count": 4
+  }
+}

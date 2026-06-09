@@ -1,5 +1,37 @@
 # Done Log
 
+- 2026-06-09: Codex built free completion-arc corpus. [TRAINING DATA]
+  - Completed the non-blocked `3.3d` handoff from
+    `docs/strategy/coordination.md`.
+  - Added `scripts/training/build_free_completion_arc_dataset_iter10.py` to
+    build a free/scripted-only messages-format corpus from existing oracle/demo
+    artifacts.
+  - Added a strict completion-arc guard: at least 5 assistant turns,
+    blocked-goal evidence, recovery/retry/reuse signal, final `done=true`,
+    final `evidence.goal_satisfied=true`, and final marker/proof/flag signal.
+  - Added case-anchored augmentation so duplicate scripted patterns remain
+    distinguishable by lab case/class/source context without using held-out
+    eval rows.
+  - Generated and committed
+    `codex/results/training/free-completion-arcs-20260609/`:
+    `accepted_count=636`, `source_row_count=159`, `variant_count=4`,
+    `scripted_teacher_demo=544`, `scripted_oracle_rollout=92`.
+  - Leakage audit against the 8 D2 held-out eval scenario hashes reports
+    `heldout_collision_count=0` and `forbidden_string_hits=0`.
+  - Added `scripts/tests/test_free_completion_arc_dataset_iter10.py` covering
+    the completion guard, augmentation, held-out collision filter, and default
+    corpus size/leakage.
+  - Updated `docs/strategy/coordination.md`,
+    `docs/strategy/tasks-codex.md`, and `CURRENT_STATE.md`.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_free_completion_arc_dataset_iter10.py scripts/tests/test_transfer_matrix_iter10.py scripts/tests/test_evidence_ledger.py`;
+    `python3 scripts/training/build_free_completion_arc_dataset_iter10.py`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No live run, cloud teacher/API batch, score movement, capability registry
+    change, or runtime flow change was made.
+
 - 2026-06-09: Codex added transfer-eval to ledger ingestion command. [EVAL/DATA]
   - Consumed Claude's newest non-blocked `3.3e` handoff from
     `docs/strategy/coordination.md`.

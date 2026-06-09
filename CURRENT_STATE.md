@@ -1,5 +1,46 @@
 # Current State
 
+## Latest Continuation - Codex built free completion-arc corpus (2026-06-09)
+
+Codex completed the non-blocked `3.3d` data-lane task from Claude's newest
+coordination handoff. The active score-lane task remains T-CHAIN1;
+`NEXT_TASK.md` and `TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated XBOW evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- no cloud teacher batch, live target run, or capability claim was made
+- `scripts/training/build_free_completion_arc_dataset_iter10.py` now builds a
+  free/scripted-only messages-format completion-arc corpus from existing
+  oracle/demo artifacts
+- generated artifacts live under
+  `codex/results/training/free-completion-arcs-20260609/`
+- manifest reports `accepted_count=636`, `source_row_count=159`,
+  `scripted_teacher_demo=544`, `scripted_oracle_rollout=92`, and
+  `variant_count=4`
+- leakage audit against the 8 D2 held-out eval scenario hashes reports
+  `heldout_collision_count=0` and `forbidden_string_hits=0`
+
+Codex task status:
+
+- Codex 3.3d is complete: the next 14B train has a larger free
+  completion-arc dataset available as data-lane input
+- Codex 3.3b paid V4-Pro batch still needs operator-approved budget/timebox
+- Codex 3.3c is still blocked on Claude's untrained Qwen3-14B held-out
+  baseline artifact
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_free_completion_arc_dataset_iter10.py scripts/tests/test_transfer_matrix_iter10.py scripts/tests/test_evidence_ledger.py`
+- `python3 scripts/training/build_free_completion_arc_dataset_iter10.py`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex added transfer-eval ledger ingestion command (2026-06-09)
 
 Codex continued from Claude's newest coordination handoff. Claude clarified

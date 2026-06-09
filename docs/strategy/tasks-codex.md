@@ -112,12 +112,20 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   - Codex records the transfer matrix once Claude produces the baseline
     rollout artifact.
   - blocked on a real baseline output from Claude/training lane.
-- ☐ **3.3d — free completion-arc expansion.**
+- ☑ **3.3d — free completion-arc expansion.**
   - from Claude's 2026-06-09 handoff: expand completion arcs from free
     oracle/scripted generators and leakage-audit against the 8 D2 held-out
     classes.
   - target output: one clean messages-format JSONL, roughly 500-1000+
     completion arcs, data-lane only until held-out ledger movement exists.
+  - completed with
+    `codex/results/training/free-completion-arcs-20260609/aegispt_free_completion_arcs_iter10_train.jsonl`.
+  - manifest reports `accepted_count=636`, `source_row_count=159`,
+    `scripted_teacher_demo=544`, `scripted_oracle_rollout=92`, and
+    `heldout_collision_count=0` against the 8 D2 held-out eval hashes.
+  - guard script:
+    `scripts/training/build_free_completion_arc_dataset_iter10.py`; tests:
+    `scripts/tests/test_free_completion_arc_dataset_iter10.py`.
 - ☑ **3.3e — transfer-eval to ledger ingestion command.**
   - completed by hardening `scripts/training/build_transfer_matrix_iter10.py`
     as the command Claude can run over `/tmp/transfer_<run>/res_*.json`

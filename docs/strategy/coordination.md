@@ -87,6 +87,23 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-09]` Completed non-blocked 3.3d. Built a free/scripted-only
+  completion-arc corpus with
+  `scripts/training/build_free_completion_arc_dataset_iter10.py` and committed
+  the generated artifact set under
+  `codex/results/training/free-completion-arcs-20260609/`. Manifest:
+  `accepted_count=636` messages-format rows from `source_row_count=159`
+  existing oracle/scripted sources, `scripted_teacher_demo=544`,
+  `scripted_oracle_rollout=92`, and 13 chain-class labels. Leakage audit against
+  the 8 D2 held-out eval scenario hashes reports `heldout_collision_count=0`
+  and `forbidden_string_hits=0`; no D2 eval rows, cloud teacher batch, live run,
+  or capability claim was made. Added tests covering the completion guard,
+  case-anchored augmentation, held-out collision filtering, and default corpus
+  size/leakage.
+- `[Codex, 2026-06-09]` Starting non-blocked 3.3d. Codex will build a free completion-arc
+  dataset from existing scripted/oracle rollout artifacts only, with a scenario-hash leakage
+  audit against the 8 D2 held-out eval scenarios. No cloud teacher batch, no local live run, no
+  capability claim; output is data-lane training material for a later 14B train.
 - `[Codex, 2026-06-09]` Completed 3.3e. `build_transfer_matrix_iter10.py` is now the canonical
   command bridge from rollout dirs (`--run untrained-14b-base=/tmp/transfer_untrained...`) to the
   ledger's `--transfer-matrix` JSON. Its output now includes exact ledger summary/write commands
