@@ -1,5 +1,40 @@
 # Current State
 
+## Latest Continuation - Codex synced to Claude's Gruyere/local-brain diagnostics (2026-06-09)
+
+Codex re-read the required Rework 4 sources after Claude's new 0.2 / 0.2b
+Gruyere and local-brain commits, then synchronized the shared status docs. The
+active score-lane task remains T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md`
+were not changed.
+
+Current evidence state:
+
+- generated evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- Claude now proves the Gruyere black-box exploit engine RUNS end-to-end on
+  real targets (`4475197f`) and that the uncensored local exploit brain is
+  functionally viable after the local URL / ctx-window / timeout fixes
+  (`4719bc30`, `a8829ca3`, `9d871144`)
+- Claude's latest local-brain evidence still does not restore admin on
+  Gruyere, so the remaining frontier is the deep multi-step chain capability,
+  not a newly-found Codex data-lane gap
+- Claude's idle-GPU teacher-transfer experiment stayed `0/8` and is explicitly
+  non-score-moving
+
+Codex task status:
+
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+- Codex 3.2 is still blocked on Phase 2 measurement / ledger baseline
+- Codex 3.3 is still blocked until live/held-out ledger movement exists
+
+Validation completed:
+
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex ledger now consumes Q3 taxonomy metadata (2026-06-09)
 
 Codex re-read the required Rework 4 sources, resolved the Q3 contract drift,

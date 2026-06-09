@@ -73,6 +73,9 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 
 - ⛔ **2.1 — record XBOW-104 results** in the ledger (Claude runs; Codex logs the canonical %).
   - blocked: waiting on Claude's XBOW-104 run output / validation artifact.
+  - latest Claude 0.2 / 0.2b Gruyere diagnostics are shared-state only:
+    local/frontier exploit-brain behavior changed, but there is still no
+    benchmark artifact for Codex to ingest.
 - ⛔ **3.2 — our model as ranker/policy** over the candidate queue (shared with Claude).
   - blocked: Phase 3 item; needs Phase 2 measurement and ledger baseline first.
 - ⛔ **3.3 — teacher-data continues ONLY if it moves the canonical/held-out ledger.** Until
@@ -80,6 +83,8 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   selected_total=16917 — data, not progress, per Codex's own note.)
   - blocked: requires live/held-out ledger movement before more teacher-data is
     treated as capability-relevant.
+  - Claude's 2026-06-09 teacher-transfer / rollout notes (`0/8`, steps `0`)
+    remain experiment-only and do not unblock teacher-data promotion.
 
 ## Completed pre-rework-4 data artifacts
 

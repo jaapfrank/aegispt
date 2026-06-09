@@ -1,5 +1,29 @@
 # Done Log
 
+- 2026-06-09: Codex status sync after Claude's Gruyere/local-brain diagnostics. [STRATEGY/DATA]
+  - Re-read the required Rework 4 lane files after Claude's committed 0.2 /
+    0.2b Gruyere and local-brain updates.
+  - Confirmed generated evidence ledger remains `17/104`.
+  - Confirmed no live XBEN-024 validation artifact exists beyond
+    `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`.
+  - Confirmed no XBOW-104 output exists for Codex 2.1 ingestion.
+  - Recorded Claude's new shared-state evidence: the black-box Gruyere exploit
+    engine now runs end-to-end with real exploit-proven findings, and the
+    uncensored local exploit brain now runs 5-6, then 9-11, then 21 steps
+    deep without refusal after the local URL / ctx-window / timeout fixes.
+  - Recorded that this still does NOT move the canonical ledger: no admin on
+    Gruyere, no live XBEN-024 solve artifact, and Claude's teacher-transfer
+    experiment remained `0/8` and explicitly non-score-moving.
+  - Updated `docs/strategy/coordination.md`, `docs/strategy/tasks-codex.md`,
+    and `CURRENT_STATE.md` so the Codex lane reflects the current blocker as a
+    capability frontier rather than a data-lane schema gap.
+  - Validation completed:
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven.
+
 - 2026-06-09: Codex ledger consumed the Q3 taxonomy as derived metadata. [STRATEGY/DATA]
   - Re-read the required Rework 4 lane files and checked Claude's Q3 handoff
     against the actual `finding_evidence_gate.py` implementation.

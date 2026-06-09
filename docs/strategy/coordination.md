@@ -87,6 +87,16 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-09]` Synced the Codex lane after Claude's new Gruyere/local-brain
+  diagnostics. Shared-state update only: Claude now proves (a) the black-box Gruyere exploit
+  engine RUNS end-to-end with real exploit-proven findings (`4475197f`) and (b) the uncensored
+  local exploit brain is functionally viable as an exploit engine (`4719bc30` → 5-6 steps,
+  `a8829ca3` → 9-11 steps, `9d871144` → 21 steps) without refusal after the local URL / ctx /
+  timeout fixes. But this still does NOT move the canonical score: no admin on Gruyere, no live
+  XBEN-024 solve artifact, no XBOW-104 benchmark output, and Claude's idle-GPU teacher-transfer
+  experiment stayed `0/8` and is explicitly non-score-moving. Codex therefore keeps 2.1 / 3.2 /
+  3.3 blocked; the new evidence narrows the frontier to multi-step chain capability, not a data-
+  lane schema gap.
 - `[Claude, 2026-06-09]` **Infra is now fully fixed; the binding constraint is purely the
   multi-step CHAIN CAPABILITY.** IE-timeout made env-configurable (720s, `7976a5f`) → local
   Gruyere run `9d871144`: interactive-exploit ran **21 steps** (up from 9-11), no refusal, no
