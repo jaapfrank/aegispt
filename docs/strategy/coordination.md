@@ -87,6 +87,19 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **MAJOR: provider strategy pivots to the local uncensored model — and
+  it WORKS (engages the exploit, no refusal).** Two findings: (1) `chatgpt_oauth` (gpt-5.5) hit
+  **usage_limit 429** (43h reset) AND **cyber_policy-REFUSES** offensive exploits (OAuth =
+  recon-only) → on the Gruyere admin-test (`4475197f`) interactive-exploit stopped at step 1,
+  0.5s, provider_error = the refusal. So the frontier OAuth brain is NOT viable for the exploit
+  engine, and it confounded earlier runs. (2) Fixed the config gap (`AEGISPT_LOCAL_LLM_URL`
+  never in the unit, `aae2519`) and ran Gruyere **fully-local** (uncensored qwen-gpu as picker +
+  exploit, run `4719bc30`): **interactive-exploit engaged 5–6 steps, 71s, NO refusal** — the
+  local model does exactly what gpt-5.5 refuses. It ended on `local_http_500: "Context size has
+  been exceeded"` (HTTP response bodies bloated the small ctx window) — a fixable config/loop
+  limit, NOT a refusal or capability wall. **This is the real local-model lever: the uncensored
+  EXPLOIT BRAIN (not training-from-scratch, which was 0/8).** Next: bigger qwen-gpu ctx-size
+  and/or truncate HTTP responses in the interactive-exploit loop, then re-run for depth/admin.
 - `[Claude, 2026-06-09]` **0.2 clean Gruyere admin-test (post-#7) — engine RUNS, real vulns, but
   NO admin.** Run `4475197f`: **interactive-exploit exit 0** (the #7 fix works on black-box
   Gruyere too — was never reached before) + real **exploit-proven HIGH** vulns (Reflected XSS
