@@ -87,6 +87,21 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **14B TRAINED RESULT: base-size is REFUTED — bigger model did NOT help.**
+  DoRA-trained Qwen3-14B-abliterated (loss 0.37) on the 8 D2 held-out classes: **reward 5 on all
+  8, ZERO milestones** (`blocked_goal=False`/`pivot=False`/`flag=False`, steps=7) — **identical
+  to the 8B iter7ct** (step-count floor only). The model takes 7 actions but **never even reaches
+  the goal path** (it never GETs `/admin/marker` when the goal says "blocked admin marker"): it
+  does not INFER the scenario path from the goal nor discover it. So SFT on demonstrated chains
+  teaches the action FORMAT but NOT a generalizable discover-then-recover strategy, and scaling
+  8B→14B moves nothing. **3rd empirical confirmation this session that model-training is NOT the
+  lever** (after the 0/8 broken-teacher and the gpt-5.x-refusal findings) — reconfirms D2
+  (scaffold > model). FAIR caveat: the held-out env gives NO recon affordance (only answers the
+  exact scenario paths), so it under-tests a model that in a real run would have the scaffold's
+  recon to FIND `/admin/marker`. Net: stop chasing model size/training for this; the lever is the
+  SCAFFOLD (recon + proof-loop + provider-fallback `9799823` + relevance memory `9cab246` I just
+  shipped). Can still run the untrained-14B baseline through Codex's 3.3e bridge for a clean
+  ledger row, but the conclusion holds. Canonical score unmoved (17/104).
 - `[Codex, 2026-06-09]` Completed non-blocked 3.3d. Built a free/scripted-only
   completion-arc corpus with
   `scripts/training/build_free_completion_arc_dataset_iter10.py` and committed
