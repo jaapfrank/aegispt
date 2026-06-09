@@ -8,6 +8,7 @@ Replaces MCP server integrations with native Python implementations:
 """
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -136,6 +137,73 @@ def recall_memory(
             "recorded_at": e.updated_at.isoformat() if e.updated_at else None,
         }
         for e in entries
+    ]
+
+
+def _tokenize(text: str | None) -> set[str]:
+    return set(re.findall(r"[a-z0-9]{2,}", (text or "").lower()))
+
+
+def relevance_score(
+    query_tokens: set[str],
+    *,
+    key: str | None,
+    value: str | None,
+    confidence: float | None,
+    updated_at: datetime | None,
+    now: datetime | None = None,
+) -> float:
+    """Lightweight, dependency-free relevance: keyword overlap with the query DOMINATES, with
+    confidence + recency as boosts. Replaces recency-only recall so the small local-LLM context
+    window is packed with the MOST RELEVANT facts (2026 hybrid-memory best practice), not just
+    the newest ones."""
+    doc = _tokenize(key) | _tokenize(value)
+    overlap = (len(query_tokens & doc) / len(query_tokens)) if (query_tokens and doc) else 0.0
+    rec = 1.0
+    if updated_at is not None:
+        ref = now or datetime.now(UTC)
+        age_days = max((ref - updated_at).total_seconds() / 86400.0, 0.0)
+        rec = 1.0 / (1.0 + age_days)
+    return overlap * 2.0 + (confidence or 0.0) * 0.3 + rec * 0.5
+
+
+def search_memory(
+    session: Session,
+    *,
+    engagement_id: uuid.UUID,
+    query: str,
+    memory_type: str | None = None,
+    limit: int = _MEMORY_RECALL_LIMIT,
+) -> list[dict[str, Any]]:
+    """Relevance-ranked recall (vs ``recall_memory``'s recency-only). Ranks an engagement's
+    memories by ``relevance_score`` against ``query`` and returns the top ``limit``. Falls back
+    to recency when the query has no usable tokens, so it is a safe drop-in for recency recall."""
+    q = select(EngagementMemory).where(EngagementMemory.engagement_id == engagement_id)
+    if memory_type:
+        q = q.where(EngagementMemory.memory_type == memory_type)
+    entries = list(session.scalars(q))
+    qt = _tokenize(query)
+    if qt:
+        entries.sort(
+            key=lambda e: relevance_score(
+                qt, key=e.memory_key, value=e.memory_value,
+                confidence=e.confidence, updated_at=e.updated_at,
+            ),
+            reverse=True,
+        )
+    else:
+        entries.sort(key=lambda e: e.updated_at or datetime.min.replace(tzinfo=UTC), reverse=True)
+    return [
+        {
+            "key": e.memory_key,
+            "value": e.memory_value,
+            "type": e.memory_type,
+            "confidence": e.confidence,
+            "source": e.source,
+            "run_id": str(e.run_id) if e.run_id else None,
+            "recorded_at": e.updated_at.isoformat() if e.updated_at else None,
+        }
+        for e in entries[:limit]
     ]
 
 
