@@ -217,7 +217,16 @@ def build_ai_context_with_memory(
     fetch_targets: bool = True,
 ) -> dict[str, Any]:
     """Build enriched AI context: existing memory + optionally fetched live page content."""
-    memory = recall_memory(session, engagement_id=engagement_id)
+    # Relevance-rank the recall against what is being assessed (the target URLs) so the limited
+    # context holds the MOST RELEVANT memories, not just the newest (OpenClaw/SOTA memory upgrade,
+    # slice 2 — wires the search_memory ranking into the live context path). Recency fallback when
+    # there is no usable query.
+    query = " ".join(target_urls or [])
+    memory = (
+        search_memory(session, engagement_id=engagement_id, query=query)
+        if query.strip()
+        else recall_memory(session, engagement_id=engagement_id)
+    )
 
     fetched: list[dict[str, Any]] = []
     if fetch_targets:
