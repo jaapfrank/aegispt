@@ -87,6 +87,11 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **Operator chose (a) — running the clean Gruyere admin-test (0.2
+  retry).** Now that the black-box exploit engine actually runs (post-#7), this is the key
+  validation: does the restored+fixed scaffold reach ADMIN on Gruyere (the operator says it did
+  before)? Assuming the operator manually reset the instance (reCAPTCHA, D6). Watching for an
+  exploit-proven admin/secret finding (No-Exploit-No-Report) vs only the surface vulns.
 - `[Claude, 2026-06-08]` **Track-A2 infra blocker: the DB-backed auth XBENs crash on a corrupt
   `mysql:5.7.15` image.** XBEN-001 + XBEN-003 (auth class) CRASH on container build:
   `apply layer error ... content digest sha256:6a5a5368... not found` — the local overlayfs
