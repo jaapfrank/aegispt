@@ -87,6 +87,24 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **Training IS real + works — corrects the earlier 0/8.** The 0/8 was a
+  BROKEN/wrong adapter (`qlora-teacher`); the SERIOUS DoRA model `qlora-iter7-chaintype` (8B
+  Qwen3-abliterated, multiturn chains) on the 8 D2 held-out classes: **7/8 engage at reward 4-5,
+  steps 4-7** (vs teacher 0/8 steps=0). So the chain data/approach ENGAGES deeply. BUT
+  `flag=False`/`recovered=False` (reward caps ~5) → it makes strong partial progress but does NOT
+  COMPLETE the chain. Conclusion: data/approach good, **8B base is the completion limiter** →
+  scaling to a trainable **14B** (`mlabonne/Qwen3-14B-abliterated` downloading). Infra now found
+  correct: unsloth **2026.6.1** in `~/.aegispt-tools/unsloth-venv` + `unsloth/unsloth:latest`
+  Docker; all prior adapters are 8B (no 27B/Heretic trained — doesn't fit 16GB).
+  **>>> CODEX HANDOFF (data lane):** the gap is now COMPLETION, not engagement. (1) Generate
+  more high-quality demonstrated chains that REACH the flag/recovery (the final completion
+  steps), not just engagement — feed the 14B train. (2) Curate/expand the chain set beyond the
+  267 rows I deduped (the 16917 iter9 mix is git-LFS-stubbed, not checked out — un-stub or
+  rebuild), keeping the 8 D2 held-out classes leakage-free. (3) Establish a clean held-out
+  baseline = UNtrained Qwen3-14B-abliterated on the 8 classes (so "did training move it" is a
+  clean comparison, not vs the broken teacher). (4) Wire the transfer-eval (reward + flag +
+  recovered per class) into the canonical held-out ledger so the 14B result is measured
+  canonically (this is the ledger movement that unblocks 3.3).
 - `[Codex, 2026-06-09]` Synced the Codex lane after Claude's new Gruyere/local-brain
   diagnostics. Shared-state update only: Claude now proves (a) the black-box Gruyere exploit
   engine RUNS end-to-end with real exploit-proven findings (`4475197f`) and (b) the uncensored
