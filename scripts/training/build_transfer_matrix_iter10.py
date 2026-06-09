@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import defaultdict
+import shlex
+from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -56,6 +57,25 @@ def parse_run_arg(value: str) -> tuple[str, Path]:
         return label, Path(raw_path)
     path = Path(value)
     return path.name or "run", path
+
+
+def command_path(path: Path) -> str:
+    try:
+        path = path.resolve().relative_to(REPO_ROOT)
+    except ValueError:
+        path = path.resolve()
+    return shlex.quote(path.as_posix())
+
+
+def ledger_ingest_command(matrix_path: Path, *, write: bool = False) -> str:
+    parts = [
+        "python3",
+        "scripts/validation/build_evidence_ledger.py",
+        "--transfer-matrix",
+        command_path(matrix_path),
+    ]
+    parts.append("--write" if write else "--summary-json")
+    return " ".join(parts)
 
 
 def load_results(run_label: str, rollout_dir: Path, scenario_index: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -137,6 +157,29 @@ def build_matrix(
         chain_class: summarize_group([row for row in rows if row["chain_class"] == chain_class])
         for chain_class in sorted({row["chain_class"] for row in rows})
     }
+    expected_scenario_ids = set(scenario_index)
+    missing_by_run: dict[str, list[str]] = {}
+    unknown_by_run: dict[str, list[str]] = {}
+    duplicate_by_run: dict[str, list[str]] = {}
+    for run_label, _path in runs:
+        run_rows = [row for row in rows if row["run_label"] == run_label]
+        present = {row["scenario_id"] for row in run_rows if row["scenario_id"]}
+        missing = sorted(expected_scenario_ids - present)
+        if missing:
+            missing_by_run[run_label] = missing
+        unknown = sorted(
+            {
+                row["scenario_id"]
+                for row in run_rows
+                if not row["scenario_id"] or row["scenario_id"] not in expected_scenario_ids
+            }
+        )
+        if unknown:
+            unknown_by_run[run_label] = unknown
+        counts = Counter(row["scenario_id"] for row in run_rows if row["scenario_id"])
+        duplicates = sorted(scenario_id for scenario_id, count in counts.items() if count > 1)
+        if duplicates:
+            duplicate_by_run[run_label] = duplicates
     return {
         "dataset": DEFAULT_PREFIX,
         "matrix": by_run_class,
@@ -156,9 +199,30 @@ def build_matrix(
             "run_count": len({row["run_label"] for row in rows}),
             "run_labels": sorted({row["run_label"] for row in rows}),
             "scenario_count": len({row["scenario_id"] for row in rows}),
+            "expected_scenario_count": len(expected_scenario_ids),
+            "missing_scenario_ids_by_run": missing_by_run,
+            "unknown_scenario_ids_by_run": unknown_by_run,
+            "duplicate_scenario_ids_by_run": duplicate_by_run,
+            "complete_run_count": sum(
+                1
+                for run_label, _path in runs
+                if run_label not in missing_by_run and run_label not in unknown_by_run
+            ),
             "unknown_chain_class_count": sum(1 for row in rows if row["chain_class"] == "unknown"),
         },
     }
+
+
+def validate_complete_scenarios(matrix: dict[str, Any]) -> None:
+    stats = matrix.get("stats", {})
+    missing = stats.get("missing_scenario_ids_by_run") or {}
+    unknown = stats.get("unknown_scenario_ids_by_run") or {}
+    if missing or unknown:
+        raise ValueError(
+            "transfer matrix is incomplete: "
+            f"missing_scenario_ids_by_run={missing}; "
+            f"unknown_scenario_ids_by_run={unknown}"
+        )
 
 
 def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -179,8 +243,20 @@ def write_outputs(matrix: dict[str, Any], out_dir: Path, prefix: str = DEFAULT_P
         "",
         f"- runs: {matrix['stats']['run_count']}",
         f"- scenarios: {matrix['stats']['scenario_count']}",
+        f"- expected scenarios: {matrix['stats']['expected_scenario_count']}",
         f"- results: {matrix['stats']['result_count']}",
+        f"- complete runs: {matrix['stats']['complete_run_count']}",
         "- policy: eval/reporting only; no training rows generated",
+        "",
+        "## Ledger ingestion",
+        "",
+        "Summary check:",
+        "",
+        f"`{ledger_ingest_command(matrix_path)}`",
+        "",
+        "Materialize canonical ledger with this transfer matrix:",
+        "",
+        f"`{ledger_ingest_command(matrix_path, write=True)}`",
         "",
         "## Run x Class",
         "",
@@ -199,6 +275,10 @@ def write_outputs(matrix: dict[str, Any], out_dir: Path, prefix: str = DEFAULT_P
             "matrix": str(matrix_path),
             "rows": str(rows_path),
             "summary_markdown": str(summary_path),
+        },
+        "commands": {
+            "ledger_summary": ledger_ingest_command(matrix_path),
+            "ledger_write": ledger_ingest_command(matrix_path, write=True),
         },
         **matrix["stats"],
     }
@@ -219,10 +299,20 @@ def main() -> None:
     )
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--prefix", default=DEFAULT_PREFIX)
+    parser.add_argument(
+        "--require-complete-scenarios",
+        action="store_true",
+        help=(
+            "Fail if any run misses a manifest scenario or emits an unknown "
+            "scenario_id. Multiple samples per scenario are allowed."
+        ),
+    )
     args = parser.parse_args()
     runs = [parse_run_arg(item) for item in (args.run or [f"d2_oracle={DEFAULT_D2_DIR}"])]
     manifest_paths = list(args.manifest or [DEFAULT_D2_MANIFEST])
     matrix = build_matrix(runs=runs, manifest_paths=manifest_paths)
+    if args.require_complete_scenarios:
+        validate_complete_scenarios(matrix)
     summary = write_outputs(matrix, args.out_dir, prefix=args.prefix)
     print(json.dumps(summary, indent=2, sort_keys=True))
 

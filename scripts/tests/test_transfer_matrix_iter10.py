@@ -1,8 +1,12 @@
 import json
 
+import pytest
+
 from scripts.training.build_transfer_matrix_iter10 import (
     build_matrix,
+    ledger_ingest_command,
     load_scenario_index,
+    validate_complete_scenarios,
     write_outputs,
 )
 
@@ -93,9 +97,59 @@ def test_transfer_matrix_writes_outputs(tmp_path):
     summary = write_outputs(matrix, tmp_path / "out")
 
     assert summary["result_count"] == 1
+    assert summary["expected_scenario_count"] == 2
+    assert summary["complete_run_count"] == 0
     assert summary["files"]["matrix"].endswith(".json")
+    assert summary["commands"]["ledger_summary"].startswith(
+        "python3 scripts/validation/build_evidence_ledger.py --transfer-matrix "
+    )
+    assert summary["commands"]["ledger_summary"].endswith("--summary-json")
+    assert summary["commands"]["ledger_write"].endswith("--write")
     assert (tmp_path / "out" / "aegispt_transfer_matrix_iter10_rows.jsonl").exists()
     assert (tmp_path / "out" / "aegispt_transfer_matrix_iter10_summary.md").exists()
+    summary_text = (tmp_path / "out" / "aegispt_transfer_matrix_iter10_summary.md").read_text(
+        encoding="utf-8"
+    )
+    assert "## Ledger ingestion" in summary_text
+    assert "--transfer-matrix" in summary_text
+
+
+def test_transfer_matrix_validates_complete_known_scenarios(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    write_manifest(manifest)
+    incomplete = tmp_path / "incomplete"
+    complete = tmp_path / "complete"
+    incomplete.mkdir()
+    complete.mkdir()
+    write_result(incomplete / "res_0.json", "scenario-a", flag=True)
+    write_result(incomplete / "res_1.json", "scenario-z", flag=False, reward=0)
+    write_result(complete / "res_0.json", "scenario-a", flag=True)
+    write_result(complete / "res_1.json", "scenario-b", flag=False, recovered=False, revealed=False, reward=5)
+
+    matrix = build_matrix(
+        runs=[("incomplete", incomplete), ("complete", complete)],
+        manifest_paths=[manifest],
+    )
+
+    assert matrix["stats"]["complete_run_count"] == 1
+    assert matrix["stats"]["missing_scenario_ids_by_run"] == {"incomplete": ["scenario-b"]}
+    assert matrix["stats"]["unknown_scenario_ids_by_run"] == {"incomplete": ["scenario-z"]}
+    assert matrix["stats"]["duplicate_scenario_ids_by_run"] == {}
+    validate_complete_scenarios(
+        build_matrix(runs=[("complete", complete)], manifest_paths=[manifest])
+    )
+    with pytest.raises(ValueError, match="transfer matrix is incomplete"):
+        validate_complete_scenarios(matrix)
+
+
+def test_ledger_ingest_command_quotes_paths_with_spaces(tmp_path):
+    matrix_path = tmp_path / "with space" / "matrix.json"
+
+    command = ledger_ingest_command(matrix_path)
+
+    assert command.startswith("python3 scripts/validation/build_evidence_ledger.py")
+    assert "--summary-json" in command
+    assert "'with space'" in command or "with space" in command
 
 
 def test_transfer_matrix_loads_real_d2_manifest():

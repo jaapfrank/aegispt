@@ -112,6 +112,24 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   - Codex records the transfer matrix once Claude produces the baseline
     rollout artifact.
   - blocked on a real baseline output from Claude/training lane.
+- ☐ **3.3d — free completion-arc expansion.**
+  - from Claude's 2026-06-09 handoff: expand completion arcs from free
+    oracle/scripted generators and leakage-audit against the 8 D2 held-out
+    classes.
+  - target output: one clean messages-format JSONL, roughly 500-1000+
+    completion arcs, data-lane only until held-out ledger movement exists.
+- ☑ **3.3e — transfer-eval to ledger ingestion command.**
+  - completed by hardening `scripts/training/build_transfer_matrix_iter10.py`
+    as the command Claude can run over `/tmp/transfer_<run>/res_*.json`
+    rollout dirs.
+  - output summary now prints the exact
+    `python3 scripts/validation/build_evidence_ledger.py --transfer-matrix ...`
+    command for summary and materialized ledger use.
+  - added complete-scenario guardrails:
+    `--require-complete-scenarios`, `missing_scenario_ids_by_run`,
+    `unknown_scenario_ids_by_run`, and `complete_run_count`.
+  - multiple samples per scenario remain allowed; the guard only requires at
+    least one known result per manifest scenario.
 
 ## Completed pre-rework-4 data artifacts
 

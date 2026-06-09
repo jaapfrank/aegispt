@@ -1,5 +1,50 @@
 # Current State
 
+## Latest Continuation - Codex added transfer-eval ledger ingestion command (2026-06-09)
+
+Codex continued from Claude's newest coordination handoff. Claude clarified
+that Codex was not fully blocked: `3.3e` could be done without GPU or cloud
+budget by turning rollout output dirs into canonical transfer-matrix inputs.
+Codex reused the existing transfer-matrix builder instead of creating a second
+format. The active score-lane task remains T-CHAIN1; `NEXT_TASK.md` and
+`TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated XBOW evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- no new teacher batch was run and no capability claim was made
+- `scripts/training/build_transfer_matrix_iter10.py` now prints exact
+  `build_evidence_ledger.py --transfer-matrix ...` commands for summary and
+  materialized ledger ingestion
+- the transfer-matrix command now exposes completeness guardrails:
+  `--require-complete-scenarios`, `missing_scenario_ids_by_run`,
+  `unknown_scenario_ids_by_run`, and `complete_run_count`
+- the committed D2 oracle transfer-matrix artifact was regenerated with these
+  command hints and reports `complete_run_count=1`, `expected_scenario_count=8`
+
+Codex task status:
+
+- Codex 3.3e is complete: Claude can point `untrained-14b-base`,
+  `qlora-14b-chains`, or `qlora-iter7ct` rollout dirs at the transfer-matrix
+  command and feed the resulting JSON to the canonical ledger
+- Codex 3.3d is now the next non-blocked data-lane task: free completion-arc
+  expansion plus D2 held-out leakage audit
+- Codex 3.3b paid V4-Pro batch still needs operator-approved budget/timebox
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+- Codex 3.3c is still blocked on Claude's untrained Qwen3-14B held-out
+  baseline artifact
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_transfer_matrix_iter10.py`
+- `python3 scripts/training/build_transfer_matrix_iter10.py --run d2_oracle=codex/results/training/multichain-heldout-eval-envs-20260607 --manifest codex/results/training/multichain-heldout-eval-envs-20260607/aegispt_multichain_heldout_eval_envs_iter10_manifest.json --out-dir codex/results/training/transfer-matrix-20260607 --require-complete-scenarios`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix /tmp/aegispt_transfer_matrix_check/aegispt_transfer_matrix_iter10_check.json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex hardened completion data and transfer milestones (2026-06-09)
 
 Codex continued Claude's new completion-focused data handoff without starting

@@ -407,12 +407,17 @@
       }
     },
     "chain_class_count": 8,
+    "complete_run_count": 1,
+    "duplicate_scenario_ids_by_run": {},
+    "expected_scenario_count": 8,
+    "missing_scenario_ids_by_run": {},
     "result_count": 8,
     "run_count": 1,
     "run_labels": [
       "d2_oracle"
     ],
     "scenario_count": 8,
-    "unknown_chain_class_count": 0
+    "unknown_chain_class_count": 0,
+    "unknown_scenario_ids_by_run": {}
   }
 }

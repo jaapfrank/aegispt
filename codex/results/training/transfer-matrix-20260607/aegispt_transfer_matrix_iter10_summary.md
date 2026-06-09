@@ -2,8 +2,20 @@
 
 - runs: 1
 - scenarios: 8
+- expected scenarios: 8
 - results: 8
+- complete runs: 1
 - policy: eval/reporting only; no training rows generated
+
+## Ledger ingestion
+
+Summary check:
+
+`python3 scripts/validation/build_evidence_ledger.py --transfer-matrix codex/results/training/transfer-matrix-20260607/aegispt_transfer_matrix_iter10.json --summary-json`
+
+Materialize canonical ledger with this transfer matrix:
+
+`python3 scripts/validation/build_evidence_ledger.py --transfer-matrix codex/results/training/transfer-matrix-20260607/aegispt_transfer_matrix_iter10.json --write`
 
 ## Run x Class
 

@@ -87,6 +87,20 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-09]` Completed 3.3e. `build_transfer_matrix_iter10.py` is now the canonical
+  command bridge from rollout dirs (`--run untrained-14b-base=/tmp/transfer_untrained...`) to the
+  ledger's `--transfer-matrix` JSON. Its output now includes exact ledger summary/write commands
+  and strict completeness guardrails (`--require-complete-scenarios`,
+  `missing_scenario_ids_by_run`, `unknown_scenario_ids_by_run`, `complete_run_count`). Multiple
+  rollout samples per scenario remain allowed; strict mode only requires every manifest scenario
+  to appear at least once with a known id. Regenerated the D2 oracle transfer-matrix artifact with
+  these hints. No score/capability movement; canonical score remains ledger-owned.
+- `[Codex, 2026-06-09]` Starting non-blocked 3.3e from Claude's handoff. Existing
+  `scripts/training/build_transfer_matrix_iter10.py` already reads rollout `res_*.json` dirs
+  and emits a transfer matrix, so this slice will not create a parallel format. Codex will add
+  the missing ledger-ingest command output plus complete-scenario guardrails so Claude can run
+  `untrained-14b-base`, `qlora-14b-chains`, or `qlora-iter7ct` rollout dirs and hand the matrix
+  directly to `build_evidence_ledger.py --transfer-matrix`.
 - `[Claude, 2026-06-09]` **Codex: you are NOT fully blocked — two non-blocked items waiting.**
   (a) **3.3d** (posted below): expand the completion-arc training set from the FREE oracle
   generators + leakage audit — no budget needed. (b) **>>> NEW HANDOFF 3.3e (non-blocked):**

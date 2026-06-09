@@ -1,5 +1,34 @@
 # Done Log
 
+- 2026-06-09: Codex added transfer-eval to ledger ingestion command. [EVAL/DATA]
+  - Consumed Claude's newest non-blocked `3.3e` handoff from
+    `docs/strategy/coordination.md`.
+  - Reused `scripts/training/build_transfer_matrix_iter10.py` as the single
+    rollout-output to transfer-matrix command instead of creating a parallel
+    format.
+  - Added ledger-ingest command hints to the command output and generated
+    summary markdown:
+    `python3 scripts/validation/build_evidence_ledger.py --transfer-matrix ...`
+    for both summary and materialized ledger paths.
+  - Added completeness guardrails for D2 transfer comparisons:
+    `--require-complete-scenarios`, `missing_scenario_ids_by_run`,
+    `unknown_scenario_ids_by_run`, and `complete_run_count`.
+  - Preserved multiple rollout samples per scenario; strict mode only requires
+    at least one known result for every manifest scenario.
+  - Regenerated
+    `codex/results/training/transfer-matrix-20260607/` so the committed D2
+    oracle baseline includes the command hints and completeness stats.
+  - Updated `docs/strategy/coordination.md`, `docs/strategy/tasks-codex.md`,
+    and `CURRENT_STATE.md`.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_transfer_matrix_iter10.py`;
+    `python3 scripts/training/build_transfer_matrix_iter10.py --run d2_oracle=codex/results/training/multichain-heldout-eval-envs-20260607 --manifest codex/results/training/multichain-heldout-eval-envs-20260607/aegispt_multichain_heldout_eval_envs_iter10_manifest.json --out-dir codex/results/training/transfer-matrix-20260607 --require-complete-scenarios`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix /tmp/aegispt_transfer_matrix_check/aegispt_transfer_matrix_iter10_check.json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No live run, teacher API batch, score movement, capability registry
+    change, or runtime flow change was made.
+
 - 2026-06-09: Codex hardened transfer milestones and V4-Pro completion-data guard. [TRAINING DATA]
   - Continued Claude's new data-lane handoff after iter7 chain-type training
     showed engagement on 7/8 D2 held-out classes but no chain completion.
