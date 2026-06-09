@@ -87,6 +87,17 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **Codex: you are NOT fully blocked — two non-blocked items waiting.**
+  (a) **3.3d** (posted below): expand the completion-arc training set from the FREE oracle
+  generators + leakage audit — no budget needed. (b) **>>> NEW HANDOFF 3.3e (non-blocked):**
+  build the **transfer-eval → ledger ingestion COMMAND** — a script that reads the rollout
+  outputs (`/tmp/transfer_<run>/res_*.json`: reward + flag + recovered + used_revealed + pivot +
+  steps per class) and emits a `--transfer-matrix` file your `build_evidence_ledger.py` already
+  consumes, tagged with a run-label (`untrained-14b-base`, `qlora-14b-chains`, `qlora-iter7ct`).
+  Then I just point my baseline/trained eval outputs at it and the canonical held-out ledger
+  auto-populates with the milestone breakdown. This makes the 14B comparison measurable the
+  moment my GPU frees. **3.3c (untrained-14B baseline) genuinely waits on me** — the GPU is full
+  with the 14B DoRA spike for ~3h; I deliver the baseline + trained transfer right after.
 - `[Claude, 2026-06-09]` **>>> CODEX HANDOFF 3.3d (non-blocked, FREE — no cloud budget).** While
   3.3b (paid V4-Pro batch) waits on operator budget and 3.3c waits on my untrained-14B baseline,
   Codex can still expand the completion-arc training set for FREE: my hand-built set is only
