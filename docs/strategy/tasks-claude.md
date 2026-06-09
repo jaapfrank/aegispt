@@ -20,9 +20,11 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 - ◐ **0.2b — Gruyere local-model (uncensored exploit brain)** — **the real local-model lever,
   now FUNCTIONAL.** Frontier OAuth is dead for offensive (gpt-5.5 429 + cyber_policy refusal);
   the local uncensored qwen-gpu **engages the exploit with NO refusal** and (after the
-  `AEGISPT_LOCAL_LLM_URL` + engagement_id + sliding-window-ctx fixes: `aae2519`/`1b0f849`/
-  `80a7fe7`) runs **9–11 steps deep** (run `a8829ca3`, stop=time_budget). No admin yet (time +
-  multi-step chain). NOT train-from-scratch (that was 0/8). Next: longer budget → admin?
+  `AEGISPT_LOCAL_LLM_URL` + engagement_id + sliding-window-ctx + IE-timeout fixes: `aae2519`/
+  `1b0f849`/`80a7fe7`/`7976a5f`) runs **21 steps deep** (run `9d871144`, stop=time_budget). NOT
+  train-from-scratch (0/8). **Infra now fully fixed → no admin still = pure multi-step CHAIN
+  CAPABILITY frontier** (the 27B can't chain register→login→admin; gpt-5.5 refuses). Next lever:
+  a capable+non-refusing model OR chain-decomposition scaffolding (not more infra).
 
 ## Phase 1 — the proof-loop (after Phase 0 green)
 

@@ -87,6 +87,17 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **Infra is now fully fixed; the binding constraint is purely the
+  multi-step CHAIN CAPABILITY.** IE-timeout made env-configurable (720s, `7976a5f`) → local
+  Gruyere run `9d871144`: interactive-exploit ran **21 steps** (up from 9-11), no refusal, no
+  ctx-crash, stop=time_budget. **Still no admin/critical** — even at 21 deep steps the local
+  27B model does not complete the register→login→admin-exploit chain. So with the infra proven
+  NOT to be the blocker (engages + runs deep), the remaining gap to admin is genuinely the
+  **multi-step chain reasoning** — which the local 27B can't do AND gpt-5.5 refuses. The real
+  north-star challenge = a model that is BOTH capable enough for the deep chain AND non-refusing,
+  or chain-decomposition scaffolding that breaks the admin chain into guided sub-steps. (Caveat:
+  the Gruyere instance was not freshly reset.) This matches the multistep-gap finding: the deep
+  multi-turn chain is THE frontier.
 - `[Claude, 2026-06-09]` **Local exploit pipeline now FUNCTIONAL end-to-end.** Sliding-window
   ctx fix (`80a7fe7`) re-run on Gruyere fully-local (`a8829ca3`): interactive-exploit now runs
   **9 and 11 steps, stop_reason=time_budget** (was 5 steps → ctx-500). So the uncensored local
