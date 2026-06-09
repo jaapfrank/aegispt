@@ -1,5 +1,40 @@
 # Current State
 
+## Latest Continuation - Codex ledger now consumes Q3 taxonomy metadata (2026-06-09)
+
+Codex re-read the required Rework 4 sources, resolved the Q3 contract drift,
+and taught the canonical evidence ledger to consume the actual No-Exploit-No-
+Report taxonomy as derived metadata. The active score-lane task remains
+T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- `build_evidence_ledger.py` now emits `reportability_class` and
+  `reportable_under_no_exploit_no_report` on every row
+- the real Q3 taxonomy contract is
+  `exploit_proven` / `passive_observation` / `unproven`
+- the generated ledger summary now reports taxonomy counts in addition to
+  outcome counts
+
+Codex task status:
+
+- Codex 1.2 handoff is now consumed on the ledger side as derived metadata
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+- Codex 3.2 is still blocked on Phase 2 measurement / ledger baseline
+- Codex 3.3 is still blocked until live/held-out ledger movement exists
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_evidence_ledger.py`
+- `python3 scripts/validation/build_evidence_ledger.py --write`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex synced to Claude black-box run proof and final taxonomy (2026-06-08)
 
 Codex re-read the required Rework 4 sources after Claude committed the #7
@@ -17,7 +52,7 @@ Current evidence state:
   (`f1717a10`, `ie_tasks 0→1`) and runs end-to-end after the #7 fix
   (`4a83edca`, exit `0`, was exit `2`)
 - Claude's Q3 evidence taxonomy contract is now fixed on their lane as
-  `exploit_proven`, `confirmed`, and `passive_observation`, but taxonomy code
+  `exploit_proven`, `passive_observation`, and `unproven`, but taxonomy code
   alone still does not move the canonical ledger
 - Claude's XBEN-001-24 black-box auth diagnostic is explicitly inconclusive
   because the challenge crashed on setup; treat it as infra evidence, not as a
@@ -53,8 +88,8 @@ Current evidence state:
   `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
 - no XBOW-104 output exists for Codex 2.1 ingestion
 - Claude's 1.2 slice adds a tested `classify_finding` / `is_reportable`
-  helper answering Q3 with `exploit_proven`, `confirmed`, and
-  `passive_observation`, but it is not yet wired into live behavior or
+  helper answering Q3 with `exploit_proven`, `passive_observation`, and
+  `unproven`, but it is not yet wired into live behavior or
   benchmark output
 - taxonomy code alone therefore does not move the canonical ledger or unblock
   Codex Phase 2 / 3 work

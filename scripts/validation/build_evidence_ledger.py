@@ -12,12 +12,18 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from api.app.services.finding_evidence_gate import PASSIVE, PROVEN, UNPROVEN
+
 DEFAULT_VALIDATION_ROOT = REPO_ROOT / "docs" / "validation"
 DEFAULT_GAP_MATRIX = (
     REPO_ROOT
@@ -326,6 +332,13 @@ def row_from_gap(
     evidence_ref = artifact.evidence_ref if artifact else matrix_evidence_path or repo_rel(matrix_path)
     status_source = "validation_artifact" if artifact else "xben_gap_matrix_iter10"
     observed_date = artifact.observed_date if artifact else artifact_date(matrix_path)
+    evidence_level = artifact.evidence_level if artifact else "matrix_status"
+    proof_status = artifact.proof_status if artifact else solve_status
+    reportability_class = derive_reportability_class(
+        outcome=outcome,
+        evidence_level=evidence_level,
+        proof_status=proof_status,
+    )
 
     row_material = f"{xben_id}|{outcome}|{evidence_ref}|{status_source}"
     return {
@@ -344,8 +357,10 @@ def row_from_gap(
         "run_id": artifact.run_id if artifact else "",
         "brain": artifact.provider if artifact else "",
         "evidence_ref": evidence_ref,
-        "evidence_level": artifact.evidence_level if artifact else "matrix_status",
-        "proof_status": artifact.proof_status if artifact else solve_status,
+        "evidence_level": evidence_level,
+        "proof_status": proof_status,
+        "reportability_class": reportability_class,
+        "reportable_under_no_exploit_no_report": reportability_class == PROVEN,
         "flag_sha256": artifact.flag_sha256 if artifact else "",
         "flag_found_in": list(artifact.flag_found_in) if artifact else [],
         "finding_persistence_invariant": "pass" if artifact and artifact.invariant_pass else "",
@@ -366,13 +381,34 @@ def build_ledger(gap_matrix_path: Path, validation_root: Path) -> list[dict[str,
     return rows
 
 
+def derive_reportability_class(*, outcome: str, evidence_level: str, proof_status: str) -> str:
+    """Map ledger status rows into the No-Exploit-No-Report taxonomy.
+
+    The target-status ledger only stores one current row per target, so it currently
+    expresses exploit-proven versus not-yet-proven status. Passive observations may appear
+    in future adapter-fed rows; the category remains part of the schema now so the shared
+    contract is stable across lanes.
+    """
+    if proof_status == PASSIVE or evidence_level == PASSIVE:
+        return PASSIVE
+    if outcome in {"solved", "admin", "finding"} and evidence_level != "matrix_status":
+        return PROVEN
+    return UNPROVEN
+
+
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     outcomes = Counter(row["outcome"] for row in rows)
+    reportability_counts = Counter(row["reportability_class"] for row in rows)
     review_flags = Counter(flag for row in rows for flag in row["review_flags"])
     return {
         "schema_version": "aegispt.evidence-ledger-summary.v1",
         "target_count": len(rows),
         "outcomes": dict(sorted(outcomes.items())),
+        "reportability_counts": {
+            PROVEN: reportability_counts.get(PROVEN, 0),
+            PASSIVE: reportability_counts.get(PASSIVE, 0),
+            UNPROVEN: reportability_counts.get(UNPROVEN, 0),
+        },
         "solved_count": outcomes.get("solved", 0),
         "needs_review_count": sum(1 for row in rows if row["needs_review"]),
         "review_flags": dict(sorted(review_flags.items())),
@@ -390,6 +426,9 @@ def write_jsonl(rows: list[dict[str, Any]], path: Path) -> None:
 def render_summary_block(summary: dict[str, Any], jsonl_path: Path, matrix_path: Path) -> str:
     outcome_lines = "\n".join(
         f"- `{name}`: {count}" for name, count in sorted(summary["outcomes"].items())
+    )
+    reportability_lines = "\n".join(
+        f"- `{name}`: {count}" for name, count in summary["reportability_counts"].items()
     )
     review_lines = "\n".join(
         f"- `{name}`: {count}" for name, count in sorted(summary["review_flags"].items())
@@ -413,6 +452,10 @@ def render_summary_block(summary: dict[str, Any], jsonl_path: Path, matrix_path:
             "Outcome counts:",
             "",
             outcome_lines,
+            "",
+            "No-Exploit-No-Report taxonomy counts:",
+            "",
+            reportability_lines,
             "",
             "Review flags:",
             "",

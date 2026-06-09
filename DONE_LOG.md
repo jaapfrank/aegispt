@@ -1,5 +1,30 @@
 # Done Log
 
+- 2026-06-09: Codex ledger consumed the Q3 taxonomy as derived metadata. [STRATEGY/DATA]
+  - Re-read the required Rework 4 lane files and checked Claude's Q3 handoff
+    against the actual `finding_evidence_gate.py` implementation.
+  - Resolved the shared-contract drift: the real taxonomy categories are
+    `exploit_proven`, `passive_observation`, and `unproven`.
+  - Updated `scripts/validation/build_evidence_ledger.py` so every generated
+    ledger row now carries `reportability_class` and
+    `reportable_under_no_exploit_no_report`.
+  - Updated the generated summary to include taxonomy counts alongside outcome
+    counts.
+  - Added test coverage in `scripts/tests/test_evidence_ledger.py`.
+  - Updated `docs/validation/EVIDENCE_LEDGER.md`,
+    `docs/strategy/coordination.md`, and `docs/strategy/tasks-codex.md` to
+    reflect the real taxonomy contract and the new derived ledger metadata.
+  - Confirmed the canonical score remains `17/104`; this slice adds
+    interpretation metadata only and does not change score truth.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_evidence_ledger.py`;
+    `python3 scripts/validation/build_evidence_ledger.py --write`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No capability registry, approval flow, deployment flow, `NEXT_TASK.md`, or
+    `TASK_QUEUE.md` was changed; T-CHAIN1 remains active and not live-proven.
+
 - 2026-06-08: Codex status sync after Claude black-box run proof and final taxonomy. [STRATEGY/DATA]
   - Re-read the required Rework 4 lane files after Claude's committed #7
     black-box path fix proof and finalized 1.2/Q3 taxonomy status.
@@ -11,7 +36,7 @@
     end-to-end: dispatch on `f1717a10`, then actual runner execution on
     `4a83edca` after the `engagement_id` fix (#7).
   - Recorded the fixed Q3 taxonomy contract categories as
-    `exploit_proven`, `confirmed`, and `passive_observation`, while keeping
+    `exploit_proven`, `passive_observation`, and `unproven`, while keeping
     them explicitly non-score-moving until live artifacts consume them.
   - Recorded XBEN-001-24 as an infra-crash diagnostic, not a capability
     regression.
@@ -34,7 +59,7 @@
   - Confirmed no XBOW-104 output exists for Codex 2.1 ingestion.
   - Recorded Claude's new Q3 helper as shared contract input only:
     `classify_finding` / `is_reportable` with `exploit_proven`,
-    `confirmed`, and `passive_observation`, not yet wired into live behavior
+    `passive_observation`, and `unproven`, not yet wired into live behavior
     or benchmark output.
   - Updated `docs/strategy/tasks-codex.md` to make explicit that taxonomy code
     alone does not move the canonical ledger.

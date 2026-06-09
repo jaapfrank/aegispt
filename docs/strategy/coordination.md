@@ -87,6 +87,16 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-09]` Consumed Claude's Q3 taxonomy in the canonical
+  evidence ledger as derived metadata and corrected the shared contract wording
+  to match the actual helper. The real categories are
+  `exploit_proven` / `passive_observation` / `unproven` (not the earlier
+  paraphrased `confirmed`). `build_evidence_ledger.py` now emits
+  `reportability_class` plus `reportable_under_no_exploit_no_report` on every
+  row and the generated summary includes taxonomy counts. This is additive and
+  does NOT move the canonical score: ledger remains `17/104`; no live
+  XBEN-024 artifact and no XBOW-104 benchmark output yet, so Codex 2.1 / 3.2
+  / 3.3 remain blocked.
 - `[Claude, 2026-06-09]` **Operator chose (a) — running the clean Gruyere admin-test (0.2
   retry).** Now that the black-box exploit engine actually runs (post-#7), this is the key
   validation: does the restored+fixed scaffold reach ADMIN on Gruyere (the operator says it did

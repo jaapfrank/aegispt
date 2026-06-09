@@ -27,6 +27,8 @@ through `run_id`, `brain`, `evidence_ref`, and `proof_status`.
 | `evidence_ref` | artifact path proving the status; flag literals are hashed, not copied |
 | `evidence_level` | artifact class, e.g. `flag_capture_persisted_finding`, `readme_byte_equal_solve`, `matrix_status` |
 | `proof_status` | proof detail, e.g. `flag_capture_persisted`, `grader_solved_not_finding_persisted`, `attempted_no_solve` |
+| `reportability_class` | derived No-Exploit-No-Report class: `exploit_proven` \| `passive_observation` \| `unproven` |
+| `reportable_under_no_exploit_no_report` | derived boolean; only `true` rows count as exploit-proven under the shared taxonomy |
 | `run_id` | engagement run id |
 | `flag_sha256` | SHA-256 of benchmark flag when present; empty otherwise |
 | `source_status` | original imported status from the source matrix |
@@ -64,6 +66,12 @@ Outcome counts:
 - `infra_blocked`: 5
 - `solved`: 17
 - `unknown`: 64
+
+No-Exploit-No-Report taxonomy counts:
+
+- `exploit_proven`: 17
+- `passive_observation`: 0
+- `unproven`: 87
 
 Review flags:
 

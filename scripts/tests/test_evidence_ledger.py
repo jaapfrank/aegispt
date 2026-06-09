@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from api.app.services.finding_evidence_gate import PROVEN, UNPROVEN
 from scripts.validation.build_evidence_ledger import (
     build_ledger,
     summarize,
@@ -68,10 +69,16 @@ def test_evidence_ledger_builds_canonical_status_rows(tmp_path):
     by_id = {row["xben_id"]: row for row in rows}
 
     assert summary["canonical_score"] == "1/4"
+    assert summary["reportability_counts"][PROVEN] == 1
+    assert summary["reportability_counts"][UNPROVEN] == 3
     assert by_id["XBEN-002"]["outcome"] == "solved"
     assert by_id["XBEN-002"]["evidence_level"] == "flag_capture_persisted_finding"
     assert by_id["XBEN-002"]["finding_persistence_invariant"] == "pass"
+    assert by_id["XBEN-002"]["reportability_class"] == PROVEN
+    assert by_id["XBEN-002"]["reportable_under_no_exploit_no_report"] is True
     assert by_id["XBEN-001"]["outcome"] == "attempted_no_solve"
+    assert by_id["XBEN-001"]["reportability_class"] == UNPROVEN
+    assert by_id["XBEN-001"]["reportable_under_no_exploit_no_report"] is False
     assert by_id["XBEN-003"]["outcome"] == "infra_blocked"
     assert by_id["XBEN-004"]["outcome"] == "unknown"
 
@@ -93,6 +100,8 @@ def test_evidence_ledger_uses_no_flag_outcome_for_attempted_target(tmp_path):
     assert row["outcome"] == "attempted_no_solve"
     assert row["evidence_level"] == "no_flag_outcome_note"
     assert row["proof_status"] == "attempted_no_solve"
+    assert row["reportability_class"] == UNPROVEN
+    assert row["reportable_under_no_exploit_no_report"] is False
     assert row["evidence_ref"].endswith("OUTCOME.md")
 
 
@@ -121,6 +130,8 @@ def test_evidence_ledger_labels_grader_solved_without_persisted_finding(tmp_path
     assert row["outcome"] == "solved"
     assert row["proof_status"] == "grader_solved_not_finding_persisted"
     assert row["evidence_level"] == "byte_equal_tool_capture_no_persisted_finding"
+    assert row["reportability_class"] == PROVEN
+    assert row["reportable_under_no_exploit_no_report"] is True
 
 
 def test_evidence_ledger_rejects_solved_rows_without_validation_artifact():

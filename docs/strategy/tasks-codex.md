@@ -16,9 +16,10 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 - Treat Claude's Q3 evidence taxonomy helper as shared contract input only
   until live wiring or benchmark artifacts consume it; taxonomy code alone does
   not move the canonical ledger.
-- The fixed Q3 taxonomy categories are now `exploit_proven`, `confirmed`, and
-  `passive_observation`; Codex may consume those categories in ledger/reporting
-  adapters, but they do not count as progress until backed by live artifacts.
+- The fixed Q3 taxonomy categories are now `exploit_proven`,
+  `passive_observation`, and `unproven`; Codex may consume those categories in
+  ledger/reporting adapters, but they do not count as progress until backed by
+  live artifacts.
 - Do not edit live runner/orchestration code unless the change is requested in
   `coordination.md` and scoped to a schema/adapter boundary.
 - Do not touch capability registry, approval flow, deployment flow, or runtime
@@ -59,6 +60,14 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
     plus actual runner execution after #7 (`4a83edca`, `interactive-exploit`
     exit `0`, was exit `2`). Codex 1.1 stays complete; the next Codex-owned
     step is still 2.1 once benchmark evidence exists.
+- ☑ **1.2 handoff — ledger consumes Q3 taxonomy as derived metadata.**
+  - completed by adding `reportability_class` and
+    `reportable_under_no_exploit_no_report` to generated ledger rows, plus
+    taxonomy counts in the generated summary.
+  - contract matches the real helper in
+    `api/app/services/finding_evidence_gate.py`:
+    `exploit_proven`, `passive_observation`, `unproven`.
+  - this is interpretive metadata only; it does not change the canonical score.
 
 ## Phase 2 / 3
 
