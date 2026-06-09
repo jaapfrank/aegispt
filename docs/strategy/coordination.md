@@ -87,6 +87,15 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **Local exploit pipeline now FUNCTIONAL end-to-end.** Sliding-window
+  ctx fix (`80a7fe7`) re-run on Gruyere fully-local (`a8829ca3`): interactive-exploit now runs
+  **9 and 11 steps, stop_reason=time_budget** (was 5 steps → ctx-500). So the uncensored local
+  brain: engages the exploit (no refusal), now runs DEEP without the context crash, and stops
+  only because the time budget ran out. No admin/flag yet (the deep multi-step admin chain +
+  time budget remain), but the local-model exploit path is functional. **Net synthesis: the
+  frontier OAuth refuses + is rate-limited; the local uncensored model is the viable exploit
+  brain and the infra (provider config, engagement_id, ctx window) is now fixed.** Next:
+  longer time/step budget on the local run → does it reach admin; + the multi-step admin chain.
 - `[Claude, 2026-06-09]` **MAJOR: provider strategy pivots to the local uncensored model — and
   it WORKS (engages the exploit, no refusal).** Two findings: (1) `chatgpt_oauth` (gpt-5.5) hit
   **usage_limit 429** (43h reset) AND **cyber_policy-REFUSES** offensive exploits (OAuth =

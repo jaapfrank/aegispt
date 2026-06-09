@@ -17,8 +17,12 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   admin chain (register→login→admin-exploit) is NOT completed — the remaining frontier (or an
   8th regression — TBD). Earlier `d1b6d25d` had interactive-exploit 0× (pre-1.1); now it runs.
   Reset is MANUAL (reCAPTCHA, D6). Next diagnostic: did the engine attempt login (transcript)?
-- ⛔ **0.2b — Gruyere local-model comparison** — premature; the gap 0.2 found is the scaffold's
-  black-box dispatch, not the model. Do after 1.1 consumer dispatches the exploit on black-box.
+- ◐ **0.2b — Gruyere local-model (uncensored exploit brain)** — **the real local-model lever,
+  now FUNCTIONAL.** Frontier OAuth is dead for offensive (gpt-5.5 429 + cyber_policy refusal);
+  the local uncensored qwen-gpu **engages the exploit with NO refusal** and (after the
+  `AEGISPT_LOCAL_LLM_URL` + engagement_id + sliding-window-ctx fixes: `aae2519`/`1b0f849`/
+  `80a7fe7`) runs **9–11 steps deep** (run `a8829ca3`, stop=time_budget). No admin yet (time +
+  multi-step chain). NOT train-from-scratch (that was 0/8). Next: longer budget → admin?
 
 ## Phase 1 — the proof-loop (after Phase 0 green)
 
