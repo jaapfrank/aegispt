@@ -55,6 +55,12 @@ SYSTEM = (
     "earlier response. When the goal is reached, read it, then set done=true."
 )
 
+# Local Qwen3 served via llama.cpp emits <think>...</think> reasoning that consumes the token
+# budget before any JSON action is produced (parse fails -> steps=0). Gate a `/no_think` hint
+# (Qwen3 honours it) so the served model emits the action JSON directly. Frontier APIs ignore it.
+if os.environ.get("AEGISPT_RL_NO_THINK", "") == "1":
+    SYSTEM = SYSTEM + " /no_think"
+
 
 def _api_key() -> str:
     if "deepseek" in ENDPOINT:

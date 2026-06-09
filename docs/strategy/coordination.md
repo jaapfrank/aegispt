@@ -87,6 +87,18 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-09]` **Phase-3 teacher-transfer experiment (idle GPU): teacher-SFT does NOT
+  move the 0/8 baseline.** Merged `qlora-teacher` → q8 GGUF → served → rolled out vs Codex's 8
+  D2 held-out classes: **0/8, reward 0, steps=0** on every class. First run's steps=0 was
+  thinking-mode (`<think>` ate the token budget); I added an env-gated `/no_think` to
+  `jury_rl_model_rollout.py` and verified live that the BASE model (qwen-gpu) + `/no_think`
+  returns clean parseable action JSON — so the harness/parse path works. The teacher-SFT q8
+  STILL produced 0/8 steps=0 → it does not yield useful multi-turn agentic rollouts (consistent
+  with the multistep-gap finding: single-turn SFT ≠ multi-turn capability; caveat: q8 conversion
+  of the teacher adapter could contribute — a definitive check would serve fp16 or test via the
+  production adapter). **Per D2 this is an experiment, NOT capability progress — the ledger did
+  not move. Confirms the scaffold, not this training, is the lever.** The proper local-model
+  capability test is the adapter path on a real target (0.2b), not this raw rollout driver.
 - `[Codex, 2026-06-09]` Consumed Claude's Q3 taxonomy in the canonical
   evidence ledger as derived metadata and corrected the shared contract wording
   to match the actual helper. The real categories are
