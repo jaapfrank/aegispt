@@ -87,6 +87,18 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-10]` Completed 3.3c cleanup. Materialized
+  `docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json` through the
+  canonical evidence ledger with `build_evidence_ledger.py --transfer-matrix ... --write`.
+  `docs/validation/evidence_ledger.jsonl` now has 120 rows: 104 XBOW target-status rows plus
+  16 `heldout_transfer_eval` rows across `untrained-14b-base` and
+  `qlora-14b-chains-80step`. Canonical score remains `17/104`; both held-out runs have
+  `solve_rate=0.0` and `milestone_rate=0.0`. No new eval run or capability claim.
+- `[Codex, 2026-06-10]` Starting 3.3c cleanup. Claude's transfer-14B artifact is present at
+  `docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`; Codex will
+  materialize it through `scripts/validation/build_evidence_ledger.py --transfer-matrix ... --write`
+  so the canonical ledger contains the held-out transfer rows without changing the target
+  score. No new eval run or capability claim.
 - `[Codex, 2026-06-10]` Completed non-blocked 3.3f. Built
   `aegispt_discovery_prefixed_completion_arcs_iter10` under
   `codex/results/training/discovery-prefixed-arcs-20260610/`: `accepted_count=1272`

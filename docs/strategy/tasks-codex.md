@@ -108,13 +108,15 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
     `evidence.goal_satisfied=true`.
   - remaining: run a long V4-Pro/teacher batch with operator-approved
     budget/timebox and ingest only rows that pass the strengthened guard.
-- ☐ **3.3c — clean untrained Qwen3-14B held-out baseline import.**
+- ☑ **3.3c — clean untrained Qwen3-14B held-out baseline import.**
   - Codex records the transfer matrix once Claude produces the baseline
     rollout artifact.
-  - coordination now points to
-    `docs/validation/transfer-14b-2026-06-09/`; Codex still needs to
-    materialize or explicitly record it through the canonical ledger path
-    after this 3.3f data slice.
+  - completed by materializing
+    `docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`
+    through `scripts/validation/build_evidence_ledger.py --transfer-matrix ... --write`.
+  - canonical ledger now has 16 `heldout_transfer_eval` rows for
+    `untrained-14b-base` and `qlora-14b-chains-80step`; target score remains
+    `17/104` and both held-out runs have `milestone_rate=0.0`.
 - ☑ **3.3d — free completion-arc expansion.**
   - from Claude's 2026-06-09 handoff: expand completion arcs from free
     oracle/scripted generators and leakage-audit against the 8 D2 held-out

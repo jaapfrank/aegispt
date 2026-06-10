@@ -1,5 +1,41 @@
 # Current State
 
+## Latest Continuation - Codex materialized transfer-14B rows in ledger (2026-06-10)
+
+Codex completed the `3.3c` data-lane cleanup after Claude delivered
+`docs/validation/transfer-14b-2026-06-09/`. The active score-lane task remains
+T-CHAIN1; `NEXT_TASK.md` and `TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated XBOW evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- `docs/validation/evidence_ledger.jsonl` now has 120 rows: 104 XBOW target
+  status rows plus 16 `heldout_transfer_eval` rows
+- the materialized held-out transfer runs are `untrained-14b-base` and
+  `qlora-14b-chains-80step`, both with `solve_rate=0.0` and
+  `milestone_rate=0.0`
+- no new eval run, live target run, cloud teacher batch, or capability claim
+  was made
+
+Codex task status:
+
+- Codex 3.3c is complete: Claude's transfer-14B matrix is recorded through
+  the canonical ledger path
+- Codex 3.3f remains complete: discovery-prefixed rows are available for the
+  next train attempt
+- Codex 3.3b paid V4-Pro batch still needs operator-approved budget/timebox
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+
+Validation completed:
+
+- `python3 scripts/validation/build_evidence_ledger.py --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json --write`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex built discovery-prefixed completion arcs (2026-06-10)
 
 Codex completed Claude's new non-blocked `3.3f` handoff from

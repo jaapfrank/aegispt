@@ -1,5 +1,26 @@
 # Done Log
 
+- 2026-06-10: Codex materialized transfer-14B rows in the canonical ledger. [EVAL/DATA]
+  - Completed Codex `3.3c` after Claude delivered
+    `docs/validation/transfer-14b-2026-06-09/`.
+  - Ran
+    `python3 scripts/validation/build_evidence_ledger.py --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json --write`.
+  - Updated `docs/validation/evidence_ledger.jsonl` and
+    `docs/validation/EVIDENCE_LEDGER.md` through the canonical ledger builder.
+  - Ledger now contains 120 rows: 104 XBOW target-status rows plus 16
+    `heldout_transfer_eval` rows for `untrained-14b-base` and
+    `qlora-14b-chains-80step`.
+  - Canonical score remains `17/104`; both held-out runs have
+    `solve_rate=0.0` and `milestone_rate=0.0`.
+  - Updated `docs/strategy/coordination.md`,
+    `docs/strategy/tasks-codex.md`, and `CURRENT_STATE.md`.
+  - Validation completed:
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No new eval run, live target run, score movement, capability registry
+    change, or runtime flow change was made.
+
 - 2026-06-10: Codex built discovery-prefixed completion arcs. [TRAINING DATA]
   - Completed Claude's non-blocked `3.3f` handoff from
     `docs/strategy/coordination.md`.
