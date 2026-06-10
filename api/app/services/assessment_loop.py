@@ -3785,6 +3785,24 @@ def _claude_select_next_action(
                     "(autonomous loop) after recon run=%s",
                     str(getattr(run, "id", "?"))[:8],
                 )
+                # Seed the autonomous loop with what recon ALREADY discovered (endpoints/paths/
+                # surface vulns) so it tries REAL paths first instead of guessing — directly
+                # addresses the "never reaches the goal path" gap observed on the held-out chains.
+                import re as _re  # noqa: E402
+                _recon_lines: list[str] = []
+                for _f in (getattr(run, "findings", None) or []):
+                    _ti = str(getattr(_f, "title", "") or "")
+                    _ev = str(getattr(_f, "evidence_ref", "") or getattr(_f, "description", "") or "")
+                    _m = _re.search(r"https?://\S+|/[\w\-./?=&%]{2,}", f"{_ti} {_ev}")
+                    _u = _m.group(0) if _m else ""
+                    if _ti:
+                        _recon_lines.append(f"- {_ti}" + (f"  [{_u}]" if _u else ""))
+                _ie_params: dict[str, Any] = {}
+                if _recon_lines:
+                    _ie_params["recon_context"] = (
+                        "RECON FINDINGS so far (probe these endpoints/paths first):\n"
+                        + "\n".join(_recon_lines[:40])
+                    )[:14000]
                 return {
                     "action": "pick",
                     "tool": "interactive-exploit",
@@ -3793,6 +3811,7 @@ def _claude_select_next_action(
                     "confidence": 0.9,
                     "reasoning": "Black-box bootstrap: no source — route to the autonomous "
                     "interactive-exploit loop now that recon mapped the surface.",
+                    "runner_params": _ie_params,
                 }
     # Phase 1 landscape-plan 2026-05-22: when PICKER_MODE=specialists, fan
     # out to 5 OWASP-category specialists in parallel and use the top
