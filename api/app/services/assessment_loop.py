@@ -104,6 +104,31 @@ def _provider_is_local_qwen(provider: Any) -> bool:
     return model in {"local-qwen", "local_qwen"}
 
 
+def _black_box_recon_context(findings: Any, *, max_items: int = 40, cap: int = 14000) -> str:
+    """Build a recon_context for the black-box interactive-exploit dispatch from run findings —
+    the discovered endpoints/paths/surface vulns — so the autonomous loop probes REAL paths
+    first instead of guessing (addresses the 'never reaches the goal path' gap). The discovered
+    URL lives in the finding's description/summary or metadata_json (content-discovery stores
+    target+hit there), NOT evidence_ref — so scan all three. Returns '' when there is nothing to
+    seed. Pure + testable."""
+    import re as _re
+
+    lines: list[str] = []
+    for f in (findings or []):
+        title = str(getattr(f, "title", "") or "")
+        if not title:
+            continue
+        desc = str(getattr(f, "description", "") or getattr(f, "summary", "") or "")
+        meta = str(getattr(f, "metadata_json", "") or "")
+        m = _re.search(r"https?://[^\s\"'\\]+|/[\w\-./?=&%]{2,}", f"{title} {desc} {meta}")
+        url = m.group(0) if m else ""
+        lines.append(f"- {title}" + (f"  [{url}]" if url else ""))
+    if not lines:
+        return ""
+    return ("RECON FINDINGS so far (probe these endpoints/paths first):\n"
+            + "\n".join(lines[:max_items]))[:cap]
+
+
 def _provider_kind(provider: Any) -> str:
     """Canonical provider kind. Single source of truth so dispatch sites can
     assert they handle the active provider."""
@@ -3788,24 +3813,10 @@ def _claude_select_next_action(
                 # Seed the autonomous loop with what recon ALREADY discovered (endpoints/paths/
                 # surface vulns) so it tries REAL paths first instead of guessing — directly
                 # addresses the "never reaches the goal path" gap observed on the held-out chains.
-                import re as _re  # noqa: E402
-                _recon_lines: list[str] = []
-                for _f in (getattr(run, "findings", None) or []):
-                    _ti = str(getattr(_f, "title", "") or "")
-                    # the discovered URL lives in description/summary or metadata_json
-                    # (content-discovery stores target+hit there), not evidence_ref — scan all.
-                    _de = str(getattr(_f, "description", "") or getattr(_f, "summary", "") or "")
-                    _md = str(getattr(_f, "metadata_json", "") or "")
-                    _m = _re.search(r"https?://[^\s\"'\\]+|/[\w\-./?=&%]{2,}", f"{_ti} {_de} {_md}")
-                    _u = _m.group(0) if _m else ""
-                    if _ti:
-                        _recon_lines.append(f"- {_ti}" + (f"  [{_u}]" if _u else ""))
                 _ie_params: dict[str, Any] = {}
-                if _recon_lines:
-                    _ie_params["recon_context"] = (
-                        "RECON FINDINGS so far (probe these endpoints/paths first):\n"
-                        + "\n".join(_recon_lines[:40])
-                    )[:14000]
+                _rc = _black_box_recon_context(getattr(run, "findings", None))
+                if _rc:
+                    _ie_params["recon_context"] = _rc
                 return {
                     "action": "pick",
                     "tool": "interactive-exploit",
