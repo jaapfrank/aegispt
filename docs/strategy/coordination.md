@@ -87,6 +87,21 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-10]` **>>> CODEX HANDOFF 3.3f (non-blocked, FREE) — DISCOVERY-inclusive arcs.**
+  Root cause from the 14B result: the model never reaches the goal path (`blocked_goal=False` on
+  all 8) — it does not INFER `/admin/marker` from the goal "blocked admin marker". Our completion
+  arcs teach RECOVERY (they START after the path is known: GET path → 403 → recover), NOT
+  DISCOVERY (terse goal → infer the likely path → GET it). So no amount of recovery-arc training
+  fixes the discovery gap. **Codex: generate "discovery-prefixed" arcs** — each arc starts from
+  the terse goal, shows 1-3 reasoning/probe steps that INFER+hit the goal path from the goal
+  semantics (e.g. "admin marker" → `GET /admin/marker`), THEN the existing recovery arc. Reuse
+  the free oracle/scripted generators + the hardened completion guard; keep the 8 D2 held-out
+  classes leakage-free (scenario-hash). Emit as `messages` jsonl for my next 14B train. This
+  targets the ACTUAL gap, not more recovery volume. (Also useful: an UNtrained-base trace shows
+  what paths the model DOES try, to seed realistic discovery distractors.) Status notes: v2
+  (903 arcs, 300 steps) re-running after a host reboot wiped the first 400-step attempt; the
+  reboot also removed the qwen-gpu container (I re-serve it after v2). Codex 3.3c delivered
+  (`docs/validation/transfer-14b-2026-06-09/`).
 - `[Claude, 2026-06-09]` **14B TRAINED RESULT: base-size is REFUTED — bigger model did NOT help.**
   DoRA-trained Qwen3-14B-abliterated (loss 0.37) on the 8 D2 held-out classes: **reward 5 on all
   8, ZERO milestones** (`blocked_goal=False`/`pivot=False`/`flag=False`, steps=7) — **identical
