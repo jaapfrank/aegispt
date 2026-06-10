@@ -70,6 +70,7 @@ DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
 DATE_COMPACT_RE = re.compile(r"(20\d{2})(\d{2})(\d{2})")
 RUN_ID_RE = re.compile(r"\brun_id\s*`?([0-9a-f]{8,}-[0-9a-f-]{8,})`?", re.IGNORECASE)
 FLAG_RE = re.compile(r"\bxbow-[0-9a-f]{16,}\b", re.IGNORECASE)
+KNOWN_PROVIDERS = ("chatgpt_oauth", "deepseek-v3", "gemini-3.1-pro", "local_qwen")
 
 
 @dataclass(frozen=True)
@@ -150,6 +151,25 @@ def iter_result_summaries(path: Path) -> list[dict[str, Any]]:
     return []
 
 
+def infer_provider(result: dict[str, Any], path: Path) -> str:
+    provider = str(result.get("provider") or result.get("brain") or "")
+    if provider:
+        return provider
+    if path.name == "run-summary.json":
+        return ""
+    readme = path.parent / "README.md"
+    if not readme.exists():
+        return ""
+    try:
+        text = readme.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+    for candidate in KNOWN_PROVIDERS:
+        if candidate in text:
+            return candidate
+    return ""
+
+
 def flag_hash(flag: str | None) -> str:
     return stable_hash(flag or "") if flag else ""
 
@@ -185,7 +205,7 @@ def scan_run_summary(path: Path) -> list[ArtifactEvidence]:
                 evidence_level=evidence_level,
                 proof_status=proof_status,
                 run_id=str(result.get("run_id") or ""),
-                provider=str(result.get("provider") or ""),
+                provider=infer_provider(result, path),
                 observed_date=artifact_date(path.parent),
                 quality=quality,
                 flag_sha256=flag_hash(flag),
@@ -275,6 +295,9 @@ def scan_validation_artifacts(validation_root: Path) -> dict[str, list[ArtifactE
     for run_summary in validation_root.glob("xbow-*/run-summary.json"):
         for item in scan_run_summary(run_summary):
             by_xben.setdefault(item.xben_id, []).append(item)
+    for baseline_summary in validation_root.glob("xbow-*/xbow-*-baseline.json"):
+        for item in scan_run_summary(baseline_summary):
+            by_xben.setdefault(item.xben_id, []).append(item)
     for readme in validation_root.glob("xbow-*/README.md"):
         for item in scan_readme(readme):
             by_xben.setdefault(item.xben_id, []).append(item)
@@ -301,6 +324,10 @@ def best_artifact(items: list[ArtifactEvidence], solved: bool) -> ArtifactEviden
     ]
 
 
+def is_solved_artifact(item: ArtifactEvidence) -> bool:
+    return item.proof_status != "attempted_no_solve"
+
+
 def path_mentions_xben(path_text: str, xben_id: str, repo_root: Path = REPO_ROOT) -> bool:
     path = repo_root / path_text
     if xben_id.lower() in path_text.lower():
@@ -321,10 +348,20 @@ def row_from_gap(
     xben_id = str(gap_row["xben_id"])
     solve_status = str(gap_row.get("solve_status") or "unknown_untriaged")
     outcome = SOLVE_STATUS_TO_OUTCOME.get(solve_status, "unknown")
+    matrix_outcome = outcome
     if outcome not in ALLOWED_OUTCOMES:
         raise ValueError(f"unsupported outcome for {xben_id}: {outcome}")
 
-    artifact = best_artifact(artifacts.get(xben_id, []), solved=outcome == "solved")
+    artifact_items = artifacts.get(xben_id, [])
+    solved_artifact = best_artifact(
+        [item for item in artifact_items if is_solved_artifact(item)],
+        solved=True,
+    )
+    if solved_artifact:
+        artifact = solved_artifact
+        outcome = "solved"
+    else:
+        artifact = best_artifact(artifact_items, solved=outcome == "solved")
     matrix_evidence_path = str(gap_row.get("solve_evidence_path") or "")
     review_flags: list[str] = []
 
@@ -346,6 +383,11 @@ def row_from_gap(
     )
 
     row_material = f"{xben_id}|{outcome}|{evidence_ref}|{status_source}"
+    source_artifacts = [repo_rel(matrix_path), *gap_row.get("evidence_paths", [])]
+    if artifact and matrix_outcome != "solved":
+        source_artifacts.append(artifact.evidence_ref)
+    source_artifacts = list(dict.fromkeys(source_artifacts))
+
     return {
         "schema_version": "aegispt.evidence-ledger.v1",
         "row_id": stable_hash(row_material)[:24],
@@ -370,7 +412,7 @@ def row_from_gap(
         "flag_found_in": list(artifact.flag_found_in) if artifact else [],
         "finding_persistence_invariant": "pass" if artifact and artifact.invariant_pass else "",
         "status_source": status_source,
-        "source_artifacts": [repo_rel(matrix_path), *gap_row.get("evidence_paths", [])],
+        "source_artifacts": source_artifacts,
         "matrix_solve_evidence_path": matrix_evidence_path,
         "review_flags": review_flags,
         "needs_review": bool(review_flags),

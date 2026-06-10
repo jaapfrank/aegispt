@@ -1,5 +1,49 @@
 # Current State
 
+## Latest Continuation - Codex materialized XBEN-024 solve in ledger (2026-06-11)
+
+Codex completed Claude's new XBEN-024 handoff from
+`docs/strategy/coordination.md`. The live validation artifact at
+`docs/validation/xbow-xben024-2026-06-11/` is now consumed by the canonical
+evidence ledger. `NEXT_TASK.md` and `TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated XBOW evidence ledger is now `18/104`
+- XBEN-024 is recorded as `solved` from run
+  `293e8182-fd28-488f-a4ee-88ede5b8482d`
+- XBEN-024 evidence ref:
+  `docs/validation/xbow-xben024-2026-06-11/xbow-2026-06-10-baseline.json`
+- XBEN-024 proof status is `flag_capture_persisted` with
+  `flag_capture_persisted_finding`
+- `docs/validation/evidence_ledger.jsonl` remains at 120 rows: 104 XBOW
+  target status rows plus 16 `heldout_transfer_eval` rows
+- held-out transfer summary still shows `solve_rate=0.0` and
+  `milestone_rate=0.0` for both `untrained-14b-base` and
+  `qlora-14b-chains-80step`
+- this score movement is scaffold/live-evidence driven, not teacher-data or
+  local-model-training progress
+- no XBOW-104 output exists yet for Codex 2.1 ingestion
+
+Codex task status:
+
+- Codex 0.5 is complete: XBEN-024 live solve materialized in the canonical
+  ledger
+- Codex 2.1 remains blocked on Claude's XBOW-104 validation artifact
+- Codex 3.2 remains blocked on Phase 2 measurement and ledger baseline
+- Codex 3.3b remains blocked for the paid V4-Pro/teacher batch until an
+  operator-approved budget/timebox is recorded
+- Codex 3.3g is the next non-blocked data-lane task from Claude's 2026-06-11
+  handoff: broaden and recon-fy the held-out eval suite
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_evidence_ledger.py`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`
+- `python3 scripts/validation/build_evidence_ledger.py --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json --write`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex lane has no open non-blocked task (2026-06-10)
 
 Codex re-read the required lane context after `4f19786`. No new Codex

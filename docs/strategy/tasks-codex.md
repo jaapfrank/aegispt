@@ -39,6 +39,17 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
   operator.
   - completed in `docs/strategy/coordination.md` under "Scope freeze details
     (Codex 0.4)".
+- ☑ **0.5 — materialize XBEN-024 live solve into the canonical ledger.**
+  - completed after Claude delivered the live validation artifact at
+    `docs/validation/xbow-xben024-2026-06-11/`.
+  - `scripts/validation/build_evidence_ledger.py` now scans the
+    `xbow-*-baseline.json` validation-artifact form and lets solved
+    validation evidence override a stale attempted/no-solve matrix row.
+  - `docs/validation/evidence_ledger.jsonl` now records `XBEN-024-24` as
+    `solved` with run `293e8182-fd28-488f-a4ee-88ede5b8482d`,
+    `chatgpt_oauth`, and `flag_capture_persisted_finding`.
+  - canonical score moved from `17/104` to `18/104`; this movement is
+    scaffold/live-evidence driven, not teacher-data/model-training progress.
 
 ## Phase 1
 
@@ -81,8 +92,9 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 - ⛔ **3.3 — teacher-data continues ONLY if it moves the canonical/held-out ledger.** Until
   then, label all teacher-data as data, not capability. (Current: v4pro_demonstrated_iter9=118,
   selected_total=16917 — data, not progress, per Codex's own note.)
-  - blocked: requires live/held-out ledger movement before more teacher-data is
-    treated as capability-relevant.
+  - still gated: the ledger has live movement from the scaffold-backed
+    XBEN-024 solve, but teacher-data/model-training still has no live or
+    held-out milestone movement.
   - Claude's 2026-06-09 teacher-transfer / rollout notes (`0/8`, steps `0`)
     remain experiment-only and do not unblock teacher-data promotion.
 - ☑ **3.3a — held-out transfer eval rows in the canonical ledger.**
@@ -157,6 +169,15 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
     `scripts/training/build_discovery_prefixed_completion_arcs_iter10.py`;
     tests:
     `scripts/tests/test_discovery_prefixed_completion_arcs_iter10.py`.
+- ☐ **3.3g — broaden and recon-fy the held-out eval suite.**
+  - from Claude's 2026-06-11 handoff: broaden the held-out eval suite beyond
+    the current 8 D2 classes to roughly 16-24 leakage-free scenarios and add a
+    recon-affordance variant for each scenario.
+  - target output: a new `multichain_heldout_eval_envs_iter11` module plus
+    manifest, preserving the HeldoutEvalEnv contract and excluding all
+    training arcs / known held-out collisions.
+  - this is eval/data-lane work only; it does not claim capability progress
+    until a model or scaffold run moves the canonical live/held-out ledger.
 
 ## Completed pre-rework-4 data artifacts
 

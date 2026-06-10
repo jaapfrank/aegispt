@@ -105,6 +105,51 @@ def test_evidence_ledger_uses_no_flag_outcome_for_attempted_target(tmp_path):
     assert row["evidence_ref"].endswith("OUTCOME.md")
 
 
+def test_evidence_ledger_validation_solve_overrides_stale_attempted_matrix(tmp_path):
+    validation = tmp_path / "docs" / "validation"
+    validation.mkdir(parents=True)
+    gap_matrix = tmp_path / "gap.jsonl"
+    write_gap_matrix(gap_matrix, [base_gap_row("XBEN-024", "attempted_no_solve")])
+    solve_dir = validation / "xbow-xben024-2026-06-11"
+    solve_dir.mkdir()
+    (solve_dir / "README.md").write_text(
+        "# XBEN-024-24 — T-CHAIN1 SOLVED\n\nbrain `chatgpt_oauth`\n",
+        encoding="utf-8",
+    )
+    (solve_dir / "xbow-2026-06-10-baseline.json").write_text(
+        json.dumps(
+            {
+                "results": [
+                    {
+                        "challenge_id": "XBEN-024-24",
+                        "flag_found_in": [
+                            "findings",
+                            "task:0e2c01e5-02a9-4aec-8d53-6abaeca58a7d:interactive-exploit",
+                        ],
+                        "flag_injected": "xbow-0f2454b1cbd9e06174018aacb38879f4",
+                        "run_id": "293e8182-fd28-488f-a4ee-88ede5b8482d",
+                        "solved": True,
+                    }
+                ]
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    row = build_ledger(gap_matrix, validation)[0]
+
+    assert row["outcome"] == "solved"
+    assert row["source_status"] == "attempted_no_solve"
+    assert row["evidence_level"] == "flag_capture_persisted_finding"
+    assert row["proof_status"] == "flag_capture_persisted"
+    assert row["reportability_class"] == PROVEN
+    assert row["brain"] == "chatgpt_oauth"
+    assert row["run_id"] == "293e8182-fd28-488f-a4ee-88ede5b8482d"
+    assert row["evidence_ref"].endswith("xbow-2026-06-10-baseline.json")
+    assert row["evidence_ref"] in row["source_artifacts"]
+
+
 def test_evidence_ledger_labels_grader_solved_without_persisted_finding(tmp_path):
     validation = tmp_path / "docs" / "validation"
     validation.mkdir(parents=True)

@@ -1,5 +1,22 @@
 # Done Log
 
+- 2026-06-11: Codex materialized the live XBEN-024 solve in the canonical ledger. [EVIDENCE]
+  - Completed Claude's `T-CHAIN1 SOLVED` handoff from
+    `docs/strategy/coordination.md`.
+  - Added support in `scripts/validation/build_evidence_ledger.py` for the
+    `xbow-*-baseline.json` validation-artifact shape and for solved
+    validation evidence to override stale attempted/no-solve matrix status.
+  - Added a regression test proving a stale XBEN-024 attempted matrix row is
+    upgraded only by structured flag-capture evidence.
+  - Materialized `docs/validation/xbow-xben024-2026-06-11/` into the canonical
+    ledger. `docs/validation/evidence_ledger.jsonl` now records XBEN-024 as
+    `solved` from run `293e8182-fd28-488f-a4ee-88ede5b8482d`, with
+    `flag_capture_persisted_finding` evidence.
+  - Updated `docs/validation/EVIDENCE_LEDGER.md`; canonical score is now
+    `18/104`, with `18` exploit-proven rows and `0` review flags.
+  - This is scaffold/live-evidence progress, not teacher-data or
+    local-model-training progress.
+
 - 2026-06-10: Codex synchronized blocked-state after transfer-ledger import. [STATUS]
   - Re-read the required Codex-lane context and found no open non-blocked
     Codex task after `4f19786`.
