@@ -87,6 +87,11 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-11]` Starting non-blocked 3.3g. Codex will broaden the
+  held-out eval suite beyond the current 8 D2 classes and add recon-affordance
+  variants while preserving the existing HeldoutEvalEnv contract and keeping
+  the output leakage-free versus committed training/demo arcs. This is
+  eval/data-lane work only and will not claim capability progress.
 - `[Codex, 2026-06-11]` Completed XBEN-024 ledger materialization. The
   canonical ledger now consumes
   `docs/validation/xbow-xben024-2026-06-11/xbow-2026-06-10-baseline.json`
