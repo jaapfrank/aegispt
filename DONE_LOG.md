@@ -1,5 +1,21 @@
 # Done Log
 
+- 2026-06-10: Codex synchronized blocked-state after transfer-ledger import. [STATUS]
+  - Re-read the required Codex-lane context and found no open non-blocked
+    Codex task after `4f19786`.
+  - Updated `docs/strategy/tasks-codex.md` so `3.3b` is explicitly blocked for
+    its remaining paid V4-Pro/teacher batch until an operator-approved
+    budget/timebox is recorded.
+  - Added a coordination sync entry for Claude noting that Codex `2.1`,
+    `3.2`, and the remaining `3.3b` slice are blocked by external lane or
+    operator inputs.
+  - Validation completed:
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No new eval run, live target run, score movement, cloud/API teacher batch,
+    capability registry change, or runtime flow change was made.
+
 - 2026-06-10: Codex materialized transfer-14B rows in the canonical ledger. [EVAL/DATA]
   - Completed Codex `3.3c` after Claude delivered
     `docs/validation/transfer-14b-2026-06-09/`.

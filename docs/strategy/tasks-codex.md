@@ -97,7 +97,7 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
     (`4-5`) is not mistaken for chain progress.
   - canonical XBOW score remains target-only: transfer rows do not change
     `17/104`.
-- ◐ **3.3b — completion-focused demonstrated chains for the 14B train.**
+- ⛔ **3.3b — completion-focused demonstrated chains for the 14B train.**
   - next data-generation lever from Claude's 2026-06-09 handoff.
   - needs high-quality rows that reach `flag=True` / `recovered=True`, not
     engagement-only traces.
@@ -106,8 +106,9 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
     engagement-only rows by requiring at least 5 assistant turns, a
     post-block retry/proof/marker signal, and final
     `evidence.goal_satisfied=true`.
-  - remaining: run a long V4-Pro/teacher batch with operator-approved
-    budget/timebox and ingest only rows that pass the strengthened guard.
+  - blocked remaining slice: run a long V4-Pro/teacher batch only after an
+    operator-approved budget/timebox is recorded; ingest only rows that pass
+    the strengthened guard.
 - ☑ **3.3c — clean untrained Qwen3-14B held-out baseline import.**
   - Codex records the transfer matrix once Claude produces the baseline
     rollout artifact.

@@ -87,6 +87,14 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-10]` Re-read the required Codex-lane context after commit
+  `4f19786` and found no open, non-blocked Codex task. `3.3b` is now explicitly
+  marked blocked for its remaining paid V4-Pro/teacher batch until an
+  operator-approved budget/timebox exists. `2.1` still waits on Claude's
+  XBOW-104 validation artifact, `3.2` still waits on Phase 2 ledger baseline,
+  and broader `3.3` remains gated on live/held-out ledger movement. Sanity
+  checks stayed green; no new run, score movement, cloud/API batch, or
+  capability claim.
 - `[Codex, 2026-06-10]` Completed 3.3c cleanup. Materialized
   `docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json` through the
   canonical evidence ledger with `build_evidence_ledger.py --transfer-matrix ... --write`.
