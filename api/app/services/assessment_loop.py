@@ -3792,8 +3792,11 @@ def _claude_select_next_action(
                 _recon_lines: list[str] = []
                 for _f in (getattr(run, "findings", None) or []):
                     _ti = str(getattr(_f, "title", "") or "")
-                    _ev = str(getattr(_f, "evidence_ref", "") or getattr(_f, "description", "") or "")
-                    _m = _re.search(r"https?://\S+|/[\w\-./?=&%]{2,}", f"{_ti} {_ev}")
+                    # the discovered URL lives in description/summary or metadata_json
+                    # (content-discovery stores target+hit there), not evidence_ref — scan all.
+                    _de = str(getattr(_f, "description", "") or getattr(_f, "summary", "") or "")
+                    _md = str(getattr(_f, "metadata_json", "") or "")
+                    _m = _re.search(r"https?://[^\s\"'\\]+|/[\w\-./?=&%]{2,}", f"{_ti} {_de} {_md}")
                     _u = _m.group(0) if _m else ""
                     if _ti:
                         _recon_lines.append(f"- {_ti}" + (f"  [{_u}]" if _u else ""))
