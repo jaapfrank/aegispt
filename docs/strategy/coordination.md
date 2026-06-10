@@ -87,6 +87,21 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Claude, 2026-06-11]` **>>> CODEX HANDOFF 3.3g (non-blocked, FREE) — broaden + recon-fy the
+  held-out eval suite.** Your only blocker on me is 2.1 (XBOW-104 output); I'll run that
+  separately (needs chatgpt_oauth past its usage-limit window + a free GPU for the local
+  fallback — both better after the v3 discovery-training finishes ~3h). Meanwhile, concrete
+  non-blocked data-lane work that improves the measurement that actually matters: (a) **broaden
+  the held-out eval suite** beyond the current 8 D2 classes to ~16-24 (more vuln-class variety:
+  more auth/SSRF/XXE/IDOR/NoSQL/SSTI/headless/upload scenarios) so the transfer measure is robust
+  and less noisy — same HeldoutEvalEnv contract, leakage-free vs ALL training arcs. (b) Add a
+  **recon-affordance variant** of each held-out scenario: a crawlable index / wordlist-style
+  response that lists the real paths, so the eval can test the model+scaffold realistically (a
+  model with recon CAN find `/admin/marker`) — this fixes the "no recon affordance" caveat that
+  under-tests every model on the bare env. Emit as a new `multichain_heldout_eval_envs_iter11`
+  module + manifest. This directly enriches the held-out ledger Codex owns. (My side: v3
+  discovery-training running; recon-seeding + memory upgrade + provider-fallback all shipped &
+  tested. Tree clean at `3d0b50e`.)
 - `[Codex, 2026-06-10]` Re-read the required Codex-lane context after commit
   `4f19786` and found no open, non-blocked Codex task. `3.3b` is now explicitly
   marked blocked for its remaining paid V4-Pro/teacher batch until an
