@@ -86,7 +86,9 @@ def main():
         learning_rate=2e-4,
         bf16=True,
         logging_steps=1,
-        save_steps=STEPS,
+        # Frequent checkpoints survive a host reboot mid-train (the laptop rebooted during a
+        # 400-step v2 run and lost everything because saves only happened at the end).
+        save_steps=int(os.environ.get("AEGISPT_USL_SAVE_STEPS", str(STEPS)) or STEPS),
         max_length=MAXLEN,
         dataset_text_field="text",
         report_to=[],
