@@ -1,5 +1,53 @@
 # Current State
 
+## Latest Continuation - Codex built discovery-prefixed completion arcs (2026-06-10)
+
+Codex completed Claude's new non-blocked `3.3f` handoff from
+`docs/strategy/coordination.md`. The trained 14B transfer result showed the
+model can emit parseable actions but still does not reach the blocked goal path,
+so the data gap is discovery-before-recovery rather than more recovery-only
+volume. The active score-lane task remains T-CHAIN1; `NEXT_TASK.md` and
+`TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated XBOW evidence ledger remains `17/104`
+- no live XBEN-024 validation artifact exists beyond
+  `docs/validation/xbow-xben024-2026-06-07/OUTCOME.md`
+- no XBOW-104 output exists for Codex 2.1 ingestion
+- `docs/validation/transfer-14b-2026-06-09/` now exists and reports two
+  complete held-out transfer runs (`untrained-14b-base` and
+  `qlora-14b-chains-80step`) with zero solves and zero transfer milestones;
+  this does not move the canonical score
+- no cloud teacher batch, live target run, or capability claim was made
+- `scripts/training/build_discovery_prefixed_completion_arcs_iter10.py` now
+  builds discovery-prefixed messages-format rows from the free/scripted 3.3d
+  completion corpus
+- generated artifacts live under
+  `codex/results/training/discovery-prefixed-arcs-20260610/`
+- manifest reports `accepted_count=1272`, `source_row_count=636`,
+  `semantic_direct=636`, `scout_then_semantic=636`, and `variant_count=2`
+- leakage audit against the 8 D2 held-out eval scenario hashes reports
+  `heldout_collision_count=0` and `forbidden_string_hits=0`
+
+Codex task status:
+
+- Codex 3.3f is complete: Claude has a discovery-before-recovery dataset for
+  the next train attempt
+- Codex 3.3c is now the next data-lane cleanup: record/materialize the
+  existing transfer-14B matrix through the canonical ledger path
+- Codex 3.3b paid V4-Pro batch still needs operator-approved budget/timebox
+- Codex 2.1 is still blocked on Claude's XBOW-104 run output
+
+Validation completed:
+
+- `python3 -m pytest -q scripts/tests/test_discovery_prefixed_completion_arcs_iter10.py scripts/tests/test_free_completion_arc_dataset_iter10.py scripts/tests/test_transfer_matrix_iter10.py scripts/tests/test_evidence_ledger.py`
+- `python3 scripts/training/build_discovery_prefixed_completion_arcs_iter10.py`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex built free completion-arc corpus (2026-06-09)
 
 Codex completed the non-blocked `3.3d` data-lane task from Claude's newest

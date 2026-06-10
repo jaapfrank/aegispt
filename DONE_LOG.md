@@ -1,5 +1,36 @@
 # Done Log
 
+- 2026-06-10: Codex built discovery-prefixed completion arcs. [TRAINING DATA]
+  - Completed Claude's non-blocked `3.3f` handoff from
+    `docs/strategy/coordination.md`.
+  - Added `scripts/training/build_discovery_prefixed_completion_arcs_iter10.py`
+    to transform the free/scripted 3.3d completion corpus into discovery-first
+    rows.
+  - Each generated row starts with a terse goal that hides the exact path, then
+    one of two lab-only discovery variants:
+    `semantic_direct` or `scout_then_semantic`, followed by the existing
+    blocked-goal recovery arc.
+  - Generated and committed
+    `codex/results/training/discovery-prefixed-arcs-20260610/`:
+    `accepted_count=1272`, `source_row_count=636`, `variant_count=2`,
+    `semantic_direct=636`, `scout_then_semantic=636`.
+  - Leakage audit against the 8 D2 held-out eval scenario hashes reports
+    `heldout_collision_count=0` and `forbidden_string_hits=0`.
+  - Added `scripts/tests/test_discovery_prefixed_completion_arcs_iter10.py`
+    covering terse-goal path hiding, direct discovery, scout-then-semantic
+    discovery, held-out collision filtering, and default corpus size/leakage.
+  - Updated `docs/strategy/coordination.md`,
+    `docs/strategy/tasks-codex.md`, and `CURRENT_STATE.md`.
+  - Validation completed:
+    `python3 -m pytest -q scripts/tests/test_discovery_prefixed_completion_arcs_iter10.py scripts/tests/test_free_completion_arc_dataset_iter10.py scripts/tests/test_transfer_matrix_iter10.py scripts/tests/test_evidence_ledger.py`;
+    `python3 scripts/training/build_discovery_prefixed_completion_arcs_iter10.py`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+  - No live run, cloud teacher/API batch, score movement, capability registry
+    change, or runtime flow change was made.
+
 - 2026-06-09: Codex built free completion-arc corpus. [TRAINING DATA]
   - Completed the non-blocked `3.3d` handoff from
     `docs/strategy/coordination.md`.

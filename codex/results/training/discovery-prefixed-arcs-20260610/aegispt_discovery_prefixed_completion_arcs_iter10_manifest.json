@@ -1,0 +1,57 @@
+{
+  "dataset": "aegispt_discovery_prefixed_completion_arcs_iter10",
+  "files": {
+    "manifest": "codex/results/training/discovery-prefixed-arcs-20260610/aegispt_discovery_prefixed_completion_arcs_iter10_manifest.json",
+    "scenario_registry": "codex/results/training/discovery-prefixed-arcs-20260610/aegispt_discovery_prefixed_completion_arcs_iter10_scenario_registry.jsonl",
+    "summary": "codex/results/training/discovery-prefixed-arcs-20260610/aegispt_discovery_prefixed_completion_arcs_iter10_summary.md",
+    "train": "codex/results/training/discovery-prefixed-arcs-20260610/aegispt_discovery_prefixed_completion_arcs_iter10_train.jsonl"
+  },
+  "leakage_audit": {
+    "forbidden_string_hits": 0,
+    "heldout_collision_count": 0,
+    "heldout_hash_count": 8,
+    "skipped": {}
+  },
+  "policy": {
+    "data_lane_only": true,
+    "discovery_prefixed_required": true,
+    "free_oracle_or_scripted_sources_only": true,
+    "held_out_eval_not_used_for_training": true,
+    "lab_only": true,
+    "no_cloud_teacher_batch": true,
+    "no_runtime_execution": true,
+    "terse_goal_hides_exact_path": true
+  },
+  "sources": {
+    "heldout_manifest": "codex/results/training/multichain-heldout-eval-envs-20260607/aegispt_multichain_heldout_eval_envs_iter10_manifest.json",
+    "source_train": "codex/results/training/free-completion-arcs-20260609/aegispt_free_completion_arcs_iter10_train.jsonl"
+  },
+  "stats": {
+    "accepted_count": 1272,
+    "by_chain_class": {
+      "blind_command_injection_filter_bypass": 144,
+      "command_injection": 144,
+      "eval_rce_provider_refusal": 72,
+      "file_upload_webroot": 72,
+      "headless_xss_ssrf": 288,
+      "java_jsp_other_stack": 72,
+      "path_traversal_file_read": 72,
+      "php_cms_framework_cve": 72,
+      "sqli_filter_bypass": 72,
+      "static_file_or_server_misconfig": 72,
+      "unknown": 48,
+      "unknown_nonweb_or_other_stack": 72,
+      "unsafe_deserialization": 72
+    },
+    "by_discovery_variant": {
+      "scout_then_semantic": 636,
+      "semantic_direct": 636
+    },
+    "by_source_kind": {
+      "scripted_oracle_rollout": 184,
+      "scripted_teacher_demo": 1088
+    },
+    "source_row_count": 636,
+    "variant_count": 2
+  }
+}

@@ -87,6 +87,21 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-10]` Completed non-blocked 3.3f. Built
+  `aegispt_discovery_prefixed_completion_arcs_iter10` under
+  `codex/results/training/discovery-prefixed-arcs-20260610/`: `accepted_count=1272`
+  messages-format rows from the 636 free/scripted 3.3d completion rows, with two discovery
+  variants (`semantic_direct=636`, `scout_then_semantic=636`). Each row starts with a terse
+  goal that hides the exact path, then an assistant action that infers/hits the goal path before
+  continuing into the blocked-goal recovery arc. Leakage audit against the 8 D2 held-out eval
+  hashes reports `heldout_collision_count=0` and `forbidden_string_hits=0`. No live run, no
+  cloud teacher/API batch, no D2 eval rows in training, and no capability claim.
+- `[Codex, 2026-06-10]` Starting non-blocked 3.3f from Claude's handoff. Codex will build a
+  discovery-prefixed completion-arc dataset from the existing free/scripted 3.3d corpus: terse
+  goal first, one or two lab-only discovery/probe actions that infer and hit the goal path, then
+  the existing blocked-goal recovery arc. This remains data-lane only: no live run, no cloud
+  teacher/API batch, no D2 held-out eval rows, and no capability claim unless the canonical
+  held-out/live ledger later moves.
 - `[Claude, 2026-06-10]` **>>> CODEX HANDOFF 3.3f (non-blocked, FREE) — DISCOVERY-inclusive arcs.**
   Root cause from the 14B result: the model never reaches the goal path (`blocked_goal=False` on
   all 8) — it does not INFER `/admin/marker` from the goal "blocked admin marker". Our completion

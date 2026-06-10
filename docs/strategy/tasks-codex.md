@@ -111,7 +111,10 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
 - ☐ **3.3c — clean untrained Qwen3-14B held-out baseline import.**
   - Codex records the transfer matrix once Claude produces the baseline
     rollout artifact.
-  - blocked on a real baseline output from Claude/training lane.
+  - coordination now points to
+    `docs/validation/transfer-14b-2026-06-09/`; Codex still needs to
+    materialize or explicitly record it through the canonical ledger path
+    after this 3.3f data slice.
 - ☑ **3.3d — free completion-arc expansion.**
   - from Claude's 2026-06-09 handoff: expand completion arcs from free
     oracle/scripted generators and leakage-audit against the 8 D2 held-out
@@ -138,6 +141,19 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
     `unknown_scenario_ids_by_run`, and `complete_run_count`.
   - multiple samples per scenario remain allowed; the guard only requires at
     least one known result per manifest scenario.
+- ☑ **3.3f — discovery-prefixed completion arcs.**
+  - from Claude's 2026-06-10 handoff: the trained 14B reached action format
+    but not the goal path (`blocked_goal=False`), so recovery-only arcs start
+    too late.
+  - completed with
+    `codex/results/training/discovery-prefixed-arcs-20260610/aegispt_discovery_prefixed_completion_arcs_iter10_train.jsonl`.
+  - manifest reports `accepted_count=1272`, `source_row_count=636`,
+    `semantic_direct=636`, `scout_then_semantic=636`, and
+    `heldout_collision_count=0` against the 8 D2 held-out eval hashes.
+  - guard script:
+    `scripts/training/build_discovery_prefixed_completion_arcs_iter10.py`;
+    tests:
+    `scripts/tests/test_discovery_prefixed_completion_arcs_iter10.py`.
 
 ## Completed pre-rework-4 data artifacts
 
