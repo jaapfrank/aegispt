@@ -8,6 +8,7 @@ evidence ledger — never a running diary.*
 ## The number that matters
 
 Canonical score lives ONLY in the evidence ledger — never re-typed elsewhere:
+
 - [`docs/validation/evidence_ledger.jsonl`](docs/validation/evidence_ledger.jsonl) (generated)
 - [`docs/validation/EVIDENCE_LEDGER.md`](docs/validation/EVIDENCE_LEDGER.md) (schema + rule)
 
@@ -46,6 +47,13 @@ cookies/auth carried across the loop), coverage/coordinator, and the callback/vi
   holds ONE persistent cookie jar (`_HttpScopeSession`) so a login/session is auto-carried
   across calls — the `register→login→admin` chain prerequisite. 4/4 unit tests
   (`workers/tests/test_interactive_exploit_session_state.py`).
+- **"Keep going" verification DONE (unit)** (commit `b8309d4`): the exploit loop no longer
+  accepts a premature "done" — if the agent stops with no flag and budget remains it re-seeds
+  to push for the next step (bounded by `_MAX_DONE_NUDGES=3`); the cookie jar survives the
+  re-seed so it stays authenticated. Addresses the done-too-early chain failure. 2/2 unit
+  tests (`workers/tests/test_interactive_exploit_keepgoing.py`).
+- All three are **loaded in the running `aegispt-api.service`** (verified by source
+  inspection on the live venv).
 
 ## Live blockers / open
 
