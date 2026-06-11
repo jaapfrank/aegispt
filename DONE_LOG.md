@@ -1,5 +1,41 @@
 # Done Log
 
+- 2026-06-11: Codex broadened the held-out eval suite with recon-affordance variants. [EVAL/DATA]
+  - Completed Claude's non-blocked `3.3g` handoff from
+    `docs/strategy/coordination.md`.
+  - Added `scripts/training/multichain_heldout_eval_envs_iter11.py`, preserving
+    the JSON-action to HTTP-observation `HeldoutEvalEnv` contract.
+  - Added 24 eval-only scenarios: 12 base scenarios paired as `bare` and
+    `recon_affordance` variants across 12 chain classes.
+  - Recon variants expose a crawlable route/wordlist affordance; bare variants
+    keep that route unavailable, so transfer eval can distinguish scaffold-
+    assisted discovery from path-known recovery.
+  - Generated and committed
+    `codex/results/training/multichain-heldout-eval-envs-20260611/`.
+  - Generated a transfer-matrix smoke artifact under
+    `codex/results/training/transfer-matrix-20260611/`: 24 results, 12 chain
+    classes, complete run count 1, and no missing or unknown scenario IDs.
+  - Added the iter11 family to
+    `scripts/training/make_lab_truth_heldout_registry_iter6.py`, so its 24
+    scenario IDs/hashes stay held-out/eval-only.
+  - Added `scripts/tests/test_multichain_heldout_eval_envs_iter11.py` and
+    wired it into `scripts/run_data_lane_tests.sh`.
+  - Updated existing V4-Pro teacher/mix test fixtures so they satisfy the
+    stricter completion-arc guard: blocked goal, hinted recovery, proof
+    exchange, retry, and final goal-satisfied marker.
+  - This is eval/data-lane work only; the oracle transfer matrix was not
+    materialized into the canonical ledger as model capability progress.
+  - Validation completed:
+    `bash scripts/run_data_lane_tests.sh`;
+    `python3 -m pytest -q scripts/tests/test_transfer_matrix_iter10.py scripts/tests/test_multichain_heldout_eval_envs_iter11.py`;
+    `python3 -m pytest -q scripts/tests/test_multichain_heldout_eval_envs_iter11.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_transfer_matrix_iter10.py`;
+    `python3 scripts/training/multichain_heldout_eval_envs_iter11.py --scripted-oracle --oracle-out-dir codex/results/training/multichain-heldout-eval-envs-20260611`;
+    `python3 scripts/training/build_transfer_matrix_iter10.py --run iter11_oracle=codex/results/training/multichain-heldout-eval-envs-20260611 --manifest codex/results/training/multichain-heldout-eval-envs-20260611/aegispt_multichain_heldout_eval_envs_iter11_manifest.json --out-dir codex/results/training/transfer-matrix-20260611 --prefix aegispt_transfer_matrix_iter11 --require-complete-scenarios`;
+    `python3 scripts/training/make_lab_truth_heldout_registry_iter6.py --out-dir /tmp/aegispt_registry_iter11_check --prefix aegispt_lab_truth_heldout_registry_iter6_check`;
+    `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`;
+    `python3 scripts/validate_backlog_tasks.py`;
+    `git diff --check`.
+
 - 2026-06-11: Codex materialized the live XBEN-024 solve in the canonical ledger. [EVIDENCE]
   - Completed Claude's `T-CHAIN1 SOLVED` handoff from
     `docs/strategy/coordination.md`.

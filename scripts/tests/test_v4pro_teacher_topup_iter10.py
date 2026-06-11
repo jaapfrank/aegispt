@@ -49,48 +49,74 @@ def teacher_row_for_messages(messages):
             ),
         }
 
-    return {
-        "messages": [
-            {"role": "system", "content": "fictional lab"},
-            {"role": "user", "content": user["objective"]},
-            assistant(
-                False,
-                {
-                    "args": {"method": "GET", "url": user["host"] + "/goal"},
-                    "purpose": "premature goal attempt",
-                    "tool": "lab_http_request",
-                },
-                "Attempt the goal first to observe the boundary.",
-                {},
-            ),
+    messages = [
+        {"role": "system", "content": "fictional lab"},
+        {"role": "user", "content": user["objective"]},
+        assistant(
+            False,
             {
-                "role": "user",
-                "content": "TOOL OBSERVATION: HTTP 403 blocked; hint says recover through a token resource",
+                "args": {"method": "GET", "url": user["host"] + "/goal"},
+                "purpose": "premature goal attempt",
+                "tool": "lab_http_request",
             },
-            assistant(
-                False,
-                {
-                    "args": {"method": "GET", "url": user["host"] + "/token-resource"},
-                    "purpose": "recover from blocked goal",
-                    "tool": "lab_http_request",
-                },
-                "Backtrack to the hinted token resource.",
-                {"blocked_goal": True},
-                ["obs-blocked"],
-            ),
-            {"role": "user", "content": "TOOL OBSERVATION: scoped recovery token observed"},
-            assistant(
-                True,
-                {
-                    "args": {},
-                    "purpose": "goal complete",
-                    "tool": "none",
-                },
-                "Use the revealed token to retry the goal successfully.",
-                {"used_revealed_token": True},
-                ["obs-blocked", "obs-token", "obs-final"],
-            ),
-        ],
+            "Attempt the goal first to observe the boundary.",
+            {},
+        ),
+        {
+            "role": "user",
+            "content": "TOOL OBSERVATION: HTTP 403 blocked; hint says recover through a token resource",
+        },
+        assistant(
+            False,
+            {
+                "args": {"method": "GET", "url": user["host"] + "/token-resource"},
+                "purpose": "recover from blocked goal",
+                "tool": "lab_http_request",
+            },
+            "Backtrack to the hinted token resource.",
+            {"blocked_goal": True},
+            ["obs-blocked"],
+        ),
+        {"role": "user", "content": "TOOL OBSERVATION: scoped recovery token observed"},
+        assistant(
+            False,
+            {
+                "args": {"body": "token=observed", "method": "POST", "url": user["host"] + "/proof"},
+                "purpose": "exchange recovered token",
+                "tool": "lab_http_request",
+            },
+            "Exchange the recovered token for a proof.",
+            {"blocked_goal": True, "used_revealed_token": True},
+            ["obs-blocked", "obs-token"],
+        ),
+        {"role": "user", "content": "TOOL OBSERVATION: proof token issued"},
+        assistant(
+            False,
+            {
+                "args": {"headers": {"X-Proof": "issued"}, "method": "GET", "url": user["host"] + "/goal"},
+                "purpose": "retry blocked goal",
+                "tool": "lab_http_request",
+            },
+            "Retry the blocked goal with the proof.",
+            {"blocked_goal": True, "proof": "issued", "used_revealed_token": True},
+            ["obs-proof"],
+        ),
+        {"role": "user", "content": "TOOL OBSERVATION: goal marker returned successfully"},
+        assistant(
+            True,
+            {
+                "args": {},
+                "purpose": "goal complete",
+                "tool": "none",
+            },
+            "Use the revealed token to retry the goal successfully.",
+            {"proof": "issued", "used_revealed_token": True},
+            ["obs-blocked", "obs-token", "obs-proof", "obs-final"],
+        ),
+    ]
+
+    return {
+        "messages": messages,
         "metadata": user["required_metadata"],
     }
 

@@ -47,7 +47,7 @@ def v4_row(case_id, *, blocked=True):
     final_state = {"token_reused": True} if blocked else {"direct_marker": True}
     evidence_refs = ["obs-403"] if blocked else ["obs-start"]
     second_observation = "TOOL OBSERVATION: token=CASE-TOKEN" if blocked else "TOOL OBSERVATION: direct marker already present"
-    return {
+    row = {
         "messages": [
             {"role": "system", "content": "synthetic lab"},
             {"role": "user", "content": "recover marker"},
@@ -105,6 +105,48 @@ def v4_row(case_id, *, blocked=True):
             "teacher_model": "deepseek-v4-pro",
         },
     }
+    if not blocked:
+        return row
+    row["messages"] = row["messages"][:-1] + [
+        {
+            "role": "assistant",
+            "content": json.dumps(
+                {
+                    "done": False,
+                    "evidence": {"goal_satisfied": False, "refs": ["obs-403", "obs-token"]},
+                    "next_action": {
+                        "args": {"body": "token=CASE-TOKEN", "method": "POST", "url": "/case/proof"},
+                        "tool": "lab_http_request",
+                    },
+                    "reasoning": "Exchange the recovered token for a proof header.",
+                    "safety": {"lab_only": True, "runtime_execution": False},
+                    "state": {"blocked_goal": True, "token_reused": True},
+                },
+                sort_keys=True,
+            ),
+        },
+        {"role": "user", "content": "TOOL OBSERVATION: proof=CASE-PROOF"},
+        {
+            "role": "assistant",
+            "content": json.dumps(
+                {
+                    "done": False,
+                    "evidence": {"goal_satisfied": False, "refs": ["obs-proof"]},
+                    "next_action": {
+                        "args": {"headers": {"X-Proof": "CASE-PROOF"}, "method": "GET", "url": "/admin/marker"},
+                        "tool": "lab_http_request",
+                    },
+                    "reasoning": "Retry the blocked goal with the proof.",
+                    "safety": {"lab_only": True, "runtime_execution": False},
+                    "state": {"blocked_goal": True, "proof": "CASE-PROOF", "token_reused": True},
+                },
+                sort_keys=True,
+            ),
+        },
+        {"role": "user", "content": "TOOL OBSERVATION: marker proof returned successfully"},
+        row["messages"][-1],
+    ]
+    return row
 
 
 def test_iter9_combined_mix_uses_curated_iter6_auth_and_recovery_v4(tmp_path):

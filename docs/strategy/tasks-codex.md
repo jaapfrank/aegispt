@@ -169,13 +169,21 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ⛔ blocked
     `scripts/training/build_discovery_prefixed_completion_arcs_iter10.py`;
     tests:
     `scripts/tests/test_discovery_prefixed_completion_arcs_iter10.py`.
-- ☐ **3.3g — broaden and recon-fy the held-out eval suite.**
+- ☑ **3.3g — broaden and recon-fy the held-out eval suite.**
   - from Claude's 2026-06-11 handoff: broaden the held-out eval suite beyond
     the current 8 D2 classes to roughly 16-24 leakage-free scenarios and add a
     recon-affordance variant for each scenario.
-  - target output: a new `multichain_heldout_eval_envs_iter11` module plus
-    manifest, preserving the HeldoutEvalEnv contract and excluding all
-    training arcs / known held-out collisions.
+  - completed with `scripts/training/multichain_heldout_eval_envs_iter11.py`
+    and
+    `codex/results/training/multichain-heldout-eval-envs-20260611/`.
+  - manifest reports 24 scenarios: 12 base scenarios, each paired as `bare`
+    plus `recon_affordance`, across 12 chain classes.
+  - leakage audit reports `hit_count=0` against committed training/demo arcs.
+  - generated an oracle transfer-matrix smoke artifact under
+    `codex/results/training/transfer-matrix-20260611/`; complete run count is
+    1, result count is 24, unknown/missing scenario count is 0.
+  - registered the iter11 family in the lab-truth/held-out registry builder so
+    these scenario IDs/hashes stay eval-only.
   - this is eval/data-lane work only; it does not claim capability progress
     until a model or scaffold run moves the canonical live/held-out ledger.
 

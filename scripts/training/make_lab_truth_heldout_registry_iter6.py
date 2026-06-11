@@ -82,6 +82,12 @@ from scripts.training.multichain_heldout_eval_envs_iter10 import (
 from scripts.training.multichain_heldout_eval_envs_iter10 import (
     registry_entries as heldout_eval_env_registry_entries,
 )
+from scripts.training.multichain_heldout_eval_envs_iter11 import (
+    DEFAULT_PREFIX as HELDOUT_EVAL_ENV_ITER11_PREFIX,
+)
+from scripts.training.multichain_heldout_eval_envs_iter11 import (
+    registry_entries as heldout_eval_env_iter11_registry_entries,
+)
 from scripts.training.multichain_rl_envs_iter9 import (
     DEFAULT_PREFIX as RL_ENV_PREFIX,
 )
@@ -264,6 +270,10 @@ def _heldout_eval_env_entries() -> list[dict[str, Any]]:
     return heldout_eval_env_registry_entries()
 
 
+def _heldout_eval_env_iter11_entries() -> list[dict[str, Any]]:
+    return heldout_eval_env_iter11_registry_entries()
+
+
 def _other_stack_recovery_env_entries() -> list[dict[str, Any]]:
     return other_stack_recovery_registry_entries()
 
@@ -309,6 +319,7 @@ def held_out_entries(
     rows.extend(_headless_oob_env_entries())
     rows.extend(_blind_oob_command_env_entries())
     rows.extend(_heldout_eval_env_entries())
+    rows.extend(_heldout_eval_env_iter11_entries())
     rows.extend(_other_stack_recovery_env_entries())
     rows.extend(_web_source_gap_recovery_env_entries())
     rows.extend(_lab_suite_held_out(lab_truth_rows))
@@ -379,6 +390,7 @@ def validate_registry(registry: dict[str, Any]) -> dict[str, Any]:
         HEADLESS_OOB_ENV_PREFIX,
         BLIND_OOB_COMMAND_ENV_PREFIX,
         HELDOUT_EVAL_ENV_PREFIX,
+        HELDOUT_EVAL_ENV_ITER11_PREFIX,
         WEB_SOURCE_GAP_ENV_PREFIX,
         "aegispt-lab-suite-v1",
     }

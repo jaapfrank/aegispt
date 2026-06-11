@@ -29,6 +29,7 @@ python3 -m pytest -q \
   scripts/tests/test_other_stack_recovery_envs_iter10.py \
   scripts/tests/test_web_source_gap_recovery_envs_iter10.py \
   scripts/tests/test_multichain_heldout_eval_envs_iter10.py \
+  scripts/tests/test_multichain_heldout_eval_envs_iter11.py \
   scripts/tests/test_xben_gap_matrix_iter10.py \
   scripts/tests/test_xben_triage_backlog_iter10.py \
   scripts/tests/test_xben_source_triage_iter10.py \

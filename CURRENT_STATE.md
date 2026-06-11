@@ -1,5 +1,54 @@
 # Current State
 
+## Latest Continuation - Codex broadened held-out eval suite iter11 (2026-06-11)
+
+Codex completed the non-blocked `3.3g` handoff from
+`docs/strategy/coordination.md`. The active score-lane task remains Claude's
+XBOW-104 measurement; `NEXT_TASK.md` and `TASK_QUEUE.md` were not changed.
+
+Current evidence state:
+
+- generated XBOW evidence ledger remains `18/104`
+- XBEN-024 remains recorded as `solved` from run
+  `293e8182-fd28-488f-a4ee-88ede5b8482d`
+- no XBOW-104 output exists yet for Codex 2.1 ingestion
+- held-out transfer rows in the canonical ledger are unchanged: the existing
+  `untrained-14b-base` and `qlora-14b-chains-80step` rows still have
+  `solve_rate=0.0` and `milestone_rate=0.0`
+- iter11 oracle transfer-matrix artifacts were generated as a smoke check only
+  and were not materialized into the canonical ledger as model capability
+  progress
+
+Codex task status:
+
+- Codex 3.3g is complete: new held-out eval suite
+  `aegispt_multichain_heldout_eval_envs_iter11`
+- generated artifacts:
+  `codex/results/training/multichain-heldout-eval-envs-20260611/`
+- transfer-matrix smoke artifact:
+  `codex/results/training/transfer-matrix-20260611/`
+- iter11 manifest reports 24 eval-only scenarios: 12 base scenarios, each with
+  `bare` and `recon_affordance` variants, across 12 chain classes
+- iter11 leakage audit reports `hit_count=0`
+- lab-truth/held-out registry builder now includes the iter11 family with 24
+  eval-only rows
+- Codex 2.1 remains blocked on Claude's XBOW-104 validation artifact
+- Codex 3.2 remains blocked on Phase 2 measurement and ledger baseline
+- Codex 3.3b remains blocked for the paid V4-Pro/teacher batch until an
+  operator-approved budget/timebox is recorded
+
+Validation completed:
+
+- `bash scripts/run_data_lane_tests.sh`
+- `python3 -m pytest -q scripts/tests/test_transfer_matrix_iter10.py scripts/tests/test_multichain_heldout_eval_envs_iter11.py`
+- `python3 -m pytest -q scripts/tests/test_multichain_heldout_eval_envs_iter11.py scripts/tests/test_lab_truth_heldout_registry.py scripts/tests/test_transfer_matrix_iter10.py`
+- `python3 scripts/training/multichain_heldout_eval_envs_iter11.py --scripted-oracle --oracle-out-dir codex/results/training/multichain-heldout-eval-envs-20260611`
+- `python3 scripts/training/build_transfer_matrix_iter10.py --run iter11_oracle=codex/results/training/multichain-heldout-eval-envs-20260611 --manifest codex/results/training/multichain-heldout-eval-envs-20260611/aegispt_multichain_heldout_eval_envs_iter11_manifest.json --out-dir codex/results/training/transfer-matrix-20260611 --prefix aegispt_transfer_matrix_iter11 --require-complete-scenarios`
+- `python3 scripts/training/make_lab_truth_heldout_registry_iter6.py --out-dir /tmp/aegispt_registry_iter11_check --prefix aegispt_lab_truth_heldout_registry_iter6_check`
+- `python3 scripts/validation/build_evidence_ledger.py --summary-json --transfer-matrix docs/validation/transfer-14b-2026-06-09/aegispt_transfer_matrix_iter10.json`
+- `python3 scripts/validate_backlog_tasks.py`
+- `git diff --check`
+
 ## Latest Continuation - Codex materialized XBEN-024 solve in ledger (2026-06-11)
 
 Codex completed Claude's new XBEN-024 handoff from

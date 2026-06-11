@@ -239,7 +239,7 @@ def write_outputs(matrix: dict[str, Any], out_dir: Path, prefix: str = DEFAULT_P
     matrix_path.write_text(json.dumps(matrix, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     write_jsonl(rows_path, matrix["rows"])
     lines = [
-        "# Transfer matrix iter10",
+        f"# Transfer matrix ({prefix})",
         "",
         f"- runs: {matrix['stats']['run_count']}",
         f"- scenarios: {matrix['stats']['scenario_count']}",

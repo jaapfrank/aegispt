@@ -29,6 +29,9 @@ from scripts.training.make_multiturn_chaintype_diversity_iter7 import (
 from scripts.training.multichain_heldout_eval_envs_iter10 import (
     DEFAULT_PREFIX as HELDOUT_EVAL_ENV_PREFIX,
 )
+from scripts.training.multichain_heldout_eval_envs_iter11 import (
+    DEFAULT_PREFIX as HELDOUT_EVAL_ENV_ITER11_PREFIX,
+)
 from scripts.training.multichain_rl_envs_iter9 import DEFAULT_PREFIX as RL_ENV_PREFIX
 from scripts.training.web_source_gap_recovery_envs_iter10 import (
     DEFAULT_PREFIX as WEB_SOURCE_GAP_ENV_PREFIX,
@@ -80,6 +83,7 @@ def test_held_out_registry_contains_exact_eval_test_and_benchmark_ids():
     assert stats["held_out_by_family"][HEADLESS_OOB_ENV_PREFIX] == 4
     assert stats["held_out_by_family"][BLIND_OOB_COMMAND_ENV_PREFIX] == 4
     assert stats["held_out_by_family"][HELDOUT_EVAL_ENV_PREFIX] == 8
+    assert stats["held_out_by_family"][HELDOUT_EVAL_ENV_ITER11_PREFIX] == 24
     assert stats["held_out_by_family"][WEB_SOURCE_GAP_ENV_PREFIX] == 4
     assert stats["held_out_by_family"]["aegispt-lab-suite-v1"] >= 1
     assert is_held_out_scenario(registry, "deep_chain_eval")
@@ -115,6 +119,13 @@ def test_held_out_registry_contains_exact_eval_test_and_benchmark_ids():
         and row.get("lab_truth") == "known_vulnerable"
         and set(row.get("no_finding_labels", []))
         == {"blocked", "correct_restraint", "inconclusive", "missed_finding", "true_negative"}
+        for row in registry["held_out_scenarios"]
+    )
+    assert any(
+        row["dataset_family"] == HELDOUT_EVAL_ENV_ITER11_PREFIX
+        and row.get("variant") == "recon_affordance"
+        and row.get("recon_affordance") is True
+        and row.get("scenario_hash")
         for row in registry["held_out_scenarios"]
     )
     assert any(

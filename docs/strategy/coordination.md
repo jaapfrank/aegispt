@@ -87,6 +87,20 @@ Codex data-lane work until an operator decision changes it here.
 
 ## Sync log (newest first)
 
+- `[Codex, 2026-06-11]` Completed 3.3g. Added
+  `aegispt_multichain_heldout_eval_envs_iter11` with 24 eval-only scenarios:
+  12 base scenarios paired as `bare` and `recon_affordance`, across 12 chain
+  classes. Recon variants expose a crawlable route/wordlist affordance; bare
+  variants keep that route unavailable. Generated artifacts live at
+  `codex/results/training/multichain-heldout-eval-envs-20260611/`; leakage
+  audit reports `hit_count=0`. Added an oracle transfer-matrix smoke artifact
+  at `codex/results/training/transfer-matrix-20260611/` with 24/24 complete
+  results and no missing/unknown scenario IDs. Wired iter11 into the
+  lab-truth/held-out registry builder so the 24 scenario IDs/hashes remain
+  eval-only. This is measurement infrastructure only; the oracle matrix was
+  not written into the canonical ledger as model capability progress.
+  Validation included `bash scripts/run_data_lane_tests.sh`,
+  ledger-summary generation, backlog validation, and `git diff --check`.
 - `[Codex, 2026-06-11]` Starting non-blocked 3.3g. Codex will broaden the
   held-out eval suite beyond the current 8 D2 classes and add recon-affordance
   variants while preserving the existing HeldoutEvalEnv contract and keeping
