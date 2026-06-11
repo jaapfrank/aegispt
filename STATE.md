@@ -65,17 +65,23 @@ cookies/auth carried across the loop), coverage/coordinator, and the callback/vi
    The uncensored Qwen3.6-27B is **UP on :8801, GPU-resident (15.2GB), healthy** (container
    logs: `CUDA0 : NVIDIA GeForce RTX 5080 Laptop GPU`, ARCHS includes 1200/Blackwell). The
    strongest non-refusing solve brain is now available as `--llm-provider local-qwen`.
-2. **#1 LEVER — the picker prompt is too heavy; EVERY provider is slow per pick.** This
-   session, XBEN-080 (a known 379s gpt-5.5 solve on 2026-06-08) did NOT solve on deepseek,
-   local-qwen, OR chatgpt_oauth. Measured per-picker-iteration latency: deepseek ~1.5min,
-   local-qwen ~4.5min, gpt-5.5-OAuth ~4min (near its 240s timeout). Root cause is shared and
-   provider-agnostic: the ~23KB `_picker_prompt_with_skills()` system prompt makes EVERY
-   picker round-trip slow, so runs churn (local-qwen XBEN-080: 32× httpx, 5× exec-plan, only
-   1× interactive-exploit in 42min) and never reach a focused exploit in budget. This — not
-   "which brain" — is the binding constraint now. Next lever: trim/lean the picker prompt OR
-   minimise LLM-picker round-trips on source-aware runs (lean on the bootstrap + gate, which
-   dispatch pre-recon-source → interactive-exploit with NO LLM pick). Needs careful
-   validation (the prompt encodes a lot of behaviour) — deferred from this session's tail.
+2. **CORRECTED (measure, don't assume): the picker prompt is NOT the bottleneck.** I first
+   blamed the ~25KB picker prompt; a direct measurement disproved it. A local-qwen picker
+   call = **17.7s** (prompt-eval 9.7s @ 652 tok/s for 6336 tokens + gen 6.7s @ 22 tok/s,
+   `cached_tokens=0`). The ~4.5min "iteration gaps" in the 42min local run were **task
+   executions** (interactive-exploit's internal multi-step loop + exec-plan on the slow 27B),
+   NOT the picker. The REAL issues, in priority:
+   - **(a) recon churn** — the local XBEN-080 run dispatched **httpx 32×** + exec-plan 5×, but
+     interactive-exploit only **1×**. The loop re-picks broad recon instead of giving the
+     exploit step attempts. This is a loop/picker-behaviour inefficiency worth fixing
+     (action-light, the competitive-gap "discover-don't-act" problem).
+   - **(b) exploit-step capability** — on local-qwen, interactive-exploit ran its full internal
+     loop once and did NOT capture the XBEN-080 SSTI flag. The 27B couldn't craft the working
+     payload. This is the genuine brain frontier (the specialist/RL answer from the strategy).
+   - **(c) gpt-5.5-OAuth picker IS slow (~4min/call)** but that is backend latency/throttling
+     (the 240s timeout), environmental — not the prompt, and not local's problem.
+   Net: prompt-trimming is NOT the lever. The levers are recon-churn (loop behaviour) and the
+   exploit-step brain (specialist).
 3. **API restart resurrects cancelled runs** (pre-existing): restarting `aegispt-api.service`
    re-activates non-terminal runs → contention. Cancel via `POST /runs/{id}/cancel` after
    restart. Not Spoor-0 related; a separate startup-resume hygiene item.
