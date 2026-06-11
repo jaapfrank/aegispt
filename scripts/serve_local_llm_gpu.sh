@@ -32,8 +32,8 @@ if docker ps --filter "name=^${NAME}$" --filter "health=healthy" --format '{{.Na
   exit 0
 fi
 
-# Verify GPU passthrough works before bothering to pull/run.
-if ! docker run --rm --gpus all "${IMAGE}" --version >/dev/null 2>&1; then
+# Pull the image if missing.
+if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
   echo "[serve_local_llm_gpu] pulling ${IMAGE} ..."
   docker pull "${IMAGE}"
 fi
@@ -43,8 +43,22 @@ if [ ! -f "${MODELS_DIR}/${GGUF_NAME}" ]; then
   exit 1
 fi
 
+# GPU passthrough. WSL2 exposes the GPU via /dev/dxg + /usr/lib/wsl/lib WITHOUT the
+# nvidia-container-toolkit; `--gpus all` ONLY works when that toolkit is installed (it is
+# NOT installed on this WSL host — the toolkit was never required here, the WSL-native mount
+# is what has always worked). Detect the WSL GPU and mount it directly; fall back to
+# `--gpus all` only on a non-WSL host. Proven 2026-06-11: container sees
+# "CUDA0 : NVIDIA GeForce RTX 5080 Laptop GPU" + ARCHS includes 1200 (Blackwell sm_120).
+if [ -e /dev/dxg ] && [ -d /usr/lib/wsl/lib ]; then
+  GPU_ARGS=(--device=/dev/dxg -v /usr/lib/wsl:/usr/lib/wsl:ro -e LD_LIBRARY_PATH=/usr/lib/wsl/lib)
+  echo "[serve_local_llm_gpu] GPU mode: WSL2 native passthrough (/dev/dxg + /usr/lib/wsl)"
+else
+  GPU_ARGS=(--gpus all)
+  echo "[serve_local_llm_gpu] GPU mode: --gpus all (requires nvidia-container-toolkit)"
+fi
+
 docker rm -f "${NAME}" >/dev/null 2>&1 || true
-docker run -d --name "${NAME}" --gpus all --restart unless-stopped \
+docker run -d --name "${NAME}" "${GPU_ARGS[@]}" --restart unless-stopped \
   -p "127.0.0.1:${HOST_PORT}:8080" \
   -v "${MODELS_DIR}:/models" \
   "${IMAGE}" \

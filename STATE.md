@@ -57,12 +57,14 @@ cookies/auth carried across the loop), coverage/coordinator, and the callback/vi
 
 ## Live blockers / open
 
-1. **Local GPU model is operator-blocked.** The uncensored Qwen on `:8801` (the strongest
-   non-refusing solve brain) is **down**: Docker `--gpus` passthrough fails because the
-   nvidia-container-toolkit is not installed, and installing it needs **sudo** (operator
-   only). One-time fix: `sudo apt-get install -y nvidia-container-toolkit && sudo nvidia-ctk
-   runtime configure --runtime=docker && systemctl --user restart docker` (or host docker),
-   then `bash scripts/serve_local_llm_gpu.sh`. Until then the solve brain is DeepSeek.
+1. ~~Local GPU model operator-blocked~~ **RESOLVED (no sudo needed).** The earlier
+   "needs nvidia-container-toolkit + sudo" call was WRONG. This is a native WSL2 docker host:
+   the GPU is exposed via `/dev/dxg` + `/usr/lib/wsl/lib`, so the container gets the GPU by
+   **mounting those directly** — no toolkit, no sudo. `--gpus all` (which needs the toolkit)
+   was the bug in `scripts/serve_local_llm_gpu.sh`; fixed to use WSL-native passthrough.
+   The uncensored Qwen3.6-27B is **UP on :8801, GPU-resident (15.2GB), healthy** (container
+   logs: `CUDA0 : NVIDIA GeForce RTX 5080 Laptop GPU`, ARCHS includes 1200/Blackwell). The
+   strongest non-refusing solve brain is now available as `--llm-provider local-qwen`.
 2. **DeepSeek is a weaker solve brain than gpt-5.5.** It runs the loop but on XBEN-080 it
    picked exec-plan/xss over the SSTI→interactive-exploit path and did not capture the flag.
    Infra is proven; *solve quality* needs the local GPU model or gpt-5.5 (which refuses
