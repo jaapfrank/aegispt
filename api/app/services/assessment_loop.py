@@ -5879,6 +5879,35 @@ def _next_action_payload(candidate: LoopCandidate) -> dict[str, Any]:
 _WEB_DISCOVERY_TOOLS = {"httpx", "web-depth", "easm-discover"}
 _WEB_PROBE_TOOLS = {"xss-extended", "session-security", "headers-security", "content-discovery", "logging-probe"}
 
+# Clean-slate 2026-06-11 — scope narrowed to source-aware web/API (rework-4).
+# These tools are NOT offered to the AI picker so the loop stays focused on the
+# five in-scope vuln families (injection / XSS-headless / SSRF / auth-authz-bizlogic /
+# file-upload) instead of being distracted by out-of-scope LAN/WAN/AD/cloud/IoT/
+# wireless/mobile/host-post-exploit/red-team-sim tooling and heavy passive scanners.
+# This is picker-menu gating ONLY: the runner code, SUPPORTED_TOOLS, the dispatch
+# table, the hardcoded recon sequence, and all runner tests are untouched, so a frozen
+# tool stays fully dispatchable if explicitly queued — it is just no longer auto-picked.
+# Reversible: delete an entry here to re-offer it. (Same pattern as the Burp removal.)
+_FROZEN_PICKER_TOOLS = {
+    # LAN / WAN / Active-Directory / network infrastructure
+    "bloodhound-collect", "impacket-lateral", "netexec", "ldap-enum", "responder",
+    "snmp-enum", "mdns-ssdp", "ipv6-discovery", "network-capture",
+    "network-segmentation", "lan-intel", "nmap",
+    # Wireless / IoT / mobile / physical / desktop
+    "wifi-survey", "iot-default-creds", "smart-home", "mobile-android",
+    "desktop-client", "camera-test",
+    # Host / lateral post-exploitation
+    "priv-esc-linux", "ssh-brute",
+    # Cloud / external infra / OSINT / CI-CD supply-chain (not the web app itself)
+    "aws-inventory", "cloud-native", "external-infra", "external-osint",
+    "easm-discover", "cicd-security",
+    # Offensive infrastructure / red-team simulation (out of XBEN web scope)
+    "metasploit", "c2-ingest", "malware-sim", "social-campaign",
+    # Heavy passive scanners — de-emphasized by "No Exploit, No Report"; the loop
+    # should ATTACK candidates, not run broad low-signal scans.
+    "zap", "nikto", "waf-detect",
+}
+
 
 def _extract_discovered_links(session: Session, run: Run, *, scope_allowlist: dict[str, Any] | None) -> list[str]:
     """Pull HTTP links discovered by prior web-discovery tasks and filter to approved scope.
@@ -6962,7 +6991,10 @@ def advance_assessment_loop(
         len(list(run.findings or [])),
     )
     if tested_keys:
-        available_tools = supported_execution_tools()
+        # Clean-slate 2026-06-11: gate the picker menu to the in-scope web/API
+        # tool surface. SUPPORTED_TOOLS stays complete (dispatch/validation/tests
+        # unchanged); we only narrow what the AI picker is offered.
+        available_tools = supported_execution_tools() - _FROZEN_PICKER_TOOLS
         # Drop runners that returned metadata.skipped=True earlier in this
         # run — they're unconfigured in this deployment, and offering them
         # to Claude again just produces another no-op task. See

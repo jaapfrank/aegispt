@@ -5,10 +5,9 @@
 ## 0. Oriëntatie — lees vóór elke actie
 
 1. **`ANTI_DRIFT.md`** (repo root) — 5 hard rules + pre-commit checklist + strenger DONE-definitie. Vanaf 2026-05-20 verplicht voor ELKE capability-task. **Overschrijft sectie 5 van deze prompt.**
-2. `NEXT_TASK.md`
-3. Het bijbehorende `codex/tasks/backlog-NNN-*.json` (scope, must_not_touch, success_criteria, live acceptance)
-4. `docs/validation/sprint-*-baseline.md` (of meest recente phase report) — de empirische startgetallen
-5. De laatste 3 entries van `DONE_LOG.md`
+2. **`STATE.md`** (repo root) — huidige staat, scope, live blocker, volgende lever (single source of truth sinds clean-slate 2026-06-11).
+3. **`docs/validation/EVIDENCE_LEDGER.md`** + `evidence_ledger.jsonl` — de canonieke score.
+4. De laatste 5 commits (`git log --oneline -5`) voor wat er net is aangeraakt.
 6. Memory files: `feedback_live_proof_before_done`, `feedback_live_proof_must_be_diverse_real_targets`, `feedback_no_prescriptive_recipes`, `feedback_deferred_capability_followup`, **`feedback_anti_drift_contract`**. Deze 5 regels **overschrijven altijd** wat Claude van plan is — als ze botsen met instinct, volgt Claude de regel.
 
 ## 1. Voor elke task: declare delta-doelstelling
@@ -70,9 +69,8 @@ Stop en vraag, niet doorgaan, zodra:
 
 ## 7. Na DONE (alleen als sectie 5 helemaal pass is)
 
-- Update `DONE_LOG.md` met before/after tabel + harness rapport URL
-- Update `CURRENT_STATE.md` waar relevant
-- Promote next task → `NEXT_TASK.md`
+- Regenereer de evidence ledger (`scripts/validation/build_evidence_ledger.py`) — de enige score
+- Houd `STATE.md` kort + actueel (spiegelt de ledger; geen dagboek)
 - `git commit` (geen `--no-verify`, geen `--amend`, geen `push` tenzij gevraagd)
 - Stop. Wacht op operator-acknowledge voordat je de volgende task pakt.
 

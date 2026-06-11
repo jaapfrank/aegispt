@@ -17,25 +17,22 @@ AegisPT is an evidence-first, AI-assisted penetration testing platform. The repo
 
 ## Required reading before work
 
-Always read:
+Always read (single source of truth — clean slate 2026-06-11):
 
-- `CURRENT_STATE.md`
-- `NEXT_TASK.md`
-- `DECISIONS.md`
+- `STATE.md` — current state, active scope, live blocker, next lever
+- `docs/validation/EVIDENCE_LEDGER.md` + `evidence_ledger.jsonl` — the canonical score
+- `ANTI_DRIFT.md` — the DONE discipline
+- `DECISIONS.md` — durable architecture decisions
 
-Use these files to determine current architecture, constraints, and the exact active task. Do not infer a broad roadmap from memory when the repository already defines it.
+The pre-clean-slate narrative diaries (`CURRENT_STATE.md`, `DONE_LOG.md`, `TASK_QUEUE.md`,
+`NEXT_TASK.md`, …) are archived under `docs/history/` as history; do not treat them as current.
 
 ## Required updates after work
 
-Always update:
-
-- `DONE_LOG.md`
-- `CURRENT_STATE.md`
-
-When the active task completes, also:
-
-- move the next approved task from `TASK_QUEUE.md` into `NEXT_TASK.md`
-- keep exactly one active task in `NEXT_TASK.md`
+- The evidence ledger is regenerated from `docs/validation/` artifacts
+  (`scripts/validation/build_evidence_ledger.py`) — it is the only authoritative score.
+- Keep `STATE.md` short and current (it mirrors the ledger; never a running diary).
+- A task is DONE only when the ledger moved (see `ANTI_DRIFT.md`).
 
 ## Build-lane operating model
 
