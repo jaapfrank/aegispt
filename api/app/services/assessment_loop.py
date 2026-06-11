@@ -104,6 +104,18 @@ def _provider_is_local_qwen(provider: Any) -> bool:
     return model in {"local-qwen", "local_qwen"}
 
 
+def _provider_is_deepseek(provider: Any) -> bool:
+    """Detect DeepSeek provider — OpenAI-compatible cloud endpoint, uncensored
+    (does not policy-refuse offensive exploit prompts), keyed by DEEPSEEK_API_KEY.
+    Spoor 0 (2026-06-11): added as a first-class picker provider so the loop has a
+    working brain when Anthropic credits are exhausted and the local GPU server is
+    down — both true at the time this was wired."""
+    config = getattr(provider, "config", None)
+    model = str(getattr(config, "model", "") or "").strip().lower()
+    api_key_env = str(getattr(config, "api_key_env", "") or "").strip().upper()
+    return model.startswith("deepseek") or api_key_env == "DEEPSEEK_API_KEY"
+
+
 def _black_box_recon_context(findings: Any, *, max_items: int = 40, cap: int = 14000) -> str:
     """Build a recon_context for the black-box interactive-exploit dispatch from run findings —
     the discovered endpoints/paths/surface vulns — so the autonomous loop probes REAL paths
@@ -140,6 +152,8 @@ def _provider_kind(provider: Any) -> str:
         return "gemini"
     if _provider_is_local_qwen(provider):
         return "local_qwen"
+    if _provider_is_deepseek(provider):
+        return "deepseek"
     return "unknown"
 
 
@@ -523,6 +537,177 @@ def _collect_discovered_targets(run: Run, limit: int = 15) -> list[str]:
             if len(paths) >= limit:
                 return paths
     return paths
+
+
+def _openai_compat_picker_call(
+    *,
+    run: Run,
+    tested_keys: set[str],
+    available_tools: list[str],
+    user_content: str,
+    base_url: str,
+    api_key: str | None,
+    model: str,
+    label: str,
+    disable_thinking: bool = False,
+    timeout_s: float = 180.0,
+) -> dict[str, Any] | None:
+    """Provider-agnostic picker round-trip against ANY OpenAI-compatible
+    /v1/chat/completions endpoint (DeepSeek cloud, local llama.cpp, etc.).
+
+    Spoor 0 (2026-06-11): factored out of the local-qwen path so DeepSeek
+    (uncensored cloud, keyed by DEEPSEEK_API_KEY) can serve as a picker brain
+    when Anthropic credits are gone and the local GPU is down. Enforces
+    response_format=json_object and tolerates `<think>` reasoning tokens.
+    Returns the decoded picker plan, or None on any failure (the caller's
+    failover chain then tries the next provider)."""
+    import httpx as _httpx  # noqa: E402
+
+    if not base_url:
+        logger.warning("picker: %s base_url is empty; cannot run.", label)
+        return None
+    base_url = base_url.rstrip("/")
+    try:
+        picker_schema = _picker_schema_for_current_state(
+            run=run,
+            tested_keys=tested_keys,
+            available_tools=available_tools,
+        )
+        system_prompt = (
+            _picker_prompt_with_skills()
+            + f"\n\n=== {label.upper()} PICKER MODE ===\n"
+            "Return ONE JSON object that matches the schema below. "
+            "Do not wrap in markdown. Do not include prose outside JSON. "
+            "Internal `<think>...</think>` reasoning is fine but the FINAL "
+            "non-think output must be exactly one JSON object.\n\n"
+            "Picker JSON Schema:\n"
+            + json.dumps(picker_schema, separators=(",", ":"))
+        )
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.2,
+            "max_tokens": 2048,
+        }
+        if disable_thinking:
+            # llama.cpp / Qwen thinking variants: force the JSON into `content`
+            # instead of streaming the budget into reasoning_content.
+            body["chat_template_kwargs"] = {"enable_thinking": False}
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        with _httpx.Client(timeout=timeout_s) as client:
+            resp = client.post(f"{base_url}/v1/chat/completions", json=body, headers=headers)
+        if resp.status_code != 200:
+            logger.warning("picker: %s HTTP %d body=%r", label, resp.status_code, resp.text[:240])
+            return None
+        data = resp.json()
+        content = ""
+        for choice in (data.get("choices") or [])[:1]:
+            msg = choice.get("message") or {}
+            content = str(msg.get("content") or "")
+            if not content.strip():
+                content = str(msg.get("reasoning_content") or "")
+        content = _strip_qwen_reasoning_tokens(content).strip()
+        if not content:
+            logger.warning("picker: %s returned empty content", label)
+            return None
+        try:
+            payload = json.loads(content)
+        except json.JSONDecodeError:
+            logger.warning("picker: %s content was not JSON; head=%r", label, content[:240])
+            return None
+        if isinstance(payload.get("decision"), dict):
+            payload = payload["decision"]
+        if not isinstance(payload, dict):
+            logger.warning("picker: %s response was not a JSON object", label)
+            return None
+        return _decode_picker_plan(payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("picker: %s next-action call failed: %s", label, exc)
+        return None
+
+
+def _deepseek_select_next_action(
+    *,
+    run: Run,
+    session: Any,
+    user_content: str,
+    tested_keys: set[str],
+    available_tools: list[str],
+) -> dict[str, Any] | None:
+    """Picker call against DeepSeek (uncensored OpenAI-compatible cloud).
+    Spoor 0 failover provider. ``session`` is accepted for a uniform helper
+    signature but unused (DeepSeek needs no DB session, unlike chatgpt_oauth)."""
+    import os as _os  # noqa: E402
+
+    api_key = (_os.environ.get("DEEPSEEK_API_KEY", "") or "").strip()
+    if not api_key:
+        logger.warning("picker: DEEPSEEK_API_KEY not set; deepseek picker cannot run.")
+        return None
+    base_url = (_os.environ.get("DEEPSEEK_BASE_URL", "") or "https://api.deepseek.com").strip()
+    model = (_os.environ.get("DEEPSEEK_PICKER_MODEL", "") or "deepseek-chat").strip()
+    return _openai_compat_picker_call(
+        run=run,
+        tested_keys=tested_keys,
+        available_tools=available_tools,
+        user_content=user_content,
+        base_url=base_url,
+        api_key=api_key,
+        model=model,
+        label="deepseek",
+        disable_thinking=False,
+        timeout_s=120.0,
+    )
+
+
+def _picker_provider_chain(run: Run, configured_provider: Any) -> list[str]:
+    """Ordered list of picker provider kinds to try, Spoor 0 failover (2026-06-11).
+
+    A single dead provider (Anthropic with no credits, local GPU down) must no
+    longer kill the picker — the recurring `picker_retry_exhausted` death. The
+    chain is tried in order; the first provider that returns a decision wins.
+
+    Rules:
+    - An EXPLICIT non-default provider (anything other than the Anthropic default)
+      is honoured FIRST.
+    - Otherwise the default order is cheap/available-first with Anthropic LAST,
+      since Anthropic is the expensive default that keeps lapsing on credits.
+    - Filtered to providers whose credentials/endpoint are actually configured.
+    - Overridable via AEGISPT_PICKER_PROVIDER_CHAIN (comma-separated kinds).
+    """
+    import os as _os  # noqa: E402
+
+    usable: list[str] = []
+    if (_os.environ.get("AEGISPT_LOCAL_LLM_URL", "") or "").strip():
+        usable.append("local_qwen")
+    if (_os.environ.get("DEEPSEEK_API_KEY", "") or "").strip():
+        usable.append("deepseek")
+    # chatgpt_oauth has no env key (DB-stored token); the helper guards on
+    # session+engagement, so always offer it as a candidate.
+    usable.append("chatgpt_oauth")
+    if (_os.environ.get("ANTHROPIC_API_KEY", "") or "").strip():
+        usable.append("anthropic")
+
+    raw = (_os.environ.get("AEGISPT_PICKER_PROVIDER_CHAIN", "") or "").strip()
+    if raw:
+        base = [x.strip() for x in raw.split(",") if x.strip()]
+    else:
+        base = ["local_qwen", "deepseek", "chatgpt_oauth", "anthropic"]
+
+    cfg_kind = _provider_kind(configured_provider)
+    order: list[str] = []
+    # Explicit non-default choice goes first (default kind is anthropic).
+    if cfg_kind not in {"anthropic", "unknown"} and cfg_kind in usable:
+        order.append(cfg_kind)
+    for kind in base:
+        if kind in usable and kind not in order:
+            order.append(kind)
+    return order
 
 
 def _local_qwen_select_next_action(
@@ -3860,17 +4045,16 @@ def _claude_select_next_action(
     # helper and the same picker schema, without changing runner execution.
     from api.app.services.llm_provider import LLMProvider  # noqa: E402
     provider = LLMProvider.for_run(getattr(run, "configuration_json", None))
-    provider_is_anthropic = _provider_is_anthropic(provider)
-    provider_is_chatgpt_oauth = _provider_is_chatgpt_oauth(provider)
-    provider_is_local_qwen = _provider_is_local_qwen(provider)
-    if not (provider_is_anthropic or provider_is_chatgpt_oauth or provider_is_local_qwen):
-        # Gemini is intentionally handled by the specialists path upstream
-        # (_specialists_select_next_action), not this legacy single-picker.
-        # Make the fall-through LOUD via the dispatch contract so it is never a
-        # silent mystery if a run reaches here on an unhandled provider.
+    # Spoor 0 (2026-06-11): build an ordered failover chain so a single dead
+    # provider (Anthropic with no credits, local GPU down) no longer kills the
+    # picker — the recurring `picker_retry_exhausted` death. Cheap/available
+    # providers are tried first; Anthropic is the inline last resort.
+    picker_chain = _picker_provider_chain(run, provider)
+    if not picker_chain:
+        # No usable provider at all — make it LOUD via the dispatch contract.
         _warn_if_provider_unhandled(
             site="legacy_picker._claude_select_next_action", provider=provider,
-            handled={"anthropic", "chatgpt_oauth", "local_qwen"},
+            handled={"anthropic", "chatgpt_oauth", "local_qwen", "deepseek"},
         )
         return None
     if _run_budget_exhausted(run):
@@ -3878,14 +4062,6 @@ def _claude_select_next_action(
     if not tested_keys:
         # First iteration: let target-intel heuristic handle the seed step
         return None
-    if provider_is_anthropic:
-        api_key = os.environ.get(provider.config.api_key_env, "").strip()
-        if not api_key:
-            return None
-        try:
-            import anthropic  # noqa: F401 — exception module needed even when client comes from provider
-        except ImportError:
-            return None
 
     findings = _summarize_findings_for_ai(run)
     _ = _tested_tools_summary(tested_keys)  # invoked for side effects/logging; result unused
@@ -4132,23 +4308,49 @@ def _claude_select_next_action(
         "- Broad scanners (already covered above as ONE-SHOT) use the primary target ONCE."
     )
 
-    if provider_is_chatgpt_oauth:
-        return _chatgpt_oauth_select_next_action(
-            run=run,
-            session=session,
-            user_content=user_content,
-            tested_keys=tested_keys,
-            available_tools=available_tools,
+    # Spoor 0 failover (2026-06-11): try cheap/available providers first; the
+    # first to return a decision wins. Anthropic stays the inline last resort.
+    for _pkind in picker_chain:
+        if _pkind == "anthropic":
+            break  # handled by the inline block below (last resort)
+        if _pkind == "chatgpt_oauth":
+            _decision = _chatgpt_oauth_select_next_action(
+                run=run, session=session, user_content=user_content,
+                tested_keys=tested_keys, available_tools=available_tools,
+            )
+        elif _pkind == "local_qwen":
+            _decision = _local_qwen_select_next_action(
+                run=run, session=session, user_content=user_content,
+                tested_keys=tested_keys, available_tools=available_tools,
+            )
+        elif _pkind == "deepseek":
+            _decision = _deepseek_select_next_action(
+                run=run, session=session, user_content=user_content,
+                tested_keys=tested_keys, available_tools=available_tools,
+            )
+        else:
+            _decision = None
+        if _decision is not None:
+            return _decision
+        logger.warning(
+            "PROOF_EXEC_PICKER_FAILOVER_2026061101 run=%s provider=%s yielded no "
+            "decision; trying next in chain", str(getattr(run, "id", "?"))[:8], _pkind,
         )
 
-    if provider_is_local_qwen:
-        return _local_qwen_select_next_action(
-            run=run,
-            session=session,
-            user_content=user_content,
-            tested_keys=tested_keys,
-            available_tools=available_tools,
-        )
+    # Anthropic last resort — only reached if "anthropic" is in the chain and every
+    # earlier provider failed. Rebind to an Anthropic provider + verify the key.
+    if "anthropic" not in picker_chain:
+        return None
+    from api.app.services.llm_provider import LLMProviderConfig  # noqa: E402
+    if not _provider_is_anthropic(provider):
+        _anthropic_model = (os.environ.get("AEGISPT_ANTHROPIC_PICKER_MODEL", "") or "claude-opus-4-8").strip()
+        provider = LLMProvider(LLMProviderConfig.for_model(_anthropic_model))
+    if not os.environ.get(provider.config.api_key_env, "").strip():
+        return None
+    try:
+        import anthropic  # noqa: F401 — exception module needed even when client comes from provider
+    except ImportError:
+        return None
 
     try:
         from api.app.services import http_fetch_backend, memory_backend
@@ -4255,7 +4457,9 @@ def _claude_select_next_action(
                 available_tools=available_tools,
             )
             msg = client.messages.create(
-                model="claude-opus-4-8",
+                # Spoor 0: was hardcoded "claude-opus-4-8"; now follows the
+                # resolved Anthropic provider (still the last-resort brain).
+                model=str(provider.config.model or "claude-opus-4-8"),
                 max_tokens=PICKER_MAX_TOKENS,
                 system=[{
                     "type": "text",
