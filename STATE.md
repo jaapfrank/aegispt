@@ -65,10 +65,17 @@ cookies/auth carried across the loop), coverage/coordinator, and the callback/vi
    The uncensored Qwen3.6-27B is **UP on :8801, GPU-resident (15.2GB), healthy** (container
    logs: `CUDA0 : NVIDIA GeForce RTX 5080 Laptop GPU`, ARCHS includes 1200/Blackwell). The
    strongest non-refusing solve brain is now available as `--llm-provider local-qwen`.
-2. **DeepSeek is a weaker solve brain than gpt-5.5.** It runs the loop but on XBEN-080 it
-   picked exec-plan/xss over the SSTI→interactive-exploit path and did not capture the flag.
-   Infra is proven; *solve quality* needs the local GPU model or gpt-5.5 (which refuses
-   offensive). This is the real capability frontier — see below.
+2. **#1 LEVER — the picker prompt is too heavy; EVERY provider is slow per pick.** This
+   session, XBEN-080 (a known 379s gpt-5.5 solve on 2026-06-08) did NOT solve on deepseek,
+   local-qwen, OR chatgpt_oauth. Measured per-picker-iteration latency: deepseek ~1.5min,
+   local-qwen ~4.5min, gpt-5.5-OAuth ~4min (near its 240s timeout). Root cause is shared and
+   provider-agnostic: the ~23KB `_picker_prompt_with_skills()` system prompt makes EVERY
+   picker round-trip slow, so runs churn (local-qwen XBEN-080: 32× httpx, 5× exec-plan, only
+   1× interactive-exploit in 42min) and never reach a focused exploit in budget. This — not
+   "which brain" — is the binding constraint now. Next lever: trim/lean the picker prompt OR
+   minimise LLM-picker round-trips on source-aware runs (lean on the bootstrap + gate, which
+   dispatch pre-recon-source → interactive-exploit with NO LLM pick). Needs careful
+   validation (the prompt encodes a lot of behaviour) — deferred from this session's tail.
 3. **API restart resurrects cancelled runs** (pre-existing): restarting `aegispt-api.service`
    re-activates non-terminal runs → contention. Cancel via `POST /runs/{id}/cancel` after
    restart. Not Spoor-0 related; a separate startup-resume hygiene item.
