@@ -34,16 +34,34 @@ proven-findings-only. Already built: the canonical ledger, the candidate-queue s
 (`api/app/services/finding_evidence_gate.py`). Still open: hard runner-state (sessions/
 cookies/auth carried across the loop), coverage/coordinator, and the callback/victim lane.
 
-## Live blocker RIGHT NOW (fix before any capability work)
+## Progress 2026-06-11 (this session)
 
-The validator ([`validation-status.md`](validation-status.md)) shows **100% of recent runs
-end in `picker_retry_exhausted`** because the **Anthropic credit balance is exhausted** →
-Claude-dependent critical-path runners (`target-intel`, `ai-pentest-agent`, the legacy
-picker hardcoded to `claude-opus-4-8` at `assessment_loop.py:~4258`) return HTTP 400. This is
-the *same* failure as 2026-05-26. **Operational fix (Spoor 0):** provider failover in the
-critical path (chatgpt_oauth → local-qwen → deepseek) + remove the hardcoded Claude picker +
-move `PICKER_MODE`/provider into committed config. One empty credit balance must never again
-take the whole system down.
+- **Spoor 0 DONE + live-proven** (commit `5d00166`): picker provider **failover chain** +
+  **DeepSeek** as a first-class picker brain + hardcoded `claude-opus-4-8` un-hardcoded. The
+  `picker_retry_exhausted` death is gone: the system now runs end-to-end on `deepseek-v3`
+  (uncensored, no GPU, no Claude). Proof: `docs/validation/spoor0-deepseek-2026-06-11/`
+  (before: `stop_reason=picker_retry_exhausted`; after: `api.deepseek.com 200 OK`, 0×
+  PROVIDER_UNHANDLED). 8/8 unit tests.
+- **Hard runner-state DONE (unit)** (commit `f0e069e`): interactive-exploit HTTP tool now
+  holds ONE persistent cookie jar (`_HttpScopeSession`) so a login/session is auto-carried
+  across calls — the `register→login→admin` chain prerequisite. 4/4 unit tests
+  (`workers/tests/test_interactive_exploit_session_state.py`).
+
+## Live blockers / open
+
+1. **Local GPU model is operator-blocked.** The uncensored Qwen on `:8801` (the strongest
+   non-refusing solve brain) is **down**: Docker `--gpus` passthrough fails because the
+   nvidia-container-toolkit is not installed, and installing it needs **sudo** (operator
+   only). One-time fix: `sudo apt-get install -y nvidia-container-toolkit && sudo nvidia-ctk
+   runtime configure --runtime=docker && systemctl --user restart docker` (or host docker),
+   then `bash scripts/serve_local_llm_gpu.sh`. Until then the solve brain is DeepSeek.
+2. **DeepSeek is a weaker solve brain than gpt-5.5.** It runs the loop but on XBEN-080 it
+   picked exec-plan/xss over the SSTI→interactive-exploit path and did not capture the flag.
+   Infra is proven; *solve quality* needs the local GPU model or gpt-5.5 (which refuses
+   offensive). This is the real capability frontier — see below.
+3. **API restart resurrects cancelled runs** (pre-existing): restarting `aegispt-api.service`
+   re-activates non-terminal runs → contention. Cancel via `POST /runs/{id}/cancel` after
+   restart. Not Spoor-0 related; a separate startup-resume hygiene item.
 
 ## The real capability frontier (the actual hard problem)
 
