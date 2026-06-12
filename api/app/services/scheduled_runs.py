@@ -51,9 +51,16 @@ def reset_orphaned_tasks_at_startup(app: Any) -> int:
         return 0
     try:
         with session_factory() as session:
+            # Only re-queue orphaned tasks of NON-terminal runs. Previously this reset
+            # EVERY running/dispatching task, so a run an operator explicitly cancelled
+            # came back to life on the next API restart (its tasks were re-queued and the
+            # sweeper re-dispatched them) — the recurring "resurrection" contention.
             orphaned = list(
                 session.scalars(
-                    select(Task).where(Task.status.in_(list(_ORPHANED_TASK_STATUSES)))
+                    select(Task)
+                    .join(Run, Task.run_id == Run.id)
+                    .where(Task.status.in_(list(_ORPHANED_TASK_STATUSES)))
+                    .where(~Run.status.in_(list(_TERMINAL_RUN_STATUSES)))
                 ).all()
             )
             if not orphaned:
