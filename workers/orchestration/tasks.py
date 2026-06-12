@@ -2376,6 +2376,7 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 else None
             ),
             tcp_max_round_trips=int(request.params.get("tcp_max_round_trips") or 60),
+            enable_oob=bool(request.params.get("enable_oob") or False),
         )
     if request.tool == "pre-recon-source":
         return execute_pre_recon_source(

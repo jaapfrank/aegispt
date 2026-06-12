@@ -2569,6 +2569,9 @@ def _maybe_dispatch_cpg_seeded_cea(
                 "recon_context": _obj["recon"][:14000],
                 "max_steps": 26 if _is_fallback else 18,  # frontier retry gets room for multi-hop
                 "stop_on_first_flag": True, "objective": _obj["key"],
+                # OOB/callback tools available so the agent can capture blind/headless exfil
+                # (stolen cookie, SSRF beacon) — the phantomjs/headless-XSS class needs this.
+                "enable_oob": True,
                 "max_tool_errors": 24 if _is_fallback else 20,
                 "challenge_id": _obj.get("challenge_id", ""),
                 "frontier_fallback": _is_fallback,
@@ -4004,7 +4007,9 @@ def _claude_select_next_action(
                 # Seed the autonomous loop with what recon ALREADY discovered (endpoints/paths/
                 # surface vulns) so it tries REAL paths first instead of guessing — directly
                 # addresses the "never reaches the goal path" gap observed on the held-out chains.
-                _ie_params: dict[str, Any] = {}
+                # enable_oob: black-box targets (e.g. Gruyere) often need a callback to
+                # capture a stolen admin cookie / blind beacon to push a chain to impact.
+                _ie_params: dict[str, Any] = {"enable_oob": True}
                 _rc = _black_box_recon_context(getattr(run, "findings", None))
                 if _rc:
                     _ie_params["recon_context"] = _rc
