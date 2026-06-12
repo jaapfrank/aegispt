@@ -38,7 +38,15 @@ echo "=== [3/4] serve on llama.cpp server-cuda (port $PORT) ==="
 docker stop qwen-gpu >/dev/null 2>&1 && echo "qwen-gpu stopped (free VRAM)"
 docker rm -f eval-llm >/dev/null 2>&1
 sleep 3
-docker run -d --name eval-llm --gpus all \
+# WSL2 GPU passthrough WITHOUT nvidia-container-toolkit (which is NOT installed here):
+# mount /dev/dxg + /usr/lib/wsl directly. `--gpus all` requires the toolkit and FAILS on
+# this host (same fix as scripts/serve_local_llm_gpu.sh). Fall back to --gpus all off-WSL.
+if [ -e /dev/dxg ] && [ -d /usr/lib/wsl/lib ]; then
+  GPU_ARGS=(--device=/dev/dxg -v /usr/lib/wsl:/usr/lib/wsl:ro -e LD_LIBRARY_PATH=/usr/lib/wsl/lib)
+else
+  GPU_ARGS=(--gpus all)
+fi
+docker run -d --name eval-llm "${GPU_ARGS[@]}" \
   -v "$TOOLS/models":/models \
   -p 127.0.0.1:$PORT:8080 \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
