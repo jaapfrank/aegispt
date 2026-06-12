@@ -167,6 +167,8 @@ from workers.runners.graphql_probe.runner import execute_graphql_probe
 from workers.runners.headers_security.runner import execute_headers_security_analysis
 from workers.runners.http_smuggling.runner import execute_http_smuggling_probe
 from workers.runners.httpx.runner import execute_httpx_probe
+from workers.runners.arjun.runner import execute_arjun_scan
+from workers.runners.cve_intel.runner import execute_cve_intel
 from workers.runners.idor_bac.runner import execute_idor_bac_probe
 from workers.runners.impacket.runner import execute_impacket_lateral
 from workers.runners.info_disclosure_probe.runner import execute_info_disclosure_probe
@@ -245,6 +247,8 @@ redis_broker = RedisBroker(url=os.getenv("REDIS_URL", "redis://localhost:6379/0"
 dramatiq.set_broker(redis_broker)
 
 SUPPORTED_TOOLS = {
+    "arjun",
+    "cve_intel",
     "ai-shell",
     "api-assessment",
     "auth-flow",
@@ -346,6 +350,20 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
         else {}
     )
 
+    if request.tool == "arjun":
+        return execute_arjun_scan(
+            targets=request.targets,
+            methods=str(request.params.get("methods", limits.get("methods", "GET,POST"))),
+            rate_limit=max(rate_limit, 1),
+            timeout_seconds=timeout_seconds,
+            binary=os.getenv("ARJUN_BINARY", "arjun"),
+        )
+    if request.tool == "cve_intel":
+        return execute_cve_intel(
+            params=request.params,
+            binary=os.getenv("SEARCHSPLOIT_BINARY", "searchsploit"),
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "httpx":
         return execute_httpx_probe(
             targets=request.targets,

@@ -474,6 +474,63 @@ def extract_interactive_exploit_findings(
     return out
 
 
+def extract_arjun_findings(
+    *,
+    target_id: str,
+    artifact: EvidenceArtifact,
+    artifact_record: EvidenceArtifactRecord,
+) -> list[NormalizedFinding]:
+    if artifact.name != "arjun-results.json":
+        return []
+
+    payload = json.loads(artifact.data.decode("utf-8", errors="replace"))
+    if not isinstance(payload, dict):
+        return []
+
+    results = payload.get("results", [])
+    if not isinstance(results, list):
+        return []
+
+    findings: list[NormalizedFinding] = []
+    seen_keys: set[tuple[str, str]] = set()
+
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        endpoint = str(result.get("target") or target_id).strip() or target_id
+        params = result.get("params", [])
+        if not isinstance(params, list):
+            continue
+        method = str(result.get("method") or "GET").strip() or "GET"
+
+        for raw_param in params:
+            param = str(raw_param).strip()
+            if not param:
+                continue
+            title = f"Hidden HTTP parameter: {param}"
+            dedupe_key = (title.lower(), endpoint.lower())
+            if dedupe_key in seen_keys:
+                continue
+            seen_keys.add(dedupe_key)
+
+            summary = (
+                f"Arjun discovered a server-reflected parameter '{param}' "
+                f"({method}) on {endpoint} that is not present in any link or form."
+            )
+            findings.append(
+                NormalizedFinding(
+                    title=title,
+                    severity="info",
+                    target_id=endpoint,
+                    evidence_ref=artifact_record.uri,
+                    summary=summary,
+                )
+            )
+
+    return findings
+
+
+
 def extract_findings(
     *,
     task: Task,
@@ -491,6 +548,12 @@ def extract_findings(
         return extract_interactive_exploit_findings(
             target_id=task.target_id,
             task=task,
+            artifact=artifact,
+            artifact_record=artifact_record,
+        )
+    if task.tool == "arjun":
+        return extract_arjun_findings(
+            target_id=task.target_id,
             artifact=artifact,
             artifact_record=artifact_record,
         )
