@@ -8,14 +8,12 @@ Stack verified working on the RTX 5080 (sm_120): torch 2.11+cu128, bitsandbytes
 0.49.2 4-bit. Run AFTER freeing the GPU (stop the qwen-gpu inference container).
 """
 import os
-import sys
 
 import torch
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from transformers import (AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig,
-                          TrainingArguments)
-from trl import SFTTrainer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from trl import SFTConfig, SFTTrainer
 
 BASE = os.environ.get("AEGISPT_TRAIN_BASE", "mlabonne/Qwen3-8B-abliterated")
 # iter5 source-of-truth: Codex's curated, dedup'd, held-out-guarded SFT mix
@@ -73,6 +71,7 @@ model.print_trainable_parameters()
 # AEGISPT_TRAIN_LORAPLUS_RATIO=0 to disable.
 import bitsandbytes as _bnb  # noqa: E402
 from peft.optimizers import create_loraplus_optimizer  # noqa: E402
+
 _lp_ratio = float(os.environ.get("AEGISPT_TRAIN_LORAPLUS_RATIO", "16") or "16")
 _loraplus_opt = None
 if _lp_ratio > 0:
@@ -90,19 +89,27 @@ def fmt(ex):
 
 ds = ds.map(fmt, remove_columns=ds.column_names)
 
-args = TrainingArguments(
+# trl >= 0.24 moved SFT knobs (sequence length, text field) onto SFTConfig and dropped them
+# as SFTTrainer kwargs. The seq-length field name also drifted (max_seq_length -> max_length),
+# so introspect SFTConfig and pass whatever it accepts. Keeps the script working across the
+# train-venv (trl 1.5) and unsloth-venv (trl 0.24).
+import inspect as _inspect  # noqa: E402
+
+_common = dict(
     output_dir=OUT, per_device_train_batch_size=1, gradient_accumulation_steps=8,
     max_steps=MAXSTEPS, learning_rate=2e-4, bf16=True, logging_steps=10,
     save_steps=MAXSTEPS, save_total_limit=1, lr_scheduler_type="cosine",
     warmup_ratio=0.03, optim="paged_adamw_8bit", report_to=[],
 )
-
-try:
-    trainer = SFTTrainer(model=model, args=args, train_dataset=ds, optimizers=_optimizers,
-                         processing_class=tok, max_seq_length=2048, dataset_text_field="text")
-except TypeError:
-    # trl API drift across versions — fall back to the minimal signature.
-    trainer = SFTTrainer(model=model, args=args, train_dataset=ds, optimizers=_optimizers)
+_sft_fields = set(_inspect.signature(SFTConfig.__init__).parameters)
+if "max_length" in _sft_fields:
+    _common["max_length"] = 2048
+elif "max_seq_length" in _sft_fields:
+    _common["max_seq_length"] = 2048
+if "dataset_text_field" in _sft_fields:
+    _common["dataset_text_field"] = "text"
+args = SFTConfig(**_common)
+trainer = SFTTrainer(model=model, args=args, train_dataset=ds, optimizers=_optimizers)
 
 print("[qlora] training ...", flush=True)
 trainer.train()
