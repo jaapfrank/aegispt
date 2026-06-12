@@ -4269,12 +4269,19 @@ def _claude_select_next_action(
         + outcomes_block
         + prior_episodes_block
         + graph_block
+        # Track 0 (recon->action): the discovered-surface backlog with an "actively test EACH"
+        # directive. Was wired only into the CPG-CEA + specialists paths; the MAIN picker (the
+        # one black-box runs like Gruyere use) never saw it, so /admin, /saveprofile etc. were
+        # listed as passive discoveries and dropped. Now it reaches the picker decision.
+        + _attack_surface_block_for_run(run)
         + "=== TARGET-INTEL RECOMMENDED TEST PLAN (from AI analysis of the actual site) ===\n"
         + (("\n".join(plan_recommendations) + "\n\n") if plan_recommendations else "(no test plan available)\n\n")
         + "These are the highest-value tools FOR THIS SPECIFIC TARGET based on its\n"
         "technology stack and likely vulnerability classes. Prefer 'NOT YET USED' items\n"
-        "over generic enumeration. Hidden-endpoint findings (404 paths from wordlists)\n"
-        "are NOT vulnerabilities — they're just discoveries; do not chase them with auth/sqli/etc.\n\n"
+        "over generic enumeration. Re-running a RECON tool (content-discovery, httpx, nuclei)\n"
+        "on each discovered sub-path is wasted budget. But a discovered endpoint in the\n"
+        "PENDING ATTACK SURFACE above is a TARGET: attack it (access-control/IDOR probe,\n"
+        "injection, upload, redirect) with the matching EXPLOIT tool — do NOT leave it untested.\n\n"
         f"=== CURRENT PHASE ===\n"
         f"Phase #{phase_index + 1}: {phase_label}\n"
         f"Phase goal: {phase_goal}\n"
@@ -6883,6 +6890,16 @@ def advance_assessment_loop(
         no_new_signal_iterations += 1
     else:
         no_new_signal_iterations = 0
+    # Track 0 guard: never declare "stuck" while discovered-but-untested surface remains. The
+    # backlog is emitted as info findings (so it stabilises the fingerprint after one pass) and
+    # the loop would otherwise stop with /admin, /saveprofile etc. NEVER attacked (the Gruyere
+    # failure). Hard bounds (max_iterations / wall_clock_budget) still terminate the loop.
+    if no_new_signal_iterations > 0 and (_attack_surface_block_for_run(run) or "").strip():
+        no_new_signal_iterations = 0
+        logger.info(
+            "PROOF_EXEC_STUCK_RESET_PENDING_SURFACE_2026061201 run=%s — stuck counter reset; "
+            "discovered attack-surface backlog is non-empty", str(getattr(run, "id", "?"))[:8],
+        )
     loop_state["no_new_signal_iterations"] = no_new_signal_iterations
     loop_state["latest_evidence_fingerprint"] = evidence_fingerprint
 
