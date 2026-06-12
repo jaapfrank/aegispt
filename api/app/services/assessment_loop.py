@@ -6112,6 +6112,27 @@ _FROZEN_PICKER_TOOLS = {
     "zap", "nikto", "waf-detect",
 }
 
+# Recon / broad-scanner tools the picker prompt already declares ONE-SHOT per run
+# ("Recon tools (httpx, target-intel, content-discovery, smart-web-probe, nuclei, nikto,
+# burp) are ONE-SHOT per run. Once one has run on the root, do NOT pick it again").
+# The prompt CLAIMS "the system enforces these in code" — but it did not, so weaker models
+# re-picked httpx 30+ times on sub-paths (wasted budget = the action-light churn). We now
+# actually enforce it by hiding a one-shot recon tool from the picker menu once it has run.
+_ONE_SHOT_RECON_TOOLS = frozenset({
+    "httpx", "target-intel", "content-discovery", "smart-web-probe", "nuclei",
+    "recon-deliverable", "web-depth", "headers-security", "pre-recon-source", "pre-recon-cpg",
+})
+
+
+def _oneshot_recon_to_hide(tested_keys: set[str]) -> set[str]:
+    """One-shot recon/scanner tools that have ALREADY been dispatched this run and so must
+    be removed from the picker menu — making the prompt's stated ONE-SHOT-per-run hard rule
+    actually binding for models that ignore it. Pure + unit-tested."""
+    return {
+        tool for tool in _ONE_SHOT_RECON_TOOLS
+        if any(k.split("|", 1)[0] == tool for k in tested_keys)
+    }
+
 
 def _extract_discovered_links(session: Session, run: Run, *, scope_allowlist: dict[str, Any] | None) -> list[str]:
     """Pull HTTP links discovered by prior web-discovery tasks and filter to approved scope.
@@ -7209,6 +7230,16 @@ def advance_assessment_loop(
             logger.info(
                 "AI loop: hiding %d skipped runner(s) from picker (%s) run=%s",
                 len(skipped_runners), sorted(skipped_runners), str(run.id)[:8],
+            )
+        # Enforce the prompt's stated ONE-SHOT-per-run recon hard rule (weaker models
+        # ignored it — httpx 30+ times on sub-paths = action-light churn). Once a recon
+        # tool has run, hide it so the picker spends budget on EXPLOITATION instead.
+        _recon_done = _oneshot_recon_to_hide(tested_keys)
+        if _recon_done:
+            available_tools = available_tools - _recon_done
+            logger.info(
+                "PROOF_EXEC_ONESHOT_RECON_2026061201 hiding %d already-run recon tool(s) "
+                "from picker (%s) run=%s", len(_recon_done), sorted(_recon_done), str(run.id)[:8],
             )
         decision = _call_picker_with_exec_plan_refinement(
             run=run,
