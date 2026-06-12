@@ -107,10 +107,13 @@ _common = dict(
     warmup_ratio=0.03, optim="paged_adamw_8bit", report_to=[],
 )
 _sft_fields = set(_inspect.signature(SFTConfig.__init__).parameters)
+# Most exploit trajectories are short (median ~4-8 http turns); a smaller max length
+# trains much faster + uses less VRAM. Override via AEGISPT_TRAIN_MAXLEN.
+_maxlen = int(os.environ.get("AEGISPT_TRAIN_MAXLEN", "1280") or "1280")
 if "max_length" in _sft_fields:
-    _common["max_length"] = 2048
+    _common["max_length"] = _maxlen
 elif "max_seq_length" in _sft_fields:
-    _common["max_seq_length"] = 2048
+    _common["max_seq_length"] = _maxlen
 if "dataset_text_field" in _sft_fields:
     _common["dataset_text_field"] = "text"
 args = SFTConfig(**_common)
