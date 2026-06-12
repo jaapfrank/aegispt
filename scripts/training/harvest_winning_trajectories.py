@@ -19,50 +19,60 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
-# Match the runner's flag taxonomy (xbow / flag{...} / aegispt{...}). Kept local so the
-# harvester has no import-time dependency on the runner/app.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+# Reuse the EXACT training format the existing pipeline (qlora_train / grpo_train) expects, so
+# the harvested real trajectories drop in as a replacement for make_dataset.py's SYNTHETIC toy
+# data: SYSTEM (assistant emits one {"reasoning","request","done"} JSON), J() = an assistant
+# action turn, obs() = an HTTP-RESPONSE user turn. Staying in sync = no format drift.
+from scripts.training.make_dataset import J, SYSTEM, obs  # noqa: E402
+
+# Match the runner's flag taxonomy (xbow / flag{...} / aegispt{...}).
 _FLAG_RE = re.compile(r"(flag\{[^}\s]{1,200}\}|xbow-[0-9a-f]{8,}|aegispt\{[^}\s]{1,200}\})")
 
-_SYSTEM_MSG = (
-    "You are an authorized penetration tester solving a web security challenge. You have ONE "
-    "tool: http_request(method, url, headers, body). Work evidence-first: send one request, "
-    "read the FULL response, then decide the next request. Cookies/sessions persist across "
-    "calls. Chain steps (observe -> probe -> confirm -> exploit) until you capture the flag. "
-    "Do not stop until the flag is captured."
-)
+
+def _parse_response(resp: Any) -> tuple[int, dict, str]:
+    """A transcript response is a JSON string {status, headers, body} (or an error dict)."""
+    if isinstance(resp, str):
+        try:
+            resp = json.loads(resp)
+        except Exception:
+            return 0, {}, str(resp)[:1200]
+    if not isinstance(resp, dict):
+        return 0, {}, str(resp)[:1200]
+    return int(resp.get("status") or 0), dict(resp.get("headers") or {}), str(resp.get("body") or "")[:1200]
 
 
-def transcript_to_messages(transcript: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Convert a runner transcript (list of {step, assistant_text?, request?, response?}) into a
-    multi-turn messages list with http_request tool calls + tool results."""
-    messages: list[dict[str, Any]] = [{"role": "system", "content": _SYSTEM_MSG}]
-    messages.append({"role": "user", "content": "Begin. Capture the flag."})
-    tool_idx = 0
+def transcript_to_messages(transcript: list[dict[str, Any]], flag: str) -> list[dict[str, Any]]:
+    """Convert a runner transcript (list of {step, assistant_text?, request?, response?}) into the
+    pipeline's training format: SYSTEM + (assistant J() action -> user obs() response)* -> a final
+    done turn once the flag has been observed."""
+    target = ""
+    for e in transcript:
+        if isinstance(e, dict) and e.get("request"):
+            target = str(e["request"].get("url") or "")
+            break
+    messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM}]
+    messages.append({"role": "user", "content": f"Goal: capture the flag on {target or 'the target'}. Begin."})
     for entry in transcript:
         if not isinstance(entry, dict):
             continue
-        text = str(entry.get("assistant_text") or "").strip()
         req = entry.get("request")
-        if req:
-            tool_idx += 1
-            call_id = f"call_{tool_idx}"
-            messages.append({
-                "role": "assistant",
-                "content": text,
-                "tool_calls": [{
-                    "id": call_id, "type": "function",
-                    "function": {"name": "http_request", "arguments": json.dumps(req)},
-                }],
-            })
-            messages.append({
-                "role": "tool", "tool_call_id": call_id,
-                "content": str(entry.get("response") or ""),
-            })
-        elif text:
-            messages.append({"role": "assistant", "content": text})
+        if not req:
+            continue
+        reasoning = str(entry.get("assistant_text") or "Proceed to the next step.").strip()
+        messages.append({"role": "assistant", "content": J(
+            reasoning, req.get("method", "GET"), req.get("url", ""),
+            req.get("headers") or None, req.get("body"), done=False)})
+        status, headers, body = _parse_response(entry.get("response"))
+        messages.append({"role": "user", "content": obs(status, headers, body)})
+    # Final done turn: the goal was reached (a flag is present in the trajectory).
+    messages.append({"role": "assistant", "content": J(
+        f"The response contains the target flag {flag}. Goal reached.", done=True)})
     return messages
 
 
@@ -90,14 +100,17 @@ def harvest(artifacts_dir: Path) -> tuple[list[dict[str, Any]], dict[str, int]]:
             stats["no_flag"] += 1
             continue
         stats["won"] += 1
-        messages = transcript_to_messages(transcript)
-        # need at least one real request/response turn to be a useful trajectory
-        if sum(1 for m in messages if m["role"] == "tool") < 1:
+        messages = transcript_to_messages(transcript, flag)
+        # need at least one real action+observation turn to be a useful trajectory
+        obs_turns = sum(1 for m in messages
+                        if m["role"] == "user" and str(m.get("content", "")).startswith("HTTP RESPONSE"))
+        if obs_turns < 1:
             stats["too_short"] += 1
             continue
         examples.append({
             "messages": messages,
-            "meta": {"source": str(f), "flag_sha_prefix": flag[:6], "turns": len(messages)},
+            "meta": {"source": str(f), "flag_sha_prefix": flag[:6],
+                     "turns": len(messages), "http_turns": obs_turns},
         })
         stats["kept"] += 1
     return examples, stats

@@ -26,16 +26,20 @@ _NO_FLAG = [
 
 
 def test_transcript_to_messages_shape():
-    msgs = transcript_to_messages(_WIN)
+    msgs = transcript_to_messages(_WIN, "flag{ssti-win}")
     assert msgs[0]["role"] == "system"
-    assert msgs[1]["role"] == "user"
-    # first action turn: assistant reasoning + an http_request tool call, then a tool result
-    assistant = next(m for m in msgs if m["role"] == "assistant" and m.get("tool_calls"))
-    assert assistant["tool_calls"][0]["function"]["name"] == "http_request"
-    assert any(m["role"] == "tool" for m in msgs)
-    # tool_call_id pairs up
-    call_id = assistant["tool_calls"][0]["id"]
-    assert any(m.get("tool_call_id") == call_id for m in msgs if m["role"] == "tool")
+    assert msgs[1]["role"] == "user" and "Begin" in msgs[1]["content"]
+    # action turns are inline JSON {"reasoning","request","done"} in assistant content
+    # (the format qlora_train/grpo_train expect), NOT OpenAI tool_calls.
+    first_action = json.loads(msgs[2]["content"])
+    assert msgs[2]["role"] == "assistant"
+    assert first_action["request"]["method"] == "GET"
+    assert first_action["done"] is False
+    # observations are HTTP-RESPONSE user turns
+    assert msgs[3]["role"] == "user" and msgs[3]["content"].startswith("HTTP RESPONSE")
+    # final turn sets done=True
+    last = json.loads(msgs[-1]["content"])
+    assert msgs[-1]["role"] == "assistant" and last["done"] is True
 
 
 def test_harvest_keeps_only_flag_proven_wins(tmp_path):
