@@ -10,9 +10,10 @@ Quality gate ("only proven wins", the No-Exploit-No-Report discipline applied to
 a transcript is kept ONLY if a flag literal actually appears in it. This rejects false-positive
 "wins" (e.g. a run whose finding was a decoy/regex artifact but whose transcript has no flag).
 
-Output: one JSON object per line, OpenAI-style multi-turn `messages` with tool calls:
-  system -> (assistant: reasoning + http_request tool_call -> tool: response)* -> done.
-Standalone: scans the inline artifact dir, no DB/session needed.
+Output: one {"messages":[...]} per line in the EXACT format the existing trainers
+(qlora_train / grpo_train) consume: SYSTEM -> (assistant inline-JSON action -> user
+HTTP-RESPONSE observation)* -> a final done turn. Standalone: scans the inline artifact
+dir, no DB/session needed.
 """
 from __future__ import annotations
 
@@ -29,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 # the harvested real trajectories drop in as a replacement for make_dataset.py's SYNTHETIC toy
 # data: SYSTEM (assistant emits one {"reasoning","request","done"} JSON), J() = an assistant
 # action turn, obs() = an HTTP-RESPONSE user turn. Staying in sync = no format drift.
-from scripts.training.make_dataset import J, SYSTEM, obs  # noqa: E402
+from scripts.training.make_dataset import SYSTEM, J, obs  # noqa: E402
 
 # Match the runner's flag taxonomy (xbow / flag{...} / aegispt{...}).
 _FLAG_RE = re.compile(r"(flag\{[^}\s]{1,200}\}|xbow-[0-9a-f]{8,}|aegispt\{[^}\s]{1,200}\})")
