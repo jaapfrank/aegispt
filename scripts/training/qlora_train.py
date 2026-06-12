@@ -37,8 +37,13 @@ tok = AutoTokenizer.from_pretrained(BASE)
 if tok.pad_token is None:
     tok.pad_token = tok.eos_token
 
+# attn_implementation="sdpa": torch's built-in scaled-dot-product (flash) attention. Eager
+# attention made each step ~54s on the 8B (long trajectories); sdpa needs no extra install
+# and cuts per-step time substantially on a Blackwell GPU. dtype= replaces the deprecated
+# torch_dtype= kwarg.
 model = AutoModelForCausalLM.from_pretrained(
-    BASE, quantization_config=bnb, device_map={"": 0}, torch_dtype=torch.bfloat16,
+    BASE, quantization_config=bnb, device_map={"": 0}, dtype=torch.bfloat16,
+    attn_implementation="sdpa",
 )
 model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
 model.config.use_cache = False

@@ -59,3 +59,4 @@ scripts/probe_*.py
 scripts/drive_remote_target.py
 scripts/exploit_*.py
 scripts/verify_vault_persist_inject.py
+unsloth_compiled_cache/
