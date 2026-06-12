@@ -453,6 +453,12 @@ def _run_budget_exhausted(run: Run) -> bool:
     try:
         # started_at may be a datetime or an ISO string depending on caller
         if hasattr(started_at, "timestamp"):
+            # A timezone-NAIVE datetime is UTC by DB convention; Python's .timestamp()
+            # would otherwise read it as LOCAL time, inflating elapsed by the UTC offset
+            # (e.g. +7200s in CEST) and exhausting the wall-clock budget ~2h too early.
+            if getattr(started_at, "tzinfo", None) is None:
+                from datetime import timezone as _tz_budget  # noqa: E402
+                started_at = started_at.replace(tzinfo=_tz_budget.utc)
             elapsed = _time_budget.time() - float(started_at.timestamp())
         else:
             from datetime import datetime as _dt  # noqa: E402
